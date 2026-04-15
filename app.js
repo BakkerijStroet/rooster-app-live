@@ -10048,6 +10048,11 @@ async function sendEmail(to, subject, message) {
     const payload = contentType.includes("application/json")
       ? await response.json().catch(() => ({}))
       : {};
+    const payloadMessage = typeof payload?.message === "string"
+      ? payload.message
+      : typeof payload?.error === "string"
+        ? payload.error
+        : "";
 
     if (!response.ok) {
       console.error("[test-mail] sendEmail:response-error", {
@@ -10064,7 +10069,7 @@ async function sendEmail(to, subject, message) {
 
       return {
         ok: false,
-        error: typeof payload?.error === "string" ? payload.error : "Verzenden mislukt."
+        error: payloadMessage || "Verzenden mislukt."
       };
     }
 
@@ -10073,10 +10078,78 @@ async function sendEmail(to, subject, message) {
     });
     return {
       ok: true,
-      id: typeof payload?.id === "string" ? payload.id : ""
+      id: typeof payload?.id === "string" ? payload.id : "",
+      message: payloadMessage || "Mail verzonden"
     };
   } catch (error) {
     console.error("[test-mail] sendEmail:exception", error);
+    return {
+      ok: false,
+      error: error instanceof Error && error.message
+        ? `Backend route niet bereikbaar: ${error.message}`
+        : "Backend route niet bereikbaar."
+    };
+  }
+}
+
+async function sendTestEmailRequest() {
+  console.info("[test-mail] sendTestEmailRequest:start", {
+    protocol: window.location.protocol
+  });
+
+  if (window.location.protocol === "file:") {
+    return {
+      ok: false,
+      error: "Lokale preview zonder serverroute."
+    };
+  }
+
+  try {
+    const response = await fetch("/api/send-email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        testMode: true
+      })
+    });
+
+    const contentType = response.headers.get("content-type") || "";
+    const payload = contentType.includes("application/json")
+      ? await response.json().catch(() => ({}))
+      : {};
+    const payloadMessage = typeof payload?.message === "string"
+      ? payload.message
+      : typeof payload?.error === "string"
+        ? payload.error
+        : "";
+
+    if (!response.ok || payload?.success === false) {
+      console.error("[test-mail] sendTestEmailRequest:response-error", {
+        status: response.status,
+        payload
+      });
+
+      if (response.status === 404) {
+        return {
+          ok: false,
+          error: "Backend route /api/send-email bestaat niet."
+        };
+      }
+
+      return {
+        ok: false,
+        error: payloadMessage || "Verzenden mislukt."
+      };
+    }
+
+    return {
+      ok: true,
+      message: payloadMessage || "Mail verzonden"
+    };
+  } catch (error) {
+    console.error("[test-mail] sendTestEmailRequest:exception", error);
     return {
       ok: false,
       error: error instanceof Error && error.message
@@ -18384,17 +18457,10 @@ async function handleTestMailSend() {
       return;
     }
 
-    const recipient = getConfiguredTestMailRecipient();
     console.info("[test-mail] handler:recipient", {
-      recipient,
+      recipient: FIXED_TEST_MAIL_RECIPIENT,
       configuredSender: hasConfiguredMailSender()
     });
-
-    if (!recipient) {
-      console.warn("[test-mail] handler:missing-recipient");
-      showMessage("Mail verzenden mislukt: vast test e-mailadres ontbreekt in de configuratie.", "error");
-      return;
-    }
 
     if (!hasConfiguredMailSender()) {
       console.info("[test-mail] handler:no-local-sender-settings", {
@@ -18402,16 +18468,12 @@ async function handleTestMailSend() {
       });
     }
 
-    if (mailSettings.testRecipientEmail !== recipient) {
-      mailSettings.testRecipientEmail = recipient;
+    if (mailSettings.testRecipientEmail !== FIXED_TEST_MAIL_RECIPIENT) {
+      mailSettings.testRecipientEmail = FIXED_TEST_MAIL_RECIPIENT;
       saveMailSettings();
     }
 
-    const result = await sendEmail(
-      recipient,
-      buildEmailTemplate("test").subject,
-      buildEmailTemplate("test").message
-    );
+    const result = await sendTestEmailRequest();
 
     if (!result.ok) {
       console.warn("[test-mail] handler:send-failed", result);
@@ -18420,7 +18482,7 @@ async function handleTestMailSend() {
     }
 
     console.info("[test-mail] handler:done", result);
-    showMessage("Mail verzonden", "success");
+    showMessage(result.message || "Mail verzonden", "success");
   } catch (error) {
     console.error("[test-mail] handler:exception", error);
     showMessage(
