@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bakkerij Stroet | Rooster app</title>
+  <meta name="theme-color" content="#F28C28">
+  <link rel="icon" type="image/svg+xml" href="favicon-stroet.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="container">
+    <section class="card print-hide app-shell">
+      <section class="brand-header">
+        <div class="brand-lockup">
+          <button type="button" class="brand-home" data-go-tab="week-current" aria-label="Ga naar hoofdscherm">
+            <img src="bakkerij-stroet-logo.jpg" alt="Bakkerij Stroet logo" class="brand-logo-image">
+          </button>
+          <div class="brand-copy">
+            <h1>Rooster &amp; uren</h1>
+          </div>
+        </div>
+        <div class="brand-actions">
+          <span class="brand-chip" id="brandRoleChip">Planneromgeving</span>
+          <button type="button" id="switchUserButton" class="secondary">Wissel gebruiker</button>
+        </div>
+      </section>
+      <section class="session-bar">
+        <label>
+          Rol
+          <select id="roleSelect">
+            <option value="planner">Planner / Directie</option>
+            <option value="employee">Medewerker</option>
+          </select>
+        </label>
+        <label class="employee-picker-control">
+          Mijn naam
+          <select id="currentEmployee">
+            <option value="">Kies medewerker</option>
+          </select>
+        </label>
+        <div class="employee-context-badge role-employee-summary" id="currentEmployeeBadge">
+          <span>Ingelogd als</span>
+          <strong>Geen medewerker gekozen</strong>
+        </div>
+        <div class="role-indicator" id="roleIndicator" aria-live="polite">
+          <span>Toegang</span>
+          <strong>Planner / Directie</strong>
+          <small>Volledige toegang tot rooster en beheer.</small>
+        </div>
+        <div class="session-actions hidden" aria-hidden="true">
+          <div class="test-mode-badge hidden" id="testModeBadge">Live gegevens</div>
+          <button type="button" id="resetTestDataButton" class="secondary hidden">Reset testdata</button>
+        </div>
+      </section>
+      <section class="login-overlay hidden" id="loginOverlay" aria-live="polite">
+        <div class="login-card">
+          <h2>Gebruiker kiezen</h2>
+          <p class="panel-note">Kies hoe je de app wilt openen.</p>
+          <label>
+            Gebruikerstype
+            <select id="loginRoleSelect">
+              <option value="planner">Directie / Planner</option>
+              <option value="employee">Medewerker</option>
+            </select>
+          </label>
+          <label id="loginEmployeeLabel">
+            Medewerker
+            <select id="loginEmployeeSelect">
+              <option value="">Kies medewerker</option>
+            </select>
+          </label>
+          <label class="login-checkbox hidden" aria-hidden="true">
+            <input type="checkbox" id="loginTestMode">
+            <span>Gebruik testmodus met aparte testdata</span>
+          </label>
+          <div class="form-actions compact-actions">
+            <button type="button" id="loginConfirmButton">Start app</button>
+          </div>
+        </div>
+      </section>
+      <nav class="app-nav" aria-label="Hoofdnavigatie">
+        <button type="button" class="nav-tab" data-tab="dashboard">Dashboard</button>
+        <button type="button" class="nav-tab active" data-tab="week-current">Rooster deze week</button>
+        <button type="button" class="nav-tab planner-only-tab" data-tab="schedule-planning">Rooster inplannen</button>
+        <button type="button" class="nav-tab" data-tab="my-schedule">Mijn rooster</button>
+        <button type="button" class="nav-tab" data-tab="my-hours">Mijn uren</button>
+        <button type="button" class="nav-tab planner-only-tab" data-tab="hours-approval">Uren accorderen</button>
+        <button type="button" class="nav-tab" data-tab="requests">Aanvragen</button>
+        <button type="button" class="nav-tab" data-tab="week-next">Volgende week</button>
+        <button type="button" class="nav-tab planner-only-tab" data-tab="employees">Medewerkers</button>
+        <button type="button" class="nav-tab planner-only-tab" data-tab="services">Diensten</button>
+        <button type="button" class="nav-tab planner-only-tab" data-tab="planning">Planning instellingen</button>
+        <button type="button" class="nav-tab planner-only-tab" data-tab="backup">Back-up en herstel</button>
+      </nav>
+      <div id="plannerDashboard" class="dashboard"></div>
+
+      <section class="staff-panel app-panel" data-panel="dashboard">
+        <h2>Samenvatting</h2>
+        <div id="homeSummary" class="dashboard-grid"></div>
+      </section>
+
+      <section class="staff-panel app-panel" data-panel="dashboard">
+        <h2>Snelle acties</h2>
+        <div class="quick-actions">
+          <button type="button" class="quick-link" data-go-tab="week-current">Rooster deze week</button>
+          <button type="button" class="quick-link" data-go-tab="requests">Aanvragen</button>
+          <button type="button" class="quick-link" data-go-tab="employees">Medewerkers</button>
+        </div>
+      </section>
+
+      <section class="staff-panel app-panel" data-panel="dashboard">
+        <h2>Compact weekoverzicht</h2>
+        <div id="homeWeekOverview" class="schedule-board empty">Nog geen weekoverzicht beschikbaar.</div>
+      </section>
+
+      <section class="staff-panel role-planner app-panel" data-panel="employees" data-slot="left">
+        <h2>Medewerkers</h2>
+        <div id="employeeListCard" class="simple-list empty">Nog geen medewerkers toegevoegd.</div>
+      </section>
+
+      <section class="staff-panel role-planner app-panel" data-panel="employees" data-slot="right">
+        <h2>Medewerker toevoegen</h2>
+        <div class="staff-actions">
+          <label>
+            Nieuwe medewerker
+            <input type="text" id="newEmployeeName" placeholder="Naam medewerker">
+          </label>
+          <button type="button" id="addEmployeeButton">Medewerker toevoegen</button>
+        </div>
+      </section>
+
+      <section class="staff-panel role-planner app-panel" data-panel="employees" data-slot="right">
+        <h2>Medewerkerstatus</h2>
+        <div class="staff-actions">
+          <label>
+            Medewerker
+            <select id="removeEmployeeSelect">
+              <option value="">Kies medewerker voor statuswijziging</option>
+            </select>
+          </label>
+            <label>
+              Status
+              <select id="employeeStatusSelect">
+                <option value="active">Actief</option>
+                <option value="inactive">Inactief</option>
+                <option value="former">Uit dienst</option>
+              </select>
+            </label>
+            <label>
+              E-mail
+              <input type="email" id="employeeEmailInput" placeholder="naam@bakkerijstroet.nl">
+            </label>
+            <div id="employeeStatusImpact" class="panel-note">Actieve medewerkers blijven beschikbaar voor planning en aanvragen.</div>
+            <button type="button" id="saveEmployeeEmailButton" class="secondary">E-mail opslaan</button>
+            <button type="button" id="removeEmployeeButton" class="warning">Status wijzigen</button>
+          </div>
+        </section>
+
+      <section class="staff-panel role-planner app-panel" data-panel="employees" data-slot="right">
+        <h2>Vast rooster</h2>
+        <div id="employeeStandardShiftList" class="employee-standard-shift-list empty">Nog geen medewerkers toegevoegd.</div>
+      </section>
+
+      <section class="staff-panel role-planner app-panel" data-panel="employees" data-slot="right">
+        <h2>Bevoegdheden en voorkeur</h2>
+        <div id="employeePermissionsList" class="employee-permissions-list empty">Nog geen medewerkers toegevoegd.</div>
+      </section>
+
+      <section class="staff-panel role-planner app-panel" data-panel="planning" data-slot="bottom">
+        <h2>Week kopiëren</h2>
+        <div class="staff-actions">
+          <label>
+            Bronweek
+            <input type="week" id="copySourceWeek">
+          </label>
+          <label>
+            Doelweek
+            <input type="week" id="copyTargetWeek">
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="button" id="copyPreviousWeekButton" class="secondary">Week kopiëren</button>
+        </div>
+      </section>
+
+      <section class="staff-panel role-planner app-panel" data-panel="services" data-slot="left">
+        <h2>Diensten overzicht</h2>
+        <div id="shiftListCard" class="shift-list empty">Nog geen diensten toegevoegd.</div>
+      </section>
+
+      <section class="staff-panel role-planner app-panel" data-panel="services" data-slot="right">
+        <h2>Dienst toevoegen</h2>
+        <div class="staff-actions">
+          <label>
+            Naam dienst
+            <input type="text" id="newShiftName" placeholder="Bijvoorbeeld Ovendienst">
+          </label>
+          <label>
+            Kleur
+            <select id="newShiftColor">
+              <option value="shift-tone-oven">Oven rood / oranje</option>
+              <option value="shift-tone-draai">Draai geel</option>
+              <option value="shift-tone-banket">Banket blauw</option>
+              <option value="shift-tone-brood">Brood bruin</option>
+              <option value="shift-tone-inpak">Inpak groen</option>
+              <option value="shift-tone-productie">Productie groen</option>
+              <option value="shift-tone-bezorg">Bezorg paarsblauw</option>
+              <option value="shift-tone-winkel-1">Winkel licht teal</option>
+              <option value="shift-tone-winkel-2">Winkel teal</option>
+              <option value="shift-tone-winkel-3">Winkel fris teal</option>
+              <option value="shift-tone-winkel-4">Winkel zacht turquoise</option>
+              <option value="shift-tone-winkel-5">Winkel diep turquoise</option>
+              <option value="shift-tone-winkel-6">Winkel blauwgroen</option>
+            </select>
+          </label>
+          <label>
+            Begintijd
+            <input type="time" id="newShiftStart">
+          </label>
+          <label>
+            Eindtijd
+            <input type="time" id="newShiftEnd">
+          </label>
+          <button type="button" id="addShiftButton">Dienst toevoegen</button>
+          <button type="button" id="cancelShiftButton" class="secondary hidden">Annuleren</button>
+        </div>
+      </section>
+
+      <section class="staff-panel role-planner app-panel" data-panel="services" data-slot="right">
+        <h2>Dienst beheren</h2>
+        <div class="staff-actions">
+          <label>
+            Kies dienst
+            <select id="removeShiftSelect">
+              <option value="">Kies dienst</option>
+            </select>
+          </label>
+          <button type="button" id="editShiftButton" class="secondary">Dienst bewerken</button>
+          <button type="button" id="removeShiftButton" class="warning">Dienst verwijderen</button>
+        </div>
+      </section>
+
+      <section class="staff-panel role-planner app-panel" data-panel="services" data-slot="right">
+        <h2>Voorkeursvolgorde per dienst</h2>
+        <div class="staff-actions">
+          <label>
+            Kies dienst
+            <select id="shiftPreferenceShiftSelect">
+              <option value="">Kies dienst</option>
+            </select>
+          </label>
+        </div>
+        <div id="shiftPreferenceList" class="shift-preference-list empty">Kies eerst een dienst om de voorkeursvolgorde te beheren.</div>
+      </section>
+
+      <section class="staff-panel role-planner app-panel" data-panel="planning" data-slot="top">
+        <h2>Planning instellingen</h2>
+        <div class="capacity-grid">
+          <div class="capacity-card">
+            <h3>Vaste bakkerijdiensten</h3>
+            <ul class="capacity-list">
+              <li>Draaidienst: 1 persoon</li>
+              <li>Ovendienst: 1 persoon</li>
+              <li>Banketdienst: 1 persoon</li>
+              <li>Brooddienst: 1 persoon</li>
+              <li>Inpakdienst: 1 persoon</li>
+              <li>Productiedienst: 1 persoon</li>
+              <li>Allrounddienst 1 en 2: 1 persoon per dienst op donderdag, vrijdag en zaterdag</li>
+              <li>Bezorgdienst: 1 persoon</li>
+            </ul>
+          </div>
+          <div class="capacity-card">
+            <h3>Winkeldiensten per dag</h3>
+            <p class="panel-note">Aantal benodigde winkeldiensten per dag. Bij meer dan het standaardschema worden feestdagblokken gebruikt.</p>
+            <div class="staff-actions">
+              <label>
+                Maandag
+                <input type="number" id="winkelNeeded1" min="0" max="8">
+              </label>
+              <label>
+                Dinsdag
+                <input type="number" id="winkelNeeded2" min="0" max="8">
+              </label>
+              <label>
+                Woensdag
+                <input type="number" id="winkelNeeded3" min="0" max="8">
+              </label>
+              <label>
+                Donderdag
+                <input type="number" id="winkelNeeded4" min="0" max="8">
+              </label>
+              <label>
+                Vrijdag
+                <input type="number" id="winkelNeeded5" min="0" max="8">
+              </label>
+              <label>
+                Zaterdag
+                <input type="number" id="winkelNeeded6" min="0" max="8">
+              </label>
+              <label>
+                Zondag
+                <input type="number" id="winkelNeeded7" min="0" max="8">
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="staff-panel role-planner app-panel" data-panel="planning" data-slot="bottom">
+        <h2>Afwijkende dagen</h2>
+        <div class="capacity-grid">
+          <div class="capacity-card">
+            <h3>Afwijkende datum</h3>
+            <div class="staff-actions">
+                <label>
+                  Afwijkende datum
+                  <input type="date" id="overrideDate">
+                </label>
+                <label>
+                  Benodigde winkeldiensten
+                  <input type="number" id="overrideCount" min="0" max="8">
+                </label>
+                <button type="button" id="saveOverrideButton">Afwijking opslaan</button>
+                <button type="button" id="removeOverrideButton" class="warning">Afwijking verwijderen</button>
+            </div>
+            <div id="overrideList" class="request-list empty">Nog geen afwijkende bezetting ingesteld.</div>
+          </div>
+          <div class="capacity-card">
+            <h3>Vakantieweken</h3>
+            <p class="panel-note">Alleen in deze weken mogen weekendkrachten extra meehelpen buiten hun normale basisrooster. Directie en oproepkrachten blijven laatste optie.</p>
+            <div class="staff-actions">
+              <label>
+                Week
+                <input type="week" id="vacationWeek">
+              </label>
+              <label>
+                Status
+                <select id="vacationWeekStatus">
+                  <option value="normal">Normale week</option>
+                  <option value="vacation">Vakantieweek</option>
+                </select>
+              </label>
+              <button type="button" id="saveVacationWeekButton">Weekstatus opslaan</button>
+              <button type="button" id="removeVacationWeekButton" class="warning">Weekmarkering verwijderen</button>
+            </div>
+            <div id="vacationWeekList" class="request-list empty">Nog geen vakantieweken ingesteld.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="staff-panel role-planner app-panel aligned-view-panel director-screen-panel" data-panel="backup">
+        <div class="view-header director-screen-header">
+          <div>
+            <h2>Back-up en herstel</h2>
+            <p class="panel-note">Alleen voor directie of planner. Lokale herstelpunten voor rooster, uren en personeelsgegevens.</p>
+          </div>
+        </div>
+        <div class="director-content-grid">
+          <div class="director-content-left">
+            <article class="capacity-card">
+              <h3>Laatste back-up</h3>
+              <div id="backupSummary" class="panel-note">Nog geen herstelpunten beschikbaar.</div>
+              <div class="form-actions compact-actions">
+                <button type="button" id="createRestorePointButton" class="secondary">Back-up maken</button>
+              </div>
+            </article>
+          </div>
+          <div class="director-content-right">
+            <article class="capacity-card">
+              <h3>Herstel back-up</h3>
+              <div class="staff-actions">
+                <label>
+                  Herstelpunt
+                  <select id="backupRestoreSelect">
+                    <option value="">Kies herstelpunt</option>
+                  </select>
+                </label>
+                <button type="button" id="restoreBackupButton" class="warning">Back-up herstellen</button>
+              </div>
+            </article>
+          </div>
+        </div>
+        <article class="capacity-card">
+          <h3>E-mailinstellingen</h3>
+          <p class="panel-note">Centrale afzenderinstellingen voor mailmeldingen rond ruilverzoeken. Alleen voor directie of planner.</p>
+          <div class="staff-actions">
+            <label>
+              Afzender naam
+              <input type="text" id="mailSenderNameInput" placeholder="Bijvoorbeeld Bakkerij Stroet">
+            </label>
+            <label>
+              Afzender e-mailadres
+              <input type="email" id="mailSenderEmailInput" placeholder="rooster@bakkerijstroet.nl">
+            </label>
+            <div id="mailSettingsStatus" class="panel-note">Nog geen centrale mailinstellingen opgeslagen.</div>
+            <div class="form-actions compact-actions">
+              <button type="button" id="saveMailSettingsButton" class="secondary">E-mailinstellingen opslaan</button>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <form id="schedule-form" class="form role-planner app-panel week-form-card" data-panel="week-current" data-week-panel data-slot="left">
+        <h2>Invoer</h2>
+        <input type="week" id="week" class="hidden">
+
+        <label>
+          Zoek medewerker
+          <input type="text" id="planningEmployeeSearch" placeholder="Typ om te zoeken">
+        </label>
+
+        <label>
+          Naam
+          <select id="name" required>
+            <option value="">Kies medewerker</option>
+          </select>
+        </label>
+        <div id="planningAuthorizationHint" class="panel-note hidden" aria-live="polite"></div>
+
+        <label>
+          Standaard dienst
+          <select id="presetShift">
+            <option value="">Kies standaard dienst</option>
+          </select>
+        </label>
+
+        <label>
+          Dag
+          <input type="date" id="day" required>
+        </label>
+
+        <fieldset class="weekday-picker">
+          <legend>Meerdere dagen</legend>
+          <label><input type="checkbox" class="weekday-option" value="1"> Ma</label>
+          <label><input type="checkbox" class="weekday-option" value="2"> Di</label>
+          <label><input type="checkbox" class="weekday-option" value="3"> Wo</label>
+          <label><input type="checkbox" class="weekday-option" value="4"> Do</label>
+          <label><input type="checkbox" class="weekday-option" value="5"> Vr</label>
+          <label><input type="checkbox" class="weekday-option" value="6"> Za</label>
+          <label><input type="checkbox" class="weekday-option" value="7"> Zo</label>
+        </fieldset>
+
+        <label>
+          Begintijd
+          <input type="time" id="startTime" required>
+        </label>
+
+        <label>
+          Eindtijd
+          <input type="time" id="endTime" required>
+        </label>
+
+        <div class="form-actions compact-actions">
+          <button type="button" id="newButton">Nieuwe invoer</button>
+          <button type="button" id="repeatShiftButton" class="secondary">Zelfde dienst herhalen</button>
+          <button type="submit" id="submitButton">Opslaan</button>
+          <button type="button" id="cancelButton" class="secondary hidden">Annuleren</button>
+        </div>
+      </form>
+
+      <section class="staff-panel role-planner app-panel" data-panel="week-current" data-week-panel data-slot="left" id="dayPlannerPanel">
+        <h2>Dag invullen</h2>
+        <p class="panel-note">Kies een dag en plan alle diensten van die dag in één keer.</p>
+        <div class="staff-actions">
+          <label>
+            Dag
+            <input type="date" id="dayPlannerDate">
+          </label>
+        </div>
+        <div id="dayPlannerSummary" class="hidden"></div>
+        <div id="dayPlannerAbsenceList" class="day-planner-absence-list hidden"></div>
+        <div id="dayPlannerOpenList" class="day-planner-open-list hidden"></div>
+        <div id="dayPlannerList" class="day-planner-list empty">Kies een dag om alle diensten te tonen.</div>
+        <div class="form-actions compact-actions">
+          <button type="button" id="smartFillDayButton" class="secondary role-planner">Dag slim vullen</button>
+          <button type="button" id="autoFillShopDayButton" class="secondary role-planner">Auto invullen winkel</button>
+          <button type="button" id="saveDayPlannerButton">Dag opslaan</button>
+        </div>
+      </section>
+
+      <section class="staff-panel app-panel aligned-view-panel director-screen-panel schedule-compact-panel" data-panel="my-schedule">
+        <div class="view-header director-screen-header">
+          <div>
+            <h2>Mijn rooster</h2>
+            <p class="panel-note">Weekoverzicht van een medewerker.</p>
+          </div>
+          <div class="view-toolbar director-screen-toolbar">
+            <label class="week-select employee-picker-control">
+              <span>Medewerker</span>
+              <input type="text" id="portalEmployeeSearch" placeholder="Typ om te zoeken">
+            </label>
+            <div class="employee-switcher compact-actions employee-picker-control">
+              <button type="button" id="portalPreviousEmployeeButton" class="secondary">Vorige medewerker</button>
+              <button type="button" id="portalNextEmployeeButton" class="secondary">Volgende medewerker</button>
+            </div>
+            <label class="week-select employee-picker-control">
+              <span>Kies medewerker</span>
+              <select id="portalEmployee">
+                <option value="">Kies medewerker</option>
+              </select>
+            </label>
+            <div class="employee-context-badge role-employee-summary" id="portalEmployeeBadge">
+              <span>Medewerker</span>
+              <strong>Geen medewerker gekozen</strong>
+            </div>
+            <label class="week-select">
+              <span>Week</span>
+              <input type="week" id="myScheduleWeek">
+            </label>
+            <div class="week-switcher compact-actions">
+              <button type="button" id="mySchedulePreviousWeekButton" class="secondary">Vorige</button>
+              <button type="button" id="myScheduleCurrentWeekButton" class="secondary">Deze</button>
+              <button type="button" id="myScheduleNextWeekButton" class="secondary">Volgende</button>
+            </div>
+          </div>
+        </div>
+        <div class="schedule-compact-results">
+          <div id="myScheduleBoard" class="schedule-board empty">Kies een medewerker.</div>
+        </div>
+      </section>
+
+      <section class="staff-panel app-panel aligned-view-panel director-screen-panel hours-compact-panel" data-panel="my-hours">
+        <div class="view-header director-screen-header">
+          <div>
+            <h2>Mijn uren</h2>
+            <p class="panel-note">Kies een datum en vul direct die werkdag in.</p>
+          </div>
+          <div class="view-toolbar director-screen-toolbar">
+            <label class="week-select employee-picker-control">
+              <span>Medewerker</span>
+              <input type="text" id="hoursEmployeeSearch" placeholder="Typ om te zoeken">
+            </label>
+            <div class="employee-switcher compact-actions employee-picker-control">
+              <button type="button" id="hoursPreviousEmployeeButton" class="secondary">Vorige medewerker</button>
+              <button type="button" id="hoursNextEmployeeButton" class="secondary">Volgende medewerker</button>
+            </div>
+            <label class="week-select employee-picker-control">
+              <span>Kies medewerker</span>
+              <select id="hoursEmployee">
+                <option value="">Kies medewerker</option>
+              </select>
+            </label>
+            <div class="employee-context-badge role-employee-summary" id="hoursEmployeeBadge">
+              <span>Medewerker</span>
+              <strong>Geen medewerker gekozen</strong>
+            </div>
+            <label class="week-select">
+              <span>Datum</span>
+              <input type="date" id="hoursDate" max="">
+            </label>
+            <label class="week-select hours-secondary-control">
+              <span>Week</span>
+              <input type="week" id="hoursWeek">
+            </label>
+              <div class="week-switcher compact-actions hours-secondary-control">
+                <button type="button" id="hoursPreviousWeekButton" class="secondary">Vorige</button>
+                <button type="button" id="hoursCurrentWeekButton" class="secondary">Deze</button>
+                <button type="button" id="hoursNextWeekButton" class="secondary">Volgende</button>
+              </div>
+              <div class="compact-actions">
+                <button type="button" id="submitWeekHoursButton">Week indienen</button>
+              </div>
+            </div>
+          </div>
+        <div class="hours-compact-results">
+          <div id="myHoursHighlight" class="hours-highlight empty">Kies een medewerker.</div>
+          <div id="myHoursSummary" class="totals empty">Nog geen uren beschikbaar.</div>
+          <div id="myHoursRegistrations" class="request-list empty">Nog geen ingeplande diensten voor urenregistratie.</div>
+        </div>
+      </section>
+
+      <section class="staff-panel role-planner app-panel aligned-view-panel director-screen-panel hours-approval-panel" data-panel="hours-approval">
+        <div class="view-header director-screen-header">
+          <div>
+            <h2>Uren accorderen</h2>
+            <p class="panel-note">Controle van ingediende urenregistraties per week.</p>
+          </div>
+          <div class="view-toolbar director-screen-toolbar">
+            <label class="week-select">
+              <span>Week</span>
+              <input type="week" id="approvalWeek">
+            </label>
+            <label class="week-select">
+              <span>Medewerker</span>
+              <select id="approvalEmployee">
+                <option value="">Alle medewerkers</option>
+              </select>
+            </label>
+            <label class="week-select">
+              <span>Export</span>
+              <select id="hoursExportPeriod">
+                <option value="week">Per week</option>
+                <option value="month">Per maand</option>
+              </select>
+            </label>
+            <label class="week-select" id="hoursExportWeekLabel">
+              <span>Exportweek</span>
+              <input type="week" id="hoursExportWeek">
+            </label>
+            <label class="week-select hidden" id="hoursExportMonthLabel">
+              <span>Exportmaand</span>
+              <input type="month" id="hoursExportMonth">
+            </label>
+            <div class="compact-actions">
+              <button type="button" id="hoursExportButton" class="secondary">Exporteer uren CSV</button>
+            </div>
+          </div>
+        </div>
+        <div id="hoursApprovalQueue" class="request-list empty">Nog geen uren ter controle.</div>
+      </section>
+
+      <section class="staff-panel app-panel aligned-view-panel director-screen-panel" data-panel="requests" data-slot="top">
+        <div class="view-header director-screen-header">
+          <div>
+            <h2>Aanvragen</h2>
+            <p class="panel-note">Overzicht van afwezigheid en ruilverzoeken.</p>
+          </div>
+          <div class="view-toolbar director-screen-toolbar">
+            <label class="week-select">
+              <span>Status</span>
+              <select id="requestStatusFilter">
+                <option value="">Alle statussen</option>
+                <option value="open">Open</option>
+                <option value="waiting">In behandeling / wacht op reactie</option>
+                <option value="approved">Goedgekeurd</option>
+                <option value="rejected">Afgewezen</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div class="request-mobile-switch" aria-label="Aanvraag kiezen">
+          <button type="button" id="requestTypeTimeOffButton" class="request-switch-button active">Vrij / vakantie / ziek</button>
+          <button type="button" id="requestTypeSwapButton" class="request-switch-button">Dienst ruilen</button>
+        </div>
+        <div id="requestsOpenSummary" class="dashboard-grid"></div>
+        <div id="requestsEmployeeBadge" class="employee-context-badge role-employee-summary request-employee-summary">
+          <span>Mijn aanvragen</span>
+          <strong>Geen medewerker gekoppeld</strong>
+        </div>
+        <div class="request-composer-grid">
+          <section id="requestTimeOffComposer" class="request-composer-card">
+            <div class="request-composer-head">
+              <div>
+                <h3>Vrije dag / vakantie / ziekmelding</h3>
+                <p class="panel-note">Na goedkeuring direct zichtbaar in het rooster.</p>
+              </div>
+            </div>
+            <div class="request-form-grid">
+              <label class="employee-picker-control">
+                <span>Medewerker</span>
+                <select id="timeOffEmployee">
+                  <option value="">Kies medewerker</option>
+                </select>
+              </label>
+              <label>
+                <span>Type aanvraag</span>
+                <select id="timeOffType">
+                  <option value="vrij">Vrije dag</option>
+                  <option value="vakantie">Vakantie</option>
+                  <option value="ziek">Ziekmelding</option>
+                </select>
+              </label>
+              <label>
+                <span>Datum</span>
+                <input type="date" id="timeOffDate">
+              </label>
+              <label id="timeOffStartDateLabel" class="hidden">
+                <span>Begindatum</span>
+                <input type="date" id="timeOffStartDate">
+              </label>
+              <label id="timeOffEndDateLabel" class="hidden">
+                <span>Einddatum</span>
+                <input type="date" id="timeOffEndDate">
+              </label>
+              <label class="request-form-full">
+                <span>Reden of toelichting</span>
+                <input type="text" id="timeOffReason" placeholder="Korte toelichting">
+              </label>
+            </div>
+            <button type="button" id="submitTimeOffButton">Aanvraag indienen</button>
+          </section>
+
+          <section id="requestSwapComposer" class="request-composer-card">
+            <div class="request-composer-head">
+              <div>
+                <h3>Dienst ruilen</h3>
+                <p class="panel-note">Na goedkeuring wordt het rooster direct aangepast.</p>
+                <p class="panel-note">Probeer eerst met collega&apos;s te ruilen. Kom je er niet uit, dan kun je later directie inschakelen.</p>
+              </div>
+            </div>
+            <div class="request-form-grid">
+              <label class="employee-picker-control">
+                <span>Medewerker</span>
+                <select id="swapEmployee">
+                  <option value="">Kies medewerker</option>
+                </select>
+              </label>
+              <label>
+                <span>Datum</span>
+                <input type="date" id="swapDate">
+              </label>
+              <label class="request-form-full">
+                <span>Geplande dienst</span>
+                <select id="swapEntry">
+                  <option value="">Kies dienst</option>
+                </select>
+              </label>
+              <label class="request-form-full">
+                <span>Overnemer</span>
+                <select id="swapTargetEmployee">
+                  <option value="__open__">Open aanbieden</option>
+                  <option value="">Kies medewerker</option>
+                </select>
+              </label>
+              <div id="swapTargetHint" class="panel-note request-form-full">Kies eerst een dienst om geschikte collega’s te zien.</div>
+              <div id="swapSuggestionList" class="request-suggestion-list request-form-full"></div>
+              <div id="swapNoCandidateHelp" class="request-help-card request-form-full hidden">
+                <strong>Geen geschikte collega beschikbaar</strong>
+                <span>Vraag directie om hulp.</span>
+                <button type="button" id="swapEscalateButton" class="secondary">Directie inschakelen</button>
+              </div>
+            </div>
+            <button type="button" id="submitSwapButton">Ruilverzoek indienen</button>
+          </section>
+        </div>
+        <div id="requestsOpenCards" class="request-list empty">Nog geen open aanvragen.</div>
+      </section>
+
+      <section class="staff-panel app-panel" data-panel="requests" data-slot="left" id="requestTimeOffPanel">
+        <div class="employee-request-groups">
+          <h2 id="requestOpenHeading">Open aanvragen</h2>
+          <p id="requestOpenNote" class="panel-note">Open verzoeken die nog aandacht vragen.</p>
+          <div class="request-group-grid">
+            <div>
+              <h3>Vrij, vakantie en ziek</h3>
+              <div id="openTimeOffRequests" class="request-list empty">Nog geen open afwezigheidsaanvragen.</div>
+            </div>
+            <div>
+              <h3>Ruilverzoeken</h3>
+              <div id="openSwapRequests" class="request-list empty">Nog geen open ruilverzoeken.</div>
+            </div>
+          </div>
+        </div>
+        <div class="planner-request-sections">
+          <section class="planner-request-section">
+            <div class="planner-request-section-head">
+              <h3>Vrije dagen</h3>
+            </div>
+            <div id="plannerFreeRequests" class="request-list empty">Nog geen vrije dagen.</div>
+          </section>
+          <section class="planner-request-section">
+            <div class="planner-request-section-head">
+              <h3>Vakantie</h3>
+            </div>
+            <div id="plannerVacationRequests" class="request-list empty">Nog geen vakantieaanvragen.</div>
+          </section>
+        </div>
+      </section>
+
+      <section class="staff-panel app-panel" data-panel="requests" data-slot="right" id="requestSwapPanel">
+        <div class="employee-request-groups">
+          <h2 id="requestHandledHeading">Afgehandelde aanvragen</h2>
+          <p id="requestHandledNote" class="panel-note">Goedgekeurde en afgewezen verzoeken.</p>
+          <div class="request-group-grid">
+            <div>
+              <h3>Vrij, vakantie en ziek</h3>
+              <div id="handledTimeOffRequests" class="request-list empty">Nog geen afgehandelde afwezigheidsaanvragen.</div>
+            </div>
+            <div>
+              <h3>Ruilverzoeken</h3>
+              <div id="handledSwapRequests" class="request-list empty">Nog geen afgehandelde ruilverzoeken.</div>
+            </div>
+          </div>
+        </div>
+        <div class="planner-request-sections">
+          <section class="planner-request-section">
+            <div class="planner-request-section-head">
+              <h3>Ziekmeldingen</h3>
+            </div>
+            <div id="plannerSickRequests" class="request-list empty">Nog geen ziekmeldingen.</div>
+          </section>
+          <section class="planner-request-section">
+            <div class="planner-request-section-head">
+              <h3>Ruilverzoeken</h3>
+            </div>
+            <div id="plannerSwapRequests" class="request-list empty">Nog geen ruilverzoeken.</div>
+          </section>
+        </div>
+      </section>
+    </section>
+
+    <section class="card board-card app-panel director-screen-panel" data-panel="week-current" data-week-panel data-slot="right">
+      <div class="board-header director-screen-header">
+        <div>
+          <h2 id="weekViewTitle">Rooster deze week</h2>
+          <p class="panel-note">Weekoverzicht van maandag t/m zondag.</p>
+        </div>
+        <div class="board-toolbar director-screen-toolbar">
+          <label class="week-select">
+            <span>Week</span>
+            <input type="week" id="weekFilter">
+          </label>
+          <div class="week-switcher compact-actions">
+            <button type="button" id="previousWeekButton" class="secondary">Vorige</button>
+            <button type="button" id="todayWeekButton" class="secondary">Deze</button>
+            <button type="button" id="nextWeekButton" class="secondary">Volgende</button>
+            <button type="button" id="focusModeButton" class="secondary role-planner">Focusmodus aan</button>
+            <button type="button" id="controlModeButton" class="secondary role-planner">Controlemodus aan</button>
+            <button type="button" id="deviationOnlyButton" class="secondary role-planner">Alleen afwijkingen tonen</button>
+            <button type="button" id="printButton" class="secondary">Print rooster</button>
+            <button type="button" id="exportButton" class="secondary">Exporteer CSV</button>
+          </div>
+        </div>
+      </div>
+      <div class="compact-actions planner-toolbar-actions role-planner">
+        <button type="button" id="showSuitableButton" class="secondary">Geschikte medewerkers</button>
+        <button type="button" id="autoFillButton" class="secondary">Automatisch roosteren</button>
+        <button type="button" id="rebalanceHoursButton" class="secondary">Slim herplannen winkel</button>
+        <button type="button" id="monthBalanceButton" class="secondary">Maandbalans herstellen</button>
+        <button type="button" id="completeReviewButton" class="secondary">Controle afronden</button>
+        <button type="button" id="applyAutoFillButton" class="secondary hidden">Voorstel toepassen</button>
+        <button type="button" id="cancelAutoFillButton" class="secondary hidden">Voorstel annuleren</button>
+        <button type="button" id="undoButton" class="secondary hidden">Ongedaan maken</button>
+      </div>
+      <div id="weekReviewStatusPanel" class="week-review-status hidden role-planner"></div>
+      <div id="message" class="message hidden compact-message" role="status" aria-live="polite"></div>
+      <div class="hidden">
+        <select id="employeeFilter">
+          <option value="">Alle medewerkers</option>
+        </select>
+        <input type="text" id="employeeSearch" placeholder="Typ een naam">
+        <select id="dayFilter">
+          <option value="">Alle dagen</option>
+          <option value="maandag">Maandag</option>
+          <option value="dinsdag">Dinsdag</option>
+          <option value="woensdag">Woensdag</option>
+          <option value="donderdag">Donderdag</option>
+          <option value="vrijdag">Vrijdag</option>
+          <option value="zaterdag">Zaterdag</option>
+          <option value="zondag">Zondag</option>
+        </select>
+        <button type="button" id="clearFiltersButton" class="secondary">Wis alle filters</button>
+      </div>
+      <div id="plannerControlPanel" class="planner-control-panel hidden"></div>
+      <div id="weekStatusOverview" class="week-status-overview hidden"></div>
+      <div id="autoFillSummaryOverview" class="auto-fill-summary-overview hidden"></div>
+      <div id="plannerContractOverview" class="planner-contract-overview hidden"></div>
+      <div id="deviationWhyOverview" class="deviation-why-overview hidden"></div>
+      <div id="controlModeOverview" class="control-mode-overview hidden"></div>
+      <div class="roster-legend" aria-label="Legenda rooster">
+        <span class="legend-item"><span class="legend-swatch bakery"></span>Bakkerij</span>
+        <span class="legend-item"><span class="legend-swatch shop"></span>Winkel</span>
+        <span class="legend-item"><span class="legend-swatch open"></span>Open</span>
+        <span class="legend-item"><span class="legend-swatch replacement"></span>Vervanging</span>
+        <span class="legend-item"><span class="legend-swatch stage"></span>Stage</span>
+      </div>
+      <div id="openReplacementOverview" class="open-replacement-overview hidden"></div>
+      <div id="weekReplacementOverview" class="week-replacement-overview hidden"></div>
+      <div id="schedule-board" class="schedule-board empty">Nog geen diensten toegevoegd.</div>
+    </section>
+
+    <section class="staff-panel role-planner app-panel aligned-view-panel director-screen-panel schedule-planning-panel" data-panel="schedule-planning">
+      <div class="view-header director-screen-header">
+        <div>
+          <h2 id="planningOverviewTitle">Rooster inplannen</h2>
+        </div>
+        <div class="board-toolbar director-screen-toolbar">
+          <div class="week-switcher compact-actions">
+            <label class="week-select role-planner">
+              <span>Maand</span>
+              <input type="month" id="planningOverviewMonth">
+            </label>
+            <button type="button" id="planningOverviewRefreshButton" class="secondary role-planner">Maandoverzicht verversen</button>
+            <button type="button" id="planningOverviewAutoButton" class="secondary role-planner">Automatisch roosteren</button>
+          </div>
+        </div>
+      </div>
+      <div id="planningOverviewSummary" class="planning-overview-summary hidden"></div>
+      <div id="planningOverviewList" class="planning-overview-list empty">Maandoverzicht wordt geladen.</div>
+    </section>
+
+    <section class="card totals-card app-panel" data-panel="week-summary" data-slot="bottom">
+      <h2>Weektotaal</h2>
+      <div id="totals" class="totals empty">Nog geen totalen beschikbaar.</div>
+    </section>
+
+      <section class="card requests-card app-panel request-status-overview-panel" data-panel="requests" data-slot="bottom">
+        <h2>Statusoverzicht</h2>
+        <div class="request-columns">
+          <div>
+            <h3>Afwezigheid</h3>
+            <div id="timeOffRequests" class="request-list empty">Nog geen afwezigheidsaanvragen.</div>
+          </div>
+        <div>
+          <h3>Diensten ruilen</h3>
+          <div id="swapRequests" class="request-list empty">Nog geen ruilverzoeken.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="mobile-bottom-nav" aria-label="Mobiele snelle navigatie">
+    <button type="button" class="mobile-nav-button" data-go-tab="week-current">Rooster</button>
+    <button type="button" class="mobile-nav-button" data-go-tab="my-schedule">Mijn rooster</button>
+    <button type="button" class="mobile-nav-button" data-go-tab="my-hours">Mijn uren</button>
+    <button type="button" class="mobile-nav-button" data-go-tab="requests">Aanvragen</button>
+  </nav>
+
+  <script src="app.js"></script>
+</body>
+</html>
