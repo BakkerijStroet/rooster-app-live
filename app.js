@@ -10086,6 +10086,44 @@ async function sendEmail(to, subject, message) {
   }
 }
 
+function getTestMailErrorMessage(errorText) {
+  const normalized = typeof errorText === "string" ? errorText.trim() : "";
+
+  if (!normalized) {
+    return "Mail verzenden mislukt.";
+  }
+
+  if (normalized.includes("RESEND_API_KEY ontbreekt")) {
+    return "Mail verzenden mislukt: API key ontbreekt.";
+  }
+
+  if (normalized.includes("Backend route /api/send-email bestaat niet")) {
+    return "Mail verzenden mislukt: serverfunctie bestaat niet.";
+  }
+
+  if (normalized.includes("Backend route niet bereikbaar")) {
+    return `Mail verzenden mislukt: serverfunctie niet bereikbaar.`;
+  }
+
+  if (normalized.includes("Backend route fout")) {
+    return "Mail verzenden mislukt: serverfunctie werkt niet.";
+  }
+
+  if (normalized.includes("Mailservice gaf fout")) {
+    return `Mail verzenden mislukt: ${normalized}`;
+  }
+
+  if (normalized.includes("Serverfunctie mist afzenderinstellingen")) {
+    return "Mail verzenden mislukt: serverfunctie mist afzenderinstellingen.";
+  }
+
+  if (normalized.includes("Lokale preview zonder serverroute")) {
+    return "Mail verzenden mislukt: lokale preview zonder serverroute.";
+  }
+
+  return `Mail verzenden mislukt: ${normalized}`;
+}
+
 const EMAIL_TEMPLATES = {
   test: () => ({
     subject: "Test mail Roosterapp",
@@ -18360,17 +18398,16 @@ async function handleTestMailSend() {
       configuredSender: hasConfiguredMailSender()
     });
 
-    if (!hasConfiguredMailSender()) {
-      console.warn("[test-mail] handler:missing-sender-settings");
-      showMessage("Mail verzenden mislukt: vul eerst de e-mailinstellingen in.", "error");
-      renderMailSettings();
-      return;
-    }
-
     if (!recipient) {
       console.warn("[test-mail] handler:missing-recipient");
       showMessage("Mail verzenden mislukt: vul een test e-mailadres in.", "error");
       return;
+    }
+
+    if (!hasConfiguredMailSender()) {
+      console.info("[test-mail] handler:no-local-sender-settings", {
+        willUseServerFallback: true
+      });
     }
 
     if (mailTestRecipientInput) {
@@ -18390,9 +18427,7 @@ async function handleTestMailSend() {
 
     if (!result.ok) {
       console.warn("[test-mail] handler:send-failed", result);
-      showMessage(result.error === "Lokale preview zonder serverroute."
-        ? "Mail verzenden mislukt: lokale preview zonder serverroute."
-        : `Mail verzenden mislukt: ${result.error || "onbekende fout"}`, "error");
+      showMessage(getTestMailErrorMessage(result.error), "error");
       return;
     }
 
@@ -18400,7 +18435,10 @@ async function handleTestMailSend() {
     showMessage("Mail verzonden", "success");
   } catch (error) {
     console.error("[test-mail] handler:exception", error);
-    showMessage(`Mail verzenden mislukt: ${error instanceof Error ? error.message : "onbekende fout"}`, "error");
+    showMessage(
+      getTestMailErrorMessage(error instanceof Error ? error.message : "onbekende fout"),
+      "error"
+    );
   } finally {
     setTestMailButtonsDisabled(false);
   }
