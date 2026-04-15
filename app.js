@@ -88,11 +88,11 @@ const restoreBackupButton = document.getElementById("restoreBackupButton");
 const backupSummary = document.getElementById("backupSummary");
 const mailSenderNameInput = document.getElementById("mailSenderNameInput");
 const mailSenderEmailInput = document.getElementById("mailSenderEmailInput");
-const mailTestRecipientInput = document.getElementById("mailTestRecipientInput");
 const dashboardTestMailButton = document.getElementById("dashboardTestMailButton");
 const saveMailSettingsButton = document.getElementById("saveMailSettingsButton");
 const testMailButton = document.getElementById("testMailButton");
 const mailSettingsStatus = document.getElementById("mailSettingsStatus");
+const FIXED_TEST_MAIL_RECIPIENT = "jouwmail@voorbeeld.nl";
 const employeeListCard = document.getElementById("employeeListCard");
 const employeeStandardShiftList = document.getElementById("employeeStandardShiftList");
 const employeePermissionsList = document.getElementById("employeePermissionsList");
@@ -1242,7 +1242,7 @@ function getMailSettingsDefaults() {
   return {
     senderName: "Bakkerij Stroet",
     senderEmail: "",
-    testRecipientEmail: "",
+    testRecipientEmail: FIXED_TEST_MAIL_RECIPIENT,
     updatedAt: "",
     updatedByRole: "",
     updatedByName: ""
@@ -1262,7 +1262,7 @@ function loadMailSettings() {
     return {
       senderName: normalizeMailSenderName(parsedSettings?.senderName || defaults.senderName),
       senderEmail: normalizeEmployeeEmail(parsedSettings?.senderEmail || ""),
-      testRecipientEmail: normalizeEmployeeEmail(parsedSettings?.testRecipientEmail || ""),
+      testRecipientEmail: normalizeEmployeeEmail(parsedSettings?.testRecipientEmail || defaults.testRecipientEmail),
       updatedAt: typeof parsedSettings?.updatedAt === "string" ? parsedSettings.updatedAt : "",
       updatedByRole: typeof parsedSettings?.updatedByRole === "string" ? parsedSettings.updatedByRole : "",
       updatedByName: typeof parsedSettings?.updatedByName === "string" ? parsedSettings.updatedByName : ""
@@ -10005,7 +10005,7 @@ function hasRequestMailNotification(request, type, recipientSignature, periodKey
   });
 }
 
-async function sendEmail(to, subject, message) {
+async function sendEmail("jouwmail@gmail.com", "Test mail Roosterapp", "Dit is een testmail")
   console.info("[test-mail] sendEmail:start", {
     to,
     subject,
@@ -10198,7 +10198,7 @@ function buildEmailTemplate(templateKey, context = {}) {
 
 async function sendTemplatedEmail(to, templateKey, context = {}) {
   const { subject, message } = buildEmailTemplate(templateKey, context);
-  return sendEmail(to, subject, message);
+  return sendEmail(info@bakkerijstroet.nl);sendEmail("jouwmail@gmail.com", "Test mail Roosterapp", "Dit is een testmail")sendEmail("jouwmail@gmail.com", "Test mail Roosterapp", "Dit is een testmail")
 }
 
 async function sendPlannerSummaryEmail(to, summaryType, context = {}) {
@@ -12418,19 +12418,16 @@ function renderMailSettings() {
 
   mailSenderNameInput.value = normalizeMailSenderName(mailSettings.senderName || "Bakkerij Stroet");
   mailSenderEmailInput.value = normalizeEmployeeEmail(mailSettings.senderEmail);
-  if (mailTestRecipientInput) {
-    mailTestRecipientInput.value = normalizeEmployeeEmail(mailSettings.testRecipientEmail || mailSettings.senderEmail);
-  }
 
   if (!hasConfiguredMailSender()) {
-    mailSettingsStatus.textContent = "Nog niet compleet: vul afzendernaam en e-mailadres in om mailmeldingen correct voor te bereiden.";
+    mailSettingsStatus.textContent = `Nog niet compleet: vul afzendernaam en e-mailadres in. Testmail gaat daarna naar ${FIXED_TEST_MAIL_RECIPIENT}.`;
     return;
   }
 
   const updatedLabel = mailSettings.updatedAt
     ? ` Laatst bijgewerkt op ${formatDateTime(mailSettings.updatedAt)}${mailSettings.updatedByName ? ` door ${mailSettings.updatedByName}` : ""}.`
     : "";
-  mailSettingsStatus.textContent = `Actieve afzender: ${mailSettings.senderName} <${mailSettings.senderEmail}>.${updatedLabel}`;
+  mailSettingsStatus.textContent = `Actieve afzender: ${mailSettings.senderName} <${mailSettings.senderEmail}>. Testmail gaat naar ${FIXED_TEST_MAIL_RECIPIENT}.${updatedLabel}`;
 }
 
 function getDayPlannerShifts(dateValue) {
@@ -18328,7 +18325,6 @@ saveMailSettingsButton?.addEventListener("click", () => {
 
   const senderName = normalizeMailSenderName(mailSenderNameInput?.value || "");
   const senderEmail = normalizeEmployeeEmail(mailSenderEmailInput?.value || "");
-  const testRecipientEmail = normalizeEmployeeEmail(mailTestRecipientInput?.value || "");
 
   if (!senderName || !senderEmail) {
     showMessage("Vul zowel afzendernaam als afzender e-mailadres in.", "error");
@@ -18338,7 +18334,7 @@ saveMailSettingsButton?.addEventListener("click", () => {
 
   mailSettings.senderName = senderName;
   mailSettings.senderEmail = senderEmail;
-  mailSettings.testRecipientEmail = testRecipientEmail;
+  mailSettings.testRecipientEmail = FIXED_TEST_MAIL_RECIPIENT;
   mailSettings.updatedAt = getNowIsoString();
   mailSettings.updatedByRole = "planner";
   mailSettings.updatedByName = "Planner / Directie";
@@ -18351,7 +18347,7 @@ saveMailSettingsButton?.addEventListener("click", () => {
     details: {
       senderName,
       senderEmail,
-      testRecipientEmail
+      testRecipientEmail: FIXED_TEST_MAIL_RECIPIENT
     }
   });
   renderMailSettings();
@@ -18359,11 +18355,7 @@ saveMailSettingsButton?.addEventListener("click", () => {
 });
 
 function getConfiguredTestMailRecipient() {
-  return normalizeEmployeeEmail(
-    mailTestRecipientInput?.value
-    || mailSettings.testRecipientEmail
-    || mailSettings.senderEmail
-  );
+  return normalizeEmployeeEmail(FIXED_TEST_MAIL_RECIPIENT);
 }
 
 function setTestMailButtonsDisabled(isDisabled) {
@@ -18400,7 +18392,7 @@ async function handleTestMailSend() {
 
     if (!recipient) {
       console.warn("[test-mail] handler:missing-recipient");
-      showMessage("Mail verzenden mislukt: vul een test e-mailadres in.", "error");
+      showMessage("Mail verzenden mislukt: vast test e-mailadres ontbreekt in de configuratie.", "error");
       return;
     }
 
@@ -18408,10 +18400,6 @@ async function handleTestMailSend() {
       console.info("[test-mail] handler:no-local-sender-settings", {
         willUseServerFallback: true
       });
-    }
-
-    if (mailTestRecipientInput) {
-      mailTestRecipientInput.value = recipient;
     }
 
     if (mailSettings.testRecipientEmail !== recipient) {
