@@ -22,6 +22,7 @@
         </div>
         <div class="brand-actions">
           <span class="brand-chip" id="brandRoleChip">Planneromgeving</span>
+          <button type="button" id="dashboardTestMailButton" class="secondary hidden">Test mail</button>
           <button type="button" id="switchUserButton" class="secondary">Wissel gebruiker</button>
         </div>
       </section>
@@ -389,17 +390,22 @@
               Afzender naam
               <input type="text" id="mailSenderNameInput" placeholder="Bijvoorbeeld Bakkerij Stroet">
             </label>
-            <label>
-              Afzender e-mailadres
-              <input type="email" id="mailSenderEmailInput" placeholder="rooster@bakkerijstroet.nl">
-            </label>
-            <div id="mailSettingsStatus" class="panel-note">Nog geen centrale mailinstellingen opgeslagen.</div>
-            <div class="form-actions compact-actions">
-              <button type="button" id="saveMailSettingsButton" class="secondary">E-mailinstellingen opslaan</button>
+              <label>
+                Afzender e-mailadres
+                <input type="email" id="mailSenderEmailInput" placeholder="rooster@bakkerijstroet.nl">
+              </label>
+              <label>
+                Test e-mailadres
+                <input type="email" id="mailTestRecipientInput" placeholder="jij@bakkerijstroet.nl">
+              </label>
+              <div id="mailSettingsStatus" class="panel-note">Nog geen centrale mailinstellingen opgeslagen.</div>
+              <div class="form-actions compact-actions">
+                <button type="button" id="saveMailSettingsButton" class="secondary">E-mailinstellingen opslaan</button>
+                <button type="button" id="testMailButton" class="secondary">Test mail</button>
+              </div>
             </div>
-          </div>
-        </article>
-      </section>
+          </article>
+        </section>
 
       <form id="schedule-form" class="form role-planner app-panel week-form-card" data-panel="week-current" data-week-panel data-slot="left">
         <h2>Invoer</h2>
@@ -564,6 +570,11 @@
             </div>
           </div>
         <div class="hours-compact-results">
+          <div id="myHoursSectionSwitch" class="my-hours-section-switch">
+            <button type="button" id="myHoursTodayButton" class="request-switch-button">Uren doorgeven</button>
+            <button type="button" id="myHoursFillButton" class="request-switch-button">Uren invullen</button>
+            <button type="button" id="myHoursMissingButton" class="request-switch-button">Nog in te vullen uren</button>
+          </div>
           <div id="myHoursHighlight" class="hours-highlight empty">Kies een medewerker.</div>
           <div id="myHoursSummary" class="totals empty">Nog geen uren beschikbaar.</div>
           <div id="myHoursRegistrations" class="request-list empty">Nog geen ingeplande diensten voor urenregistratie.</div>
@@ -630,7 +641,9 @@
           </div>
         </div>
         <div class="request-mobile-switch" aria-label="Aanvraag kiezen">
-          <button type="button" id="requestTypeTimeOffButton" class="request-switch-button active">Vrij / vakantie / ziek</button>
+          <button type="button" id="requestTypeFreeButton" class="request-switch-button">Vrije dag</button>
+          <button type="button" id="requestTypeVacationButton" class="request-switch-button">Vakantie</button>
+          <button type="button" id="requestTypeSickButton" class="request-switch-button">Ziekmelding</button>
           <button type="button" id="requestTypeSwapButton" class="request-switch-button">Dienst ruilen</button>
         </div>
         <div id="requestsOpenSummary" class="dashboard-grid"></div>
@@ -642,8 +655,7 @@
           <section id="requestTimeOffComposer" class="request-composer-card">
             <div class="request-composer-head">
               <div>
-                <h3>Vrije dag / vakantie / ziekmelding</h3>
-                <p class="panel-note">Na goedkeuring direct zichtbaar in het rooster.</p>
+                <h3 id="requestTimeOffTitle">Vrije dag aanvragen</h3>
               </div>
             </div>
             <div class="request-form-grid">
@@ -797,6 +809,13 @@
           <p class="panel-note">Weekoverzicht van maandag t/m zondag.</p>
         </div>
         <div class="board-toolbar director-screen-toolbar">
+          <div id="employeeWeekToolbar" class="employee-week-toolbar hidden" aria-label="Roosterweergave medewerker">
+            <span id="employeeWeekLabel" class="employee-week-label"></span>
+            <div class="employee-week-view-switch">
+              <button type="button" id="employeeTodayViewButton" class="secondary">Vandaag</button>
+              <button type="button" id="employeeWeekViewButton" class="secondary">Deze week</button>
+            </div>
+          </div>
           <label class="week-select">
             <span>Week</span>
             <input type="week" id="weekFilter">

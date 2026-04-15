@@ -421,20 +421,24 @@ body[data-role="employee"] .brand-logo-image {
 }
 
 body[data-role="employee"] .brand-copy {
-  display: grid !important;
+  display: none !important;
 }
 
 body[data-role="employee"] .brand-copy h1 {
-  display: block !important;
-  font-size: 20px;
+  display: none !important;
 }
 
 body[data-role="employee"] .brand-chip {
   display: inline-flex !important;
-  max-width: min(44vw, 180px);
+  max-width: min(56vw, 220px);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+body[data-role="employee"] .brand-actions {
+  margin-left: auto;
+  gap: 6px;
 }
 
 body[data-role="planner"] #switchUserButton {
@@ -744,16 +748,42 @@ body[data-role="employee"] [data-panel="week-current"] .board-toolbar {
 }
 
 body[data-role="employee"] [data-panel="week-current"] .week-select {
+  display: none !important;
+}
+
+body[data-role="employee"] [data-panel="week-current"] .week-select {
   max-width: none;
 }
 
-body[data-role="employee"] [data-panel="week-current"] .week-select span {
-  font-size: 12px;
-  color: var(--muted);
+body[data-role="employee"] [data-panel="week-current"] .employee-week-toolbar {
+  display: grid;
+  gap: 8px;
+}
+
+body[data-role="employee"] [data-panel="week-current"] .employee-week-label {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(242, 140, 40, 0.08);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+body[data-role="employee"] [data-panel="week-current"] .employee-week-view-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+body[data-role="employee"] [data-panel="week-current"] .employee-week-view-switch .secondary.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
 }
 
 body[data-role="employee"] [data-panel="week-current"] .week-switcher {
-  grid-template-columns: 1fr 1fr;
+  display: none !important;
 }
 
 body[data-role="employee"] [data-panel="week-current"] .week-note {
@@ -762,6 +792,102 @@ body[data-role="employee"] [data-panel="week-current"] .week-note {
 
 body[data-role="employee"] [data-panel="week-current"] .mobile-week {
   gap: 8px;
+}
+
+body[data-role="employee"] [data-panel="week-current"] .employee-roster-board {
+  display: grid;
+  gap: 10px;
+}
+
+body[data-role="employee"] [data-panel="week-current"] .employee-roster-week-list,
+body[data-role="employee"] [data-panel="week-current"] .employee-roster-today {
+  display: grid;
+  gap: 10px;
+}
+
+body[data-role="employee"] [data-panel="week-current"] .employee-roster-board[data-employee-view="week"] .employee-roster-week-list {
+  gap: 8px;
+}
+
+body[data-role="employee"] [data-panel="week-current"] .employee-roster-day-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(74, 52, 32, 0.06);
+  border: 1px solid rgba(138, 85, 54, 0.08);
+}
+
+body[data-role="employee"] [data-panel="week-current"] .employee-roster-day-card.is-today {
+  border-color: rgba(242, 140, 40, 0.28);
+  background: linear-gradient(180deg, #fff8f1 0%, #ffffff 100%);
+  box-shadow: 0 8px 20px rgba(242, 140, 40, 0.12);
+}
+
+body[data-role="employee"] [data-panel="week-current"] .employee-roster-board[data-employee-view="week"] .employee-roster-day-card {
+  gap: 8px;
+  padding: 12px;
+}
+
+body[data-role="employee"] [data-panel="week-current"] .employee-roster-day-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(138, 85, 54, 0.08);
+}
+
+body[data-role="employee"] [data-panel="week-current"] .employee-roster-day-head strong {
+  display: block;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+body[data-role="employee"] [data-panel="week-current"] .employee-roster-today .employee-roster-day-head strong {
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+body[data-role="employee"] [data-panel="week-current"] .employee-roster-day-head span {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+body[data-role="employee"] [data-panel="week-current"] .employee-roster-day-body {
+  display: grid;
+  gap: 8px;
+}
+
+body[data-role="employee"] [data-panel="week-current"] .employee-roster-line {
+  display: grid;
+  gap: 3px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(249, 249, 249, 0.9);
+  border: 1px solid rgba(138, 85, 54, 0.08);
+}
+
+body[data-role="employee"] [data-panel="week-current"] .employee-roster-line strong {
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+body[data-role="employee"] [data-panel="week-current"] .employee-roster-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+body[data-role="employee"] [data-panel="week-current"] .employee-roster-line span,
+body[data-role="employee"] [data-panel="week-current"] .employee-roster-empty {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+body[data-role="employee"] [data-panel="week-current"] .employee-roster-actions {
+  display: grid;
 }
 
 body[data-role="employee"] [data-panel="week-current"] .mobile-day-card {
@@ -918,6 +1044,22 @@ body[data-role="employee"] [data-panel="my-hours"] .view-toolbar {
   gap: 8px;
 }
 
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-section-switch {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-section-switch .request-switch-button {
+  min-height: 46px;
+  width: 100%;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] #myHoursTodayButton {
+  order: -1;
+}
+
 body[data-role="employee"] [data-panel="my-hours"] .hours-highlight {
   gap: 6px;
   padding: 12px;
@@ -933,12 +1075,54 @@ body[data-role="employee"] [data-panel="my-hours"] .hours-highlight small {
   font-size: 14px;
 }
 
+body[data-role="employee"] [data-panel="my-hours"] .hours-week-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .hours-week-overview span {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(242, 140, 40, 0.08);
+  color: var(--text);
+  font-size: 12px;
+  text-align: center;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .hours-week-overview strong {
+  font-size: 15px;
+  line-height: 1.1;
+}
+
 body[data-role="employee"] [data-panel="my-hours"] .totals {
   display: grid;
   gap: 8px;
 }
 
+body[data-role="employee"] [data-panel="my-hours"] .totals.hidden {
+  display: none !important;
+}
+
 body[data-role="employee"] [data-panel="my-hours"] .hours-missing-block {
+  gap: 8px;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .hours-entry-mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .hours-entry-mode-switch .request-switch-button {
+  min-height: 44px;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .hours-missing-list {
+  display: grid;
   gap: 8px;
 }
 
@@ -975,6 +1159,11 @@ body[data-role="employee"] [data-panel="my-hours"] .hours-registration-grid labe
   width: 100%;
 }
 
+body[data-role="employee"] [data-panel="my-hours"] .hours-registration-flag.is-extra {
+  background: rgba(242, 140, 40, 0.14);
+  color: var(--accent-strong);
+}
+
 body[data-role="employee"] [data-panel="my-hours"] .form-actions.compact-actions {
   grid-template-columns: 1fr 1fr;
 }
@@ -991,7 +1180,7 @@ body[data-role="employee"] [data-panel="my-hours"] .request-card {
 
 body[data-role="employee"] #requestTimeOffPanel,
 body[data-role="employee"] #requestSwapPanel {
-  padding-top: 12px;
+  display: none !important;
 }
 
 body[data-role="employee"] .request-group-grid {
@@ -1010,6 +1199,32 @@ body[data-role="employee"][data-employee-locked="true"] .employee-picker-control
 
 body[data-role="employee"][data-employee-locked="false"] .role-employee-summary {
   display: none;
+}
+
+body[data-role="employee"] [data-panel="requests"] #requestsOpenSummary,
+body[data-role="employee"] [data-panel="requests"] #requestsEmployeeBadge {
+  display: none !important;
+}
+
+body[data-role="employee"] [data-panel="requests"] .request-mobile-switch {
+  margin-bottom: 4px;
+}
+
+body[data-role="employee"] [data-panel="requests"] .request-mobile-switch .request-switch-button {
+  min-height: 46px;
+}
+
+body[data-role="employee"] [data-panel="requests"] .request-composer-grid {
+  gap: 10px;
+}
+
+body[data-role="employee"] [data-panel="requests"] .request-composer-card {
+  padding: 14px;
+  border-radius: 16px;
+}
+
+body[data-role="employee"] [data-panel="requests"] #requestsOpenCards {
+  margin-top: 4px;
 }
 
 .nav-tab {
@@ -4921,6 +5136,37 @@ button.hours-reminder-banner {
 .request-card.is-rejected {
   border-color: #d9a49a;
   background: #fff1ef;
+}
+
+.request-list-compact {
+  gap: 8px;
+}
+
+.request-mini-heading {
+  font-size: 13px;
+  font-weight: 700;
+  color: #6a6153;
+  margin-bottom: 2px;
+}
+
+.request-mini-empty {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.compact-request-card {
+  padding: 10px 12px;
+  gap: 6px;
+  border-radius: 12px;
+}
+
+.compact-request-card .request-top strong {
+  font-size: 14px;
+}
+
+.compact-request-card .request-meta {
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .request-card.absence-free,
