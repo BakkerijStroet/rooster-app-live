@@ -10005,7 +10005,7 @@ function hasRequestMailNotification(request, type, recipientSignature, periodKey
   });
 }
 
-async function sendEmail("jouwmail@gmail.com", "Test mail Roosterapp", "Dit is een testmail")
+async function sendEmail(to, subject, message) {
   console.info("[test-mail] sendEmail:start", {
     to,
     subject,
@@ -10198,7 +10198,7 @@ function buildEmailTemplate(templateKey, context = {}) {
 
 async function sendTemplatedEmail(to, templateKey, context = {}) {
   const { subject, message } = buildEmailTemplate(templateKey, context);
-  return sendEmail(info@bakkerijstroet.nl);sendEmail("jouwmail@gmail.com", "Test mail Roosterapp", "Dit is een testmail")sendEmail("jouwmail@gmail.com", "Test mail Roosterapp", "Dit is een testmail")
+  return sendEmail(to, subject, message);
 }
 
 async function sendPlannerSummaryEmail(to, summaryType, context = {}) {
@@ -19432,4 +19432,3 @@ if (needsLoginSelection()) {
   closeLoginOverlay();
   reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
 }
-
