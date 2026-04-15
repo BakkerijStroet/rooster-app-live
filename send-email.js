@@ -1,6 +1,9 @@
 "use strict";
 
 const { buildJsonResponse, sendWithResend } = require("../../server/email-service");
+const FIXED_TEST_MAIL_RECIPIENT = "jouwmail@voorbeeld.nl";
+const TEST_MAIL_SUBJECT = "Test mail Roosterapp";
+const TEST_MAIL_MESSAGE = "Dit is een testmail vanuit de Roosterapp";
 
 exports.handler = async (event) => {
   console.info("[resend] netlify send-email invoked", {
@@ -21,11 +24,22 @@ exports.handler = async (event) => {
       return buildJsonResponse(400, { error: "Ongeldige JSON ontvangen." });
     }
   }
+
+  const isTestMailRequest = payload?.subject === TEST_MAIL_SUBJECT || payload?.testMode === true;
+  const effectivePayload = isTestMailRequest
+    ? {
+        ...payload,
+        to: [FIXED_TEST_MAIL_RECIPIENT],
+        subject: TEST_MAIL_SUBJECT,
+        message: TEST_MAIL_MESSAGE
+      }
+    : payload;
+
   let result;
 
   try {
     result = await sendWithResend({
-      ...payload,
+      ...effectivePayload,
       fallbackFromName: process.env.RESEND_FROM_NAME || "Bakkerij Stroet",
       fallbackFromEmail: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
       apiKey: process.env.RESEND_API_KEY
