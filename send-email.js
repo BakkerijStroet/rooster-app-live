@@ -1,6 +1,6 @@
 "use strict";
 
-const FIXED_TEST_MAIL_RECIPIENT = "jouwmail@voorbeeld.nl";
+const FIXED_TEST_MAIL_RECIPIENT = "info@bakkerijstroet.nl";
 const TEST_MAIL_SUBJECT = "Test mail Roosterapp";
 const TEST_MAIL_MESSAGE = "Dit is een testmail vanuit de Roosterapp";
 
