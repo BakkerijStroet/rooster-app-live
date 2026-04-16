@@ -83,6 +83,7 @@ const employeeEmailInput = document.getElementById("employeeEmailInput");
 const employeeEmailError = document.getElementById("employeeEmailError");
 const employeeMailTestUserInput = document.getElementById("employeeMailTestUserInput");
 const employeeNameDisplayInput = document.getElementById("employeeNameDisplay");
+const employeeDetailMailStatus = document.getElementById("employeeDetailMailStatus");
 const removeEmployeeButton = document.getElementById("removeEmployeeButton");
 const saveEmployeeEmailButton = document.getElementById("saveEmployeeEmailButton");
 const employeeDetailTestMailButton = document.getElementById("employeeDetailTestMailButton");
@@ -1187,6 +1188,9 @@ function getEmployeeStatusMetaDefaults() {
     contractHours: 0,
     email: "",
     mailTestUser: false,
+    lastTestMailAt: "",
+    lastTestMailStatus: "",
+    lastTestMailMessage: "",
     updatedAt: "",
     updatedByRole: "",
     updatedByName: ""
@@ -1381,6 +1385,9 @@ function loadEmployeeMeta() {
         contractHours: normalizeContractHours(currentMeta?.contractHours ?? getConfiguredEmployeeContractHours()[employeeName] ?? 0),
         email: normalizeEmployeeEmail(currentMeta?.email),
         mailTestUser: hasExplicitMailTestUser ? Boolean(currentMeta?.mailTestUser) : employeeName === "Twan",
+        lastTestMailAt: typeof currentMeta?.lastTestMailAt === "string" ? currentMeta.lastTestMailAt : "",
+        lastTestMailStatus: typeof currentMeta?.lastTestMailStatus === "string" ? currentMeta.lastTestMailStatus : "",
+        lastTestMailMessage: typeof currentMeta?.lastTestMailMessage === "string" ? currentMeta.lastTestMailMessage : "",
         updatedAt: typeof currentMeta?.updatedAt === "string" ? currentMeta.updatedAt : "",
         updatedByRole: currentMeta?.updatedByRole === "planner" ? "planner" : (currentMeta?.updatedByRole === "employee" ? "employee" : ""),
         updatedByName: typeof currentMeta?.updatedByName === "string" ? currentMeta.updatedByName : ""
@@ -1599,6 +1606,45 @@ function renderEmployeeEditorDetails() {
   renderEmployeePermissions();
   renderEmployeeStandardShifts();
   renderEmployeeContractPanel();
+}
+
+function renderEmployeeDetailMailStatus(employeeName = getSelectedEmployeeAdminName()) {
+  if (!employeeDetailMailStatus) {
+    return;
+  }
+
+  if (!employeeName || !employeeMeta?.[employeeName]) {
+    employeeDetailMailStatus.textContent = "";
+    employeeDetailMailStatus.classList.add("hidden");
+    return;
+  }
+
+  const recipientEmail = getEmployeeEmail(employeeName);
+  const status = employeeMeta[employeeName].lastTestMailStatus;
+  const message = employeeMeta[employeeName].lastTestMailMessage || "";
+  const sentAt = employeeMeta[employeeName].lastTestMailAt
+    ? ` op ${formatDateTime(employeeMeta[employeeName].lastTestMailAt)}`
+    : "";
+
+  if (!recipientEmail) {
+    employeeDetailMailStatus.textContent = "Geen e-mailadres ingesteld";
+    employeeDetailMailStatus.classList.remove("hidden");
+    return;
+  }
+
+  if (!status) {
+    employeeDetailMailStatus.textContent = `Testmail gaat naar ${recipientEmail} · klaar om te versturen`;
+    employeeDetailMailStatus.classList.remove("hidden");
+    return;
+  }
+
+  if (status === "sent") {
+    employeeDetailMailStatus.textContent = `Testmail gaat naar ${recipientEmail} · verzonden${sentAt}`;
+  } else {
+    employeeDetailMailStatus.textContent = `Testmail gaat naar ${recipientEmail} · mislukt${message ? ` · ${message}` : ""}`;
+  }
+
+  employeeDetailMailStatus.classList.remove("hidden");
 }
 
 function setEmployeeEmailFieldError(message = "") {
@@ -1995,6 +2041,9 @@ function syncEmployeeMeta() {
       );
       const normalizedEmail = normalizeEmployeeEmail(employeeMeta[employeeName].email);
       const normalizedMailTestUser = Boolean(employeeMeta[employeeName].mailTestUser);
+      const normalizedLastTestMailAt = typeof employeeMeta[employeeName].lastTestMailAt === "string" ? employeeMeta[employeeName].lastTestMailAt : "";
+      const normalizedLastTestMailStatus = typeof employeeMeta[employeeName].lastTestMailStatus === "string" ? employeeMeta[employeeName].lastTestMailStatus : "";
+      const normalizedLastTestMailMessage = typeof employeeMeta[employeeName].lastTestMailMessage === "string" ? employeeMeta[employeeName].lastTestMailMessage : "";
 
       if (employeeMeta[employeeName].status !== normalizedStatus) {
         employeeMeta[employeeName].status = normalizedStatus;
@@ -2013,6 +2062,21 @@ function syncEmployeeMeta() {
 
       if (employeeMeta[employeeName].mailTestUser !== normalizedMailTestUser) {
         employeeMeta[employeeName].mailTestUser = normalizedMailTestUser;
+        changed = true;
+      }
+
+      if (employeeMeta[employeeName].lastTestMailAt !== normalizedLastTestMailAt) {
+        employeeMeta[employeeName].lastTestMailAt = normalizedLastTestMailAt;
+        changed = true;
+      }
+
+      if (employeeMeta[employeeName].lastTestMailStatus !== normalizedLastTestMailStatus) {
+        employeeMeta[employeeName].lastTestMailStatus = normalizedLastTestMailStatus;
+        changed = true;
+      }
+
+      if (employeeMeta[employeeName].lastTestMailMessage !== normalizedLastTestMailMessage) {
+        employeeMeta[employeeName].lastTestMailMessage = normalizedLastTestMailMessage;
         changed = true;
       }
     }
@@ -12913,6 +12977,7 @@ function renderEmployeeStatusControls() {
     employeeDetailTitle.textContent = selectedEmployee || "Kies links een medewerker";
   }
   employeeStatusImpact.textContent = formatEmployeeStatusImpact(employeeStatusSelect.value);
+  renderEmployeeDetailMailStatus(selectedEmployee);
 }
 
 function renderBackupRestore() {
@@ -18831,7 +18896,7 @@ Bewaarde historie:
   renderDayPlanner();
   render();
   if (showSuccessMessage) {
-    showMessage("Opgeslagen", "success");
+    showMessage("Medewerker opgeslagen", "success");
   }
   return true;
 }
@@ -18894,12 +18959,36 @@ employeeDetailTestMailButton?.addEventListener("click", async () => {
     );
 
     if (!result.ok) {
+      employeeMeta[employeeName] = {
+        ...employeeMeta[employeeName],
+        lastTestMailAt: getNowIsoString(),
+        lastTestMailStatus: "failed",
+        lastTestMailMessage: result.error || "Testmail verzenden mislukt"
+      };
+      saveEmployeeMeta();
+      renderEmployeeDetailMailStatus(employeeName);
       showMessage(result.error || "Mail verzenden mislukt", "error");
       return;
     }
 
+    employeeMeta[employeeName] = {
+      ...employeeMeta[employeeName],
+      lastTestMailAt: getNowIsoString(),
+      lastTestMailStatus: "sent",
+      lastTestMailMessage: "Testmail verzonden"
+    };
+    saveEmployeeMeta();
+    renderEmployeeDetailMailStatus(employeeName);
     showMessage("Testmail verzonden", "success");
   } catch (error) {
+    employeeMeta[employeeName] = {
+      ...employeeMeta[employeeName],
+      lastTestMailAt: getNowIsoString(),
+      lastTestMailStatus: "failed",
+      lastTestMailMessage: error instanceof Error && error.message ? error.message : "Mail verzenden mislukt"
+    };
+    saveEmployeeMeta();
+    renderEmployeeDetailMailStatus(employeeName);
     showMessage(
       error instanceof Error && error.message ? error.message : "Mail verzenden mislukt",
       "error"

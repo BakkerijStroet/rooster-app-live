@@ -53,8 +53,8 @@ async function handler(req, res) {
     }
   }
 
-  const isTestMailRequest = payload?.subject === TEST_MAIL_SUBJECT || payload?.testMode === true;
-  const effectivePayload = isTestMailRequest
+  const isFixedTestMailRequest = payload?.testMode === true;
+  const effectivePayload = isFixedTestMailRequest
     ? {
         ...payload,
         to: [FIXED_TEST_MAIL_RECIPIENT],
