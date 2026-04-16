@@ -8,6 +8,7 @@ const currentEmployeeSelect = document.getElementById("currentEmployee");
 const currentEmployeeBadge = document.getElementById("currentEmployeeBadge");
 const roleIndicator = document.getElementById("roleIndicator");
 const brandRoleChip = document.getElementById("brandRoleChip");
+const mailTestModeBadge = document.getElementById("mailTestModeBadge");
 const testModeBadge = document.getElementById("testModeBadge");
 const switchUserButton = document.getElementById("switchUserButton");
 const resetTestDataButton = document.getElementById("resetTestDataButton");
@@ -100,6 +101,7 @@ const saveMailSettingsButton = document.getElementById("saveMailSettingsButton")
 const testMailButton = document.getElementById("testMailButton");
 const mailSettingsStatus = document.getElementById("mailSettingsStatus");
 const FIXED_TEST_MAIL_RECIPIENT = "info@bakkerijstroet.nl";
+const APP_MAIL_TEST_MODE_ENABLED = true;
 const EMPLOYEE_MAIL_TEST_MODE_ENABLED = true;
 const EMPLOYEE_MAIL_TEST_EMPLOYEE = "Twan";
 const employeeListCard = document.getElementById("employeeListCard");
@@ -1488,6 +1490,22 @@ function getEmployeeEmail(employeeName) {
   return normalizeEmployeeEmail(employeeMeta?.[employeeName]?.email);
 }
 
+function getAppMailSentMessage() {
+  return APP_MAIL_TEST_MODE_ENABLED
+    ? `Mail verzonden naar ${FIXED_TEST_MAIL_RECIPIENT} (testmodus)`
+    : "Mail verzonden";
+}
+
+function getAppMailQueuedMessage(isReminder = false) {
+  if (APP_MAIL_TEST_MODE_ENABLED) {
+    return isReminder
+      ? `Herinnering wordt verzonden naar ${FIXED_TEST_MAIL_RECIPIENT} (testmodus)`
+      : `Mail wordt verzonden naar ${FIXED_TEST_MAIL_RECIPIENT} (testmodus)`;
+  }
+
+  return isReminder ? "Herinnering wordt verzonden." : "Mail wordt verzonden.";
+}
+
 function isEmployeeMailTestEnabled(employeeName) {
   if (EMPLOYEE_MAIL_TEST_MODE_ENABLED) {
     return String(employeeName || "").trim().toLowerCase() === EMPLOYEE_MAIL_TEST_EMPLOYEE.toLowerCase();
@@ -1625,23 +1643,25 @@ function renderEmployeeDetailMailStatus(employeeName = getSelectedEmployeeAdminN
   const sentAt = employeeMeta[employeeName].lastTestMailAt
     ? ` op ${formatDateTime(employeeMeta[employeeName].lastTestMailAt)}`
     : "";
+  const testModeText = `Testmodus: mail gaat nu alleen naar ${FIXED_TEST_MAIL_RECIPIENT}`;
+  const employeeEmailText = recipientEmail ? `E-mailadres medewerker: ${recipientEmail}` : "Geen e-mailadres ingesteld";
 
   if (!recipientEmail) {
-    employeeDetailMailStatus.textContent = "Geen e-mailadres ingesteld";
+    employeeDetailMailStatus.textContent = `${employeeEmailText} · ${testModeText}`;
     employeeDetailMailStatus.classList.remove("hidden");
     return;
   }
 
   if (!status) {
-    employeeDetailMailStatus.textContent = `Testmail gaat naar ${recipientEmail} · klaar om te versturen`;
+    employeeDetailMailStatus.textContent = `${employeeEmailText} · ${testModeText} · klaar om te versturen`;
     employeeDetailMailStatus.classList.remove("hidden");
     return;
   }
 
   if (status === "sent") {
-    employeeDetailMailStatus.textContent = `Testmail gaat naar ${recipientEmail} · verzonden${sentAt}`;
+    employeeDetailMailStatus.textContent = `${employeeEmailText} · ${testModeText} · verzonden${sentAt}`;
   } else {
-    employeeDetailMailStatus.textContent = `Testmail gaat naar ${recipientEmail} · mislukt${message ? ` · ${message}` : ""}`;
+    employeeDetailMailStatus.textContent = `${employeeEmailText} · ${testModeText} · mislukt${message ? ` · ${message}` : ""}`;
   }
 
   employeeDetailMailStatus.classList.remove("hidden");
@@ -4126,7 +4146,7 @@ function showDeletedMessage(text = "Verwijderd.") {
 }
 
 function showRequestSubmittedMessage() {
-  showMessage("Aanvraag verzonden. Je aanvraag is in behandeling.", "success");
+  showMessage("Aanvraag verzonden", "success");
 }
 
 function confirmAction(text = "Weet je het zeker?") {
@@ -10425,6 +10445,7 @@ async function sendEmail(to, subject, message) {
         to: Array.isArray(to) ? to : [to],
         subject,
         message,
+        forceTestRecipient: APP_MAIL_TEST_MODE_ENABLED,
         fromName: normalizeMailSenderName(mailSettings?.senderName || ""),
         fromEmail: normalizeEmployeeEmail(mailSettings?.senderEmail || "")
       })
@@ -10465,7 +10486,7 @@ async function sendEmail(to, subject, message) {
     return {
       ok: true,
       id: typeof payload?.id === "string" ? payload.id : "",
-      message: payloadMessage || "Mail verzonden"
+      message: payloadMessage || getAppMailSentMessage()
     };
   } catch (error) {
     console.error("[test-mail] sendEmail:exception", error);
@@ -10532,7 +10553,7 @@ async function sendTestEmailRequest() {
 
     return {
       ok: true,
-      message: payloadMessage || "Mail verzonden"
+      message: payloadMessage || `Mail verzonden naar ${FIXED_TEST_MAIL_RECIPIENT} (testmodus)`
     };
   } catch (error) {
     console.error("[test-mail] sendTestEmailRequest:exception", error);
@@ -10707,7 +10728,9 @@ function queueRequestMailDelivery(request, mailEntry, options = {}) {
     templateKeyBuilder = null,
     persist = null,
     onStatusChange = null,
-    notifyUser = false
+    notifyUser = false,
+    notifySuccessMessage = getAppMailSentMessage(),
+    notifyErrorMessage = ""
   } = options;
 
   if (mailEntry.status === "config-missing" || mailEntry.status === "missing-email") {
@@ -10722,6 +10745,9 @@ function queueRequestMailDelivery(request, mailEntry, options = {}) {
     updateMailLogEntry(request, mailEntry, { status: "missing-email", error: "Geen e-mailadres ingesteld" }, persist);
     if (typeof onStatusChange === "function") {
       onStatusChange(request, mailEntry);
+    }
+    if (notifyUser) {
+      showMessage(notifyErrorMessage || "Mail verzenden mislukt: Geen e-mailadres ingesteld", "error");
     }
     return;
   }
@@ -10748,7 +10774,7 @@ function queueRequestMailDelivery(request, mailEntry, options = {}) {
         onStatusChange(request, mailEntry);
       }
       if (notifyUser) {
-        showMessage("Mail verzonden", "success");
+        showMessage(notifySuccessMessage || "Mail verzonden", "success");
       }
       return;
     }
@@ -10762,7 +10788,7 @@ function queueRequestMailDelivery(request, mailEntry, options = {}) {
       onStatusChange(request, mailEntry);
     }
     if (notifyUser) {
-      showMessage(`Mail verzenden mislukt: ${result.error || "onbekende fout"}`, "error");
+      showMessage(notifyErrorMessage || `Mail verzenden mislukt: ${result.error || "onbekende fout"}`, "error");
     }
   });
 }
@@ -10802,6 +10828,8 @@ function registerRequestMailNotification(request, type, employeeNames = [], opti
   const persist = typeof options.persist === "function" ? options.persist : null;
   const onStatusChange = typeof options.onStatusChange === "function" ? options.onStatusChange : null;
   const notifyUser = options.notifyUser === true;
+  const notifySuccessMessage = typeof options.notifySuccessMessage === "string" ? options.notifySuccessMessage : getAppMailSentMessage();
+  const notifyErrorMessage = typeof options.notifyErrorMessage === "string" ? options.notifyErrorMessage : "";
 
   const recipients = buildMailRecipients(employeeNames);
   const hasAtLeastOneEmail = recipients.some((recipient) => recipient.email);
@@ -10842,7 +10870,9 @@ function registerRequestMailNotification(request, type, employeeNames = [], opti
     messageBuilder,
     persist,
     onStatusChange,
-    notifyUser
+    notifyUser,
+    notifySuccessMessage,
+    notifyErrorMessage
   });
 }
 
@@ -10906,14 +10936,18 @@ function getMailDeliveryPrefix(type, status) {
   const isReminder = type === "reminder";
 
   if (status === "queued") {
-    return isReminder ? "Herinnering wordt verzonden." : "Mail wordt verzonden.";
+    return getAppMailQueuedMessage(isReminder);
   }
 
   if (status === "sent") {
-    return isReminder ? "Herinnering verzonden." : "Mail verzonden.";
+    return isReminder
+      ? `Herinnering verzonden naar ${FIXED_TEST_MAIL_RECIPIENT} (testmodus)`
+      : getAppMailSentMessage();
   }
 
-  return isReminder ? "Herinnering verzonden." : "Mail verzonden.";
+  return isReminder
+    ? `Herinnering verzonden naar ${FIXED_TEST_MAIL_RECIPIENT} (testmodus)`
+    : getAppMailSentMessage();
 }
 
 function getRequestMailStatusText(request, options = {}) {
@@ -14321,6 +14355,13 @@ function applyRoleUI() {
 
   if (resetTestDataButton) {
     resetTestDataButton.classList.toggle("hidden", !isPlannerRole() || currentDataMode !== "test");
+  }
+
+  if (mailTestModeBadge) {
+    const showMailTestMode = isPlannerRole() && APP_MAIL_TEST_MODE_ENABLED;
+    mailTestModeBadge.classList.toggle("hidden", !showMailTestMode);
+    mailTestModeBadge.hidden = !showMailTestMode;
+    mailTestModeBadge.setAttribute("aria-hidden", showMailTestMode ? "false" : "true");
   }
 
   if (dashboardTestMailButton) {
@@ -18425,7 +18466,11 @@ submitTimeOffButton.addEventListener("click", () => {
     : timeOffRequests[timeOffRequests.length - 1];
 
   if (currentTimeOffRequest) {
-    registerTimeOffMailNotification(currentTimeOffRequest, "submitted", [employeeName], { notifyUser: true });
+    registerTimeOffMailNotification(currentTimeOffRequest, "submitted", [employeeName], {
+      notifyUser: true,
+      notifySuccessMessage: getAppMailSentMessage(),
+      notifyErrorMessage: "Aanvraag opgeslagen, mail niet verzonden"
+    });
   }
   saveTimeOffRequests();
   persistProtectedChange({
@@ -18598,7 +18643,11 @@ submitSwapButton.addEventListener("click", () => {
     }
 
     if (currentRequest?.employeeName) {
-      registerSwapMailNotification(currentRequest, "submitted", [currentRequest.employeeName], { notifyUser: true });
+      registerSwapMailNotification(currentRequest, "submitted", [currentRequest.employeeName], {
+        notifyUser: true,
+        notifySuccessMessage: getAppMailSentMessage(),
+        notifyErrorMessage: "Aanvraag opgeslagen, mail niet verzonden"
+      });
     }
 
     if (currentRequest?.targetEmployeeName) {
@@ -18623,7 +18672,7 @@ submitSwapButton.addEventListener("click", () => {
     swapTargetEmployeeSelect.value = "";
     editingSwapId = null;
     render();
-    showMessage("Ruilverzoek verzonden.", "success");
+    showRequestSubmittedMessage();
   });
 
 removeEmployeeButton?.addEventListener("click", () => {
@@ -18952,11 +19001,7 @@ employeeDetailTestMailButton?.addEventListener("click", async () => {
   employeeDetailTestMailButton.textContent = "Verzenden...";
 
   try {
-    const result = await sendEmail(
-      employeeEmail,
-      "Test mail Roosterapp",
-      "Dit is een testmail vanuit de Roosterapp"
-    );
+    const result = await sendTestEmailRequest();
 
     if (!result.ok) {
       employeeMeta[employeeName] = {
@@ -18975,11 +19020,11 @@ employeeDetailTestMailButton?.addEventListener("click", async () => {
       ...employeeMeta[employeeName],
       lastTestMailAt: getNowIsoString(),
       lastTestMailStatus: "sent",
-      lastTestMailMessage: "Testmail verzonden"
+      lastTestMailMessage: `Testmodus: mail gaat nu alleen naar ${FIXED_TEST_MAIL_RECIPIENT}`
     };
     saveEmployeeMeta();
     renderEmployeeDetailMailStatus(employeeName);
-    showMessage("Testmail verzonden", "success");
+    showMessage(`Testmail verzonden. Testmodus: mail gaat nu alleen naar ${FIXED_TEST_MAIL_RECIPIENT}`, "success");
   } catch (error) {
     employeeMeta[employeeName] = {
       ...employeeMeta[employeeName],
@@ -20171,3 +20216,5 @@ if (needsLoginSelection()) {
   closeLoginOverlay();
   reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
 }
+
+

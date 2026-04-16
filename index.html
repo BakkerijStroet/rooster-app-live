@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="nl">
 <head>
   <meta charset="UTF-8">
@@ -22,6 +22,10 @@
         </div>
         <div class="brand-actions">
           <span class="brand-chip" id="brandRoleChip">Planneromgeving</span>
+          <div id="mailTestModeBadge" class="mail-test-mode-badge hidden" aria-live="polite">
+            <strong>Mail testmodus actief</strong>
+            <span>Alle mails gaan tijdelijk naar info@bakkerijstroet.nl</span>
+          </div>
           <button type="button" id="dashboardTestMailButton" class="secondary hidden">Test mail</button>
           <button type="button" id="switchUserButton" class="secondary">Wissel gebruiker</button>
         </div>
@@ -196,7 +200,7 @@
       </section>
 
       <section class="staff-panel role-planner app-panel" data-panel="planning" data-slot="bottom">
-        <h2>Week kopiëren</h2>
+        <h2>Week kopiÃ«ren</h2>
         <div class="staff-actions">
           <label>
             Bronweek
@@ -208,7 +212,7 @@
           </label>
         </div>
         <div class="form-actions">
-          <button type="button" id="copyPreviousWeekButton" class="secondary">Week kopiëren</button>
+          <button type="button" id="copyPreviousWeekButton" class="secondary">Week kopiÃ«ren</button>
         </div>
       </section>
 
@@ -490,7 +494,7 @@
 
       <section class="staff-panel role-planner app-panel" data-panel="week-current" data-week-panel data-slot="left" id="dayPlannerPanel">
         <h2>Dag invullen</h2>
-        <p class="panel-note">Kies een dag en plan alle diensten van die dag in één keer.</p>
+        <p class="panel-note">Kies een dag en plan alle diensten van die dag in Ã©Ã©n keer.</p>
         <div class="staff-actions">
           <label>
             Dag
@@ -748,7 +752,7 @@
                   <option value="">Kies medewerker</option>
                 </select>
               </label>
-              <div id="swapTargetHint" class="panel-note request-form-full">Kies eerst een dienst om geschikte collega’s te zien.</div>
+              <div id="swapTargetHint" class="panel-note request-form-full">Kies eerst een dienst om geschikte collegaâ€™s te zien.</div>
               <div id="swapSuggestionList" class="request-suggestion-list request-form-full"></div>
               <div id="swapNoCandidateHelp" class="request-help-card request-form-full hidden">
                 <strong>Geen geschikte collega beschikbaar</strong>
@@ -952,3 +956,4 @@
   <script src="app.js"></script>
 </body>
 </html>
+
