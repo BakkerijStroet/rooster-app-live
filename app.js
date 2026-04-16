@@ -292,6 +292,8 @@ let pendingPlannerFocus = null;
 let planningOverviewExpandedWeek = "";
 const mobileMediaQuery = window.matchMedia("(max-width: 640px)");
 let messageTimeoutId = null;
+let activeMessageState = null;
+let queuedMessageStates = [];
 const employeeAllowedTabs = ["week-current", "my-schedule", "my-hours", "requests"];
 let planningDataRevision = 0;
 let requestDataRevision = 0;
@@ -4118,35 +4120,132 @@ function exportHoursForAdministration() {
   showMessage("Urenexport gestart.", "success");
 }
 
-function showMessage(text, type) {
-  const normalizedType = type === "error" || type === "warning" ? type : "success";
-  const autoHideMs = normalizedType === "error" ? 4200 : normalizedType === "warning" ? 3400 : 2200;
+function getMessageAutoHideMs(type) {
+  return type === "error" ? 4200 : type === "warning" ? 3400 : 2200;
+}
 
-  messageBox.textContent = text;
-  messageBox.className = `message ${normalizedType}`;
-  messageBox.setAttribute("role", normalizedType === "error" ? "alert" : "status");
-  messageBox.setAttribute("aria-live", normalizedType === "error" ? "assertive" : "polite");
+function renderActiveMessage() {
+  if (!messageBox) {
+    return;
+  }
 
+  if (!activeMessageState) {
+    messageBox.textContent = "";
+    messageBox.hidden = true;
+    messageBox.className = "message hidden compact-message";
+    messageBox.removeAttribute("role");
+    messageBox.removeAttribute("aria-live");
+    return;
+  }
+
+  messageBox.textContent = activeMessageState.text;
+  messageBox.hidden = false;
+  messageBox.className = `message compact-message ${activeMessageState.type}`;
+  messageBox.setAttribute("role", activeMessageState.type === "error" ? "alert" : "status");
+  messageBox.setAttribute("aria-live", activeMessageState.type === "error" ? "assertive" : "polite");
+}
+
+function scheduleActiveMessageHide() {
   if (messageTimeoutId) {
     window.clearTimeout(messageTimeoutId);
     messageTimeoutId = null;
   }
 
+  if (!activeMessageState) {
+    return;
+  }
+
   messageTimeoutId = window.setTimeout(() => {
-    hideMessage();
-  }, autoHideMs);
+    dismissActiveMessage();
+  }, activeMessageState.autoHideMs || getMessageAutoHideMs(activeMessageState.type));
 }
 
-function showSavedMessage() {
-  showMessage("Opgeslagen.", "success");
+function pumpMessageQueue() {
+  if (activeMessageState || !queuedMessageStates.length) {
+    return;
+  }
+
+  activeMessageState = queuedMessageStates.shift();
+  renderActiveMessage();
+  scheduleActiveMessageHide();
 }
 
-function showDeletedMessage(text = "Verwijderd.") {
+function dismissActiveMessage() {
+  if (messageTimeoutId) {
+    window.clearTimeout(messageTimeoutId);
+    messageTimeoutId = null;
+  }
+
+  activeMessageState = null;
+  renderActiveMessage();
+
+  if (queuedMessageStates.length) {
+    window.setTimeout(() => {
+      pumpMessageQueue();
+    }, 80);
+  }
+}
+
+function enqueueMessage(text, type, autoHideMs) {
+  if (!text) {
+    return;
+  }
+
+  const normalizedType = type === "error" || type === "warning" ? type : "success";
+  const nextMessage = {
+    text,
+    type: normalizedType,
+    autoHideMs: autoHideMs || getMessageAutoHideMs(normalizedType)
+  };
+
+  const isDuplicateActive = activeMessageState && activeMessageState.text === nextMessage.text && activeMessageState.type === nextMessage.type;
+  const lastQueuedMessage = queuedMessageStates.length ? queuedMessageStates[queuedMessageStates.length - 1] : null;
+  const isDuplicateQueued = lastQueuedMessage && lastQueuedMessage.text === nextMessage.text && lastQueuedMessage.type === nextMessage.type;
+
+  if (isDuplicateActive || isDuplicateQueued) {
+    return;
+  }
+
+  if (!activeMessageState) {
+    activeMessageState = nextMessage;
+    renderActiveMessage();
+    scheduleActiveMessageHide();
+    return;
+  }
+
+  queuedMessageStates.push(nextMessage);
+}
+
+function showMessage(text, type) {
+  enqueueMessage(text, type);
+}
+
+function showSuccessNotice(text, options = {}) {
+  const { deferred = false } = options;
+  if (deferred) {
+    window.setTimeout(() => {
+      showMessage(text, "success");
+    }, 0);
+    return;
+  }
+
   showMessage(text, "success");
 }
 
+function triggerSuccess(text, options = {}) {
+  showSuccessNotice(text, { deferred: true, ...options });
+}
+
+function showSavedMessage() {
+  showSuccessNotice("Opgeslagen.");
+}
+
+function showDeletedMessage(text = "Verwijderd.") {
+  showSuccessNotice(text);
+}
+
 function showRequestSubmittedMessage() {
-  showMessage("Aanvraag verzonden", "success");
+  triggerSuccess("Aanvraag verzonden");
 }
 
 function confirmAction(text = "Weet je het zeker?") {
@@ -4159,10 +4258,9 @@ function hideMessage() {
     messageTimeoutId = null;
   }
 
-  messageBox.textContent = "";
-  messageBox.className = "message hidden";
-  messageBox.removeAttribute("role");
-  messageBox.removeAttribute("aria-live");
+  activeMessageState = null;
+  queuedMessageStates = [];
+  renderActiveMessage();
 }
 
 function removeMatchingItems(list, predicate) {
@@ -16122,6 +16220,7 @@ function render() {
     renderEmployeeSelectors();
     renderActiveTabContent();
     maybeShowOpenRequestReminder();
+    renderActiveMessage();
   } catch (error) {
     reportAppError("Er ging iets mis bij het verversen van het scherm.", error, "render");
   }
@@ -18945,7 +19044,7 @@ Bewaarde historie:
   renderDayPlanner();
   render();
   if (showSuccessMessage) {
-    showMessage("Medewerker opgeslagen", "success");
+    triggerSuccess("Medewerker opgeslagen");
   }
   return true;
 }
@@ -20216,5 +20315,10 @@ if (needsLoginSelection()) {
   closeLoginOverlay();
   reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
 }
+
+
+
+
+
 
 
