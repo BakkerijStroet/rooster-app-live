@@ -679,45 +679,83 @@
           <strong>Geen medewerker gekoppeld</strong>
         </div>
         <div class="request-composer-grid">
-          <section id="requestTimeOffComposer" class="request-composer-card">
+          <section id="requestFreeComposer" class="request-composer-card">
             <div class="request-composer-head">
               <div>
-                <h3 id="requestTimeOffTitle">Vrije dag aanvragen</h3>
+                <h3>Vrije dag aanvragen</h3>
               </div>
             </div>
             <div class="request-form-grid">
               <label class="employee-picker-control">
                 <span>Medewerker</span>
-                <select id="timeOffEmployee">
+                <select id="freeDayEmployee">
                   <option value="">Kies medewerker</option>
                 </select>
               </label>
               <label>
-                <span>Type aanvraag</span>
-                <select id="timeOffType">
-                  <option value="vrij">Vrije dag</option>
-                  <option value="vakantie">Vakantie</option>
-                  <option value="ziek">Ziekmelding</option>
-                </select>
-              </label>
-              <label>
                 <span>Datum</span>
-                <input type="date" id="timeOffDate">
-              </label>
-              <label id="timeOffStartDateLabel" class="hidden">
-                <span>Begindatum</span>
-                <input type="date" id="timeOffStartDate">
-              </label>
-              <label id="timeOffEndDateLabel" class="hidden">
-                <span>Einddatum</span>
-                <input type="date" id="timeOffEndDate">
+                <input type="date" id="freeDayDate">
               </label>
               <label class="request-form-full">
                 <span>Reden of toelichting</span>
-                <input type="text" id="timeOffReason" placeholder="Korte toelichting">
+                <input type="text" id="freeDayReason" placeholder="Korte toelichting">
               </label>
             </div>
-            <button type="button" id="submitTimeOffButton">Aanvraag indienen</button>
+            <button type="button" id="submitFreeDayButton">Aanvraag indienen</button>
+          </section>
+
+          <section id="requestVacationComposer" class="request-composer-card">
+            <div class="request-composer-head">
+              <div>
+                <h3>Vakantie aanvragen</h3>
+              </div>
+            </div>
+            <div class="request-form-grid">
+              <label class="employee-picker-control">
+                <span>Medewerker</span>
+                <select id="vacationEmployee">
+                  <option value="">Kies medewerker</option>
+                </select>
+              </label>
+              <label>
+                <span>Begindatum</span>
+                <input type="date" id="vacationStartDate">
+              </label>
+              <label>
+                <span>Einddatum</span>
+                <input type="date" id="vacationEndDate">
+              </label>
+              <label class="request-form-full">
+                <span>Reden of toelichting</span>
+                <input type="text" id="vacationReason" placeholder="Korte toelichting">
+              </label>
+            </div>
+            <button type="button" id="submitVacationButton">Aanvraag indienen</button>
+          </section>
+
+          <section id="requestSickComposer" class="request-composer-card">
+            <div class="request-composer-head">
+              <div>
+                <h3>Ziekmelding doorgeven</h3>
+              </div>
+            </div>
+            <div class="request-form-grid">
+              <label class="employee-picker-control">
+                <span>Medewerker</span>
+                <select id="sickEmployee">
+                  <option value="">Kies medewerker</option>
+                </select>
+              </label>
+              <label>
+                <span>Datum ziekmelding</span>
+                <input type="date" id="sickDate">
+              </label>
+              <label class="request-form-full">
+                <span>Reden of toelichting</span>
+                <input type="text" id="sickReason" placeholder="Korte toelichting">
+              </label>
+            </div>
+            <button type="button" id="submitSickButton">Aanvraag indienen</button>
           </section>
 
           <section id="requestSwapComposer" class="request-composer-card">

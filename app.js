@@ -109,19 +109,19 @@ const employeeStandardShiftList = document.getElementById("employeeStandardShift
 const employeePermissionsList = document.getElementById("employeePermissionsList");
 const employeeContractPanel = document.getElementById("employeeContractPanel");
 const planningAuthorizationHint = document.getElementById("planningAuthorizationHint");
-const timeOffEmployeeSelect = document.getElementById("timeOffEmployee");
-const timeOffTypeSelect = document.getElementById("timeOffType");
-const timeOffDateInput = document.getElementById("timeOffDate");
-const timeOffDateLabel = timeOffDateInput?.closest("label") || null;
-const timeOffDateLabelText = timeOffDateLabel?.querySelector("span") || null;
-const timeOffStartDateInput = document.getElementById("timeOffStartDate");
-const timeOffEndDateInput = document.getElementById("timeOffEndDate");
-const timeOffStartDateLabel = document.getElementById("timeOffStartDateLabel");
-const timeOffEndDateLabel = document.getElementById("timeOffEndDateLabel");
-const timeOffStartDateLabelText = timeOffStartDateLabel?.querySelector("span") || null;
-const timeOffEndDateLabelText = timeOffEndDateLabel?.querySelector("span") || null;
-const timeOffReasonInput = document.getElementById("timeOffReason");
-const submitTimeOffButton = document.getElementById("submitTimeOffButton");
+const freeDayEmployeeSelect = document.getElementById("freeDayEmployee");
+const freeDayDateInput = document.getElementById("freeDayDate");
+const freeDayReasonInput = document.getElementById("freeDayReason");
+const submitFreeDayButton = document.getElementById("submitFreeDayButton");
+const vacationEmployeeSelect = document.getElementById("vacationEmployee");
+const vacationStartDateInput = document.getElementById("vacationStartDate");
+const vacationEndDateInput = document.getElementById("vacationEndDate");
+const vacationReasonInput = document.getElementById("vacationReason");
+const submitVacationButton = document.getElementById("submitVacationButton");
+const sickEmployeeSelect = document.getElementById("sickEmployee");
+const sickDateInput = document.getElementById("sickDate");
+const sickReasonInput = document.getElementById("sickReason");
+const submitSickButton = document.getElementById("submitSickButton");
 const swapEmployeeSelect = document.getElementById("swapEmployee");
 const swapDateInput = document.getElementById("swapDate");
 const swapEntrySelect = document.getElementById("swapEntry");
@@ -147,9 +147,11 @@ const requestTypeFreeButton = document.getElementById("requestTypeFreeButton");
 const requestTypeVacationButton = document.getElementById("requestTypeVacationButton");
 const requestTypeSickButton = document.getElementById("requestTypeSickButton");
 const requestTypeSwapButton = document.getElementById("requestTypeSwapButton");
-const requestTimeOffTitle = document.getElementById("requestTimeOffTitle");
-const requestTimeOffComposer = document.getElementById("requestTimeOffComposer");
+const requestFreeComposer = document.getElementById("requestFreeComposer");
+const requestVacationComposer = document.getElementById("requestVacationComposer");
+const requestSickComposer = document.getElementById("requestSickComposer");
 const requestSwapComposer = document.getElementById("requestSwapComposer");
+const requestsTopPanel = document.querySelector('[data-panel="requests"][data-slot="top"]');
 const requestTimeOffPanel = document.getElementById("requestTimeOffPanel");
 const requestSwapPanel = document.getElementById("requestSwapPanel");
 const requestOpenHeading = document.getElementById("requestOpenHeading");
@@ -285,6 +287,37 @@ let activeRole = preferences.lastRole === "employee" ? "employee" : "planner";
 let editingTimeOffId = null;
 let editingSwapId = null;
 let activeRequestComposer = "";
+let activeRequestType = "vrije-dag";
+let vrijeDagForm = {
+  employeeName: "",
+  type: "vrij",
+  date: "",
+  startDate: "",
+  endDate: "",
+  reason: ""
+};
+let vakantieForm = {
+  employeeName: "",
+  type: "vakantie",
+  date: "",
+  startDate: "",
+  endDate: "",
+  reason: ""
+};
+let ziekmeldingForm = {
+  employeeName: "",
+  type: "ziek",
+  date: "",
+  startDate: "",
+  endDate: "",
+  reason: ""
+};
+let ruilForm = {
+  employeeName: "",
+  date: "",
+  entryValue: "",
+  targetEmployeeName: ""
+};
 let showSuitableEmployees = false;
 let autoFillPreviewEntries = [];
 let undoState = null;
@@ -4236,6 +4269,11 @@ function triggerSuccess(text, options = {}) {
   showSuccessNotice(text, { deferred: true, ...options });
 }
 
+function showToast(text, options = {}) {
+  const { type = "success" } = options;
+  showMessage(text, type);
+}
+
 function showSavedMessage() {
   showSuccessNotice("Opgeslagen.");
 }
@@ -5224,7 +5262,9 @@ function syncScopedEmployeeSelectors(employeeName = getRoleScopedEmployeeName())
   currentEmployeeSelect.value = employeeName;
   portalEmployeeSelect.value = employeeName;
   hoursEmployeeSelect.value = employeeName;
-  timeOffEmployeeSelect.value = employeeName;
+  getAllTimeOffEmployeeSelects().forEach((select) => {
+    select.value = employeeName;
+  });
   swapEmployeeSelect.value = employeeName;
 }
 
@@ -11679,6 +11719,316 @@ function renderPlannerRequestCards(target, requests, emptyText, requestType) {
   }).join("");
 }
 
+function getComposerTimeOffType(composer) {
+  if (composer === "vacation") {
+    return "vakantie";
+  }
+
+  if (composer === "sick") {
+    return "ziek";
+  }
+
+  return "vrij";
+}
+
+function getRequestTypeFromComposer(composer) {
+  if (composer === "vacation") {
+    return "vakantie";
+  }
+
+  if (composer === "sick") {
+    return "ziekmelding";
+  }
+
+  if (composer === "swap") {
+    return "ruilen";
+  }
+
+  return "vrije-dag";
+}
+
+function getComposerFromRequestType(requestType) {
+  if (requestType === "vakantie") {
+    return "vacation";
+  }
+
+  if (requestType === "ziekmelding") {
+    return "sick";
+  }
+
+  if (requestType === "ruilen") {
+    return "swap";
+  }
+
+  return "free";
+}
+
+function getRequestComposerState(composer = activeRequestComposer) {
+  if (composer === "vacation") {
+    return vakantieForm;
+  }
+
+  if (composer === "sick") {
+    return ziekmeldingForm;
+  }
+
+  if (composer === "swap") {
+    return ruilForm;
+  }
+
+  return vrijeDagForm;
+}
+
+function getTimeOffFormElements(composer = activeRequestComposer) {
+  if (composer === "vacation") {
+    return {
+      composerSection: requestVacationComposer,
+      employeeSelect: vacationEmployeeSelect,
+      dateInput: null,
+      startDateInput: vacationStartDateInput,
+      endDateInput: vacationEndDateInput,
+      reasonInput: vacationReasonInput,
+      submitButton: submitVacationButton
+    };
+  }
+
+  if (composer === "sick") {
+    return {
+      composerSection: requestSickComposer,
+      employeeSelect: sickEmployeeSelect,
+      dateInput: sickDateInput,
+      startDateInput: null,
+      endDateInput: null,
+      reasonInput: sickReasonInput,
+      submitButton: submitSickButton
+    };
+  }
+
+  return {
+    composerSection: requestFreeComposer,
+    employeeSelect: freeDayEmployeeSelect,
+    dateInput: freeDayDateInput,
+    startDateInput: null,
+    endDateInput: null,
+    reasonInput: freeDayReasonInput,
+    submitButton: submitFreeDayButton
+  };
+}
+
+function getAllTimeOffEmployeeSelects() {
+  return [freeDayEmployeeSelect, vacationEmployeeSelect, sickEmployeeSelect].filter(Boolean);
+}
+
+function syncTimeOffFormStateFromFields(composer = activeRequestComposer) {
+  const formState = getRequestComposerState(composer);
+  const formElements = getTimeOffFormElements(composer);
+
+  if (!formState || composer === "swap" || !formElements) {
+    return;
+  }
+
+  formState.employeeName = formElements.employeeSelect?.value || formState.employeeName || "";
+  formState.type = getComposerTimeOffType(composer);
+  formState.date = formElements.dateInput?.value || "";
+  formState.startDate = formElements.startDateInput?.value || "";
+  formState.endDate = formElements.endDateInput?.value || "";
+  formState.reason = formElements.reasonInput?.value || "";
+}
+
+function syncSwapFormStateFromFields() {
+  const formState = getRequestComposerState("swap");
+
+  formState.employeeName = swapEmployeeSelect?.value || formState.employeeName || "";
+  formState.date = swapDateInput?.value || "";
+  formState.entryValue = swapEntrySelect?.value || "";
+  formState.targetEmployeeName = swapTargetEmployeeSelect?.value || "";
+}
+
+function applyActiveRequestComposerStateToFields() {
+  const composer = activeRequestComposer || "";
+  const formState = getRequestComposerState(composer);
+
+  if (composer === "swap") {
+    if (swapEmployeeSelect && formState.employeeName && swapEmployeeSelect.value !== formState.employeeName) {
+      swapEmployeeSelect.value = formState.employeeName;
+    }
+
+    if (swapDateInput && swapDateInput.value !== (formState.date || "")) {
+      swapDateInput.value = formState.date || "";
+    }
+
+    renderSwapEntryOptions();
+
+    if (swapEntrySelect && swapEntrySelect.value !== (formState.entryValue || "")) {
+      const entryOptionExists = Array.from(swapEntrySelect.options).some((option) => option.value === (formState.entryValue || ""));
+      swapEntrySelect.value = entryOptionExists ? (formState.entryValue || "") : "";
+    }
+
+    renderSwapTargetOptions();
+
+    if (swapTargetEmployeeSelect && swapTargetEmployeeSelect.value !== (formState.targetEmployeeName || "")) {
+      const targetOptionExists = Array.from(swapTargetEmployeeSelect.options).some((option) => option.value === (formState.targetEmployeeName || ""));
+      swapTargetEmployeeSelect.value = targetOptionExists ? (formState.targetEmployeeName || "") : "";
+    }
+
+    return;
+  }
+
+  const formElements = getTimeOffFormElements(composer);
+
+  if (!formElements) {
+    return;
+  }
+
+  if (formElements.employeeSelect && formState.employeeName && formElements.employeeSelect.value !== formState.employeeName) {
+    formElements.employeeSelect.value = formState.employeeName;
+  }
+
+  if (formElements.dateInput && formElements.dateInput.value !== (formState.date || "")) {
+    formElements.dateInput.value = formState.date || "";
+  }
+
+  if (formElements.startDateInput && formElements.startDateInput.value !== (formState.startDate || "")) {
+    formElements.startDateInput.value = formState.startDate || "";
+  }
+
+  if (formElements.endDateInput && formElements.endDateInput.value !== (formState.endDate || "")) {
+    formElements.endDateInput.value = formState.endDate || "";
+  }
+
+  if (formElements.reasonInput && formElements.reasonInput.value !== (formState.reason || "")) {
+    formElements.reasonInput.value = formState.reason || "";
+  }
+}
+
+function resetTimeOffComposer(options = {}) {
+  const {
+    nextComposer = activeRequestComposer,
+    preserveEmployee = true
+  } = options;
+
+  editingTimeOffId = null;
+
+  const formState = getRequestComposerState(nextComposer);
+  const formElements = getTimeOffFormElements(nextComposer);
+
+  if (formState && nextComposer !== "swap") {
+    formState.employeeName = preserveEmployee ? (formElements?.employeeSelect?.value || formState.employeeName || "") : "";
+    formState.type = getComposerTimeOffType(nextComposer);
+    formState.date = "";
+    formState.startDate = "";
+    formState.endDate = "";
+    formState.reason = "";
+  }
+
+  if (!formElements) {
+    return;
+  }
+
+  if (!preserveEmployee && formElements.employeeSelect) {
+    formElements.employeeSelect.value = "";
+  }
+
+  if (formElements.dateInput) {
+    formElements.dateInput.value = "";
+  }
+
+  if (formElements.startDateInput) {
+    formElements.startDateInput.value = "";
+  }
+
+  if (formElements.endDateInput) {
+    formElements.endDateInput.value = "";
+  }
+
+  if (formElements.reasonInput) {
+    formElements.reasonInput.value = "";
+  }
+}
+
+function resetSwapComposer(options = {}) {
+  const { preserveEmployee = true } = options;
+
+  editingSwapId = null;
+
+  ruilForm = {
+    employeeName: preserveEmployee ? (swapEmployeeSelect?.value || ruilForm.employeeName || "") : "",
+    date: "",
+    entryValue: "",
+    targetEmployeeName: ""
+  };
+
+  if (!preserveEmployee && swapEmployeeSelect) {
+    swapEmployeeSelect.value = "";
+  }
+
+  if (swapDateInput) {
+    swapDateInput.value = "";
+  }
+
+  if (swapEntrySelect) {
+    swapEntrySelect.value = "";
+  }
+
+  if (swapTargetEmployeeSelect) {
+    swapTargetEmployeeSelect.value = "";
+  }
+
+  if (swapSuggestionList) {
+    swapSuggestionList.innerHTML = "";
+    swapSuggestionList.classList.add("hidden");
+    swapSuggestionList.hidden = true;
+  }
+
+  if (swapNoCandidateHelp) {
+    swapNoCandidateHelp.classList.add("hidden");
+    swapNoCandidateHelp.hidden = true;
+  }
+
+  if (swapEscalateButton) {
+    swapEscalateButton.classList.add("hidden");
+    swapEscalateButton.hidden = true;
+    swapEscalateButton.disabled = false;
+  }
+
+  if (swapTargetHint) {
+    swapTargetHint.textContent = "";
+  }
+
+  renderSwapEntryOptions();
+  renderSwapTargetOptions();
+}
+
+function resetRequestComposerForms(nextComposer = activeRequestComposer) {
+  const preserveEmployee = !isPlannerRole();
+  resetTimeOffComposer({ nextComposer, preserveEmployee });
+  resetSwapComposer({ preserveEmployee });
+}
+
+function activateRequestComposer(nextComposer, options = {}) {
+  if (activeRequestComposer === "swap") {
+    syncSwapFormStateFromFields();
+  } else if (activeRequestComposer === "free" || activeRequestComposer === "vacation" || activeRequestComposer === "sick") {
+    syncTimeOffFormStateFromFields(activeRequestComposer);
+  }
+
+  const { preserveValues = false } = options;
+  const normalizedComposer = typeof nextComposer === "string" ? nextComposer : "";
+
+  if (!preserveValues) {
+    resetRequestComposerForms(normalizedComposer);
+  }
+
+  activeRequestComposer = normalizedComposer;
+  activeRequestType = getRequestTypeFromComposer(normalizedComposer);
+  renderRequestComposerState();
+}
+
+function activateRequestType(nextType, options = {}) {
+  const normalizedType = typeof nextType === "string" ? nextType : "vrije-dag";
+  activeRequestType = normalizedType;
+  activateRequestComposer(getComposerFromRequestType(normalizedType), options);
+}
 function renderRequestsOpenCards() {
   if (isPlannerRole()) {
     requestsOpenCards.className = "request-list hidden";
@@ -11738,100 +12088,53 @@ function renderRequestsOpenCards() {
 }
 
 function renderRequestComposerState() {
-  const normalizedComposer = activeRequestComposer || "";
-  const isTimeOffComposer = normalizedComposer === "free" || normalizedComposer === "vacation" || normalizedComposer === "sick";
+  const normalizedComposer = activeRequestComposer || getComposerFromRequestType(activeRequestType) || "free";
+  activeRequestComposer = normalizedComposer;
+  activeRequestType = getRequestTypeFromComposer(normalizedComposer);
+  applyActiveRequestComposerStateToFields();
   const isEmployee = !isPlannerRole();
-  const timeOffTypeLabel = timeOffTypeSelect?.closest("label") || null;
-  const timeOffReasonLabel = timeOffReasonInput?.closest("label") || null;
+  const requestEmployeeLabels = [
+    requestFreeComposer?.querySelector(".employee-picker-control"),
+    requestVacationComposer?.querySelector(".employee-picker-control"),
+    requestSickComposer?.querySelector(".employee-picker-control"),
+    requestSwapComposer?.querySelector(".employee-picker-control")
+  ].filter(Boolean);
   const swapDateLabel = swapDateInput?.closest("label") || null;
 
-  requestTypeFreeButton?.classList.toggle("active", normalizedComposer === "free");
-  requestTypeVacationButton?.classList.toggle("active", normalizedComposer === "vacation");
-  requestTypeSickButton?.classList.toggle("active", normalizedComposer === "sick");
-  requestTypeSwapButton?.classList.toggle("active", normalizedComposer === "swap");
-
-  if (timeOffTypeSelect) {
-    if (normalizedComposer === "vacation") {
-      timeOffTypeSelect.value = "vakantie";
-    } else if (normalizedComposer === "sick") {
-      timeOffTypeSelect.value = "ziek";
-    } else if (normalizedComposer === "free") {
-      timeOffTypeSelect.value = "vrij";
-    }
-  }
-
-  const requestType = timeOffTypeSelect?.value || "vrij";
-  const isVacationRequest = requestType === "vakantie";
-  const usesSingleDate = requestType !== "vakantie";
-  timeOffDateLabel?.classList.toggle("hidden", isVacationRequest);
-  timeOffStartDateLabel?.classList.toggle("hidden", !isVacationRequest);
-  timeOffEndDateLabel?.classList.toggle("hidden", !isVacationRequest);
-  if (timeOffDateLabel) {
-    timeOffDateLabel.hidden = isVacationRequest;
-  }
-  if (timeOffStartDateLabel) {
-    timeOffStartDateLabel.hidden = !isVacationRequest;
-  }
-  if (timeOffEndDateLabel) {
-    timeOffEndDateLabel.hidden = !isVacationRequest;
-  }
-
-  if (timeOffDateInput) {
-    timeOffDateInput.disabled = !usesSingleDate;
-  }
-
-  if (timeOffStartDateInput) {
-    timeOffStartDateInput.disabled = !isVacationRequest;
-  }
-
-  if (timeOffEndDateInput) {
-    timeOffEndDateInput.disabled = !isVacationRequest;
-  }
-
-  if (timeOffDateLabelText) {
-    timeOffDateLabelText.textContent = requestType === "ziek" ? "Datum ziekmelding" : "Datum";
-  }
-
-  if (timeOffStartDateLabelText) {
-    timeOffStartDateLabelText.textContent = "Begindatum";
-  }
-
-  if (timeOffEndDateLabelText) {
-    timeOffEndDateLabelText.textContent = "Einddatum";
-  }
-
-  if (requestTimeOffTitle) {
-    requestTimeOffTitle.textContent = requestType === "vakantie"
-      ? "Vakantie aanvragen"
-      : requestType === "ziek"
-        ? "Ziekmelding doorgeven"
-        : "Vrije dag aanvragen";
-  }
-
-  if (timeOffTypeLabel) {
-    timeOffTypeLabel.classList.toggle("hidden", isEmployee);
-    timeOffTypeLabel.hidden = isEmployee;
-  }
-  if (timeOffReasonLabel) {
-    timeOffReasonLabel.classList.toggle("hidden", false);
-    timeOffReasonLabel.hidden = false;
+  requestTypeFreeButton?.classList.toggle("active", activeRequestType === "vrije-dag");
+  requestTypeVacationButton?.classList.toggle("active", activeRequestType === "vakantie");
+  requestTypeSickButton?.classList.toggle("active", activeRequestType === "ziekmelding");
+  requestTypeSwapButton?.classList.toggle("active", activeRequestType === "ruilen");
+  if (requestsTopPanel) {
+    requestsTopPanel.dataset.activeTab = activeRequestType;
   }
   if (swapDateLabel) {
     swapDateLabel.classList.toggle("hidden", isEmployee);
     swapDateLabel.hidden = isEmployee;
   }
+  requestEmployeeLabels.forEach((label) => {
+    label.classList.toggle("hidden", isEmployee);
+    label.hidden = isEmployee;
+  });
 
-  requestTimeOffComposer?.classList.toggle("hidden", !isTimeOffComposer);
-  requestSwapComposer?.classList.toggle("hidden", normalizedComposer !== "swap");
-  if (requestTimeOffComposer) {
-    requestTimeOffComposer.hidden = !isTimeOffComposer;
+  requestFreeComposer?.classList.toggle("hidden", activeRequestType !== "vrije-dag");
+  requestVacationComposer?.classList.toggle("hidden", activeRequestType !== "vakantie");
+  requestSickComposer?.classList.toggle("hidden", activeRequestType !== "ziekmelding");
+  requestSwapComposer?.classList.toggle("hidden", activeRequestType !== "ruilen");
+  if (requestFreeComposer) {
+    requestFreeComposer.hidden = activeRequestType !== "vrije-dag";
+  }
+  if (requestVacationComposer) {
+    requestVacationComposer.hidden = activeRequestType !== "vakantie";
+  }
+  if (requestSickComposer) {
+    requestSickComposer.hidden = activeRequestType !== "ziekmelding";
   }
   if (requestSwapComposer) {
-    requestSwapComposer.hidden = normalizedComposer !== "swap";
+    requestSwapComposer.hidden = activeRequestType !== "ruilen";
   }
 
   if (isEmployee) {
-    const showOnlyChoices = normalizedComposer === "";
     requestsOpenSummary?.classList.toggle("hidden", true);
     if (requestsOpenSummary) {
       requestsOpenSummary.hidden = true;
@@ -11876,13 +12179,17 @@ function renderRequestComposerState() {
   }
 
   if (!isMobileView()) {
-    requestTimeOffComposer?.classList.toggle("request-form-hidden-mobile", !isTimeOffComposer);
-    requestSwapComposer?.classList.toggle("request-form-hidden-mobile", normalizedComposer !== "swap");
+    requestFreeComposer?.classList.toggle("request-form-hidden-mobile", activeRequestType !== "vrije-dag");
+    requestVacationComposer?.classList.toggle("request-form-hidden-mobile", activeRequestType !== "vakantie");
+    requestSickComposer?.classList.toggle("request-form-hidden-mobile", activeRequestType !== "ziekmelding");
+    requestSwapComposer?.classList.toggle("request-form-hidden-mobile", activeRequestType !== "ruilen");
     return;
   }
 
-  requestTimeOffComposer?.classList.toggle("request-form-hidden-mobile", !isTimeOffComposer);
-  requestSwapComposer?.classList.toggle("request-form-hidden-mobile", normalizedComposer !== "swap");
+  requestFreeComposer?.classList.toggle("request-form-hidden-mobile", activeRequestType !== "vrije-dag");
+  requestVacationComposer?.classList.toggle("request-form-hidden-mobile", activeRequestType !== "vakantie");
+  requestSickComposer?.classList.toggle("request-form-hidden-mobile", activeRequestType !== "ziekmelding");
+  requestSwapComposer?.classList.toggle("request-form-hidden-mobile", activeRequestType !== "ruilen");
 }
 
 function isEntryOutsideFixedRoster(entry) {
@@ -12221,6 +12528,11 @@ function setActiveTab(tabName, options = {}) {
   if (normalizedTabName === "my-hours" && !isPlannerRole() && !options.preserveMyHoursSection) {
     activeMyHoursSection = "";
     activeMyHoursEntryMode = "planned";
+  }
+
+  if (normalizedTabName === "requests") {
+    activeRequestType = "vrije-dag";
+    activeRequestComposer = "free";
   }
 
   updateWeekViewTitle();
@@ -12668,7 +12980,7 @@ function toggleFavoriteEmployee(employeeName) {
 function renderEmployeeSelectors() {
   const selectedName = nameSelect.value;
   const selectedRemoveName = removeEmployeeSelect.value;
-  const selectedTimeOffEmployee = timeOffEmployeeSelect.value;
+  const selectedTimeOffEmployees = getAllTimeOffEmployeeSelects().map((select) => select.value);
   const selectedSwapEmployee = swapEmployeeSelect.value;
   const selectedSwapTargetEmployee = swapTargetEmployeeSelect.value;
   const selectedPortalEmployee = portalEmployeeSelect.value;
@@ -12701,9 +13013,11 @@ function renderEmployeeSelectors() {
 
   nameSelect.innerHTML = `<option value="">${selectedShift ? "Kies geschikte medewerker" : "Kies medewerker"}</option>${planningOptions}`;
   removeEmployeeSelect.innerHTML = `<option value="">Kies medewerker voor statuswijziging</option>${options}`;
-  timeOffEmployeeSelect.innerHTML = isPlannerRole()
-    ? `<option value="">Kies medewerker</option>${activeOptions}`
-    : `<option value="">Kies medewerker</option>${ownEmployeeOptions}`;
+  getAllTimeOffEmployeeSelects().forEach((select) => {
+    select.innerHTML = isPlannerRole()
+      ? `<option value="">Kies medewerker</option>${activeOptions}`
+      : `<option value="">Kies medewerker</option>${ownEmployeeOptions}`;
+  });
   swapEmployeeSelect.innerHTML = isPlannerRole()
     ? `<option value="">Kies medewerker</option>${activeOptions}`
     : `<option value="">Kies medewerker</option>${ownEmployeeOptions}`;
@@ -12717,7 +13031,10 @@ function renderEmployeeSelectors() {
 
   nameSelect.value = suitableEmployees.includes(selectedName) ? selectedName : "";
   removeEmployeeSelect.value = employees.includes(selectedRemoveName) ? selectedRemoveName : "";
-  timeOffEmployeeSelect.value = getActiveEmployees().includes(selectedTimeOffEmployee) ? selectedTimeOffEmployee : "";
+  getAllTimeOffEmployeeSelects().forEach((select, index) => {
+    const selectedValue = selectedTimeOffEmployees[index] || "";
+    select.value = getActiveEmployees().includes(selectedValue) ? selectedValue : "";
+  });
   swapEmployeeSelect.value = getActiveEmployees().includes(selectedSwapEmployee) ? selectedSwapEmployee : "";
   swapTargetEmployeeSelect.value = selectedSwapTargetEmployee;
   portalEmployeeSelect.value = filteredPortalEmployees.includes(selectedPortalEmployee) ? selectedPortalEmployee : "";
@@ -12735,7 +13052,9 @@ function renderEmployeeSelectors() {
   currentEmployeeSelect.disabled = isPlannerRole() || employeeLocked;
   portalEmployeeSelect.disabled = employeeLocked;
   hoursEmployeeSelect.disabled = employeeLocked;
-  timeOffEmployeeSelect.disabled = employeeLocked;
+  getAllTimeOffEmployeeSelects().forEach((select) => {
+    select.disabled = employeeLocked;
+  });
   swapEmployeeSelect.disabled = employeeLocked;
   populateLoginEmployeeSelect();
 
@@ -17332,18 +17651,15 @@ timeOffRequestsContainer.addEventListener("click", (event) => {
       : request.type === "ziek"
         ? "sick"
         : "free";
-    renderRequestComposerState();
+    activeRequestType = getRequestTypeFromComposer(activeRequestComposer);
     editingTimeOffId = request.id;
-    timeOffEmployeeSelect.value = request.employeeName;
-    timeOffTypeSelect.value = request.type || "vrij";
-    timeOffDateInput.value = getTimeOffStartDate(request);
-    if (timeOffStartDateInput) {
-      timeOffStartDateInput.value = getTimeOffStartDate(request);
-    }
-    if (timeOffEndDateInput) {
-      timeOffEndDateInput.value = getTimeOffEndDate(request);
-    }
-    timeOffReasonInput.value = request.reason;
+    const targetFormState = getRequestComposerState(activeRequestComposer);
+    targetFormState.employeeName = request.employeeName;
+    targetFormState.type = request.type || "vrij";
+    targetFormState.date = getTimeOffStartDate(request);
+    targetFormState.startDate = getTimeOffStartDate(request);
+    targetFormState.endDate = getTimeOffEndDate(request);
+    targetFormState.reason = request.reason || "";
     renderRequestComposerState();
     showMessage("Pas je aanvraag aan en klik op Aanvraag indienen.", "success");
     return;
@@ -17497,20 +17813,16 @@ swapRequestsContainer.addEventListener("click", (event) => {
     }
 
     activeRequestComposer = "swap";
-    renderRequestComposerState();
+    activeRequestType = "ruilen";
     editingSwapId = request.id;
-    swapEmployeeSelect.value = request.employeeName;
-    swapDateInput.value = request.date;
-    renderSwapEntryOptions();
-    const matchingValue = Array.from(swapEntrySelect.options).find((option) =>
-      option.value.includes(`|${request.date}|`) &&
-      option.value.endsWith(`|${request.startTime}|${request.endTime}`)
-    );
-    swapEntrySelect.value = matchingValue ? matchingValue.value : "";
-    renderSwapTargetOptions();
-    swapTargetEmployeeSelect.value = Array.from(swapTargetEmployeeSelect.options).some((option) => option.value === (request.targetEmployeeName || "__open__"))
-      ? (request.targetEmployeeName || "__open__")
-      : "__open__";
+    const matchingSwapValue = `${request.employeeName}|${request.shiftId || ""}|${request.date}|${request.startTime}|${request.endTime}`;
+    ruilForm = {
+      employeeName: request.employeeName,
+      date: request.date,
+      entryValue: matchingSwapValue,
+      targetEmployeeName: request.targetEmployeeName || "__open__"
+    };
+    renderRequestComposerState();
     showMessage("Pas je ruilverzoek aan en klik opnieuw op Ruilverzoek indienen.", "success");
     return;
   }
@@ -18481,19 +18793,22 @@ employeeListCard?.addEventListener("click", (event) => {
   renderEmployeeEditorDetails();
 });
 
-submitTimeOffButton.addEventListener("click", () => {
+function submitTimeOffRequest(composer) {
   const ownEmployeeName = !isPlannerRole() ? getOwnEmployeeNameOrWarn() : "";
 
   if (!isPlannerRole() && !ownEmployeeName) {
     return;
   }
 
-  const employeeName = !isPlannerRole() ? ownEmployeeName : timeOffEmployeeSelect.value;
-  const type = timeOffTypeSelect.value || "vrij";
-  const startDate = type === "vakantie" ? timeOffStartDateInput.value : timeOffDateInput.value;
-  const endDate = type === "vakantie" ? (timeOffEndDateInput.value || startDate) : startDate;
+  syncTimeOffFormStateFromFields(composer);
+  const currentTimeOffForm = getRequestComposerState(composer);
+  const formElements = getTimeOffFormElements(composer);
+  const employeeName = !isPlannerRole() ? ownEmployeeName : (currentTimeOffForm.employeeName || formElements?.employeeSelect?.value || "");
+  const type = currentTimeOffForm.type || getComposerTimeOffType(composer);
+  const startDate = type === "vakantie" ? currentTimeOffForm.startDate : currentTimeOffForm.date;
+  const endDate = type === "vakantie" ? (currentTimeOffForm.endDate || startDate) : startDate;
   const date = startDate;
-  const reason = timeOffReasonInput.value.trim();
+  const reason = (currentTimeOffForm.reason || "").trim();
 
   if (!ensureOwnRequestAction(employeeName, "een afwezigheidsaanvraag")) {
     return;
@@ -18586,18 +18901,24 @@ submitTimeOffButton.addEventListener("click", () => {
       status: "open"
     }
   });
-  timeOffTypeSelect.value = "vrij";
-  timeOffDateInput.value = "";
-  if (timeOffStartDateInput) {
-    timeOffStartDateInput.value = "";
-  }
-  if (timeOffEndDateInput) {
-    timeOffEndDateInput.value = "";
-  }
-  timeOffReasonInput.value = "";
-  editingTimeOffId = null;
+  resetTimeOffComposer({
+    nextComposer: composer,
+    preserveEmployee: !isPlannerRole()
+  });
   render();
-  showRequestSubmittedMessage();
+  showToast("Aanvraag verzonden");
+}
+
+submitFreeDayButton?.addEventListener("click", () => {
+  submitTimeOffRequest("free");
+});
+
+submitVacationButton?.addEventListener("click", () => {
+  submitTimeOffRequest("vacation");
+});
+
+submitSickButton?.addEventListener("click", () => {
+  submitTimeOffRequest("sick");
 });
 
 submitSwapButton.addEventListener("click", () => {
@@ -18607,11 +18928,13 @@ submitSwapButton.addEventListener("click", () => {
     return;
   }
 
-  const employeeName = !isPlannerRole() ? ownEmployeeName : swapEmployeeSelect.value;
-  const entryValue = swapEntrySelect.value;
-  const targetEmployeeName = swapTargetEmployeeSelect.value;
+  syncSwapFormStateFromFields();
+  const currentSwapForm = getRequestComposerState("swap");
+  const employeeName = !isPlannerRole() ? ownEmployeeName : (currentSwapForm.employeeName || swapEmployeeSelect.value);
+  const entryValue = currentSwapForm.entryValue || swapEntrySelect.value;
+  const targetEmployeeName = currentSwapForm.targetEmployeeName || swapTargetEmployeeSelect.value;
   const entryDetails = getSwapEntryDetails(entryValue);
-  const date = entryDetails?.date || swapDateInput.value;
+  const date = entryDetails?.date || currentSwapForm.date || swapDateInput.value;
 
   if (!employeeName || !date || !entryValue || !targetEmployeeName) {
     showMessage(
@@ -18767,11 +19090,9 @@ submitSwapButton.addEventListener("click", () => {
       status: "open"
     }
   });
-  swapEntrySelect.value = "";
-    swapTargetEmployeeSelect.value = "";
-    editingSwapId = null;
+  resetSwapComposer({ preserveEmployee: !isPlannerRole() });
     render();
-    showRequestSubmittedMessage();
+    showToast("Aanvraag verzonden");
   });
 
 removeEmployeeButton?.addEventListener("click", () => {
@@ -19044,7 +19365,7 @@ Bewaarde historie:
   renderDayPlanner();
   render();
   if (showSuccessMessage) {
-    triggerSuccess("Medewerker opgeslagen");
+    showToast("Medewerker opgeslagen");
   }
   return true;
 }
@@ -19123,7 +19444,8 @@ employeeDetailTestMailButton?.addEventListener("click", async () => {
     };
     saveEmployeeMeta();
     renderEmployeeDetailMailStatus(employeeName);
-    showMessage(`Testmail verzonden. Testmodus: mail gaat nu alleen naar ${FIXED_TEST_MAIL_RECIPIENT}`, "success");
+    showToast("Testmail verzonden");
+    showMessage(`Testmodus: mail gaat nu alleen naar ${FIXED_TEST_MAIL_RECIPIENT}`, "success");
   } catch (error) {
     employeeMeta[employeeName] = {
       ...employeeMeta[employeeName],
@@ -19837,10 +20159,56 @@ swapEmployeeSelect.addEventListener("change", () => {
 
 swapDateInput.addEventListener("change", () => {
   renderSwapEntryOptions();
+  syncSwapFormStateFromFields();
 });
 
 swapEntrySelect.addEventListener("change", () => {
   renderSwapTargetOptions();
+  syncSwapFormStateFromFields();
+});
+
+swapTargetEmployeeSelect?.addEventListener("change", () => {
+  syncSwapFormStateFromFields();
+});
+
+freeDayEmployeeSelect?.addEventListener("change", () => {
+  syncTimeOffFormStateFromFields("free");
+});
+
+freeDayDateInput?.addEventListener("input", () => {
+  syncTimeOffFormStateFromFields("free");
+});
+
+freeDayReasonInput?.addEventListener("input", () => {
+  syncTimeOffFormStateFromFields("free");
+});
+
+vacationEmployeeSelect?.addEventListener("change", () => {
+  syncTimeOffFormStateFromFields("vacation");
+});
+
+vacationStartDateInput?.addEventListener("input", () => {
+  syncTimeOffFormStateFromFields("vacation");
+});
+
+vacationEndDateInput?.addEventListener("input", () => {
+  syncTimeOffFormStateFromFields("vacation");
+});
+
+vacationReasonInput?.addEventListener("input", () => {
+  syncTimeOffFormStateFromFields("vacation");
+});
+
+sickEmployeeSelect?.addEventListener("change", () => {
+  syncTimeOffFormStateFromFields("sick");
+});
+
+sickDateInput?.addEventListener("input", () => {
+  syncTimeOffFormStateFromFields("sick");
+});
+
+sickReasonInput?.addEventListener("input", () => {
+  syncTimeOffFormStateFromFields("sick");
 });
 
 swapSuggestionList?.addEventListener("click", (event) => {
@@ -19863,6 +20231,7 @@ swapSuggestionList?.addEventListener("click", (event) => {
   }
 
   swapTargetEmployeeSelect.value = employeeName;
+  syncSwapFormStateFromFields();
 });
 
 swapEscalateButton?.addEventListener("click", () => {
@@ -19888,7 +20257,9 @@ portalEmployeeSelect.addEventListener("change", () => {
   preferences.lastPortalEmployee = portalEmployeeSelect.value || "";
   savePreferences();
   if (portalEmployeeSelect.value) {
-    timeOffEmployeeSelect.value = portalEmployeeSelect.value;
+    getAllTimeOffEmployeeSelects().forEach((select) => {
+      select.value = portalEmployeeSelect.value;
+    });
     swapEmployeeSelect.value = portalEmployeeSelect.value;
     hoursEmployeeSelect.value = portalEmployeeSelect.value;
   }
@@ -20105,7 +20476,9 @@ currentEmployeeSelect.addEventListener("change", () => {
   if (!isPlannerRole() && currentEmployeeSelect.value) {
     portalEmployeeSelect.value = currentEmployeeSelect.value;
     hoursEmployeeSelect.value = currentEmployeeSelect.value;
-    timeOffEmployeeSelect.value = currentEmployeeSelect.value;
+    getAllTimeOffEmployeeSelects().forEach((select) => {
+      select.value = currentEmployeeSelect.value;
+    });
     swapEmployeeSelect.value = currentEmployeeSelect.value;
   }
 
@@ -20145,45 +20518,19 @@ quickLinks.forEach((button) => {
 });
 
 requestTypeFreeButton?.addEventListener("click", () => {
-  activeRequestComposer = "free";
-  renderRequestComposerState();
+  activateRequestType("vrije-dag");
 });
 
 requestTypeVacationButton?.addEventListener("click", () => {
-  activeRequestComposer = "vacation";
-  renderRequestComposerState();
+  activateRequestType("vakantie");
 });
 
 requestTypeSickButton?.addEventListener("click", () => {
-  activeRequestComposer = "sick";
-  renderRequestComposerState();
+  activateRequestType("ziekmelding");
 });
 
 requestTypeSwapButton?.addEventListener("click", () => {
-  activeRequestComposer = "swap";
-  renderRequestComposerState();
-});
-
-timeOffTypeSelect?.addEventListener("change", () => {
-  if (timeOffTypeSelect.value === "vakantie") {
-    if (timeOffDateInput?.value) {
-      if (timeOffStartDateInput && !timeOffStartDateInput.value) {
-        timeOffStartDateInput.value = timeOffDateInput.value;
-      }
-      if (timeOffEndDateInput && !timeOffEndDateInput.value) {
-        timeOffEndDateInput.value = timeOffDateInput.value;
-      }
-    }
-  } else if (timeOffStartDateInput?.value) {
-    timeOffDateInput.value = timeOffStartDateInput.value;
-  }
-
-  activeRequestComposer = timeOffTypeSelect.value === "vakantie"
-    ? "vacation"
-    : timeOffTypeSelect.value === "ziek"
-      ? "sick"
-      : "free";
-  renderRequestComposerState();
+  activateRequestType("ruilen");
 });
 
 requestStatusFilter?.addEventListener("change", () => {
@@ -20315,6 +20662,9 @@ if (needsLoginSelection()) {
   closeLoginOverlay();
   reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
 }
+
+
+
 
 
 
