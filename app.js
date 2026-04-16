@@ -142,6 +142,10 @@ const plannerFreeRequestsContainer = document.getElementById("plannerFreeRequest
 const plannerVacationRequestsContainer = document.getElementById("plannerVacationRequests");
 const plannerSickRequestsContainer = document.getElementById("plannerSickRequests");
 const plannerSwapRequestsContainer = document.getElementById("plannerSwapRequests");
+const plannerHandledFreeRequestsContainer = document.getElementById("plannerHandledFreeRequests");
+const plannerHandledVacationRequestsContainer = document.getElementById("plannerHandledVacationRequests");
+const plannerHandledSickRequestsContainer = document.getElementById("plannerHandledSickRequests");
+const plannerHandledSwapRequestsContainer = document.getElementById("plannerHandledSwapRequests");
 const requestsOpenSummary = document.getElementById("requestsOpenSummary");
 const requestsEmployeeBadge = document.getElementById("requestsEmployeeBadge");
 const requestsOpenCards = document.getElementById("requestsOpenCards");
@@ -4628,6 +4632,17 @@ function requestOverlapsRange(request, startDate, endDate) {
   }
 
   return requestStartDate <= endDate && requestEndDate >= startDate;
+}
+
+function requestMatchesExactRange(request, startDate, endDate) {
+  const requestStartDate = getTimeOffStartDate(request);
+  const requestEndDate = getTimeOffEndDate(request);
+
+  if (!requestStartDate || !requestEndDate || !startDate || !endDate) {
+    return false;
+  }
+
+  return requestStartDate === startDate && requestEndDate === endDate;
 }
 
 function getTimeOffDisplayRange(request) {
@@ -10218,7 +10233,7 @@ function getRequestStatusLabel(status) {
   }
 
   if (status === "rejected") {
-    return "Afgewezen";
+    return "Afgekeurd";
   }
 
   if (status === "in-review") {
@@ -10241,11 +10256,11 @@ function getRequestDisplayLabel(request) {
 
   if (request?.shiftName) {
     if (request.status === "approved") {
-      return request.autoApproved ? "Automatisch goedgekeurd" : "Geaccepteerd";
+      return request.autoApproved ? "Automatisch goedgekeurd" : "Goedgekeurd";
     }
 
     if (request.status === "rejected") {
-      return "Afgewezen";
+      return "Afgekeurd";
     }
 
     if (request.status === "open") {
@@ -11074,7 +11089,7 @@ function registerSwapMailNotification(request, type, employeeNames = [], options
     ...options,
     templateKeyBuilder: (_, currentType) => getSwapMailTemplateKey(currentType),
     subjectBuilder: getSwapMailSubject,
-    messageBuilder: (_, currentType) => getSwapMailTemplateText(currentType),
+    messageBuilder: (currentRequest, currentType) => getSwapMailTemplateText(currentRequest, currentType),
     persist: saveSwapRequests,
     onStatusChange: () => render()
   });
@@ -11117,12 +11132,28 @@ function getLatestSwapMailNotification(request) {
   return getLatestRequestMailNotification(request);
 }
 
-function getSwapMailTemplateText(type) {
-  return buildEmailTemplate(getSwapMailTemplateKey(type)).message;
+function appendManagerNoteToMailMessage(message, managerNote = "") {
+  const note = typeof managerNote === "string" ? managerNote.trim() : "";
+
+  if (!note) {
+    return message;
+  }
+
+  return `${message}\n\nOpmerking: ${note}`;
+}
+
+function getSwapMailTemplateText(request, type) {
+  return appendManagerNoteToMailMessage(
+    buildEmailTemplate(getSwapMailTemplateKey(type)).message,
+    type === "rejected" ? request?.managerNote : ""
+  );
 }
 
 function getTimeOffMailTemplateText(request, type) {
-  return buildEmailTemplate(getTimeOffMailTemplateKey(request, type)).message;
+  return appendManagerNoteToMailMessage(
+    buildEmailTemplate(getTimeOffMailTemplateKey(request, type)).message,
+    type === "rejected" ? request?.managerNote : ""
+  );
 }
 
 function getMailDeliveryPrefix(type, status) {
@@ -11230,7 +11261,7 @@ function syncSwapReminderNotifications(requests = swapRequests) {
 function getSwapMailStatusText(request) {
   const currentEmployee = getRoleScopedEmployeeName();
   return getRequestMailStatusText(request, {
-    templateTextGetter: (_, type) => getSwapMailTemplateText(type),
+    templateTextGetter: (currentRequest, type) => getSwapMailTemplateText(currentRequest, type),
     labelMap: {
       submitted: "Mail verzonden.",
       "request-created": "Mail verzonden.",
@@ -11296,7 +11327,7 @@ function finalizeApprovedSwapRequest(request, options = {}) {
   const {
     managerNote = "",
     autoApproved = false,
-    successMessage = "Rooster bijgewerkt.",
+    successMessage = "Aanvraag goedgekeurd",
     persistMessage = `Ruilverzoek goedgekeurd voor ${request.employeeName}.`,
     action = "swap-approved"
   } = options;
@@ -11348,7 +11379,7 @@ function finalizeApprovedSwapRequest(request, options = {}) {
     }
   });
   render();
-  showMessage(successMessage, "success");
+  showSuccess(successMessage);
   return true;
 }
 
@@ -11577,10 +11608,6 @@ function matchesRequestStatusFilter(request) {
     return true;
   }
 
-  if (selectedStatus === "waiting") {
-    return displayStatus === "waiting" || displayStatus === "overdue";
-  }
-
   return displayStatus === selectedStatus;
 }
 
@@ -11753,7 +11780,7 @@ function renderPlannerRequestCards(target, requests, emptyText, requestType) {
       : "";
 
     return `
-      <article class="request-card planner-request-card is-${requestStatus}${requestType === "timeoff" ? ` absence-${getAbsenceCardClass(request.type)}` : ""}">
+      <article class="request-card compact-request-card planner-request-card is-${requestStatus}${requestType === "timeoff" ? ` absence-${getAbsenceCardClass(request.type)}` : ""}">
         <div class="planner-request-row">
           <strong class="planner-request-name">${request.employeeName}</strong>
           <div class="planner-request-period" title="${periodText}">${periodText}</div>
@@ -14341,11 +14368,10 @@ function renderTimeOffRequests() {
           <strong>${isPlannerRole() ? request.employeeName : getAbsenceTypeLabel(request.type)}</strong>
           <span class="status-pill status-${getRequestDisplayStatus(request)}">${getRequestDisplayLabel(request)}</span>
         </div>
-        ${isPlannerRole() ? `<div class="request-meta">${getAbsenceTypeLabel(request.type)}</div>` : ""}
         <div class="request-meta">${getTimeOffDisplayRange(request)}${request.reason ? ` - ${request.reason}` : ""}</div>
-        <div class="request-impact">${getRequestRosterEffectText(request, "timeoff")}</div>
+        ${isPlannerRole() ? `<div class="request-impact">${getRequestRosterEffectText(request, "timeoff")}</div>` : ""}
         ${request.status === "open" && getRequestAttentionText(request) ? `<div class="request-impact request-attention-note">${getRequestAttentionText(request)}</div>` : ""}
-        ${getTimeOffMailStatusText(request) ? `<div class="request-impact"><strong>Mail:</strong> ${getTimeOffMailStatusText(request)}</div>` : ""}
+        ${isPlannerRole() && getTimeOffMailStatusText(request) ? `<div class="request-impact"><strong>Mail:</strong> ${getTimeOffMailStatusText(request)}</div>` : ""}
         ${request.managerNote ? `<div class="request-impact"><strong>Opmerking:</strong> ${request.managerNote}</div>` : ""}
         ${request.status === "open" && isPlannerRole() ? `
           <label class="request-note-field">
@@ -14368,21 +14394,41 @@ function renderTimeOffRequests() {
   };
 
   if (isPlannerRole()) {
+    const plannerOpenRequests = sortedRequests.filter((request) => request.status === "open");
+    const plannerHandledRequests = sortedRequests.filter((request) => request.status !== "open");
     renderPlannerRequestCards(
       plannerFreeRequestsContainer,
-      sortedRequests.filter((request) => request.type === "vrij"),
+      plannerOpenRequests.filter((request) => request.type === "vrij"),
       "Nog geen vrije dagen.",
       "timeoff"
     );
     renderPlannerRequestCards(
       plannerVacationRequestsContainer,
-      sortedRequests.filter((request) => request.type === "vakantie"),
+      plannerOpenRequests.filter((request) => request.type === "vakantie"),
       "Nog geen vakantieaanvragen.",
       "timeoff"
     );
     renderPlannerRequestCards(
       plannerSickRequestsContainer,
-      sortedRequests.filter((request) => request.type === "ziek"),
+      plannerOpenRequests.filter((request) => request.type === "ziek"),
+      "Nog geen ziekmeldingen.",
+      "timeoff"
+    );
+    renderPlannerRequestCards(
+      plannerHandledFreeRequestsContainer,
+      plannerHandledRequests.filter((request) => request.type === "vrij"),
+      "Nog geen vrije dagen.",
+      "timeoff"
+    );
+    renderPlannerRequestCards(
+      plannerHandledVacationRequestsContainer,
+      plannerHandledRequests.filter((request) => request.type === "vakantie"),
+      "Nog geen vakantieaanvragen.",
+      "timeoff"
+    );
+    renderPlannerRequestCards(
+      plannerHandledSickRequestsContainer,
+      plannerHandledRequests.filter((request) => request.type === "ziek"),
       "Nog geen ziekmeldingen.",
       "timeoff"
     );
@@ -14392,17 +14438,6 @@ function renderTimeOffRequests() {
     handledTimeOffRequestsContainer.innerHTML = "";
     return;
   }
-
-  renderCards(
-    openTimeOffRequestsContainer,
-    sortedRequests.filter((request) => request.status === "open"),
-    "Nog geen open afwezigheidsaanvragen."
-  );
-  renderCards(
-    handledTimeOffRequestsContainer,
-    sortedRequests.filter((request) => request.status !== "open"),
-    "Nog geen afgehandelde afwezigheidsaanvragen."
-  );
 }
 
 function renderSwapRequests() {
@@ -14438,12 +14473,11 @@ function renderSwapRequests() {
             <strong>${isPlannerRole() ? `${request.employeeName} -> ${request.targetEmployeeName || "Open aangeboden"}` : request.shiftName}</strong>
             <span class="status-pill status-${getRequestDisplayStatus(request)}">${getRequestDisplayLabel(request)}</span>
           </div>
-          ${isPlannerRole() ? `<div class="request-meta">${request.shiftName}</div>` : ""}
           <div class="request-meta">${formatDate(request.date)} - ${request.startTime} - ${request.endTime}${request.targetEmployeeName ? ` - Naar ${request.targetEmployeeName}` : " - Open aangeboden"}</div>
-          <div class="request-impact">${getRequestRosterEffectText(request, "swap")}</div>
+          ${isPlannerRole() ? `<div class="request-impact">${getRequestRosterEffectText(request, "swap")}</div>` : ""}
           ${request.escalatedToPlanner ? `<div class="request-impact request-attention-note">Directie is gevraagd om mee te kijken naar deze ruil.</div>` : ""}
           ${request.status === "open" && getRequestAttentionText(request) ? `<div class="request-impact request-attention-note">${getRequestAttentionText(request)}</div>` : ""}
-          ${getSwapMailStatusText(request) ? `<div class="request-impact"><strong>Mail:</strong> ${getSwapMailStatusText(request)}</div>` : ""}
+          ${isPlannerRole() && getSwapMailStatusText(request) ? `<div class="request-impact"><strong>Mail:</strong> ${getSwapMailStatusText(request)}</div>` : ""}
           ${request.managerNote ? `<div class="request-impact"><strong>Opmerking:</strong> ${request.managerNote}</div>` : ""}
           ${request.status === "open" && isPlannerRole() ? `
           ${!request.targetEmployeeName ? `
@@ -14479,9 +14513,17 @@ function renderSwapRequests() {
   };
 
   if (isPlannerRole()) {
+    const plannerOpenRequests = sortedRequests.filter((request) => request.status === "open");
+    const plannerHandledRequests = sortedRequests.filter((request) => request.status !== "open");
     renderPlannerRequestCards(
       plannerSwapRequestsContainer,
-      sortedRequests,
+      plannerOpenRequests,
+      "Nog geen ruilverzoeken.",
+      "swap"
+    );
+    renderPlannerRequestCards(
+      plannerHandledSwapRequestsContainer,
+      plannerHandledRequests,
       "Nog geen ruilverzoeken.",
       "swap"
     );
@@ -14492,16 +14534,93 @@ function renderSwapRequests() {
     return;
   }
 
-  renderCards(
-    openSwapRequestsContainer,
-    sortedRequests.filter((request) => request.status === "open"),
-    "Nog geen open ruilverzoeken."
+  renderEmployeeRequestOverview();
+}
+
+function renderEmployeeRequestOverview() {
+  if (isPlannerRole()) {
+    return;
+  }
+
+  const { visibleTimeOffRequests, visibleSwapRequests } = getVisibleRequestSources();
+  const visibleTimeOff = visibleTimeOffRequests.filter((request) => matchesRequestStatusFilter(request));
+  const visibleSwaps = visibleSwapRequests.filter((request) => matchesRequestStatusFilter(request));
+
+  const combinedRequests = [
+    ...visibleTimeOff.map((request) => ({
+      kind: "timeoff",
+      request,
+      sortDate: getTimeOffStartDate(request)
+    })),
+    ...visibleSwaps.map((request) => ({
+      kind: "swap",
+      request,
+      sortDate: request.date
+    }))
+  ].sort((itemA, itemB) => {
+    const priorityMap = { open: 0, approved: 1, rejected: 2, waiting: 3, overdue: 4 };
+    const statusA = getRequestDisplayStatus(itemA.request);
+    const statusB = getRequestDisplayStatus(itemB.request);
+    const statusCompare = (priorityMap[statusA] ?? 9) - (priorityMap[statusB] ?? 9);
+    return statusCompare !== 0
+      ? statusCompare
+      : String(itemA.sortDate || "").localeCompare(String(itemB.sortDate || ""));
+  });
+
+  const renderEmployeeCards = (target, items, emptyText) => {
+    if (!target) {
+      return;
+    }
+
+    if (!items.length) {
+      target.className = "request-list empty";
+      target.textContent = emptyText;
+      return;
+    }
+
+    target.className = "request-list";
+    target.innerHTML = items.map(({ kind, request }) => {
+      const typeLabel = kind === "swap" ? "Ruilen" : getAbsenceTypeLabel(request.type);
+      const periodLabel = kind === "swap"
+        ? `${formatDate(request.date)} - ${request.startTime} - ${request.endTime}`
+        : getTimeOffDisplayRange(request);
+      const noteMarkup = request.managerNote
+        ? `<div class="request-impact"><strong>Opmerking:</strong> ${request.managerNote}</div>`
+        : "";
+
+      return `
+        <article class="request-card compact-request-card is-${getRequestDisplayStatus(request)}${kind === "timeoff" ? ` absence-${getAbsenceCardClass(request.type)}` : ""}">
+          <div class="request-top">
+            <strong>${typeLabel}</strong>
+            <span class="status-pill status-${getRequestDisplayStatus(request)}">${getRequestDisplayLabel(request)}</span>
+          </div>
+          <div class="request-meta">${periodLabel}</div>
+          ${noteMarkup}
+        </article>
+      `;
+    }).join("");
+  };
+
+  renderEmployeeCards(
+    openTimeOffRequestsContainer,
+    combinedRequests.filter(({ request }) => request.status === "open"),
+    "Nog geen open aanvragen."
   );
-  renderCards(
-    handledSwapRequestsContainer,
-    sortedRequests.filter((request) => request.status !== "open"),
-    "Nog geen afgehandelde ruilverzoeken."
+  renderEmployeeCards(
+    handledTimeOffRequestsContainer,
+    combinedRequests.filter(({ request }) => request.status !== "open"),
+    "Nog geen afgeronde aanvragen."
   );
+
+  if (openSwapRequestsContainer) {
+    openSwapRequestsContainer.className = "request-list hidden";
+    openSwapRequestsContainer.innerHTML = "";
+  }
+
+  if (handledSwapRequestsContainer) {
+    handledSwapRequestsContainer.className = "request-list hidden";
+    handledSwapRequestsContainer.innerHTML = "";
+  }
 }
 
 function renderPlanningSettings() {
@@ -17806,13 +17925,8 @@ timeOffRequestsContainer.addEventListener("click", (event) => {
       entry.name === request.employeeName &&
       requestIncludesDate(request, entry.day)
     );
-    const absenceLabel = getAbsenceTypeLabel(request.type);
-    let approvalMessage = `${absenceLabel} is goedgekeurd en direct zichtbaar in het rooster.`;
-
     if (scheduledEntries.length > 0) {
-      const removedEntries = applyApprovedTimeOffToRoster(request);
-      const scheduleText = removedEntries.map((entry) => `${getShiftName(entry)} (${entry.startTime} - ${entry.endTime})`).join(", ");
-      approvalMessage = `${absenceLabel} is goedgekeurd. ${removedEntries.length} dienst(en) zijn vrijgemaakt in het rooster: ${scheduleText}.`;
+      applyApprovedTimeOffToRoster(request);
     }
 
     request.status = "approved";
@@ -17834,7 +17948,7 @@ timeOffRequestsContainer.addEventListener("click", (event) => {
       }
     });
     render();
-    showMessage(approvalMessage, "success");
+    showSuccess("Status bijgewerkt");
     return;
   } else {
     request.status = "rejected";
@@ -17858,7 +17972,7 @@ timeOffRequestsContainer.addEventListener("click", (event) => {
     }
   });
   render();
-  showDeletedMessage("Afwezigheidsaanvraag afgewezen.");
+  showSuccess("Status bijgewerkt");
 });
 
 swapRequestsContainer.addEventListener("click", (event) => {
@@ -18033,7 +18147,7 @@ swapRequestsContainer.addEventListener("click", (event) => {
       }
     });
     render();
-    showDeletedMessage("Ruilverzoek afgewezen.");
+    showSuccess("Status bijgewerkt");
     return;
   }
 
@@ -18061,7 +18175,7 @@ swapRequestsContainer.addEventListener("click", (event) => {
     finalizeApprovedSwapRequest(request, {
       managerNote: plannerNote,
       autoApproved: false,
-      successMessage: button.dataset.requestAction === "assign-replacement" ? "Vervanger gekozen en rooster bijgewerkt." : "Rooster bijgewerkt.",
+      successMessage: "Status bijgewerkt",
       persistMessage: `Ruilverzoek goedgekeurd voor ${request.employeeName}.`,
       action: "swap-approved"
     });
@@ -18916,9 +19030,9 @@ function submitTimeOffRequest(composer) {
       request.id !== editingTimeOffId &&
       request.employeeName === employeeName &&
       request.status === "open" &&
-      requestOverlapsRange(request, startDate, endDate)
+      requestMatchesExactRange(request, startDate, endDate)
     )) {
-      showError("Voor deze medewerker staat al een open afwezigheidsaanvraag in deze periode.");
+      showError(startDate === endDate ? "Je hebt al een aanvraag voor deze datum." : "Je hebt al een aanvraag voor deze periode.");
       return;
     }
 
@@ -19142,10 +19256,11 @@ submitSwapButton.addEventListener("click", () => {
         finalizeApprovedSwapRequest(currentRequest, {
           managerNote: "Automatisch goedgekeurd",
           autoApproved: true,
-          successMessage: "Ruil automatisch goedgekeurd en rooster bijgewerkt.",
+          successMessage: "Status bijgewerkt",
           persistMessage: `Ruil automatisch goedgekeurd voor ${currentRequest.employeeName}.`,
           action: "swap-auto-approved"
         });
+        resetSwapComposer({ preserveEmployee: !isPlannerRole() });
         return;
       }
     }

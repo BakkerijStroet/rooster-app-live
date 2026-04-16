@@ -664,11 +664,10 @@
             <label class="week-select">
               <span>Status</span>
               <select id="requestStatusFilter">
-                <option value="">Alle statussen</option>
+                <option value="">Alles</option>
                 <option value="open">Open</option>
-                <option value="waiting">In behandeling / wacht op reactie</option>
                 <option value="approved">Goedgekeurd</option>
-                <option value="rejected">Afgewezen</option>
+                <option value="rejected">Afgekeurd</option>
               </select>
             </label>
           </div>
@@ -814,16 +813,7 @@
         <div class="employee-request-groups">
           <h2 id="requestOpenHeading">Open aanvragen</h2>
           <p id="requestOpenNote" class="panel-note">Open verzoeken die nog aandacht vragen.</p>
-          <div class="request-group-grid">
-            <div>
-              <h3>Vrij, vakantie en ziek</h3>
-              <div id="openTimeOffRequests" class="request-list empty">Nog geen open afwezigheidsaanvragen.</div>
-            </div>
-            <div>
-              <h3>Ruilverzoeken</h3>
-              <div id="openSwapRequests" class="request-list empty">Nog geen open ruilverzoeken.</div>
-            </div>
-          </div>
+          <div id="openTimeOffRequests" class="request-list empty">Nog geen open aanvragen.</div>
         </div>
         <div class="planner-request-sections">
           <section class="planner-request-section">
@@ -838,25 +828,6 @@
             </div>
             <div id="plannerVacationRequests" class="request-list empty">Nog geen vakantieaanvragen.</div>
           </section>
-        </div>
-      </section>
-
-      <section class="staff-panel app-panel" data-panel="requests" data-slot="right" id="requestSwapPanel">
-        <div class="employee-request-groups">
-          <h2 id="requestHandledHeading">Afgehandelde aanvragen</h2>
-          <p id="requestHandledNote" class="panel-note">Goedgekeurde en afgewezen verzoeken.</p>
-          <div class="request-group-grid">
-            <div>
-              <h3>Vrij, vakantie en ziek</h3>
-              <div id="handledTimeOffRequests" class="request-list empty">Nog geen afgehandelde afwezigheidsaanvragen.</div>
-            </div>
-            <div>
-              <h3>Ruilverzoeken</h3>
-              <div id="handledSwapRequests" class="request-list empty">Nog geen afgehandelde ruilverzoeken.</div>
-            </div>
-          </div>
-        </div>
-        <div class="planner-request-sections">
           <section class="planner-request-section">
             <div class="planner-request-section-head">
               <h3>Ziekmeldingen</h3>
@@ -868,6 +839,40 @@
               <h3>Ruilverzoeken</h3>
             </div>
             <div id="plannerSwapRequests" class="request-list empty">Nog geen ruilverzoeken.</div>
+          </section>
+        </div>
+      </section>
+
+      <section class="staff-panel app-panel" data-panel="requests" data-slot="right" id="requestSwapPanel">
+        <div class="employee-request-groups">
+          <h2 id="requestHandledHeading">Afgehandelde aanvragen</h2>
+          <p id="requestHandledNote" class="panel-note">Goedgekeurde en afgekeurde verzoeken.</p>
+          <div id="handledTimeOffRequests" class="request-list empty">Nog geen afgeronde aanvragen.</div>
+        </div>
+        <div class="planner-request-sections">
+          <section class="planner-request-section">
+            <div class="planner-request-section-head">
+              <h3>Vrije dagen</h3>
+            </div>
+            <div id="plannerHandledFreeRequests" class="request-list empty">Nog geen vrije dagen.</div>
+          </section>
+          <section class="planner-request-section">
+            <div class="planner-request-section-head">
+              <h3>Vakantie</h3>
+            </div>
+            <div id="plannerHandledVacationRequests" class="request-list empty">Nog geen vakantieaanvragen.</div>
+          </section>
+          <section class="planner-request-section">
+            <div class="planner-request-section-head">
+              <h3>Ziekmeldingen</h3>
+            </div>
+            <div id="plannerHandledSickRequests" class="request-list empty">Nog geen ziekmeldingen.</div>
+          </section>
+          <section class="planner-request-section">
+            <div class="planner-request-section-head">
+              <h3>Ruilverzoeken</h3>
+            </div>
+            <div id="plannerHandledSwapRequests" class="request-list empty">Nog geen ruilverzoeken.</div>
           </section>
         </div>
       </section>

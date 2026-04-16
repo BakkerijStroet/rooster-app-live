@@ -5455,8 +5455,8 @@ body[data-role="planner"] [data-panel="requests"][data-slot="right"] {
 }
 
 .status-open {
-  background: #f9f1c9;
-  color: #6f5f20;
+  background: #f2f2f2;
+  color: #5f5a50;
 }
 
 .status-empty {
@@ -5475,8 +5475,8 @@ body[data-role="planner"] [data-panel="requests"][data-slot="right"] {
 }
 
 .status-in-review {
-  background: #f9f1c9;
-  color: #6f5f20;
+  background: #f2f2f2;
+  color: #5f5a50;
 }
 
 .status-approved {
