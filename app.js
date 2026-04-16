@@ -92,7 +92,7 @@ const dashboardTestMailButton = document.getElementById("dashboardTestMailButton
 const saveMailSettingsButton = document.getElementById("saveMailSettingsButton");
 const testMailButton = document.getElementById("testMailButton");
 const mailSettingsStatus = document.getElementById("mailSettingsStatus");
-const FIXED_TEST_MAIL_RECIPIENT = "jouwmail@voorbeeld.nl";
+const FIXED_TEST_MAIL_RECIPIENT = "info@bakkerijstroet.nl";
 const employeeListCard = document.getElementById("employeeListCard");
 const employeeStandardShiftList = document.getElementById("employeeStandardShiftList");
 const employeePermissionsList = document.getElementById("employeePermissionsList");
@@ -485,15 +485,16 @@ function sanitizeWorkLogsForStorage(sourceLogs = workLogs) {
     }
 
     seenIds.add(log.id);
-    uniqueLogs.push({
-      ...log,
-      employeeName: log.employeeName.trim(),
-      shiftName: log.shiftName.trim(),
-      breakMinutes: Number.isFinite(Number(log.breakMinutes)) ? Math.max(0, Number(log.breakMinutes)) : 0,
-      notes: typeof log.notes === "string" ? log.notes : "",
-      managerNote: typeof log.managerNote === "string" ? log.managerNote : "",
-      employeeReply: typeof log.employeeReply === "string" ? log.employeeReply : ""
-    });
+      uniqueLogs.push({
+        ...log,
+        employeeName: log.employeeName.trim(),
+        shiftName: log.shiftName.trim(),
+        breakMinutes: Number.isFinite(Number(log.breakMinutes)) ? Math.max(0, Number(log.breakMinutes)) : 0,
+        notes: typeof log.notes === "string" ? log.notes : "",
+        managerNote: typeof log.managerNote === "string" ? log.managerNote : "",
+        employeeReply: typeof log.employeeReply === "string" ? log.employeeReply : "",
+        mailLog: sanitizeRequestMailLog(log.mailLog)
+      });
   });
 
   return uniqueLogs;
@@ -924,14 +925,15 @@ function loadWorkLogs() {
       actualEnd: typeof log.actualEnd === "string" ? log.actualEnd : "",
       breakMinutes: Number.isFinite(Number(log.breakMinutes)) ? Math.max(0, Number(log.breakMinutes)) : 0,
       notes: typeof log.notes === "string" ? log.notes : "",
-      status: ["draft", "open", "approved", "rejected", "revision"].includes(log.status)
-        ? log.status
-        : (log.status === "submitted" ? "open" : "draft"),
-      managerNote: typeof log.managerNote === "string" ? log.managerNote : "",
-      employeeReply: typeof log.employeeReply === "string" ? log.employeeReply : "",
-      submittedAt: typeof log.submittedAt === "string" ? log.submittedAt : "",
-      updatedAt: typeof log.updatedAt === "string" ? log.updatedAt : "",
-      auditTrail: Array.isArray(log.auditTrail)
+        status: ["draft", "open", "approved", "rejected", "revision"].includes(log.status)
+          ? log.status
+          : (log.status === "submitted" ? "open" : "draft"),
+        managerNote: typeof log.managerNote === "string" ? log.managerNote : "",
+        employeeReply: typeof log.employeeReply === "string" ? log.employeeReply : "",
+        submittedAt: typeof log.submittedAt === "string" ? log.submittedAt : "",
+        updatedAt: typeof log.updatedAt === "string" ? log.updatedAt : "",
+        mailLog: sanitizeRequestMailLog(log.mailLog),
+        auditTrail: Array.isArray(log.auditTrail)
         ? log.auditTrail
           .filter((auditItem) => auditItem && typeof auditItem.at === "string" && typeof auditItem.action === "string")
           .map((auditItem) => ({
@@ -983,6 +985,20 @@ function getTodayLocalDateValue() {
   const now = new Date();
   const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
   return localDate.toISOString().slice(0, 10);
+}
+
+function isIsoOlderThanHours(value, hours = 48) {
+  if (!value) {
+    return false;
+  }
+
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return false;
+  }
+
+  return (Date.now() - parsedDate.getTime()) >= (hours * 60 * 60 * 1000);
 }
 
 function isFutureDateValue(dateValue) {
@@ -1249,6 +1265,18 @@ function getMailSettingsDefaults() {
   };
 }
 
+function getDefaultMailDigestState() {
+  return {
+    plannerSummary: "",
+    plannerOpenRequestsEmail: "",
+    plannerOverdueRequestsEmail: "",
+    plannerPendingHoursEmail: "",
+    plannerOverdueHoursEmail: "",
+    employeeMissingHours: {},
+    employeeMissingHoursEmail: {}
+  };
+}
+
 function loadMailSettings() {
   const savedSettings = localStorage.getItem(getScopedStorageKey(mailSettingsStorageKey));
   const defaults = getMailSettingsDefaults();
@@ -1394,6 +1422,13 @@ function getEmployeeContractHours(employeeName) {
 
 function getEmployeeEmail(employeeName) {
   return normalizeEmployeeEmail(employeeMeta?.[employeeName]?.email);
+}
+
+function getPlannerSummaryEmailRecipients() {
+  const plannerEmail = normalizeEmployeeEmail(
+    mailSettings?.senderEmail || mailSettings?.testRecipientEmail || FIXED_TEST_MAIL_RECIPIENT
+  );
+  return plannerEmail ? [plannerEmail] : [];
 }
 
 function getEmployeeStatusLabel(status) {
@@ -2829,15 +2864,12 @@ function loadPreferences() {
       lastRole: "planner",
       lastDataMode: "live",
       hasUserSession: false,
-      plannerFocusMode: false,
-      plannerControlMode: false,
-      plannerDeviationOnly: false,
-      lastWorkLogTimes: getDefaultLastWorkLogTimes(),
-      mailDigestState: {
-        plannerSummary: "",
-        employeeMissingHours: {}
-      }
-    };
+        plannerFocusMode: false,
+        plannerControlMode: false,
+        plannerDeviationOnly: false,
+        lastWorkLogTimes: getDefaultLastWorkLogTimes(),
+        mailDigestState: getDefaultMailDigestState()
+      };
   }
 
   try {
@@ -2858,19 +2890,34 @@ function loadPreferences() {
       lastRole: parsedPreferences.lastRole === "employee" ? "employee" : "planner",
       lastDataMode: parsedPreferences.lastDataMode === "test" ? "test" : "live",
       hasUserSession: Boolean(parsedPreferences.hasUserSession),
-      plannerFocusMode: Boolean(parsedPreferences.plannerFocusMode),
-      plannerControlMode: Boolean(parsedPreferences.plannerControlMode),
-      plannerDeviationOnly: Boolean(parsedPreferences.plannerDeviationOnly),
-      lastWorkLogTimes: normalizeLastWorkLogTimes(parsedPreferences.lastWorkLogTimes),
-      mailDigestState: {
-        plannerSummary: typeof parsedPreferences.mailDigestState?.plannerSummary === "string"
-          ? parsedPreferences.mailDigestState.plannerSummary
-          : "",
-        employeeMissingHours: parsedPreferences.mailDigestState?.employeeMissingHours && typeof parsedPreferences.mailDigestState.employeeMissingHours === "object"
-          ? parsedPreferences.mailDigestState.employeeMissingHours
-          : {}
-      }
-    };
+        plannerFocusMode: Boolean(parsedPreferences.plannerFocusMode),
+        plannerControlMode: Boolean(parsedPreferences.plannerControlMode),
+        plannerDeviationOnly: Boolean(parsedPreferences.plannerDeviationOnly),
+        lastWorkLogTimes: normalizeLastWorkLogTimes(parsedPreferences.lastWorkLogTimes),
+        mailDigestState: {
+          plannerSummary: typeof parsedPreferences.mailDigestState?.plannerSummary === "string"
+            ? parsedPreferences.mailDigestState.plannerSummary
+            : "",
+          plannerOpenRequestsEmail: typeof parsedPreferences.mailDigestState?.plannerOpenRequestsEmail === "string"
+            ? parsedPreferences.mailDigestState.plannerOpenRequestsEmail
+            : "",
+          plannerOverdueRequestsEmail: typeof parsedPreferences.mailDigestState?.plannerOverdueRequestsEmail === "string"
+            ? parsedPreferences.mailDigestState.plannerOverdueRequestsEmail
+            : "",
+          plannerPendingHoursEmail: typeof parsedPreferences.mailDigestState?.plannerPendingHoursEmail === "string"
+            ? parsedPreferences.mailDigestState.plannerPendingHoursEmail
+            : "",
+          plannerOverdueHoursEmail: typeof parsedPreferences.mailDigestState?.plannerOverdueHoursEmail === "string"
+            ? parsedPreferences.mailDigestState.plannerOverdueHoursEmail
+            : "",
+          employeeMissingHours: parsedPreferences.mailDigestState?.employeeMissingHours && typeof parsedPreferences.mailDigestState.employeeMissingHours === "object"
+            ? parsedPreferences.mailDigestState.employeeMissingHours
+            : {},
+          employeeMissingHoursEmail: parsedPreferences.mailDigestState?.employeeMissingHoursEmail && typeof parsedPreferences.mailDigestState.employeeMissingHoursEmail === "object"
+            ? parsedPreferences.mailDigestState.employeeMissingHoursEmail
+            : {}
+        }
+      };
   } catch {
     return {
       lastEmployee: "",
@@ -2886,15 +2933,12 @@ function loadPreferences() {
       lastRole: "planner",
       lastDataMode: "live",
       hasUserSession: false,
-      plannerFocusMode: false,
-      plannerControlMode: false,
-      plannerDeviationOnly: false,
-      lastWorkLogTimes: getDefaultLastWorkLogTimes(),
-      mailDigestState: {
-        plannerSummary: "",
-        employeeMissingHours: {}
-      }
-    };
+        plannerFocusMode: false,
+        plannerControlMode: false,
+        plannerDeviationOnly: false,
+        lastWorkLogTimes: getDefaultLastWorkLogTimes(),
+        mailDigestState: getDefaultMailDigestState()
+      };
   }
 }
 
@@ -4604,9 +4648,69 @@ function maybeShowOpenRequestReminder() {
     const pendingHoursCount = workLogs.filter((log) =>
       log.status === "open" || log.status === "revision" || log.status === "rejected"
     ).length;
+    const overdueHoursCount = workLogs.filter((log) =>
+      (log.status === "open" || log.status === "revision" || log.status === "rejected") &&
+      isIsoOlderThanHours(log.submittedAt || log.updatedAt, 48)
+    ).length;
 
     if (!totalOpen && !pendingHoursCount) {
       return;
+    }
+
+    preferences.mailDigestState = {
+      ...getDefaultMailDigestState(),
+      ...(preferences.mailDigestState && typeof preferences.mailDigestState === "object" ? preferences.mailDigestState : {})
+    };
+
+    const plannerRecipients = getPlannerSummaryEmailRecipients();
+    const plannerDigestBaseKey = `${getTodayLocalDateValue()}|${currentDataMode}|planner`;
+
+    if (plannerRecipients.length) {
+      if (overdueRequestCount > 0) {
+        const overdueRequestsKey = `${plannerDigestBaseKey}|requests-overdue`;
+
+        if (preferences.mailDigestState.plannerOverdueRequestsEmail !== overdueRequestsKey) {
+          preferences.mailDigestState.plannerOverdueRequestsEmail = overdueRequestsKey;
+          savePreferences();
+          void sendPlannerSummaryEmail(plannerRecipients, "requests-reminder", {
+            totalOpen,
+            overdueRequestCount
+          });
+        }
+      } else if (totalOpen > 0) {
+        const openRequestsKey = `${plannerDigestBaseKey}|requests-open`;
+
+        if (preferences.mailDigestState.plannerOpenRequestsEmail !== openRequestsKey) {
+          preferences.mailDigestState.plannerOpenRequestsEmail = openRequestsKey;
+          savePreferences();
+          void sendPlannerSummaryEmail(plannerRecipients, "requests", {
+            totalOpen
+          });
+        }
+      }
+
+      if (overdueHoursCount > 0) {
+        const overdueHoursKey = `${plannerDigestBaseKey}|hours-overdue`;
+
+        if (preferences.mailDigestState.plannerOverdueHoursEmail !== overdueHoursKey) {
+          preferences.mailDigestState.plannerOverdueHoursEmail = overdueHoursKey;
+          savePreferences();
+          void sendPlannerSummaryEmail(plannerRecipients, "hours-reminder", {
+            pendingHoursCount,
+            overdueHoursCount
+          });
+        }
+      } else if (pendingHoursCount > 0) {
+        const pendingHoursKey = `${plannerDigestBaseKey}|hours-open`;
+
+        if (preferences.mailDigestState.plannerPendingHoursEmail !== pendingHoursKey) {
+          preferences.mailDigestState.plannerPendingHoursEmail = pendingHoursKey;
+          savePreferences();
+          void sendPlannerSummaryEmail(plannerRecipients, "hours", {
+            pendingHoursCount
+          });
+        }
+      }
     }
 
     const reminderKey = `${getTodayLocalDateValue()}|${currentDataMode}|planner|requests:${totalOpen > 0 ? 1 : 0}|overdue:${overdueRequestCount > 0 ? 1 : 0}|hours:${pendingHoursCount > 0 ? 1 : 0}`;
@@ -4620,7 +4724,6 @@ function maybeShowOpenRequestReminder() {
     }
 
     lastOpenRequestReminderKey = reminderKey;
-    preferences.mailDigestState = preferences.mailDigestState || { plannerSummary: "", employeeMissingHours: {} };
     preferences.mailDigestState.plannerSummary = reminderKey;
     savePreferences();
 
@@ -4680,13 +4783,30 @@ function maybeShowOpenRequestReminder() {
     return;
   }
 
-  lastEmployeeHoursReminderKey = reminderKey;
-  preferences.mailDigestState = preferences.mailDigestState || { plannerSummary: "", employeeMissingHours: {} };
-  preferences.mailDigestState.employeeMissingHours = preferences.mailDigestState.employeeMissingHours || {};
-  preferences.mailDigestState.employeeMissingHours[employeeName] = reminderKey;
-  savePreferences();
-  showMessage("U heeft uw gewerkte uren van vorige week nog niet ingevuld.", "warning");
-}
+    lastEmployeeHoursReminderKey = reminderKey;
+    preferences.mailDigestState = preferences.mailDigestState || getDefaultMailDigestState();
+    preferences.mailDigestState.employeeMissingHours = preferences.mailDigestState.employeeMissingHours || {};
+    preferences.mailDigestState.employeeMissingHours[employeeName] = reminderKey;
+    savePreferences();
+    const emailReminderKey = `${currentDataMode}|${employeeName}|${previousWeek}`;
+    const storedEmailReminderKey = preferences.mailDigestState?.employeeMissingHoursEmail?.[employeeName] || "";
+
+    if (storedEmailReminderKey !== emailReminderKey) {
+      const employeeEmail = getEmployeeEmail(employeeName);
+
+      if (employeeEmail) {
+        preferences.mailDigestState.employeeMissingHoursEmail = preferences.mailDigestState.employeeMissingHoursEmail || {};
+        preferences.mailDigestState.employeeMissingHoursEmail[employeeName] = emailReminderKey;
+        savePreferences();
+        void sendEmployeeHoursReminderEmail([employeeEmail], {
+          employeeName,
+          weekValue: previousWeek
+        });
+      }
+    }
+
+    showMessage("U heeft uw gewerkte uren van vorige week nog niet ingevuld.", "warning");
+  }
 
 function getCurrentEmployeeName() {
   return currentEmployeeSelect.value;
@@ -10186,24 +10306,24 @@ const EMAIL_TEMPLATES = {
     message: "Uw aanvraag is afgekeurd."
   }),
   swapSubmitted: () => ({
-    subject: "Ruilverzoek ontvangen",
-    message: "Uw aanvraag is ontvangen en staat in behandeling."
+    subject: "Uw ruilverzoek is ontvangen",
+    message: "Uw ruilverzoek is ontvangen."
   }),
   swapRequestCreated: () => ({
     subject: "Nieuw ruilverzoek",
     message: "Je hebt een ruilverzoek ontvangen."
   }),
   swapAutoApproved: () => ({
-    subject: "Ruil goedgekeurd",
-    message: "Uw aanvraag is goedgekeurd."
+    subject: "Uw ruilverzoek is goedgekeurd",
+    message: "Uw ruilverzoek is goedgekeurd."
   }),
   swapApproved: () => ({
-    subject: "Ruil goedgekeurd",
-    message: "Uw aanvraag is goedgekeurd."
+    subject: "Uw ruilverzoek is goedgekeurd",
+    message: "Uw ruilverzoek is goedgekeurd."
   }),
   swapRejected: () => ({
-    subject: "Ruilverzoek afgewezen",
-    message: "Uw aanvraag is afgekeurd."
+    subject: "Uw ruilverzoek is afgekeurd",
+    message: "Uw ruilverzoek is afgekeurd."
   }),
   swapPlannerHelp: () => ({
     subject: "Directie ingeschakeld",
@@ -10217,13 +10337,33 @@ const EMAIL_TEMPLATES = {
     subject: "Uren vorige week nog open",
     message: "U heeft uw gewerkte uren van vorige week nog niet ingevuld."
   }),
+  worklogApproved: () => ({
+    subject: "Uw uren zijn goedgekeurd",
+    message: "Uw uren zijn goedgekeurd."
+  }),
+  worklogRejected: () => ({
+    subject: "Uw uren zijn afgekeurd",
+    message: "Uw uren zijn afgekeurd."
+  }),
+  worklogRevision: () => ({
+    subject: "Uw uren hebben een opmerking",
+    message: "Uw uren zijn teruggestuurd met een opmerking."
+  }),
   plannerOpenRequestsSummary: () => ({
     subject: "Open aanvragen in de Roosterapp",
     message: "Er staan open aanvragen in de Roosterapp."
   }),
+  plannerOpenRequestsReminder: () => ({
+    subject: "Open acties vragen aandacht",
+    message: "Er staan nog open acties die aandacht nodig hebben."
+  }),
   plannerHoursApprovalSummary: () => ({
     subject: "Uren klaar voor goedkeuring",
     message: "Er staan uren klaar om goed te keuren in de Roosterapp."
+  }),
+  plannerHoursApprovalReminder: () => ({
+    subject: "Open acties vragen aandacht",
+    message: "Er staan nog open acties die aandacht nodig hebben."
   })
 };
 
@@ -10246,9 +10386,13 @@ async function sendTemplatedEmail(to, templateKey, context = {}) {
 }
 
 async function sendPlannerSummaryEmail(to, summaryType, context = {}) {
-  const templateKey = summaryType === "hours"
-    ? "plannerHoursApprovalSummary"
-    : "plannerOpenRequestsSummary";
+  const templateMap = {
+    hours: "plannerHoursApprovalSummary",
+    "hours-reminder": "plannerHoursApprovalReminder",
+    requests: "plannerOpenRequestsSummary",
+    "requests-reminder": "plannerOpenRequestsReminder"
+  };
+  const templateKey = templateMap[summaryType] || "plannerOpenRequestsSummary";
   return sendTemplatedEmail(to, templateKey, context);
 }
 
@@ -10376,7 +10520,6 @@ function registerRequestMailNotification(request, type, employeeNames = [], opti
 
   const recipients = buildMailRecipients(employeeNames);
   const hasAtLeastOneEmail = recipients.some((recipient) => recipient.email);
-  const senderConfigured = hasConfiguredMailSender();
   const recipientSignature = recipients
     .map((recipient) => `${recipient.employeeName}|${recipient.email}`)
     .sort()
@@ -10398,14 +10541,14 @@ function registerRequestMailNotification(request, type, employeeNames = [], opti
 
   request.mailLog = Array.isArray(request.mailLog) ? request.mailLog : [];
   const mailEntry = {
-      type,
-      at: getNowIsoString(),
-      periodKey,
-      status: !senderConfigured ? "config-missing" : hasAtLeastOneEmail ? "queued" : "missing-email",
-      messageId: "",
-      error: "",
-      recipients
-    };
+        type,
+        at: getNowIsoString(),
+        periodKey,
+        status: hasAtLeastOneEmail ? "queued" : "missing-email",
+        messageId: "",
+        error: "",
+        recipients
+      };
   request.mailLog.unshift(mailEntry);
   request.mailLog = request.mailLog.slice(0, 10);
 
@@ -10471,6 +10614,20 @@ function getTimeOffMailTemplateText(request, type) {
   return buildEmailTemplate(getTimeOffMailTemplateKey(request, type)).message;
 }
 
+function getMailDeliveryPrefix(type, status) {
+  const isReminder = type === "reminder";
+
+  if (status === "queued") {
+    return isReminder ? "Herinnering wordt verzonden." : "Mail wordt verzonden.";
+  }
+
+  if (status === "sent") {
+    return isReminder ? "Herinnering verzonden." : "Mail verzonden.";
+  }
+
+  return isReminder ? "Herinnering verzonden." : "Mail verzonden.";
+}
+
 function getRequestMailStatusText(request, options = {}) {
   const {
     templateTextGetter = () => "Er is een update.",
@@ -10496,11 +10653,11 @@ function getRequestMailStatusText(request, options = {}) {
   }
 
   if (latestMail.status === "queued") {
-    return `Mail wordt verzonden. ${templateTextGetter(request, latestMail.type)}`.trim();
+    return `${getMailDeliveryPrefix(latestMail.type, "queued")} ${templateTextGetter(request, latestMail.type)}`.trim();
   }
 
   if (latestMail.status === "sent") {
-    return `Mail verzonden. ${templateTextGetter(request, latestMail.type)}`.trim();
+    return `${getMailDeliveryPrefix(latestMail.type, "sent")} ${templateTextGetter(request, latestMail.type)}`.trim();
   }
 
   if (latestMail.status === "local-preview") {
@@ -10513,7 +10670,7 @@ function getRequestMailStatusText(request, options = {}) {
       : "Mail niet verzonden.";
   }
 
-  const actionLabel = labelMap[latestMail.type] || "Mail verzonden.";
+  const actionLabel = labelMap[latestMail.type] || getMailDeliveryPrefix(latestMail.type, "sent");
   return `${actionLabel} ${templateTextGetter(request, latestMail.type)}`.trim();
 }
 
@@ -10552,13 +10709,13 @@ function getSwapMailStatusText(request) {
   return getRequestMailStatusText(request, {
     templateTextGetter: (_, type) => getSwapMailTemplateText(type),
     labelMap: {
-      submitted: "Mail aangemaakt.",
-      "request-created": "Mail aangemaakt.",
-      "auto-approved": "Mail aangemaakt.",
-      approved: "Mail aangemaakt.",
-      rejected: "Mail aangemaakt.",
-      "planner-help": "Mail aan directie/planner aangemaakt.",
-      reminder: "Herinnering aangemaakt."
+      submitted: "Mail verzonden.",
+      "request-created": "Mail verzonden.",
+      "auto-approved": "Mail verzonden.",
+      approved: "Mail verzonden.",
+      rejected: "Mail verzonden.",
+      "planner-help": "Mail verzonden.",
+      reminder: "Herinnering verzonden."
     },
     recipientFallback: "betrokken collega",
     employeeName: isPlannerRole() ? "" : currentEmployee
@@ -10575,13 +10732,35 @@ function registerTimeOffMailNotification(request, type, employeeNames = [], opti
   });
 }
 
+function getWorkLogMailTemplateKey(type) {
+  const templateMap = {
+    approved: "worklogApproved",
+    rejected: "worklogRejected",
+    revision: "worklogRevision"
+  };
+
+  return templateMap[type] || "";
+}
+
+function registerWorkLogMailNotification(workLog, type, employeeNames = [], options = {}) {
+  if (!workLog || !type) {
+    return;
+  }
+
+  registerRequestMailNotification(workLog, type, employeeNames, {
+    ...options,
+    templateKeyBuilder: (_, currentType) => getWorkLogMailTemplateKey(currentType),
+    persist: saveWorkLogs
+  });
+}
+
 function getTimeOffMailStatusText(request) {
   return getRequestMailStatusText(request, {
     templateTextGetter: (currentRequest, type) => getTimeOffMailTemplateText(currentRequest, type),
     labelMap: {
-      submitted: "Mail aangemaakt.",
-      approved: "Mail aangemaakt.",
-      rejected: "Mail aangemaakt."
+      submitted: "Mail verzonden.",
+      approved: "Mail verzonden.",
+      rejected: "Mail verzonden."
     },
     recipientFallback: request?.employeeName || "betrokken medewerker",
     employeeName: isPlannerRole() ? "" : getRoleScopedEmployeeName()
@@ -14708,6 +14887,7 @@ function quickCompleteWorkDay(targetDate) {
       breakMinutes: plannedValues.breakMinutes,
       notes: existingLog?.notes || "",
       employeeReply: existingLog?.employeeReply || "",
+      mailLog: sanitizeRequestMailLog(existingLog?.mailLog),
       status: "draft",
       managerNote: existingLog?.managerNote || "",
       submittedAt: existingLog?.submittedAt || "",
@@ -14883,18 +15063,19 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   );
 
   const nextLog = {
-    id: workLogId,
-    employeeName: entry.name,
-    day: entry.day,
-    shiftName: entry.isManualHours ? "Extra uren" : getShiftName(entry),
+      id: workLogId,
+      employeeName: entry.name,
+      day: entry.day,
+      shiftName: entry.isManualHours ? "Extra uren" : getShiftName(entry),
     plannedStart: entry.startTime,
     plannedEnd: entry.endTime,
     actualStart,
     actualEnd,
-    breakMinutes,
-    notes,
-    employeeReply,
-    status: isPlannerCorrectionOnApproved
+      breakMinutes,
+      notes,
+      employeeReply,
+      mailLog: sanitizeRequestMailLog(existingLog?.mailLog),
+      status: isPlannerCorrectionOnApproved
       ? "approved"
       : (action === "submit" ? "open" : (existingLog?.status === "approved" ? "approved" : "draft")),
     managerNote: action === "submit" ? (existingLog?.managerNote || "") : (existingLog?.managerNote || ""),
@@ -15142,6 +15323,9 @@ function updateWorkLogStatus(workLogId, nextStatus, managerNote = "") {
     createWorkLogAuditEntry(`status-${nextStatus}`, statusLabels[nextStatus] || nextStatus)
   ];
   saveWorkLogs();
+  if (["approved", "rejected", "revision"].includes(nextStatus)) {
+    registerWorkLogMailNotification(workLog, nextStatus, [workLog.employeeName]);
+  }
   persistProtectedChange({
     reason: `Urenstatus gewijzigd: ${workLog.employeeName} ${workLog.day} ${workLog.shiftName}`,
     scope: "worklog-approval",
@@ -15201,6 +15385,9 @@ function approveWorkLogsForWeek(weekValue, employeeName = "") {
   });
 
   saveWorkLogs();
+  logsToApprove.forEach((log) => {
+    registerWorkLogMailNotification(log, "approved", [log.employeeName]);
+  });
   persistProtectedChange({
     reason: employeeName ? `Weekuren goedgekeurd: ${employeeName} ${weekValue}` : `Weekuren goedgekeurd: ${weekValue}`,
     scope: "worklog-approval",
