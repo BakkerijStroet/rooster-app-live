@@ -1,8 +1,9 @@
-﻿const form = document.getElementById("schedule-form");
+const form = document.getElementById("schedule-form");
 const scheduleBoard = document.getElementById("schedule-board");
 const totalsContainer = document.getElementById("totals");
 const myScheduleBoard = document.getElementById("myScheduleBoard");
 const myHoursSummary = document.getElementById("myHoursSummary");
+const myHoursPanel = document.querySelector('[data-panel="my-hours"]');
 const roleSelect = document.getElementById("roleSelect");
 const currentEmployeeSelect = document.getElementById("currentEmployee");
 const currentEmployeeBadge = document.getElementById("currentEmployeeBadge");
@@ -103,10 +104,6 @@ const dashboardTestMailButton = document.getElementById("dashboardTestMailButton
 const saveMailSettingsButton = document.getElementById("saveMailSettingsButton");
 const testMailButton = document.getElementById("testMailButton");
 const mailSettingsStatus = document.getElementById("mailSettingsStatus");
-const FIXED_TEST_MAIL_RECIPIENT = "info@bakkerijstroet.nl";
-const APP_MAIL_TEST_MODE_ENABLED = true;
-const EMPLOYEE_MAIL_TEST_MODE_ENABLED = true;
-const EMPLOYEE_MAIL_TEST_EMPLOYEE = "Twan";
 const employeeListCard = document.getElementById("employeeListCard");
 const employeeStandardShiftList = document.getElementById("employeeStandardShiftList");
 const employeePermissionsList = document.getElementById("employeePermissionsList");
@@ -208,8 +205,7 @@ const hoursExportMonthInput = document.getElementById("hoursExportMonth");
 const hoursExportButton = document.getElementById("hoursExportButton");
 const myHoursSectionSwitch = document.getElementById("myHoursSectionSwitch");
 const myHoursFillButton = document.getElementById("myHoursFillButton");
-const myHoursTodayButton = document.getElementById("myHoursTodayButton");
-const myHoursMissingButton = document.getElementById("myHoursMissingButton");
+const myHoursHistoryButton = document.getElementById("myHoursHistoryButton");
 const myHoursHighlight = document.getElementById("myHoursHighlight");
 const myHoursRegistrations = document.getElementById("myHoursRegistrations");
 const hoursApprovalQueue = document.getElementById("hoursApprovalQueue");
@@ -338,7 +334,7 @@ const employeeAllowedTabs = ["week-current", "my-schedule", "my-hours", "request
 let planningDataRevision = 0;
 let requestDataRevision = 0;
 let previewDataRevision = 0;
-let activeMyHoursSection = "";
+let activeMyHoursSection = "fill";
 let activeMyHoursEntryMode = "planned";
 let lastOpenRequestReminderKey = "";
 let lastEmployeeHoursReminderKey = "";
@@ -1358,7 +1354,7 @@ function getMailSettingsDefaults() {
   return {
     senderName: "Bakkerij Stroet",
     senderEmail: "",
-    testRecipientEmail: FIXED_TEST_MAIL_RECIPIENT,
+    testRecipientEmail: "",
     updatedAt: "",
     updatedByRole: "",
     updatedByName: ""
@@ -1415,7 +1411,7 @@ function loadEmployeeMeta() {
       employeeName,
       {
         ...getEmployeeStatusMetaDefaults(),
-        mailTestUser: employeeName === "Twan"
+        mailTestUser: false
       }
     ])
   );
@@ -1427,9 +1423,6 @@ function loadEmployeeMeta() {
   try {
     const parsedMeta = JSON.parse(savedMeta);
     const normalized = {};
-    const hasExplicitMailTestUser = employees.some((employeeName) =>
-      Object.prototype.hasOwnProperty.call(parsedMeta?.[employeeName] || {}, "mailTestUser")
-    );
 
     employees.forEach((employeeName) => {
       const currentMeta = parsedMeta?.[employeeName];
@@ -1438,7 +1431,7 @@ function loadEmployeeMeta() {
         role: normalizeEmployeeAppRole(currentMeta?.role || getDefaultEmployeeAppRole(employeeName)),
         contractHours: normalizeContractHours(currentMeta?.contractHours ?? getConfiguredEmployeeContractHours()[employeeName] ?? 0),
         email: normalizeEmployeeEmail(currentMeta?.email),
-        mailTestUser: hasExplicitMailTestUser ? Boolean(currentMeta?.mailTestUser) : employeeName === "Twan",
+        mailTestUser: false,
         lastTestMailAt: typeof currentMeta?.lastTestMailAt === "string" ? currentMeta.lastTestMailAt : "",
         lastTestMailStatus: typeof currentMeta?.lastTestMailStatus === "string" ? currentMeta.lastTestMailStatus : "",
         lastTestMailMessage: typeof currentMeta?.lastTestMailMessage === "string" ? currentMeta.lastTestMailMessage : "",
@@ -1543,44 +1536,28 @@ function getEmployeeEmail(employeeName) {
 }
 
 function getAppMailSentMessage() {
-  return APP_MAIL_TEST_MODE_ENABLED
-    ? `Mail verzonden naar ${FIXED_TEST_MAIL_RECIPIENT} (testmodus)`
-    : "Mail verzonden";
+  return "Mail verzonden";
 }
 
 function getAppMailQueuedMessage(isReminder = false) {
-  if (APP_MAIL_TEST_MODE_ENABLED) {
-    return isReminder
-      ? `Herinnering wordt verzonden naar ${FIXED_TEST_MAIL_RECIPIENT} (testmodus)`
-      : `Mail wordt verzonden naar ${FIXED_TEST_MAIL_RECIPIENT} (testmodus)`;
-  }
-
   return isReminder ? "Herinnering wordt verzonden." : "Mail wordt verzonden.";
 }
 
 function isEmployeeMailTestEnabled(employeeName) {
-  if (EMPLOYEE_MAIL_TEST_MODE_ENABLED) {
-    return String(employeeName || "").trim().toLowerCase() === EMPLOYEE_MAIL_TEST_EMPLOYEE.toLowerCase();
-  }
-
-  return Boolean(employeeMeta?.[employeeName]?.mailTestUser);
+  return false;
 }
 
 function isEmployeeMailBlockedByTestPhase(employeeName) {
-  return Boolean(getEmployeeEmail(employeeName)) && !isEmployeeMailTestEnabled(employeeName);
+  return false;
 }
 
 function getMailEligibleEmployeeEmail(employeeName) {
-  if (!isEmployeeMailTestEnabled(employeeName)) {
-    return "";
-  }
-
   return getEmployeeEmail(employeeName);
 }
 
 function getPlannerSummaryEmailRecipients() {
   const plannerEmail = normalizeEmployeeEmail(
-    mailSettings?.senderEmail || mailSettings?.testRecipientEmail || FIXED_TEST_MAIL_RECIPIENT
+    mailSettings?.senderEmail || mailSettings?.testRecipientEmail || ""
   );
   return plannerEmail ? [plannerEmail] : [];
 }
@@ -1695,25 +1672,24 @@ function renderEmployeeDetailMailStatus(employeeName = getSelectedEmployeeAdminN
   const sentAt = employeeMeta[employeeName].lastTestMailAt
     ? ` op ${formatDateTime(employeeMeta[employeeName].lastTestMailAt)}`
     : "";
-  const testModeText = `Testmodus: mail gaat nu alleen naar ${FIXED_TEST_MAIL_RECIPIENT}`;
   const employeeEmailText = recipientEmail ? `E-mailadres medewerker: ${recipientEmail}` : "Geen e-mailadres ingesteld";
 
   if (!recipientEmail) {
-    employeeDetailMailStatus.textContent = `${employeeEmailText} · ${testModeText}`;
+    employeeDetailMailStatus.textContent = employeeEmailText;
     employeeDetailMailStatus.classList.remove("hidden");
     return;
   }
 
   if (!status) {
-    employeeDetailMailStatus.textContent = `${employeeEmailText} · ${testModeText} · klaar om te versturen`;
+    employeeDetailMailStatus.textContent = `${employeeEmailText} · klaar om te versturen`;
     employeeDetailMailStatus.classList.remove("hidden");
     return;
   }
 
   if (status === "sent") {
-    employeeDetailMailStatus.textContent = `${employeeEmailText} · ${testModeText} · verzonden${sentAt}`;
+    employeeDetailMailStatus.textContent = `${employeeEmailText} · verzonden${sentAt}`;
   } else {
-    employeeDetailMailStatus.textContent = `${employeeEmailText} · ${testModeText} · mislukt${message ? ` · ${message}` : ""}`;
+    employeeDetailMailStatus.textContent = `${employeeEmailText} · mislukt${message ? ` · ${message}` : ""}`;
   }
 
   employeeDetailMailStatus.classList.remove("hidden");
@@ -5083,6 +5059,260 @@ function getWorkLogStatusLabel(workLog) {
   }
 
   return "Ingevuld";
+}
+
+function getDailyWorkLogStatus(logs = []) {
+  if (!Array.isArray(logs) || !logs.length) {
+    return {
+      label: "Leeg",
+      className: "empty"
+    };
+  }
+
+  if (logs.some((log) => log?.status === "rejected")) {
+    return {
+      label: "Afgekeurd",
+      className: "rejected"
+    };
+  }
+
+  if (logs.some((log) => log?.status === "revision")) {
+    return {
+      label: "Opmerking nodig",
+      className: "open"
+    };
+  }
+
+  if (logs.every((log) => log?.status === "approved")) {
+    return {
+      label: "Goedgekeurd",
+      className: "approved"
+    };
+  }
+
+  if (logs.some((log) => log?.status === "open")) {
+    return {
+      label: "Ingediend",
+      className: "open"
+    };
+  }
+
+  return {
+    label: "Ingevuld",
+    className: "empty"
+  };
+}
+
+function getSimpleHoursTargetEntry(employeeName, day, dayEntries = []) {
+  if (dayEntries.length === 1) {
+    return dayEntries[0];
+  }
+
+  return buildHoursManualEntry(employeeName, day, "Gewerkte uren");
+}
+
+function getSimpleHoursWorkedValue(entry, workLog) {
+  const workedHours = workLog
+    ? calculateWorkedHours(workLog.actualStart, workLog.actualEnd, workLog.breakMinutes)
+    : null;
+
+  if (workedHours !== null) {
+    return Number(workedHours.toFixed(2));
+  }
+
+  if (entry?.hours && Number.isFinite(Number(entry.hours)) && Number(entry.hours) > 0) {
+    return Number(Number(entry.hours).toFixed(2));
+  }
+
+  return "";
+}
+
+function renderSimpleEmployeeHoursFormMarkup(employeeName, day, dayEntries = []) {
+  const targetEntry = getSimpleHoursTargetEntry(employeeName, day, dayEntries);
+  const workLogId = targetEntry.isManualHours
+    ? buildManualWorkLogId(employeeName, day)
+    : getWorkLogIdForEntry(targetEntry);
+  const existingLog = targetEntry.isManualHours
+    ? getManualWorkLogForDate(employeeName, day)
+    : getWorkLogForEntry(targetEntry);
+  const workedValue = getSimpleHoursWorkedValue(targetEntry, existingLog);
+  const noteValue = existingLog?.notes || "";
+  const statusLabel = getWorkLogStatusLabel(existingLog);
+  const statusClass = existingLog?.status === "approved"
+    ? "approved"
+    : existingLog?.status === "rejected"
+      ? "rejected"
+      : existingLog?.status === "open"
+        ? "open"
+        : "empty";
+  const plannedSummary = dayEntries.length
+    ? dayEntries.map((entry) => `${getShiftName(entry)} · ${entry.startTime} - ${entry.endTime}`).join("<br>")
+    : "Geen dienst gepland";
+  const quickHoursChoices = [2, 4, 6, 8];
+
+  return `
+    <article class="hours-simple-card" data-simple-hours-card="${workLogId}">
+      <div class="hours-simple-head">
+        <div>
+          <strong>${dayEntries.length ? "Uren invullen" : "Extra uren invullen"}</strong>
+          <span>${plannedSummary}</span>
+        </div>
+        <span class="status-pill status-${statusClass}">${statusLabel}</span>
+      </div>
+      <div class="hours-simple-grid">
+        <label>
+          <span>Aantal uren</span>
+          <input type="number" min="0" max="24" step="0.25" value="${workedValue}" data-simple-hours="value" data-worklog-id="${workLogId}">
+        </label>
+        <div class="hours-simple-quick">
+          <span>Snelle keuze</span>
+          <div class="hours-simple-quick-buttons">
+              ${quickHoursChoices.map((hours) => `
+                <button type="button" class="secondary" data-simple-hours-quick="${hours}" data-worklog-id="${workLogId}">${hours} uur</button>
+              `).join("")}
+            </div>
+          </div>
+          <label class="hours-simple-notes">
+          <span>Korte toelichting</span>
+          <input type="text" value="${escapeHtml(noteValue)}" placeholder="Optioneel" data-simple-hours="notes" data-worklog-id="${workLogId}">
+        </label>
+      </div>
+      <div class="form-actions compact-actions">
+        <button type="button" data-simple-hours-save="${workLogId}">Opslaan</button>
+      </div>
+    </article>
+  `;
+}
+
+function saveSimpleHoursForm(workLogId) {
+  const entry = getWorkLogContextById(workLogId);
+
+  if (!entry) {
+    showError("De urenregistratie kan niet worden geladen.");
+    return;
+  }
+
+  if (!ensureOwnEmployeeAccess(entry.name, "Je kunt alleen je eigen uren invullen.")) {
+    return;
+  }
+
+  if (isFutureDateValue(entry.day)) {
+    showError("Uren voor toekomstige dagen kun je nog niet invullen.");
+    return;
+  }
+
+  if (!ensureEmployeeWeekEditable(entry.day, "uren in te vullen")) {
+    renderMyHours();
+    return;
+  }
+
+  const hoursInput = myHoursRegistrations?.querySelector(`[data-simple-hours="value"][data-worklog-id="${workLogId}"]`);
+  const notesInput = myHoursRegistrations?.querySelector(`[data-simple-hours="notes"][data-worklog-id="${workLogId}"]`);
+  const existingLog = workLogs.find((log) => log.id === workLogId) || null;
+
+  if (!hoursInput || !notesInput) {
+    showError("De ureninvoer kan niet worden geladen.");
+    return;
+  }
+
+  if (!isPlannerRole() && existingLog && (existingLog.status === "open" || existingLog.status === "approved")) {
+    showError(
+      existingLog.status === "approved"
+        ? "Goedgekeurde uren zijn geblokkeerd voor verdere wijziging."
+        : "Deze urenregistratie is al ingediend en kan niet meer door de medewerker worden gewijzigd."
+    );
+    renderMyHours();
+    return;
+  }
+
+  if (
+    !isPlannerRole() &&
+    existingLog &&
+    (existingLog.status === "draft" || existingLog.status === "rejected" || existingLog.status === "revision")
+  ) {
+    const wantsOverwrite = confirmAction(
+      `Er zijn al uren ingevuld voor ${formatDate(entry.day)}. Wil je deze invoer aanpassen?`
+    );
+
+    if (!wantsOverwrite) {
+      return;
+    }
+  }
+
+  const workedHours = Number(hoursInput.value);
+
+  if (!Number.isFinite(workedHours) || workedHours <= 0) {
+    showError("Vul een geldig aantal uren in.");
+    return;
+  }
+
+  const roundedHours = Math.round(workedHours * 4) / 4;
+  const actualStart = entry.startTime || existingLog?.plannedStart || "09:00";
+  const actualEnd = addMinutesToTimeValue(actualStart, roundedHours * 60);
+  const notes = notesInput.value.trim();
+  const auditEntry = createWorkLogAuditEntry("save", `eenvoudige ureninvoer: ${formatHours(roundedHours)}`);
+
+  const nextLog = {
+    id: workLogId,
+    employeeName: entry.name,
+    day: entry.day,
+    shiftName: entry.isManualHours ? "Gewerkte uren" : getShiftName(entry),
+    plannedStart: entry.startTime,
+    plannedEnd: entry.endTime,
+    actualStart,
+    actualEnd,
+    breakMinutes: 0,
+    notes,
+    employeeReply: existingLog?.employeeReply || "",
+    mailLog: sanitizeRequestMailLog(existingLog?.mailLog),
+    status: existingLog?.status === "approved" ? "approved" : "draft",
+    managerNote: existingLog?.managerNote || "",
+    submittedAt: existingLog?.submittedAt || "",
+    updatedAt: auditEntry.at,
+    auditTrail: [...(existingLog?.auditTrail || []), auditEntry]
+  };
+
+  const existingIndex = workLogs.findIndex((log) => log.id === workLogId);
+
+  if (existingIndex >= 0) {
+    workLogs[existingIndex] = nextLog;
+  } else {
+    workLogs.push(nextLog);
+  }
+
+  saveWorkLogs();
+  persistProtectedChange({
+    reason: `Uren opgeslagen: ${entry.name} ${entry.day}`,
+    scope: "worklog",
+    action: "worklog-saved",
+    message: `Urenregistratie bijgewerkt voor ${entry.name} op ${formatDate(entry.day)}.`,
+    details: {
+      workLogId,
+      employeeName: entry.name,
+      day: entry.day,
+      shiftName: entry.isManualHours ? "Gewerkte uren" : getShiftName(entry),
+      status: nextLog.status
+    }
+  });
+  const nextOpenDate = entries
+    .filter((candidate) =>
+      candidate.name === entry.name &&
+      candidate.day < getTodayLocalDateValue() &&
+      candidate.day !== entry.day &&
+      !getWorkLogForEntry(candidate)
+    )
+    .sort((entryA, entryB) => entryB.day.localeCompare(entryA.day) || entryA.startTime.localeCompare(entryB.startTime))[0]?.day || "";
+
+  if (!isPlannerRole() && hoursDateInput) {
+    const nextDate = nextOpenDate || getTodayLocalDateValue();
+    hoursDateInput.value = clampHoursDateValue(nextDate);
+    preferences.lastHoursDate = hoursDateInput.value;
+    preferences.lastHoursWeek = getWeekValueFromDate(hoursDateInput.value) || getCurrentWeekValue();
+    savePreferences();
+  }
+
+  renderMyHours();
+  showSuccess("Uren opgeslagen");
 }
 
 function createWorkLogAuditEntry(action, summary) {
@@ -10647,7 +10877,6 @@ async function sendEmail(to, subject, message) {
         to: Array.isArray(to) ? to : [to],
         subject,
         message,
-        forceTestRecipient: APP_MAIL_TEST_MODE_ENABLED,
         fromName: normalizeMailSenderName(mailSettings?.senderName || ""),
         fromEmail: normalizeEmployeeEmail(mailSettings?.senderEmail || "")
       })
@@ -10701,15 +10930,23 @@ async function sendEmail(to, subject, message) {
   }
 }
 
-async function sendTestEmailRequest() {
+async function sendTestEmailRequest(recipient) {
   console.info("[test-mail] sendTestEmailRequest:start", {
-    protocol: window.location.protocol
+    protocol: window.location.protocol,
+    recipient
   });
 
   if (window.location.protocol === "file:") {
     return {
       ok: false,
       error: "Lokale preview zonder serverroute."
+    };
+  }
+
+  if (!recipient) {
+    return {
+      ok: false,
+      error: "Geen e-mailadres ingesteld"
     };
   }
 
@@ -10720,7 +10957,11 @@ async function sendTestEmailRequest() {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        testMode: true
+        to: [recipient],
+        subject: "Test mail Roosterapp",
+        message: "Dit is een testmail vanuit de Roosterapp",
+        fromName: normalizeMailSenderName(mailSettings?.senderName || ""),
+        fromEmail: normalizeEmployeeEmail(mailSettings?.senderEmail || "")
       })
     });
 
@@ -10761,7 +11002,7 @@ async function sendTestEmailRequest() {
 
     return {
       ok: true,
-      message: payloadMessage || `Mail verzonden naar ${FIXED_TEST_MAIL_RECIPIENT} (testmodus)`
+      message: payloadMessage || "Mail verzonden"
     };
   } catch (error) {
     console.error("[test-mail] sendTestEmailRequest:exception", error);
@@ -10836,13 +11077,13 @@ const EMAIL_TEMPLATES = {
     subject: "Uw uren zijn goedgekeurd",
     message: "Uw uren zijn goedgekeurd."
   }),
-  worklogRejected: () => ({
+  worklogRejected: (context = {}) => ({
     subject: "Uw uren zijn afgekeurd",
-    message: "Uw uren zijn afgekeurd."
+    message: `Uw uren zijn afgekeurd.${context?.request?.managerNote ? `\n\nOpmerking: ${context.request.managerNote}` : ""}`
   }),
-  worklogRevision: () => ({
+  worklogRevision: (context = {}) => ({
     subject: "Uw uren hebben een opmerking",
-    message: "Uw uren zijn teruggestuurd met een opmerking."
+    message: `Uw uren zijn teruggestuurd met een opmerking.${context?.request?.managerNote ? `\n\nOpmerking: ${context.request.managerNote}` : ""}`
   }),
   plannerOpenRequestsSummary: () => ({
     subject: "Open aanvragen in de Roosterapp",
@@ -11164,14 +11405,10 @@ function getMailDeliveryPrefix(type, status) {
   }
 
   if (status === "sent") {
-    return isReminder
-      ? `Herinnering verzonden naar ${FIXED_TEST_MAIL_RECIPIENT} (testmodus)`
-      : getAppMailSentMessage();
+    return getAppMailSentMessage();
   }
 
-  return isReminder
-    ? `Herinnering verzonden naar ${FIXED_TEST_MAIL_RECIPIENT} (testmodus)`
-    : getAppMailSentMessage();
+  return getAppMailSentMessage();
 }
 
 function getRequestMailStatusText(request, options = {}) {
@@ -11195,14 +11432,6 @@ function getRequestMailStatusText(request, options = {}) {
   }
 
   if (latestMail.status === "missing-email") {
-    const recipientNames = Array.isArray(latestMail.recipients)
-      ? latestMail.recipients.map((recipient) => recipient.employeeName).filter(Boolean)
-      : [];
-
-    if (recipientNames.some((employeeName) => isEmployeeMailBlockedByTestPhase(employeeName))) {
-      return "Mail uitgeschakeld tijdens testfase";
-    }
-
     return latestMail.error || "Geen e-mailadres ingesteld";
   }
 
@@ -11304,6 +11533,10 @@ function registerWorkLogMailNotification(workLog, type, employeeNames = [], opti
 
   registerRequestMailNotification(workLog, type, employeeNames, {
     ...options,
+    notifyUser: options.notifyUser !== false,
+    notifySuccessMessage: typeof options.notifySuccessMessage === "string"
+      ? options.notifySuccessMessage
+      : "Mail verzonden",
     templateKeyBuilder: (_, currentType) => getWorkLogMailTemplateKey(currentType),
     persist: saveWorkLogs,
     onStatusChange: () => render()
@@ -12608,8 +12841,15 @@ function setActiveTab(tabName, options = {}) {
   }
 
   if (normalizedTabName === "my-hours" && !isPlannerRole() && !options.preserveMyHoursSection) {
-    activeMyHoursSection = "";
+    activeMyHoursSection = "fill";
     activeMyHoursEntryMode = "planned";
+    if (hoursDateInput) {
+      const todayValue = getTodayLocalDateValue();
+      hoursDateInput.value = todayValue;
+      preferences.lastHoursDate = todayValue;
+      preferences.lastHoursWeek = getWeekValueFromDate(todayValue) || getCurrentWeekValue();
+      savePreferences();
+    }
   }
 
   if (normalizedTabName === "requests") {
@@ -13494,13 +13734,9 @@ function renderEmployeeStatusControls() {
     employeeEmailInput.value = employeeDraft?.email || (selectedEmployee ? getEmployeeEmail(selectedEmployee) : "");
   }
   if (employeeMailTestUserInput) {
-    employeeMailTestUserInput.checked = EMPLOYEE_MAIL_TEST_MODE_ENABLED
-      ? isEmployeeMailTestEnabled(selectedEmployee)
-      : Boolean(employeeDraft?.mailTestUser);
-    employeeMailTestUserInput.disabled = EMPLOYEE_MAIL_TEST_MODE_ENABLED && selectedEmployee !== EMPLOYEE_MAIL_TEST_EMPLOYEE;
-    employeeMailTestUserInput.title = EMPLOYEE_MAIL_TEST_MODE_ENABLED
-      ? `Tijdelijke testmodus actief: alleen ${EMPLOYEE_MAIL_TEST_EMPLOYEE} ontvangt medewerker-mails.`
-      : "";
+    employeeMailTestUserInput.checked = false;
+    employeeMailTestUserInput.disabled = true;
+    employeeMailTestUserInput.title = "";
   }
   clearEmployeeEmailFieldError();
   if (employeeNameDisplayInput) {
@@ -13541,14 +13777,14 @@ function renderMailSettings() {
   mailSenderEmailInput.value = normalizeEmployeeEmail(mailSettings.senderEmail);
 
   if (!hasConfiguredMailSender()) {
-    mailSettingsStatus.textContent = `Nog niet compleet: vul afzendernaam en e-mailadres in. Testmail gaat daarna naar ${FIXED_TEST_MAIL_RECIPIENT}.`;
+    mailSettingsStatus.textContent = "Nog niet compleet: vul afzendernaam en e-mailadres in.";
     return;
   }
 
   const updatedLabel = mailSettings.updatedAt
     ? ` Laatst bijgewerkt op ${formatDateTime(mailSettings.updatedAt)}${mailSettings.updatedByName ? ` door ${mailSettings.updatedByName}` : ""}.`
     : "";
-  mailSettingsStatus.textContent = `Actieve afzender: ${mailSettings.senderName} <${mailSettings.senderEmail}>. Testmail gaat naar ${FIXED_TEST_MAIL_RECIPIENT}.${updatedLabel}`;
+  mailSettingsStatus.textContent = `Actieve afzender: ${mailSettings.senderName} <${mailSettings.senderEmail}>.${updatedLabel}`;
 }
 
 function getDayPlannerShifts(dateValue) {
@@ -14949,10 +15185,9 @@ function applyRoleUI() {
   }
 
   if (mailTestModeBadge) {
-    const showMailTestMode = isPlannerRole() && APP_MAIL_TEST_MODE_ENABLED;
-    mailTestModeBadge.classList.toggle("hidden", !showMailTestMode);
-    mailTestModeBadge.hidden = !showMailTestMode;
-    mailTestModeBadge.setAttribute("aria-hidden", showMailTestMode ? "false" : "true");
+    mailTestModeBadge.classList.add("hidden");
+    mailTestModeBadge.hidden = true;
+    mailTestModeBadge.setAttribute("aria-hidden", "true");
   }
 
   if (environmentDebugBanner) {
@@ -15394,6 +15629,9 @@ function renderMyHours() {
   }
 
   if (!employeeName) {
+    if (myHoursPanel) {
+      delete myHoursPanel.dataset.hoursSection;
+    }
     if (myHoursSectionSwitch) {
       myHoursSectionSwitch.hidden = true;
     }
@@ -15544,12 +15782,18 @@ function renderMyHours() {
   `;
 
   if (!isPlannerRole()) {
-    const hasTodayPlannedEntries = plannedTodayEntries.length > 0;
-    const defaultEmployeeHoursSection = hasTodayPlannedEntries
-      ? "today"
-      : (missingPastDays.length ? "missing" : "fill");
-    const resolvedSection = activeMyHoursSection || defaultEmployeeHoursSection;
+    const resolvedSection = activeMyHoursSection === "history" ? "history" : "fill";
+    const sortedWorkLogs = employeeWorkLogs
+      .slice()
+      .sort((logA, logB) =>
+        (logB.day || "").localeCompare(logA.day || "") ||
+        String(logB.updatedAt || "").localeCompare(String(logA.updatedAt || "")) ||
+        String(logB.id || "").localeCompare(String(logA.id || ""))
+      );
     activeMyHoursSection = resolvedSection;
+    if (myHoursPanel) {
+      myHoursPanel.dataset.hoursSection = resolvedSection;
+    }
 
     if (submitWeekHoursButton) {
       submitWeekHoursButton.hidden = true;
@@ -15561,9 +15805,8 @@ function renderMyHours() {
     }
 
     [
-      [myHoursTodayButton, "today"],
       [myHoursFillButton, "fill"],
-      [myHoursMissingButton, "missing"]
+      [myHoursHistoryButton, "history"]
     ].forEach(([button, section]) => {
       if (!button) {
         return;
@@ -15572,50 +15815,74 @@ function renderMyHours() {
       button.setAttribute("aria-pressed", resolvedSection === section ? "true" : "false");
     });
 
-    if (resolvedSection === "missing") {
+    if (resolvedSection === "history") {
+      const selectedWeekHistoryLogs = sortedWorkLogs.filter((workLog) => getWeekValueFromDate(workLog.day) === selectedWeek);
+      const dailyHistory = selectedWeekHistoryLogs.reduce((accumulator, workLog) => {
+        const dayKey = workLog.day || "";
+
+        if (!dayKey) {
+          return accumulator;
+        }
+
+        if (!accumulator[dayKey]) {
+          accumulator[dayKey] = [];
+        }
+
+        accumulator[dayKey].push(workLog);
+        return accumulator;
+      }, {});
+      const historyDays = Object.keys(dailyHistory).sort((dayA, dayB) => dayB.localeCompare(dayA));
+      const selectedWeekHistoryHours = selectedWeekHistoryLogs.reduce((total, workLog) => {
+        const workedHours = calculateWorkedHours(workLog.actualStart, workLog.actualEnd, workLog.breakMinutes);
+        return total + (workedHours || 0);
+      }, 0);
+
       myHoursHighlight.className = "hours-highlight";
       myHoursHighlight.innerHTML = `
-        <span class="hours-section-kicker">Nog in te vullen uren</span>
-        <strong>${missingPastDays.length ? `${missingPastDays.length} ${missingPastDays.length === 1 ? "open dag" : "open dagen"}` : "Alles ingevuld"}</strong>
-        ${weekOverviewMarkup}
+        <span class="hours-section-kicker">Mijn gewerkte uren</span>
+        <strong>Week ${selectedWeek.split("-W")[1] || ""}</strong>
+        <small>${historyDays.length ? `${historyDays.length} ${historyDays.length === 1 ? "dag" : "dagen"} in deze week` : "Nog geen gewerkte uren in deze week."}</small>
       `;
-
-      myHoursSummary.className = missingPastDays.length ? "totals" : "totals empty";
-      myHoursSummary.innerHTML = missingPastDays.length
-        ? `
-          <div class="hours-missing-list">
-            ${missingPastDays.map((day) => `
-              <button type="button" class="hours-missing-item" data-hours-pick-date="${day}">
-                <span>${formatWeekday(day)} ${formatDate(day)}</span>
-              </button>
-            `).join("")}
-          </div>
-        `
-        : "Geen open uren meer.";
-
-      myHoursRegistrations.className = "hours-registration-list";
-      myHoursRegistrations.innerHTML = "";
-      return;
-    }
-
-    if (resolvedSection === "today") {
-      myHoursHighlight.className = "hours-highlight";
-      myHoursHighlight.innerHTML = `
-        <span class="hours-section-kicker">Uren doorgeven</span>
-        <span class="hours-label">${formatWeekday(todayValue)} ${formatDate(todayValue)}</span>
-        <strong>${hasTodayPlannedEntries ? `${plannedTodayEntries.length === 1 ? "Dienst van vandaag" : "Diensten van vandaag"}` : "Geen dienst vandaag"}</strong>
-        <small>${hasTodayPlannedEntries ? "Bevestig of pas kort aan." : "Geen dienst vandaag. Gebruik Uren invullen voor extra uren."}</small>
-        ${weekOverviewMarkup}
+      myHoursSummary.className = "totals";
+      myHoursSummary.innerHTML = `
+        <div class="hours-week-overview">
+          <span><strong>${formatHours(selectedWeekHistoryHours)}</strong> totaal uren</span>
+        </div>
       `;
-      myHoursSummary.className = "totals hidden";
-      myHoursSummary.innerHTML = "";
-      myHoursRegistrations.className = "hours-registration-list is-today-quick";
-      myHoursRegistrations.innerHTML = hasTodayPlannedEntries
-        ? plannedTodayEntries.map((entry) => renderWorkLogCardMarkup(entry)).join("")
+      myHoursRegistrations.className = "hours-history-list";
+      myHoursRegistrations.innerHTML = historyDays.length
+        ? historyDays.map((day) => {
+          const dayLogs = dailyHistory[day] || [];
+          const workedHoursTotal = dayLogs.reduce((total, workLog) => {
+            const workedHours = calculateWorkedHours(workLog.actualStart, workLog.actualEnd, workLog.breakMinutes);
+            return total + (workedHours || 0);
+          }, 0);
+          const noteTexts = [...new Set(dayLogs
+            .map((workLog) => (workLog.managerNote || workLog.notes || "").trim())
+            .filter(Boolean))];
+          const status = getDailyWorkLogStatus(dayLogs);
+
+          return `
+            <article class="hours-history-card">
+              <div class="hours-history-head">
+                <div>
+                  <strong>${formatWeekday(day)} ${formatDate(day)}</strong>
+                  <span>${dayLogs.length === 1 ? "1 registratie" : `${dayLogs.length} registraties`}</span>
+                </div>
+                <span class="status-pill status-${status.className}">${status.label}</span>
+              </div>
+              <div class="hours-history-meta">
+                <span>${formatHours(workedHoursTotal)} ingevuld</span>
+                <span>Status: ${status.label}</span>
+              </div>
+              ${noteTexts.length ? `<div class="hours-history-note">${noteTexts.join(" · ")}</div>` : ""}
+            </article>
+          `;
+        }).join("")
         : `
           <div class="hours-day-empty">
-            <strong>Geen dienst gepland voor vandaag.</strong>
-            <span>Gebruik Uren invullen om extra uren van vandaag vast te leggen.</span>
+            <strong>Nog geen gewerkte uren.</strong>
+            <span>Zodra je uren opslaat, verschijnen ze hier.</span>
           </div>
         `;
       return;
@@ -15627,53 +15894,28 @@ function renderMyHours() {
       <span class="hours-label">${formatWeekday(effectiveSelectedDate)} ${formatDate(effectiveSelectedDate)}</span>
       <strong>${selectedDateEntries.length ? `${selectedDateEntries.length === 1 ? "Geplande dienst" : "Geplande diensten"} van deze dag` : "Extra uren van deze dag"}</strong>
       <small>${selectedDateStatusLabel ? `Status: ${selectedDateStatusLabel}` : "Nog niet ingevuld"}</small>
-      ${weekOverviewMarkup}
     `;
 
-    const availableEntryMode = selectedDateEntries.length ? activeMyHoursEntryMode || "planned" : "extra";
-    activeMyHoursEntryMode = availableEntryMode;
-    myHoursSummary.className = "totals";
-    myHoursSummary.innerHTML = missingPastDays.length
-      ? `
-        <div class="hours-entry-mode-switch">
-          <button type="button" class="request-switch-button ${activeMyHoursEntryMode === "planned" ? "active" : ""}" data-hours-entry-mode="planned" ${selectedDateEntries.length ? "" : "disabled"}>
-            Geplande uren
-          </button>
-          <button type="button" class="request-switch-button ${activeMyHoursEntryMode === "extra" ? "active" : ""}" data-hours-entry-mode="extra">
-            Extra uren
-          </button>
+    myHoursSummary.className = missingPastDays.length ? "totals" : "totals hidden";
+    myHoursSummary.innerHTML = missingPastDays.length ? `
+      <div class="hours-missing-block">
+        <strong>Nog in te vullen uren</strong>
+        <div class="hours-missing-list">
+          ${missingPastDays.map((day) => `
+            <button type="button" class="hours-missing-item" data-hours-pick-date="${day}">
+              <span>${formatWeekday(day)} ${formatDate(day)}</span>
+            </button>
+          `).join("")}
         </div>
-        <button type="button" class="hours-reminder-banner" data-hours-open-section="missing">
-          <strong>Je hebt nog uren openstaan</strong>
-          <span>${missingPastDays.length} ${missingPastDays.length === 1 ? "dag" : "dagen"} nog invullen</span>
-        </button>
-      `
-      : `
-        <div class="hours-entry-mode-switch">
-          <button type="button" class="request-switch-button ${activeMyHoursEntryMode === "planned" ? "active" : ""}" data-hours-entry-mode="planned" ${selectedDateEntries.length ? "" : "disabled"}>
-            Geplande uren
-          </button>
-          <button type="button" class="request-switch-button ${activeMyHoursEntryMode === "extra" ? "active" : ""}" data-hours-entry-mode="extra">
-            Extra uren
-          </button>
-        </div>
-      `;
+      </div>
+    ` : "";
 
-    myHoursRegistrations.className = `hours-registration-list${effectiveSelectedDate === todayValue ? " is-today-quick" : ""}`;
-    myHoursRegistrations.innerHTML = activeMyHoursEntryMode === "planned" && selectedDateEntries.length
-      ? selectedDateEntries.map((entry) => renderWorkLogCardMarkup(entry)).join("")
-      : `
-        <div class="hours-day-empty">
-                <strong>${activeMyHoursEntryMode === "extra" ? `Extra uren op ${formatWeekday(effectiveSelectedDate)} ${formatDate(effectiveSelectedDate)}` : `Geen dienst gepland op ${formatWeekday(effectiveSelectedDate)} ${formatDate(effectiveSelectedDate)}.`}</strong>
-                <span>${activeMyHoursEntryMode === "extra" ? "Gebruik dit alleen voor extra werk buiten je geplande dienst, op vandaag of een eerdere datum." : "Vul alleen extra uren in als je buiten het rooster hebt gewerkt."}</span>
-              </div>
-        ${renderWorkLogCardMarkup(buildHoursManualEntry(employeeName, effectiveSelectedDate), manualWorkLog, {
-          shiftName: "Extra uren",
-          workLogId: buildManualWorkLogId(employeeName, effectiveSelectedDate),
-          notesLabel: "Reden of type werk",
-          notesPlaceholder: "Korte reden of type werk"
-        })}
-      `;
+    myHoursRegistrations.className = "hours-registration-list";
+    myHoursRegistrations.innerHTML = renderSimpleEmployeeHoursFormMarkup(
+      employeeName,
+      effectiveSelectedDate,
+      selectedDateEntries
+    );
     return;
   }
 
@@ -15768,7 +16010,6 @@ function renderMyHours() {
     return;
   }
 
-  const isTodaySelection = effectiveSelectedDate === todayValue;
   const selectedDateMarkup = `
     <div class="hours-day-section-head">
       <strong>${effectiveSelectedDate === todayValue ? "Vandaag" : "Afgelopen dag"}</strong>
@@ -15776,12 +16017,6 @@ function renderMyHours() {
     </div>
   ` + (selectedDateEntries.length
     ? `
-      ${isPlannerRole() && isTodaySelection ? `
-        <div class="hours-today-quick-note">
-          <strong>Snelle ureninvoer voor vandaag</strong>
-          <span>Bevestig je geplande tijden met <em>Gewerkt zoals gepland</em> of pas start, eind en pauze aan.</span>
-        </div>
-      ` : ""}
       ${selectedDateEntries.map((entry) => renderWorkLogCardMarkup(entry)).join("")}
     `
     : `
@@ -15795,7 +16030,7 @@ function renderMyHours() {
       })}
     `);
 
-  myHoursRegistrations.className = `hours-registration-list${isTodaySelection ? " is-today-quick" : ""}`;
+  myHoursRegistrations.className = "hours-registration-list";
   myHoursRegistrations.innerHTML = selectedDateMarkup;
 }
 
@@ -15808,7 +16043,7 @@ function openHoursForDate(targetDate) {
   const targetWeek = getWeekValueFromDate(safeDate) || getCurrentWeekValue();
   const scopedEmployeeName = ensureEmployeeIdentityForCurrentRole();
   if (!isPlannerRole()) {
-    activeMyHoursSection = safeDate === getTodayLocalDateValue() ? "today" : "fill";
+    activeMyHoursSection = "fill";
     activeMyHoursEntryMode = "planned";
   }
   hoursDateInput.value = safeDate;
@@ -15817,6 +16052,9 @@ function openHoursForDate(targetDate) {
   preferences.lastHoursWeek = targetWeek;
   if (!isPlannerRole() && scopedEmployeeName) {
     preferences.lastHoursEmployee = scopedEmployeeName;
+  }
+  if (!isPlannerRole()) {
+    activeMyHoursSection = "fill";
   }
   savePreferences();
   syncScopedEmployeeSelectors(scopedEmployeeName);
@@ -16318,11 +16556,6 @@ function updateWorkLogStatus(workLogId, nextStatus, managerNote = "") {
     return;
   }
 
-  if ((nextStatus === "rejected" || nextStatus === "revision") && !managerNote?.trim()) {
-    showMessage("Een opmerking is verplicht bij afkeuren of terugsturen.", "error");
-    return;
-  }
-
   const statusLabels = {
     open: "open gezet",
     approved: "goedgekeurd",
@@ -16356,15 +16589,14 @@ function updateWorkLogStatus(workLogId, nextStatus, managerNote = "") {
   });
   renderMyHours();
   renderHoursApproval();
-  showMessage(
+  showSuccess(
     nextStatus === "approved"
-      ? "Uren goedgekeurd."
+      ? "Uren goedgekeurd"
       : nextStatus === "rejected"
-        ? "Uren afgekeurd."
+        ? "Uren afgekeurd"
         : nextStatus === "revision"
-          ? "Uren teruggestuurd met opmerking."
-          : "Status bijgewerkt.",
-    "success"
+          ? "Uren teruggestuurd met opmerking"
+          : "Status bijgewerkt"
   );
 }
 
@@ -16525,127 +16757,83 @@ function renderHoursApproval() {
 
   const selectedWeek = approvalWeekInput?.value || hoursWeekInput.value || getCurrentWeekValue();
   const selectedEmployee = approvalEmployeeSelect?.value || "";
-  const weekReviewState = getHoursWeekReviewState(selectedWeek, selectedEmployee);
-  const weekLogs = getWorkLogsForWeek(selectedWeek, selectedEmployee).filter((log) =>
-    log.status === "open" || log.status === "revision" || log.status === "rejected"
-  );
-  const openLogs = weekLogs.filter((log) => log.status === "open");
-  const reviewLogs = weekLogs.filter((log) => log.status === "revision" || log.status === "rejected");
-  const approvalGroups = weekLogs.reduce((groups, log) => {
-    const employeeLogs = groups.get(log.employeeName) || [];
-    employeeLogs.push(log);
-    groups.set(log.employeeName, employeeLogs);
-    return groups;
-  }, new Map());
+  const visibleLogs = getWorkLogsForWeek(selectedWeek, selectedEmployee)
+    .filter((log) => log.status !== "draft")
+    .sort((logA, logB) =>
+      (logA.status === "open" ? -1 : 1) - (logB.status === "open" ? -1 : 1) ||
+      logB.day.localeCompare(logA.day) ||
+      String(logA.employeeName || "").localeCompare(String(logB.employeeName || ""), "nl")
+    );
+  const openLogs = visibleLogs.filter((log) => log.status === "open");
+  const handledLogs = visibleLogs.filter((log) => log.status === "approved" || log.status === "rejected");
 
-  if (!weekLogs.length) {
+  if (!visibleLogs.length) {
     hoursApprovalQueue.className = "request-list empty";
-    hoursApprovalQueue.textContent = weekReviewState.status === "done"
-      ? "Deze week is afgerond. Er staan geen uren meer open voor controle."
-      : "Nog geen ingediende uren in deze week.";
+    hoursApprovalQueue.textContent = "Nog geen ingediende uren in deze week.";
     return;
   }
+
+  const renderApprovalRow = (log, options = {}) => {
+    const isHandled = options.handled === true;
+    const workedHours = getWorkedHoursFromLog(log) || 0;
+    const statusClass = log.status === "approved" ? "approved" : log.status === "rejected" ? "rejected" : "open";
+    const noteText = (log.managerNote || log.notes || "").trim();
+
+    return `
+      <article class="hours-approval-day-card request-card is-${statusClass}">
+        <div class="request-top">
+          <strong>${log.employeeName}</strong>
+          <span class="status-pill status-${statusClass}">${getWorkLogStatusLabel(log)}</span>
+        </div>
+        <div class="request-meta">${formatWeekday(log.day)} ${formatDate(log.day)} · ${formatHours(workedHours)}</div>
+        ${log.shiftName ? `<div class="hours-registration-audit">${log.shiftName}</div>` : ""}
+        ${noteText ? `<div class="hours-history-note">${escapeHtml(noteText)}</div>` : ""}
+        ${isHandled ? "" : `
+          <label class="hours-registration-notes">
+            Opmerking
+            <input type="text" maxlength="200" data-worklog-review-note="${log.id}" value="${escapeHtml(log.managerNote || "")}" placeholder="Optioneel">
+          </label>
+          <div class="actions compact-actions">
+            <button type="button" data-worklog-review="approved" data-worklog-id="${log.id}">Goedkeuren</button>
+            <button type="button" class="warning" data-worklog-review="rejected" data-worklog-id="${log.id}">Afkeuren</button>
+          </div>
+        `}
+      </article>
+    `;
+  };
 
   hoursApprovalQueue.className = "hours-approval-list";
   hoursApprovalQueue.innerHTML = `
     <article class="hours-approval-card">
       <div class="hours-registration-head">
         <div>
-          <strong>Open urenregistraties</strong>
-              <span>${selectedEmployee || "Alle medewerkers"} · ${selectedWeek.replace("-W", " week ")}</span>
+          <strong>Open uren</strong>
+          <span>${selectedEmployee || "Alle medewerkers"} · ${selectedWeek.replace("-W", " week ")}</span>
         </div>
       </div>
       <div class="hours-registration-meta">
-        <span>Open: ${openLogs.length}</span>
-        <span>Opmerking nodig / afgekeurd: ${reviewLogs.length}</span>
-        <span>Totaal ingediend: ${weekLogs.length}</span>
+        <span>${openLogs.length} open</span>
       </div>
-      <div class="form-actions compact-actions">
-        <button type="button" data-worklog-bulk="employee-week" data-worklog-week="${selectedWeek}" data-worklog-employee="${selectedEmployee}">Keur selectie goed</button>
-        <button type="button" class="secondary" data-worklog-bulk="full-week" data-worklog-week="${selectedWeek}">Keur hele week goed</button>
+      <div class="hours-approval-day-list">
+        ${openLogs.length
+          ? openLogs.map((log) => renderApprovalRow(log)).join("")
+          : `<div class="hours-day-empty"><strong>Geen open uren.</strong><span>Alles uit deze week is verwerkt.</span></div>`}
       </div>
-      <div class="hours-approval-groups">
-        ${[...approvalGroups.entries()]
-          .sort(([employeeA], [employeeB]) => employeeA.localeCompare(employeeB, "nl"))
-          .map(([employeeName, employeeLogs]) => {
-            const sortedEmployeeLogs = employeeLogs
-              .slice()
-              .sort((logA, logB) => logA.day.localeCompare(logB.day) || logA.plannedStart.localeCompare(logB.plannedStart));
-            const employeeDeviationCount = sortedEmployeeLogs.filter((log) =>
-              log.actualStart !== log.plannedStart ||
-              log.actualEnd !== log.plannedEnd ||
-              Number(log.breakMinutes) > 0 ||
-              Boolean(log.notes?.trim())
-            ).length;
-
-            return `
-              <article class="hours-approval-employee-group">
-                <div class="hours-approval-employee-head">
-                  <div>
-                    <strong>${employeeName}</strong>
-                    <span>${sortedEmployeeLogs.length} ${sortedEmployeeLogs.length === 1 ? "dag" : "dagen"} in deze week</span>
-                  </div>
-                  <div class="hours-approval-employee-meta">
-                    <span>Open ${sortedEmployeeLogs.filter((log) => log.status === "open").length}</span>
-                    <span>Afwijking ${employeeDeviationCount}</span>
-                  </div>
-                </div>
-                <div class="hours-approval-day-list">
-                  ${sortedEmployeeLogs.map((log) => {
-                    const deviation = log.actualStart !== log.plannedStart || log.actualEnd !== log.plannedEnd || Number(log.breakMinutes) > 0 || Boolean(log.notes?.trim());
-                    const statusClass = log.status === "approved"
-                      ? "approved"
-                      : log.status === "rejected" || log.status === "revision"
-                        ? "rejected"
-                        : "open";
-
-                    return `
-                      <article class="hours-approval-day-card request-card is-${statusClass} ${deviation ? "has-deviation" : ""}">
-                        <div class="request-top">
-                  <strong>${formatWeekday(log.day)} ${formatDate(log.day)} · ${log.shiftName}</strong>
-                          <span class="status-pill status-${statusClass}">${getWorkLogStatusLabel(log)}</span>
-                        </div>
-                  <div class="request-meta">Gepland ${log.plannedStart} - ${log.plannedEnd} · Werkelijk ${log.actualStart} - ${log.actualEnd} · Pauze ${log.breakMinutes} min</div>
-                        ${log.shiftName === "Extra uren" ? `<div class="hours-registration-flag is-extra">Extra uren</div>` : ""}
-                        ${deviation ? `<div class="hours-registration-flag">Afwijking van planning</div>` : `<div class="hours-registration-audit">Volgens planning</div>`}
-                        ${log.notes ? `<div class="hours-registration-audit">Opmerking medewerker: ${log.notes}</div>` : ""}
-                        ${log.employeeReply ? `<div class="hours-registration-audit">Reactie medewerker: ${log.employeeReply}</div>` : ""}
-                        <label class="hours-registration-notes">
-                          Opmerking directie
-                          <input type="text" maxlength="200" data-worklog-review-note="${log.id}" value="${log.managerNote || ""}" placeholder="Korte toelichting voor medewerker" ${log.status === "approved" ? "disabled" : ""}>
-                        </label>
-                        <div class="actions compact-actions">
-                          <button type="button" data-worklog-review="approved" data-worklog-id="${log.id}" ${log.status === "approved" ? "disabled" : ""}>Goedkeuren</button>
-                          <button type="button" class="secondary" data-worklog-review="revision" data-worklog-id="${log.id}" ${log.status === "approved" ? "disabled" : ""}>Opmerking nodig</button>
-                          <button type="button" class="warning" data-worklog-review="rejected" data-worklog-id="${log.id}" ${log.status === "approved" ? "disabled" : ""}>Afkeuren</button>
-                        </div>
-                      </article>
-                    `;
-                  }).join("")}
-                </div>
-              </article>
-            `;
-          }).join("")}
+    </article>
+    <article class="hours-approval-card">
+      <div class="hours-registration-head">
+        <div>
+          <strong>Afgeronde uren</strong>
+          <span>${handledLogs.length} verwerkt</span>
+        </div>
+      </div>
+      <div class="hours-approval-day-list">
+        ${handledLogs.length
+          ? handledLogs.map((log) => renderApprovalRow(log, { handled: true })).join("")
+          : `<div class="hours-day-empty"><strong>Nog geen afgeronde uren.</strong><span>Goedgekeurde en afgekeurde uren verschijnen hier.</span></div>`}
       </div>
     </article>
   `;
-
-  const approvalCard = hoursApprovalQueue.querySelector(".hours-approval-card");
-  const approvalHead = approvalCard?.querySelector(".hours-registration-head");
-  const approvalActions = approvalCard?.querySelector(".form-actions");
-
-  if (approvalHead) {
-    approvalHead.insertAdjacentHTML("beforeend", `
-      <span class="status-pill status-${weekReviewState.status === "done" ? "approved" : weekReviewState.status === "ready" ? "open" : "rejected"}">${weekReviewState.label}</span>
-    `);
-  }
-
-  if (approvalActions) {
-    approvalActions.insertAdjacentHTML("beforebegin", `<div class="panel-note">${weekReviewState.note}</div>`);
-    approvalActions.querySelectorAll("[data-worklog-bulk]").forEach((button) => {
-      button.disabled = weekReviewState.status !== "ready";
-    });
-  }
 }
 
 function renderActiveTabContent() {
@@ -18284,6 +18472,25 @@ copyPreviousWeekButton.addEventListener("click", () => {
 });
 
 myHoursRegistrations?.addEventListener("click", (event) => {
+  const quickHoursButton = event.target.closest("[data-simple-hours-quick][data-worklog-id]");
+
+  if (quickHoursButton?.dataset.simpleHoursQuick && quickHoursButton.dataset.worklogId) {
+    const hoursInput = myHoursRegistrations?.querySelector(`[data-simple-hours="value"][data-worklog-id="${quickHoursButton.dataset.worklogId}"]`);
+
+    if (hoursInput && !hoursInput.disabled) {
+      hoursInput.value = quickHoursButton.dataset.simpleHoursQuick;
+      hoursInput.focus();
+    }
+    return;
+  }
+
+  const simpleSaveButton = event.target.closest("[data-simple-hours-save]");
+
+  if (simpleSaveButton?.dataset.simpleHoursSave) {
+    saveSimpleHoursForm(simpleSaveButton.dataset.simpleHoursSave);
+    return;
+  }
+
   const quickButton = event.target.closest("[data-worklog-quick-set][data-worklog-id][data-worklog-value]");
 
   if (quickButton) {
@@ -18369,27 +18576,6 @@ myHoursRegistrations?.addEventListener("change", (event) => {
 });
 
 myHoursSummary?.addEventListener("click", (event) => {
-  const entryModeButton = event.target.closest("[data-hours-entry-mode]");
-
-  if (entryModeButton?.dataset.hoursEntryMode) {
-    const requestedMode = entryModeButton.dataset.hoursEntryMode;
-    const employeeName = getRoleScopedEmployeeName();
-    const selectedDate = getSelectedHoursDate();
-    const hasPlannedEntries = entries.some((entry) => entry.name === employeeName && entry.day === selectedDate);
-
-    activeMyHoursEntryMode = requestedMode === "planned" && !hasPlannedEntries ? "extra" : requestedMode;
-    renderMyHours();
-    return;
-  }
-
-  const sectionButton = event.target.closest("[data-hours-open-section]");
-
-  if (sectionButton?.dataset.hoursOpenSection) {
-    activeMyHoursSection = sectionButton.dataset.hoursOpenSection;
-    renderMyHours();
-    return;
-  }
-
   const button = event.target.closest("[data-hours-pick-date]");
 
   if (!button?.dataset.hoursPickDate || !hoursDateInput) {
@@ -18399,7 +18585,6 @@ myHoursSummary?.addEventListener("click", (event) => {
   const targetDate = button.dataset.hoursPickDate;
   const targetWeek = getWeekValueFromDate(targetDate) || getCurrentWeekValue();
   activeMyHoursSection = "fill";
-  activeMyHoursEntryMode = "planned";
   hoursDateInput.value = targetDate;
   hoursWeekInput.value = targetWeek;
   preferences.lastHoursDate = targetDate;
@@ -18415,30 +18600,15 @@ myHoursSectionSwitch?.addEventListener("click", (event) => {
     return;
   }
 
-  if (button === myHoursTodayButton && hoursDateInput) {
-    const todayValue = getTodayLocalDateValue();
-    hoursDateInput.value = todayValue;
-    if (hoursWeekInput) {
-      hoursWeekInput.value = getWeekValueFromDate(todayValue) || getCurrentWeekValue();
-    }
-    preferences.lastHoursDate = todayValue;
-    preferences.lastHoursWeek = hoursWeekInput?.value || getCurrentWeekValue();
-    activeMyHoursSection = "today";
-    activeMyHoursEntryMode = "planned";
-    savePreferences();
-    renderMyHours();
-    return;
-  }
-
-  if (button === myHoursMissingButton) {
-    activeMyHoursSection = "missing";
-    renderMyHours();
-    return;
-  }
-
   if (button === myHoursFillButton) {
     activeMyHoursSection = "fill";
     activeMyHoursEntryMode = "planned";
+    renderMyHours();
+    return;
+  }
+
+  if (button === myHoursHistoryButton) {
+    activeMyHoursSection = "history";
     renderMyHours();
   }
 });
@@ -18467,21 +18637,6 @@ hoursApprovalQueue?.addEventListener("click", (event) => {
     const noteInput = hoursApprovalQueue.querySelector(`[data-worklog-review-note="${reviewButton.dataset.worklogId}"]`);
     updateWorkLogStatus(reviewButton.dataset.worklogId, reviewButton.dataset.worklogReview, noteInput?.value || "");
     return;
-  }
-
-  const bulkButton = event.target.closest("[data-worklog-bulk][data-worklog-week]");
-
-  if (!bulkButton) {
-    return;
-  }
-
-  if (bulkButton.dataset.worklogBulk === "employee-week") {
-    approveWorkLogsForWeek(bulkButton.dataset.worklogWeek, bulkButton.dataset.worklogEmployee || "");
-    return;
-  }
-
-  if (bulkButton.dataset.worklogBulk === "full-week") {
-    approveWorkLogsForWeek(bulkButton.dataset.worklogWeek);
   }
 });
 
@@ -19404,16 +19559,11 @@ employeeEmailInput?.addEventListener("input", () => {
 });
 
 employeeMailTestUserInput?.addEventListener("change", () => {
-  if (EMPLOYEE_MAIL_TEST_MODE_ENABLED) {
-    renderEmployeeStatusControls();
-    return;
-  }
-
   const employeeName = getSelectedEmployeeAdminName();
   const employeeDraft = getEmployeeEditorDraft(employeeName);
 
   if (employeeDraft) {
-    employeeDraft.mailTestUser = Boolean(employeeMailTestUserInput.checked);
+    employeeDraft.mailTestUser = false;
   }
 });
 
@@ -19448,7 +19598,7 @@ function saveSelectedEmployeeDetails(options = {}) {
   const normalizedEmail = normalizeEmployeeEmail(employeeEmailInput?.value);
   const normalizedRole = normalizeEmployeeAppRole(employeeRoleSelect?.value);
   const nextStatus = normalizeEmployeeStatus(employeeStatusSelect?.value);
-  const shouldEnableMailTestUser = Boolean(employeeDraft?.mailTestUser);
+  const shouldEnableMailTestUser = false;
   const normalizedContractHours = normalizeContractHours(employeeDraft?.contractHours);
   const normalizedPermissions = Object.fromEntries(
     getPermissionShiftDescriptors().map((shift) => [
@@ -19622,7 +19772,7 @@ employeeDetailTestMailButton?.addEventListener("click", async () => {
   employeeDetailTestMailButton.textContent = "Verzenden...";
 
   try {
-    const result = await sendTestEmailRequest();
+    const result = await sendTestEmailRequest(employeeEmail);
 
     if (!result.ok) {
       employeeMeta[employeeName] = {
@@ -19641,12 +19791,11 @@ employeeDetailTestMailButton?.addEventListener("click", async () => {
       ...employeeMeta[employeeName],
       lastTestMailAt: getNowIsoString(),
       lastTestMailStatus: "sent",
-      lastTestMailMessage: `Testmodus: mail gaat nu alleen naar ${FIXED_TEST_MAIL_RECIPIENT}`
+      lastTestMailMessage: "Mail verzonden"
     };
     saveEmployeeMeta();
     renderEmployeeDetailMailStatus(employeeName);
     showSuccess("Testmail verzonden");
-    showSuccess(`Testmodus: mail gaat nu alleen naar ${FIXED_TEST_MAIL_RECIPIENT}`);
   } catch (error) {
     employeeMeta[employeeName] = {
       ...employeeMeta[employeeName],
@@ -19733,7 +19882,7 @@ saveMailSettingsButton?.addEventListener("click", () => {
 
   mailSettings.senderName = senderName;
   mailSettings.senderEmail = senderEmail;
-  mailSettings.testRecipientEmail = FIXED_TEST_MAIL_RECIPIENT;
+  mailSettings.testRecipientEmail = normalizeEmployeeEmail(mailSettings.testRecipientEmail || senderEmail);
   mailSettings.updatedAt = getNowIsoString();
   mailSettings.updatedByRole = "planner";
   mailSettings.updatedByName = "Planner / Directie";
@@ -19746,7 +19895,7 @@ saveMailSettingsButton?.addEventListener("click", () => {
     details: {
       senderName,
       senderEmail,
-      testRecipientEmail: FIXED_TEST_MAIL_RECIPIENT
+      testRecipientEmail: mailSettings.testRecipientEmail || senderEmail
     }
   });
   renderMailSettings();
@@ -19754,7 +19903,7 @@ saveMailSettingsButton?.addEventListener("click", () => {
 });
 
 function getConfiguredTestMailRecipient() {
-  return normalizeEmployeeEmail(FIXED_TEST_MAIL_RECIPIENT);
+  return normalizeEmployeeEmail(mailSettings?.testRecipientEmail || mailSettings?.senderEmail || '');
 }
 
 function setTestMailButtonsDisabled(isDisabled) {
@@ -19784,7 +19933,7 @@ async function handleTestMailSend() {
     }
 
     console.info("[test-mail] handler:recipient", {
-      recipient: FIXED_TEST_MAIL_RECIPIENT,
+      recipient: getConfiguredTestMailRecipient(),
       configuredSender: hasConfiguredMailSender()
     });
 
@@ -19794,12 +19943,14 @@ async function handleTestMailSend() {
       });
     }
 
-    if (mailSettings.testRecipientEmail !== FIXED_TEST_MAIL_RECIPIENT) {
-      mailSettings.testRecipientEmail = FIXED_TEST_MAIL_RECIPIENT;
-      saveMailSettings();
+    const testRecipient = getConfiguredTestMailRecipient();
+
+    if (!testRecipient) {
+      showMessage("Geen e-mailadres ingesteld", "error");
+      return;
     }
 
-    const result = await sendTestEmailRequest();
+    const result = await sendTestEmailRequest(testRecipient);
 
     console.info("[test-mail] handler:result", result);
 
@@ -20556,7 +20707,7 @@ hoursDateInput?.addEventListener("change", () => {
   preferences.lastHoursWeek = derivedWeek;
   hoursWeekInput.value = derivedWeek;
   if (!isPlannerRole()) {
-    activeMyHoursSection = selectedDate === getTodayLocalDateValue() ? "today" : "fill";
+    activeMyHoursSection = "fill";
     activeMyHoursEntryMode = "planned";
   }
   savePreferences();
@@ -20868,6 +21019,8 @@ if (needsLoginSelection()) {
   closeLoginOverlay();
   reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
 }
+
+
 
 
 

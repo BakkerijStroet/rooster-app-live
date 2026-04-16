@@ -22,10 +22,6 @@
         </div>
         <div class="brand-actions">
           <span class="brand-chip" id="brandRoleChip">Planneromgeving</span>
-          <div id="mailTestModeBadge" class="mail-test-mode-badge hidden" aria-live="polite">
-            <strong>Mail testmodus actief</strong>
-            <span>Alle mails gaan tijdelijk naar info@bakkerijstroet.nl</span>
-          </div>
           <button type="button" id="dashboardTestMailButton" class="secondary hidden">Test mail</button>
           <button type="button" id="debugSuccessToastButton" class="secondary hidden">Toon succesmelding</button>
           <button type="button" id="debugErrorToastButton" class="secondary hidden">Toon foutmelding</button>
@@ -171,10 +167,6 @@
                 <option value="inactive">Inactief</option>
                 <option value="former">Uit dienst</option>
               </select>
-            </label>
-            <label class="employee-inline-toggle">
-              <input type="checkbox" id="employeeMailTestUserInput">
-              <span>Testgebruiker voor medewerker-mails</span>
             </label>
             <div id="employeeStatusImpact" class="panel-note">Actieve medewerkers blijven beschikbaar voor planning en aanvragen.</div>
           </div>
@@ -588,26 +580,25 @@
               <span>Datum</span>
               <input type="date" id="hoursDate" max="">
             </label>
-            <label class="week-select hours-secondary-control">
-              <span>Week</span>
-              <input type="week" id="hoursWeek">
-            </label>
-              <div class="week-switcher compact-actions hours-secondary-control">
-                <button type="button" id="hoursPreviousWeekButton" class="secondary">Vorige</button>
-                <button type="button" id="hoursCurrentWeekButton" class="secondary">Deze</button>
-                <button type="button" id="hoursNextWeekButton" class="secondary">Volgende</button>
-              </div>
+              <label class="week-select hours-secondary-control hours-week-picker-control">
+                <span>Week</span>
+                <input type="week" id="hoursWeek">
+              </label>
+                <div class="week-switcher compact-actions hours-secondary-control hours-week-nav-control">
+                  <button type="button" id="hoursPreviousWeekButton" class="secondary">Vorige</button>
+                  <button type="button" id="hoursCurrentWeekButton" class="secondary">Deze</button>
+                  <button type="button" id="hoursNextWeekButton" class="secondary">Volgende</button>
+                </div>
               <div class="compact-actions">
                 <button type="button" id="submitWeekHoursButton">Week indienen</button>
               </div>
             </div>
           </div>
-        <div class="hours-compact-results">
-          <div id="myHoursSectionSwitch" class="my-hours-section-switch">
-            <button type="button" id="myHoursTodayButton" class="request-switch-button">Uren doorgeven</button>
-            <button type="button" id="myHoursFillButton" class="request-switch-button">Uren invullen</button>
-            <button type="button" id="myHoursMissingButton" class="request-switch-button">Nog in te vullen uren</button>
-          </div>
+          <div class="hours-compact-results">
+            <div id="myHoursSectionSwitch" class="my-hours-section-switch">
+              <button type="button" id="myHoursFillButton" class="request-switch-button">Uren invullen</button>
+              <button type="button" id="myHoursHistoryButton" class="request-switch-button">Mijn gewerkte uren</button>
+            </div>
           <div id="myHoursHighlight" class="hours-highlight empty">Kies een medewerker.</div>
           <div id="myHoursSummary" class="totals empty">Nog geen uren beschikbaar.</div>
           <div id="myHoursRegistrations" class="request-list empty">Nog geen ingeplande diensten voor urenregistratie.</div>

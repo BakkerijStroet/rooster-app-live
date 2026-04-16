@@ -1,9 +1,7 @@
 "use strict";
 
 const { buildJsonResponse, sendWithResend } = require("../../server/email-service");
-const FIXED_TEST_MAIL_RECIPIENT = "info@bakkerijstroet.nl";
-const TEST_MAIL_SUBJECT = "Test mail Roosterapp";
-const TEST_MAIL_MESSAGE = "Dit is een testmail vanuit de Roosterapp";
+
 
 exports.handler = async (event) => {
   console.info("[resend] netlify send-email invoked", {
@@ -25,15 +23,8 @@ exports.handler = async (event) => {
     }
   }
 
-  const isFixedTestMailRequest = payload?.testMode === true;
-  const effectivePayload = isFixedTestMailRequest
-    ? {
-        ...payload,
-        to: [FIXED_TEST_MAIL_RECIPIENT],
-        subject: TEST_MAIL_SUBJECT,
-        message: TEST_MAIL_MESSAGE
-      }
-    : payload;
+  const effectivePayload = payload;
+
 
   let result;
 

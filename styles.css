@@ -1077,7 +1077,6 @@ body[data-role="employee"] [data-panel="week-current"] .mobile-day-header {
 body[data-role="employee"] [data-panel="my-hours"] .view-header .employee-picker-control,
 body[data-role="employee"] [data-panel="my-hours"] .view-header .employee-switcher,
 body[data-role="employee"] [data-panel="my-hours"] .view-toolbar .hours-secondary-control,
-body[data-role="employee"] [data-panel="my-hours"] .hours-today-quick-note,
 body[data-role="employee"] [data-panel="my-hours"] .hours-day-section-head,
 body[data-role="employee"] [data-panel="my-hours"] .hours-registration-audit,
 body[data-role="employee"] [data-panel="my-hours"] .hours-registration-validation.is-empty,
@@ -1096,7 +1095,7 @@ body[data-role="employee"] [data-panel="my-hours"] .view-toolbar {
 
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-section-switch {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin-bottom: 8px;
 }
@@ -1104,10 +1103,6 @@ body[data-role="employee"] [data-panel="my-hours"] .my-hours-section-switch {
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-section-switch .request-switch-button {
   min-height: 46px;
   width: 100%;
-}
-
-body[data-role="employee"] [data-panel="my-hours"] #myHoursTodayButton {
-  order: -1;
 }
 
 body[data-role="employee"] [data-panel="my-hours"] .hours-highlight {
@@ -1207,6 +1202,24 @@ body[data-role="employee"] [data-panel="my-hours"] .hours-registration-grid {
 body[data-role="employee"] [data-panel="my-hours"] .hours-registration-grid label select,
 body[data-role="employee"] [data-panel="my-hours"] .hours-registration-grid label input {
   width: 100%;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .hours-simple-grid {
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .hours-secondary-control,
+body[data-role="employee"] [data-panel="my-hours"] #submitWeekHoursButton {
+  display: none !important;
+}
+
+body[data-role="employee"] [data-panel="my-hours"][data-hours-section="history"] .hours-week-picker-control {
+  display: block !important;
+}
+
+body[data-role="employee"] [data-panel="my-hours"][data-hours-section="history"] .hours-week-nav-control {
+  display: none !important;
 }
 
 body[data-role="employee"] [data-panel="my-hours"] .hours-registration-flag.is-extra {
@@ -2735,6 +2748,117 @@ body[data-role="employee"][data-employee-locked="true"] .director-screen-toolbar
   gap: 10px;
 }
 
+.hours-history-list {
+  display: grid;
+  gap: 10px;
+}
+
+.hours-history-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fffdfa;
+}
+
+.hours-history-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+}
+
+.hours-history-head div {
+  display: grid;
+  gap: 4px;
+}
+
+.hours-history-head span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.hours-history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.hours-history-note {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid rgba(138, 85, 54, 0.08);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.hours-simple-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fffdfa;
+}
+
+.hours-simple-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+}
+
+.hours-simple-head div {
+  display: grid;
+  gap: 4px;
+}
+
+.hours-simple-head span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.hours-simple-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 160px) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.hours-simple-grid label input {
+  width: 100%;
+}
+
+.hours-simple-quick {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.hours-simple-quick span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.hours-simple-quick-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.hours-simple-quick-buttons .secondary {
+  min-height: 36px;
+  padding: 8px 10px;
+}
+
+.hours-simple-notes {
+  min-width: 0;
+}
+
 .hours-approval-list {
   display: grid;
   gap: 10px;
@@ -3774,29 +3898,6 @@ button.small {
 .employee-focus-status {
   display: flex;
   justify-content: flex-start;
-}
-
-.hours-today-quick-note {
-  display: grid;
-  gap: 4px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid #f1d2af;
-  background: #fff8f1;
-  color: #5d4530;
-}
-
-.hours-today-quick-note strong {
-  font-size: 13px;
-}
-
-.hours-today-quick-note span {
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.hours-registration-list.is-today-quick {
-  gap: 10px;
 }
 
 .employee-focus-item {

@@ -1,8 +1,6 @@
 "use strict";
 
-const FIXED_TEST_MAIL_RECIPIENT = "info@bakkerijstroet.nl";
-const TEST_MAIL_SUBJECT = "Test mail Roosterapp";
-const TEST_MAIL_MESSAGE = "Dit is een testmail vanuit de Roosterapp";
+
 
 function normalizeEmailList(input) {
   const rawList = Array.isArray(input) ? input : [input];
@@ -53,15 +51,8 @@ async function handler(req, res) {
     }
   }
 
-  const isFixedTestMailRequest = payload?.testMode === true;
-  const effectivePayload = isFixedTestMailRequest
-    ? {
-        ...payload,
-        to: [FIXED_TEST_MAIL_RECIPIENT],
-        subject: TEST_MAIL_SUBJECT,
-        message: TEST_MAIL_MESSAGE
-      }
-    : payload;
+  const effectivePayload = payload;
+
 
   let result;
 
