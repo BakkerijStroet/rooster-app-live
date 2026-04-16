@@ -10165,36 +10165,7 @@ function getTestMailErrorMessage(errorText) {
   if (!normalized) {
     return "Mail verzenden mislukt.";
   }
-
-  if (normalized.includes("RESEND_API_KEY ontbreekt")) {
-    return "Mail verzenden mislukt: API key ontbreekt.";
-  }
-
-  if (normalized.includes("Backend route /api/send-email bestaat niet")) {
-    return "Mail verzenden mislukt: serverfunctie bestaat niet.";
-  }
-
-  if (normalized.includes("Backend route niet bereikbaar")) {
-    return `Mail verzenden mislukt: serverfunctie niet bereikbaar.`;
-  }
-
-  if (normalized.includes("Backend route fout")) {
-    return "Mail verzenden mislukt: serverfunctie werkt niet.";
-  }
-
-  if (normalized.includes("Mailservice gaf fout")) {
-    return `Mail verzenden mislukt: ${normalized}`;
-  }
-
-  if (normalized.includes("Serverfunctie mist afzenderinstellingen")) {
-    return "Mail verzenden mislukt: serverfunctie mist afzenderinstellingen.";
-  }
-
-  if (normalized.includes("Lokale preview zonder serverroute")) {
-    return "Mail verzenden mislukt: lokale preview zonder serverroute.";
-  }
-
-  return `Mail verzenden mislukt: ${normalized}`;
+  return normalized;
 }
 
 const EMAIL_TEMPLATES = {
