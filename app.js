@@ -374,7 +374,17 @@ function reportAppError(userMessage, error, context = "") {
   console.error(`[Urenrooster] ${context || "app-fout"}`, error);
 
   if (typeof showMessage === "function" && messageBox) {
-    showMessage(userMessage, "error");
+    const errorDetail = error instanceof Error
+      ? (error.stack || error.message || String(error))
+      : typeof error === "string"
+        ? error
+        : error && typeof error === "object" && "message" in error && typeof error.message === "string"
+          ? error.message
+          : "";
+    const shortErrorDetail = errorDetail
+      ? errorDetail.split("\n").map((line) => line.trim()).find(Boolean) || errorDetail
+      : "";
+    showError(shortErrorDetail ? `${userMessage} ${shortErrorDetail}` : userMessage);
   }
 }
 
@@ -10705,6 +10715,12 @@ async function sendTestEmailRequest() {
         ? payload.error
         : "";
 
+    console.info("[test-mail] sendTestEmailRequest:response", {
+      status: response.status,
+      ok: response.ok,
+      body: payload
+    });
+
     if (!response.ok || payload?.success === false) {
       console.error("[test-mail] sendTestEmailRequest:response-error", {
         status: response.status,
@@ -18846,118 +18862,134 @@ employeeListCard?.addEventListener("click", (event) => {
 });
 
 function submitTimeOffRequest(composer) {
-  const ownEmployeeName = !isPlannerRole() ? getOwnEmployeeNameOrWarn() : "";
+  try {
+    const ownEmployeeName = !isPlannerRole() ? getOwnEmployeeNameOrWarn() : "";
 
-  if (!isPlannerRole() && !ownEmployeeName) {
-    return;
-  }
+    if (!isPlannerRole() && !ownEmployeeName) {
+      return;
+    }
 
-  syncTimeOffFormStateFromFields(composer);
-  const currentTimeOffForm = getRequestComposerState(composer);
-  const formElements = getTimeOffFormElements(composer);
-  const employeeName = !isPlannerRole() ? ownEmployeeName : (currentTimeOffForm.employeeName || formElements?.employeeSelect?.value || "");
-  const type = currentTimeOffForm.type || getComposerTimeOffType(composer);
-  const startDate = type === "vakantie" ? currentTimeOffForm.startDate : currentTimeOffForm.date;
-  const endDate = type === "vakantie" ? (currentTimeOffForm.endDate || startDate) : startDate;
-  const date = startDate;
-  const reason = (currentTimeOffForm.reason || "").trim();
+    syncTimeOffFormStateFromFields(composer);
+    const currentTimeOffForm = getRequestComposerState(composer);
+    const formElements = getTimeOffFormElements(composer);
+    const employeeName = !isPlannerRole() ? ownEmployeeName : (currentTimeOffForm.employeeName || formElements?.employeeSelect?.value || "");
+    const type = currentTimeOffForm.type || getComposerTimeOffType(composer);
+    const startDate = type === "vakantie" ? currentTimeOffForm.startDate : currentTimeOffForm.date;
+    const endDate = type === "vakantie" ? (currentTimeOffForm.endDate || startDate) : startDate;
+    const reason = (currentTimeOffForm.reason || "").trim();
 
-  if (!ensureOwnRequestAction(employeeName, "een afwezigheidsaanvraag")) {
-    return;
-  }
+    console.info("[requests] submitTimeOffRequest:start", {
+      composer,
+      employeeName,
+      type,
+      startDate,
+      endDate
+    });
 
-  if (!employeeName || !startDate || !reason || (type === "vakantie" && !endDate)) {
-    showError(
-      isPlannerRole()
-        ? "Kies medewerker, status, datum of periode en reden voor de afwezigheid."
-        : "Kies type aanvraag, datum of periode en reden."
-    );
-    return;
-  }
+    if (!ensureOwnRequestAction(employeeName, "een afwezigheidsaanvraag")) {
+      return;
+    }
 
-  if (type === "vakantie" && endDate < startDate) {
-    showError("De einddatum van de vakantie moet gelijk zijn aan of later zijn dan de begindatum.");
-    return;
-  }
+    if (!employeeName || !startDate || !reason || (type === "vakantie" && !endDate)) {
+      showError(
+        isPlannerRole()
+          ? "Kies medewerker, status, datum of periode en reden voor de afwezigheid."
+          : "Kies type aanvraag, datum of periode en reden."
+      );
+      return;
+    }
 
-  if (!ensureEmployeeDateRangeEditable(startDate, endDate, "een afwezigheidsaanvraag te doen of te wijzigen")) {
-    return;
-  }
+    if (type === "vakantie" && endDate < startDate) {
+      showError("De einddatum van de vakantie moet gelijk zijn aan of later zijn dan de begindatum.");
+      return;
+    }
 
-  if (timeOffRequests.some((request) =>
-    request.id !== editingTimeOffId &&
-    request.employeeName === employeeName &&
-    request.status === "open" &&
-    requestOverlapsRange(request, startDate, endDate)
-  )) {
-    showError("Voor deze medewerker staat al een open afwezigheidsaanvraag in deze periode.");
-    return;
-  }
+    if (!ensureEmployeeDateRangeEditable(startDate, endDate, "een afwezigheidsaanvraag te doen of te wijzigen")) {
+      return;
+    }
 
-  if (editingTimeOffId) {
-    const request = timeOffRequests.find((item) => item.id === editingTimeOffId);
+    if (timeOffRequests.some((request) =>
+      request.id !== editingTimeOffId &&
+      request.employeeName === employeeName &&
+      request.status === "open" &&
+      requestOverlapsRange(request, startDate, endDate)
+    )) {
+      showError("Voor deze medewerker staat al een open afwezigheidsaanvraag in deze periode.");
+      return;
+    }
 
-    if (request) {
-      if (!ensureOwnRequestAction(request.employeeName, "het wijzigen van deze afwezigheidsaanvraag")) {
-        return;
+    if (editingTimeOffId) {
+      const request = timeOffRequests.find((item) => item.id === editingTimeOffId);
+
+      if (request) {
+        if (!ensureOwnRequestAction(request.employeeName, "het wijzigen van deze afwezigheidsaanvraag")) {
+          return;
+        }
+
+        request.employeeName = employeeName;
+        request.type = type;
+        request.date = startDate;
+        request.startDate = startDate;
+        request.endDate = endDate;
+        request.reason = reason;
+        request.status = "open";
+        request.updatedAt = getNowIsoString();
+        request.mailLog = Array.isArray(request.mailLog) ? request.mailLog : [];
       }
-
-      request.employeeName = employeeName;
-      request.type = type;
-      request.date = startDate;
-      request.startDate = startDate;
-      request.endDate = endDate;
-      request.reason = reason;
-      request.status = "open";
-      request.updatedAt = getNowIsoString();
-      request.mailLog = Array.isArray(request.mailLog) ? request.mailLog : [];
+    } else {
+      timeOffRequests.push({
+        id: createRequestId("timeoff"),
+        employeeName,
+        type,
+        date: startDate,
+        startDate,
+        endDate,
+        reason,
+        status: "open",
+        createdAt: getNowIsoString(),
+        updatedAt: getNowIsoString()
+      });
     }
-  } else {
-    timeOffRequests.push({
-      id: createRequestId("timeoff"),
-      employeeName,
-      type,
-      date: startDate,
-      startDate,
-      endDate,
-      reason,
-      status: "open",
-      createdAt: getNowIsoString(),
-      updatedAt: getNowIsoString()
-    });
-  }
-  const currentTimeOffRequest = editingTimeOffId
-    ? timeOffRequests.find((item) => item.id === editingTimeOffId)
-    : timeOffRequests[timeOffRequests.length - 1];
 
-  if (currentTimeOffRequest) {
-    registerTimeOffMailNotification(currentTimeOffRequest, "submitted", [employeeName], {
-      notifyUser: true,
-      notifySuccessMessage: getAppMailSentMessage(),
-      notifyErrorMessage: "Aanvraag opgeslagen, mail niet verzonden"
-    });
-  }
-  saveTimeOffRequests();
-  persistProtectedChange({
-    reason: editingTimeOffId ? `Afwezigheidsaanvraag gewijzigd: ${employeeName} ${startDate}` : `Afwezigheidsaanvraag ingediend: ${employeeName} ${startDate}`,
-    scope: "request",
-    action: editingTimeOffId ? "timeoff-updated" : "timeoff-created",
-    message: `${getAbsenceTypeLabel(type)} opgeslagen voor ${employeeName}.`,
-    details: {
-      employeeName,
-      date: startDate,
-      startDate,
-      endDate,
-      type,
-      status: "open"
+    const currentTimeOffRequest = editingTimeOffId
+      ? timeOffRequests.find((item) => item.id === editingTimeOffId)
+      : timeOffRequests[timeOffRequests.length - 1];
+
+    if (currentTimeOffRequest) {
+      registerTimeOffMailNotification(currentTimeOffRequest, "submitted", [employeeName], {
+        notifyUser: true,
+        notifySuccessMessage: getAppMailSentMessage(),
+        notifyErrorMessage: "Aanvraag opgeslagen, mail niet verzonden"
+      });
     }
-  });
-  resetTimeOffComposer({
-    nextComposer: composer,
-    preserveEmployee: !isPlannerRole()
-  });
-  render();
-  showSuccess("Aanvraag verzonden");
+    saveTimeOffRequests();
+    persistProtectedChange({
+      reason: editingTimeOffId ? `Afwezigheidsaanvraag gewijzigd: ${employeeName} ${startDate}` : `Afwezigheidsaanvraag ingediend: ${employeeName} ${startDate}`,
+      scope: "request",
+      action: editingTimeOffId ? "timeoff-updated" : "timeoff-created",
+      message: `${getAbsenceTypeLabel(type)} opgeslagen voor ${employeeName}.`,
+      details: {
+        employeeName,
+        date: startDate,
+        startDate,
+        endDate,
+        type,
+        status: "open"
+      }
+    });
+    resetTimeOffComposer({
+      nextComposer: composer,
+      preserveEmployee: !isPlannerRole()
+    });
+    render();
+    showSuccess("Aanvraag verzonden");
+  } catch (error) {
+    console.error("[requests] submitTimeOffRequest:error", {
+      composer,
+      error
+    });
+    showError(error instanceof Error && error.message ? error.message : "Aanvraag opslaan mislukt");
+  }
 }
 
 submitFreeDayButton?.addEventListener("click", () => {
@@ -19649,6 +19681,8 @@ async function handleTestMailSend() {
     }
 
     const result = await sendTestEmailRequest();
+
+    console.info("[test-mail] handler:result", result);
 
     if (!result.ok) {
       console.warn("[test-mail] handler:send-failed", result);
@@ -20693,11 +20727,11 @@ if (typeof mobileMediaQuery.addEventListener === "function") {
 }
 
 window.addEventListener("error", (event) => {
-  reportAppError("Er ging onverwacht iets mis in de app.", event.error || event.message, "window-error");
+  reportAppError("App-fout:", event.error || event.message, "window-error");
 });
 
 window.addEventListener("unhandledrejection", (event) => {
-  reportAppError("Er ging onverwacht iets mis tijdens het verwerken van gegevens.", event.reason, "unhandledrejection");
+  reportAppError("Async fout:", event.reason, "unhandledrejection");
 });
 
 syncStartWeekToCurrent();
