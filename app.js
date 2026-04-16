@@ -80,6 +80,8 @@ const removeEmployeeSelect = document.getElementById("removeEmployeeSelect");
 const employeeStatusSelect = document.getElementById("employeeStatusSelect");
 const employeeRoleSelect = document.getElementById("employeeRoleSelect");
 const employeeEmailInput = document.getElementById("employeeEmailInput");
+const employeeEmailError = document.getElementById("employeeEmailError");
+const employeeMailTestUserInput = document.getElementById("employeeMailTestUserInput");
 const employeeNameDisplayInput = document.getElementById("employeeNameDisplay");
 const removeEmployeeButton = document.getElementById("removeEmployeeButton");
 const saveEmployeeEmailButton = document.getElementById("saveEmployeeEmailButton");
@@ -97,6 +99,8 @@ const saveMailSettingsButton = document.getElementById("saveMailSettingsButton")
 const testMailButton = document.getElementById("testMailButton");
 const mailSettingsStatus = document.getElementById("mailSettingsStatus");
 const FIXED_TEST_MAIL_RECIPIENT = "info@bakkerijstroet.nl";
+const EMPLOYEE_MAIL_TEST_MODE_ENABLED = true;
+const EMPLOYEE_MAIL_TEST_EMPLOYEE = "Twan";
 const employeeListCard = document.getElementById("employeeListCard");
 const employeeStandardShiftList = document.getElementById("employeeStandardShiftList");
 const employeePermissionsList = document.getElementById("employeePermissionsList");
@@ -1182,6 +1186,7 @@ function getEmployeeStatusMetaDefaults() {
     role: "employee",
     contractHours: 0,
     email: "",
+    mailTestUser: false,
     updatedAt: "",
     updatedByRole: "",
     updatedByName: ""
@@ -1348,7 +1353,13 @@ function hasConfiguredMailSender() {
 function loadEmployeeMeta() {
   const savedMeta = localStorage.getItem(getScopedStorageKey(employeeMetaStorageKey));
   const defaults = Object.fromEntries(
-    employees.map((employeeName) => [employeeName, getEmployeeStatusMetaDefaults()])
+    employees.map((employeeName) => [
+      employeeName,
+      {
+        ...getEmployeeStatusMetaDefaults(),
+        mailTestUser: employeeName === "Twan"
+      }
+    ])
   );
 
   if (!savedMeta) {
@@ -1358,6 +1369,9 @@ function loadEmployeeMeta() {
   try {
     const parsedMeta = JSON.parse(savedMeta);
     const normalized = {};
+    const hasExplicitMailTestUser = employees.some((employeeName) =>
+      Object.prototype.hasOwnProperty.call(parsedMeta?.[employeeName] || {}, "mailTestUser")
+    );
 
     employees.forEach((employeeName) => {
       const currentMeta = parsedMeta?.[employeeName];
@@ -1366,6 +1380,7 @@ function loadEmployeeMeta() {
         role: normalizeEmployeeAppRole(currentMeta?.role || getDefaultEmployeeAppRole(employeeName)),
         contractHours: normalizeContractHours(currentMeta?.contractHours ?? getConfiguredEmployeeContractHours()[employeeName] ?? 0),
         email: normalizeEmployeeEmail(currentMeta?.email),
+        mailTestUser: hasExplicitMailTestUser ? Boolean(currentMeta?.mailTestUser) : employeeName === "Twan",
         updatedAt: typeof currentMeta?.updatedAt === "string" ? currentMeta.updatedAt : "",
         updatedByRole: currentMeta?.updatedByRole === "planner" ? "planner" : (currentMeta?.updatedByRole === "employee" ? "employee" : ""),
         updatedByName: typeof currentMeta?.updatedByName === "string" ? currentMeta.updatedByName : ""
@@ -1467,7 +1482,15 @@ function getEmployeeEmail(employeeName) {
 }
 
 function isEmployeeMailTestEnabled(employeeName) {
-  return String(employeeName || "").trim().toLowerCase() === "twan";
+  if (EMPLOYEE_MAIL_TEST_MODE_ENABLED) {
+    return String(employeeName || "").trim().toLowerCase() === EMPLOYEE_MAIL_TEST_EMPLOYEE.toLowerCase();
+  }
+
+  return Boolean(employeeMeta?.[employeeName]?.mailTestUser);
+}
+
+function isEmployeeMailBlockedByTestPhase(employeeName) {
+  return Boolean(getEmployeeEmail(employeeName)) && !isEmployeeMailTestEnabled(employeeName);
 }
 
 function getMailEligibleEmployeeEmail(employeeName) {
@@ -1507,6 +1530,7 @@ function createEmployeeEditorDraft(employeeName) {
     email: getEmployeeEmail(employeeName),
     role: getEmployeeAppRole(employeeName),
     status: getEmployeeStatus(employeeName),
+    mailTestUser: isEmployeeMailTestEnabled(employeeName),
     permissions: cloneSerializableValue(employeePermissions?.[employeeName] || {}),
     standardShift: typeof employeeStandardShifts?.[employeeName] === "string" ? employeeStandardShifts[employeeName] : "",
     basePatternId: getEmployeeBasePatternId(employeeName),
@@ -1533,6 +1557,74 @@ function clearEmployeeEditorDraft(employeeName) {
   }
 
   delete employeeEditorDrafts[employeeName];
+}
+
+function getEmployeeEditorSnapshot(employeeName, draftOverride = null) {
+  if (!employeeName) {
+    return null;
+  }
+
+  const draft = draftOverride || createEmployeeEditorDraft(employeeName);
+
+  return {
+    email: normalizeEmployeeEmail(draft?.email),
+    role: normalizeEmployeeAppRole(draft?.role),
+    status: normalizeEmployeeStatus(draft?.status),
+    mailTestUser: Boolean(draft?.mailTestUser),
+    permissions: Object.fromEntries(
+      getPermissionShiftDescriptors().map((shift) => [
+        shift.name,
+        draft?.permissions?.[shift.name] !== false
+      ])
+    ),
+    standardShift: typeof draft?.standardShift === "string" ? draft.standardShift : "",
+    basePatternId: typeof draft?.basePatternId === "string" ? draft.basePatternId : getEmployeeBasePatternId(employeeName),
+    customRoster: normalizeEmployeeCustomRosterConfig(draft?.customRoster, employeeName),
+    contractHours: normalizeContractHours(draft?.contractHours)
+  };
+}
+
+function hasUnsavedEmployeeChanges(employeeName) {
+  if (!employeeName || !employeeEditorDrafts[employeeName]) {
+    return false;
+  }
+
+  const currentSnapshot = getEmployeeEditorSnapshot(employeeName, employeeEditorDrafts[employeeName]);
+  const savedSnapshot = getEmployeeEditorSnapshot(employeeName);
+  return JSON.stringify(currentSnapshot) !== JSON.stringify(savedSnapshot);
+}
+
+function renderEmployeeEditorDetails() {
+  renderEmployeeStatusControls();
+  renderEmployeePermissions();
+  renderEmployeeStandardShifts();
+  renderEmployeeContractPanel();
+}
+
+function setEmployeeEmailFieldError(message = "") {
+  if (employeeEmailInput) {
+    employeeEmailInput.classList.toggle("input-error", Boolean(message));
+    employeeEmailInput.setAttribute("aria-invalid", message ? "true" : "false");
+    employeeEmailInput.setCustomValidity(message || "");
+  }
+
+  if (employeeEmailError) {
+    employeeEmailError.textContent = message || "";
+    employeeEmailError.classList.toggle("hidden", !message);
+  }
+}
+
+function clearEmployeeEmailFieldError() {
+  setEmployeeEmailFieldError("");
+}
+
+function discardEmployeeEditorChanges(employeeName) {
+  if (!employeeName) {
+    return;
+  }
+
+  clearEmployeeEditorDraft(employeeName);
+  renderEmployeeEditorDetails();
 }
 
 function getEmployeeStatusLabel(status) {
@@ -1902,6 +1994,7 @@ function syncEmployeeMeta() {
         employeeMeta[employeeName].contractHours ?? configuredContractHours[employeeName] ?? 0
       );
       const normalizedEmail = normalizeEmployeeEmail(employeeMeta[employeeName].email);
+      const normalizedMailTestUser = Boolean(employeeMeta[employeeName].mailTestUser);
 
       if (employeeMeta[employeeName].status !== normalizedStatus) {
         employeeMeta[employeeName].status = normalizedStatus;
@@ -1915,6 +2008,11 @@ function syncEmployeeMeta() {
 
       if (employeeMeta[employeeName].email !== normalizedEmail) {
         employeeMeta[employeeName].email = normalizedEmail;
+        changed = true;
+      }
+
+      if (employeeMeta[employeeName].mailTestUser !== normalizedMailTestUser) {
+        employeeMeta[employeeName].mailTestUser = normalizedMailTestUser;
         changed = true;
       }
     }
@@ -10543,7 +10641,9 @@ function queueRequestMailDelivery(request, mailEntry, options = {}) {
     subjectBuilder = () => "Update",
     messageBuilder = () => "Er is een update.",
     templateKeyBuilder = null,
-    persist = null
+    persist = null,
+    onStatusChange = null,
+    notifyUser = false
   } = options;
 
   if (mailEntry.status === "config-missing" || mailEntry.status === "missing-email") {
@@ -10556,6 +10656,9 @@ function queueRequestMailDelivery(request, mailEntry, options = {}) {
 
   if (!recipientEmails.length) {
     updateMailLogEntry(request, mailEntry, { status: "missing-email", error: "Geen e-mailadres ingesteld" }, persist);
+    if (typeof onStatusChange === "function") {
+      onStatusChange(request, mailEntry);
+    }
     return;
   }
 
@@ -10577,6 +10680,12 @@ function queueRequestMailDelivery(request, mailEntry, options = {}) {
         messageId: result.id || "",
         error: ""
       }, persist);
+      if (typeof onStatusChange === "function") {
+        onStatusChange(request, mailEntry);
+      }
+      if (notifyUser) {
+        showMessage("Mail verzonden", "success");
+      }
       return;
     }
 
@@ -10585,6 +10694,12 @@ function queueRequestMailDelivery(request, mailEntry, options = {}) {
       messageId: "",
       error: result.error || "Verzenden mislukt."
     }, persist);
+    if (typeof onStatusChange === "function") {
+      onStatusChange(request, mailEntry);
+    }
+    if (notifyUser) {
+      showMessage(`Mail verzenden mislukt: ${result.error || "onbekende fout"}`, "error");
+    }
   });
 }
 
@@ -10621,6 +10736,8 @@ function registerRequestMailNotification(request, type, employeeNames = [], opti
   const subjectBuilder = typeof options.subjectBuilder === "function" ? options.subjectBuilder : (() => "Update");
   const messageBuilder = typeof options.messageBuilder === "function" ? options.messageBuilder : (() => "Er is een update.");
   const persist = typeof options.persist === "function" ? options.persist : null;
+  const onStatusChange = typeof options.onStatusChange === "function" ? options.onStatusChange : null;
+  const notifyUser = options.notifyUser === true;
 
   const recipients = buildMailRecipients(employeeNames);
   const hasAtLeastOneEmail = recipients.some((recipient) => recipient.email);
@@ -10659,7 +10776,9 @@ function registerRequestMailNotification(request, type, employeeNames = [], opti
   queueRequestMailDelivery(request, mailEntry, {
     subjectBuilder,
     messageBuilder,
-    persist
+    persist,
+    onStatusChange,
+    notifyUser
   });
 }
 
@@ -10669,7 +10788,8 @@ function registerSwapMailNotification(request, type, employeeNames = [], options
     templateKeyBuilder: (_, currentType) => getSwapMailTemplateKey(currentType),
     subjectBuilder: getSwapMailSubject,
     messageBuilder: (_, currentType) => getSwapMailTemplateText(currentType),
-    persist: saveSwapRequests
+    persist: saveSwapRequests,
+    onStatusChange: () => render()
   });
 }
 
@@ -10753,6 +10873,14 @@ function getRequestMailStatusText(request, options = {}) {
   }
 
   if (latestMail.status === "missing-email") {
+    const recipientNames = Array.isArray(latestMail.recipients)
+      ? latestMail.recipients.map((recipient) => recipient.employeeName).filter(Boolean)
+      : [];
+
+    if (recipientNames.some((employeeName) => isEmployeeMailBlockedByTestPhase(employeeName))) {
+      return "Mail uitgeschakeld tijdens testfase";
+    }
+
     return latestMail.error || "Geen e-mailadres ingesteld";
   }
 
@@ -10832,7 +10960,8 @@ function registerTimeOffMailNotification(request, type, employeeNames = [], opti
     templateKeyBuilder: (currentRequest, currentType) => getTimeOffMailTemplateKey(currentRequest, currentType),
     subjectBuilder: getTimeOffMailSubject,
     messageBuilder: (currentRequest, currentType) => getTimeOffMailTemplateText(currentRequest, currentType),
-    persist: saveTimeOffRequests
+    persist: saveTimeOffRequests,
+    onStatusChange: () => render()
   });
 }
 
@@ -10854,7 +10983,8 @@ function registerWorkLogMailNotification(workLog, type, employeeNames = [], opti
   registerRequestMailNotification(workLog, type, employeeNames, {
     ...options,
     templateKeyBuilder: (_, currentType) => getWorkLogMailTemplateKey(currentType),
-    persist: saveWorkLogs
+    persist: saveWorkLogs,
+    onStatusChange: () => render()
   });
 }
 
@@ -10900,7 +11030,8 @@ function finalizeApprovedSwapRequest(request, options = {}) {
   registerSwapMailNotification(
     request,
     autoApproved ? "auto-approved" : "approved",
-    [request.employeeName, request.targetEmployeeName]
+    [request.employeeName, request.targetEmployeeName],
+    { notifyUser: true }
   );
 
   const previousEntry = { ...entry };
@@ -11848,6 +11979,20 @@ function resetTabScrollPosition() {
 function setActiveTab(tabName, options = {}) {
   const normalizedTabName = getNormalizedTabName(tabName);
 
+  if (
+    activeTab === "employees" &&
+    normalizedTabName !== "employees" &&
+    !options.skipEmployeeUnsavedCheck
+  ) {
+    const employeeName = getSelectedEmployeeAdminName();
+    const navigationChoice = confirmEmployeeEditorNavigation(employeeName);
+
+    if (navigationChoice === "cancel") {
+      updateTabVisibility();
+      return;
+    }
+  }
+
   if (handleBlockedTabAccess(normalizedTabName)) {
     updateTabVisibility();
     resetTabScrollPosition();
@@ -12453,10 +12598,6 @@ function renderEmployeeList() {
                 <span class="employee-status-badge ${getEmployeeStatusClass(employeeStatus)}">${getEmployeeStatusLabel(employeeStatus)}</span>
               </div>
             </div>
-            <div class="employee-summary-actions">
-              <button type="button" class="employee-test-mail-button" data-employee-test-mail="${employee}">Test mail</button>
-              <button type="button" class="favorite-toggle ${isFavoriteEmployee(employee) ? "is-active" : ""}" data-favorite-employee="${employee}" aria-label="${isFavoriteEmployee(employee) ? "Verwijder favoriet" : "Maak favoriet"}">${isFavoriteEmployee(employee) ? "Favoriet" : "Favoriet maken"}</button>
-            </div>
           </div>
         </article>
       `;
@@ -12734,6 +12875,9 @@ function renderEmployeeStatusControls() {
     if (employeeNameDisplayInput) {
       employeeNameDisplayInput.value = "";
     }
+    if (employeeMailTestUserInput) {
+      employeeMailTestUserInput.checked = false;
+    }
     if (employeeDetailTitle) {
       employeeDetailTitle.textContent = "Kies links een medewerker";
     }
@@ -12752,6 +12896,16 @@ function renderEmployeeStatusControls() {
   if (employeeEmailInput) {
     employeeEmailInput.value = employeeDraft?.email || (selectedEmployee ? getEmployeeEmail(selectedEmployee) : "");
   }
+  if (employeeMailTestUserInput) {
+    employeeMailTestUserInput.checked = EMPLOYEE_MAIL_TEST_MODE_ENABLED
+      ? isEmployeeMailTestEnabled(selectedEmployee)
+      : Boolean(employeeDraft?.mailTestUser);
+    employeeMailTestUserInput.disabled = EMPLOYEE_MAIL_TEST_MODE_ENABLED && selectedEmployee !== EMPLOYEE_MAIL_TEST_EMPLOYEE;
+    employeeMailTestUserInput.title = EMPLOYEE_MAIL_TEST_MODE_ENABLED
+      ? `Tijdelijke testmodus actief: alleen ${EMPLOYEE_MAIL_TEST_EMPLOYEE} ontvangt medewerker-mails.`
+      : "";
+  }
+  clearEmployeeEmailFieldError();
   if (employeeNameDisplayInput) {
     employeeNameDisplayInput.value = selectedEmployee;
   }
@@ -17071,7 +17225,7 @@ timeOffRequestsContainer.addEventListener("click", (event) => {
     request.status = "approved";
     request.managerNote = managerNote;
     request.updatedAt = getNowIsoString();
-    registerTimeOffMailNotification(request, "approved", [request.employeeName]);
+    registerTimeOffMailNotification(request, "approved", [request.employeeName], { notifyUser: true });
     saveTimeOffRequests();
     persistProtectedChange({
       reason: `Afwezigheidsaanvraag goedgekeurd: ${request.employeeName} ${request.date}`,
@@ -17093,7 +17247,7 @@ timeOffRequestsContainer.addEventListener("click", (event) => {
     request.status = "rejected";
     request.managerNote = getPlannerRequestNoteFromButton(button);
     request.updatedAt = getNowIsoString();
-    registerTimeOffMailNotification(request, "rejected", [request.employeeName]);
+    registerTimeOffMailNotification(request, "rejected", [request.employeeName], { notifyUser: true });
   }
 
   saveTimeOffRequests();
@@ -17274,7 +17428,7 @@ swapRequestsContainer.addEventListener("click", (event) => {
       request.managerNote = getPlannerRequestNoteFromButton(button);
       request.status = "rejected";
       request.updatedAt = getNowIsoString();
-      registerSwapMailNotification(request, "rejected", [request.employeeName, request.targetEmployeeName]);
+      registerSwapMailNotification(request, "rejected", [request.employeeName, request.targetEmployeeName], { notifyUser: true });
       saveSwapRequests();
       persistProtectedChange({
         reason: `Ruilverzoek afgewezen: ${request.employeeName} ${request.date}`,
@@ -18095,74 +18249,6 @@ employeeContractPanel?.addEventListener("change", (event) => {
 });
 
 employeeListCard?.addEventListener("click", (event) => {
-  const testMailButton = event.target.closest("button[data-employee-test-mail]");
-
-  if (testMailButton) {
-    if (!isPlannerRole()) {
-      showMessage("Mail verzenden mislukt", "error");
-      return;
-    }
-
-    const employeeName = testMailButton.dataset.employeeTestMail;
-
-    if (!employeeName || !employees.includes(employeeName)) {
-      showMessage("Mail verzenden mislukt", "error");
-      return;
-    }
-
-    const employeeEmail = getEmployeeEmail(employeeName);
-
-    if (!employeeEmail) {
-      showMessage("Geen e-mailadres ingesteld", "error");
-      return;
-    }
-
-    const originalLabel = testMailButton.textContent;
-    testMailButton.disabled = true;
-    testMailButton.textContent = "Verzenden...";
-
-    sendEmail(
-      employeeEmail,
-      "Test mail Roosterapp",
-      "Dit is een testmail vanuit de Roosterapp"
-    )
-      .then((result) => {
-        if (!result.ok) {
-          showMessage(result.error || "Mail verzenden mislukt", "error");
-          return;
-        }
-
-        showMessage("Testmail verzonden", "success");
-      })
-      .catch((error) => {
-        showMessage(
-          error instanceof Error && error.message ? error.message : "Mail verzenden mislukt",
-          "error"
-        );
-      })
-      .finally(() => {
-        testMailButton.disabled = false;
-        testMailButton.textContent = originalLabel;
-      });
-    return;
-  }
-
-  const button = event.target.closest("button[data-favorite-employee]");
-
-  if (button) {
-    const employeeName = button.dataset.favoriteEmployee;
-
-    if (!employeeName) {
-      return;
-    }
-
-    toggleFavoriteEmployee(employeeName);
-    renderEmployeeList();
-    renderEmployeeSelectors();
-    showSavedMessage();
-    return;
-  }
-
   const card = event.target.closest("[data-employee-select]");
 
   if (!card || !removeEmployeeSelect) {
@@ -18175,12 +18261,19 @@ employeeListCard?.addEventListener("click", (event) => {
     return;
   }
 
+  const currentEmployeeName = getSelectedEmployeeAdminName();
+
+  if (employeeName !== currentEmployeeName) {
+    const navigationChoice = confirmEmployeeEditorNavigation(currentEmployeeName);
+
+    if (navigationChoice === "cancel") {
+      return;
+    }
+  }
+
   removeEmployeeSelect.value = employeeName;
   renderEmployeeList();
-  renderEmployeeStatusControls();
-  renderEmployeePermissions();
-  renderEmployeeStandardShifts();
-  renderEmployeeContractPanel();
+  renderEmployeeEditorDetails();
 });
 
 submitTimeOffButton.addEventListener("click", () => {
@@ -18267,7 +18360,7 @@ submitTimeOffButton.addEventListener("click", () => {
     : timeOffRequests[timeOffRequests.length - 1];
 
   if (currentTimeOffRequest) {
-    registerTimeOffMailNotification(currentTimeOffRequest, "submitted", [employeeName]);
+    registerTimeOffMailNotification(currentTimeOffRequest, "submitted", [employeeName], { notifyUser: true });
   }
   saveTimeOffRequests();
   persistProtectedChange({
@@ -18440,7 +18533,7 @@ submitSwapButton.addEventListener("click", () => {
     }
 
     if (currentRequest?.employeeName) {
-      registerSwapMailNotification(currentRequest, "submitted", [currentRequest.employeeName]);
+      registerSwapMailNotification(currentRequest, "submitted", [currentRequest.employeeName], { notifyUser: true });
     }
 
     if (currentRequest?.targetEmployeeName) {
@@ -18468,7 +18561,7 @@ submitSwapButton.addEventListener("click", () => {
     showMessage("Ruilverzoek verzonden.", "success");
   });
 
-removeEmployeeButton.addEventListener("click", () => {
+removeEmployeeButton?.addEventListener("click", () => {
   if (!isPlannerRole()) {
     showMessage("Alleen planner of directie kan medewerkerstatus wijzigen.", "error");
     return;
@@ -18568,10 +18661,24 @@ employeeEmailInput?.addEventListener("input", () => {
   const employeeName = getSelectedEmployeeAdminName();
   const employeeDraft = getEmployeeEditorDraft(employeeName);
 
-  employeeEmailInput.setCustomValidity("");
+  clearEmployeeEmailFieldError();
 
   if (employeeDraft) {
     employeeDraft.email = employeeEmailInput.value;
+  }
+});
+
+employeeMailTestUserInput?.addEventListener("change", () => {
+  if (EMPLOYEE_MAIL_TEST_MODE_ENABLED) {
+    renderEmployeeStatusControls();
+    return;
+  }
+
+  const employeeName = getSelectedEmployeeAdminName();
+  const employeeDraft = getEmployeeEditorDraft(employeeName);
+
+  if (employeeDraft) {
+    employeeDraft.mailTestUser = Boolean(employeeMailTestUserInput.checked);
   }
 });
 
@@ -18587,23 +18694,26 @@ removeEmployeeSelect?.addEventListener("change", () => {
   renderEmployeeContractPanel();
 });
 
-saveEmployeeEmailButton?.addEventListener("click", () => {
+function saveSelectedEmployeeDetails(options = {}) {
+  const { showSuccessMessage = true } = options;
+
   if (!isPlannerRole()) {
     showMessage("Alleen planner of directie kan medewerkers beheren.", "error");
-    return;
+    return false;
   }
 
   const employeeName = removeEmployeeSelect.value;
 
   if (!employeeName || !employeeMeta[employeeName]) {
     showMessage("Kies eerst een medewerker.", "error");
-    return;
+    return false;
   }
 
   const employeeDraft = getEmployeeEditorDraft(employeeName);
   const normalizedEmail = normalizeEmployeeEmail(employeeEmailInput?.value);
   const normalizedRole = normalizeEmployeeAppRole(employeeRoleSelect?.value);
   const nextStatus = normalizeEmployeeStatus(employeeStatusSelect?.value);
+  const shouldEnableMailTestUser = Boolean(employeeDraft?.mailTestUser);
   const normalizedContractHours = normalizeContractHours(employeeDraft?.contractHours);
   const normalizedPermissions = Object.fromEntries(
     getPermissionShiftDescriptors().map((shift) => [
@@ -18618,27 +18728,27 @@ saveEmployeeEmailButton?.addEventListener("click", () => {
   const duplicateEmployeeName = findEmployeeByEmail(normalizedEmail, employeeName);
 
   if (!normalizedEmail) {
-    employeeEmailInput?.setCustomValidity("Vul een e-mailadres in.");
+    setEmployeeEmailFieldError("Vul een e-mailadres in.");
     employeeEmailInput?.reportValidity();
     showMessage("Vul een e-mailadres in.", "error");
-    return;
+    return false;
   }
 
   if (!isValidEmployeeEmail(normalizedEmail)) {
-    employeeEmailInput?.setCustomValidity("Vul een geldig e-mailadres in, bijvoorbeeld naam@domein.nl.");
+    setEmployeeEmailFieldError("Vul een geldig e-mailadres in, bijvoorbeeld naam@domein.nl.");
     employeeEmailInput?.reportValidity();
     showMessage("Vul een geldig e-mailadres in, bijvoorbeeld naam@domein.nl.", "error");
-    return;
+    return false;
   }
 
   if (duplicateEmployeeName) {
-    employeeEmailInput?.setCustomValidity(`Dit e-mailadres is al gekoppeld aan ${duplicateEmployeeName}.`);
+    setEmployeeEmailFieldError(`Dit e-mailadres is al gekoppeld aan ${duplicateEmployeeName}.`);
     employeeEmailInput?.reportValidity();
     showMessage(`Dit e-mailadres is al gekoppeld aan ${duplicateEmployeeName}.`, "error");
-    return;
+    return false;
   }
 
-  employeeEmailInput?.setCustomValidity("");
+  clearEmployeeEmailFieldError();
 
   if (currentStatus !== nextStatus) {
     const linkedEntryCount = entries.filter((entry) => entry.name === employeeName).length;
@@ -18656,12 +18766,21 @@ Gevolgen:
 Bewaarde historie:
 - ${linkedEntryCount} roosterregels
 - ${linkedRequestCount} aanvragen of ruilverzoeken
-- ${linkedWorkLogCount} urenregistraties`;
+    - ${linkedWorkLogCount} urenregistraties`;
 
     if (!confirmAction(`${impactText}\n\nWeet je zeker dat je deze wijziging wilt opslaan?`)) {
-      return;
+      return false;
     }
   }
+
+  Object.keys(employeeMeta).forEach((metaEmployeeName) => {
+    if (employeeMeta[metaEmployeeName]?.mailTestUser) {
+      employeeMeta[metaEmployeeName] = {
+        ...employeeMeta[metaEmployeeName],
+        mailTestUser: false
+      };
+    }
+  });
 
   employeeMeta[employeeName] = {
     ...getEmployeeStatusMetaDefaults(),
@@ -18669,6 +18788,7 @@ Bewaarde historie:
     role: normalizedRole,
     email: normalizedEmail,
     status: nextStatus,
+    mailTestUser: shouldEnableMailTestUser,
     contractHours: normalizedContractHours,
     updatedAt: getNowIsoString(),
     updatedByRole: "planner",
@@ -18700,6 +18820,7 @@ Bewaarde historie:
       email: normalizedEmail,
       role: normalizedRole,
       status: nextStatus,
+      mailTestUser: shouldEnableMailTestUser,
       contractHours: normalizedContractHours,
       standardShiftName: normalizedStandardShift,
       basePatternId: normalizedBasePatternId
@@ -18709,7 +18830,35 @@ Bewaarde historie:
   renderEmployeeSelectors();
   renderDayPlanner();
   render();
-  showMessage("Medewerker opgeslagen", "success");
+  if (showSuccessMessage) {
+    showMessage("Opgeslagen", "success");
+  }
+  return true;
+}
+
+function confirmEmployeeEditorNavigation(employeeName) {
+  if (!employeeName || !hasUnsavedEmployeeChanges(employeeName)) {
+    return "proceed";
+  }
+
+  const wantsSave = window.confirm("Je hebt niet-opgeslagen wijzigingen. Eerst opslaan?\n\nKies OK voor Opslaan.\nKies Annuleren voor meer opties.");
+
+  if (wantsSave) {
+    return saveSelectedEmployeeDetails({ showSuccessMessage: true }) ? "proceed" : "cancel";
+  }
+
+  const wantsDiscard = window.confirm("Je hebt niet-opgeslagen wijzigingen.\n\nKies OK voor Niet opslaan.\nKies Annuleren om terug te gaan.");
+
+  if (wantsDiscard) {
+    discardEmployeeEditorChanges(employeeName);
+    return "proceed";
+  }
+
+  return "cancel";
+}
+
+saveEmployeeEmailButton?.addEventListener("click", () => {
+  saveSelectedEmployeeDetails({ showSuccessMessage: true });
 });
 
 employeeDetailTestMailButton?.addEventListener("click", async () => {
@@ -18729,6 +18878,7 @@ employeeDetailTestMailButton?.addEventListener("click", async () => {
 
   if (!employeeEmail) {
     showMessage("Geen e-mailadres ingesteld", "error");
+    setEmployeeEmailFieldError("Geen e-mailadres ingesteld");
     return;
   }
 
@@ -19813,6 +19963,21 @@ mobileNavButtons.forEach((button) => {
   button.addEventListener("click", () => {
     setActiveTab(button.dataset.goTab);
   });
+});
+
+window.addEventListener("beforeunload", (event) => {
+  if (activeTab !== "employees") {
+    return;
+  }
+
+  const employeeName = getSelectedEmployeeAdminName();
+
+  if (!hasUnsavedEmployeeChanges(employeeName)) {
+    return;
+  }
+
+  event.preventDefault();
+  event.returnValue = "";
 });
 
 previousWeekButton.addEventListener("click", () => {

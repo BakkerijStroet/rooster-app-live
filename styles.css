@@ -1370,6 +1370,23 @@ body[data-role="employee"] [data-panel="requests"] #requestsOpenCards {
   line-height: 1.45;
 }
 
+.field-error-text {
+  display: block;
+  margin-top: 6px;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+input.input-error,
+select.input-error,
+textarea.input-error {
+  border-color: #cf5545 !important;
+  box-shadow: 0 0 0 3px rgba(207, 85, 69, 0.12);
+  background: #fff7f5;
+}
+
 .warning-note {
   color: #b36212;
 }
@@ -1522,40 +1539,6 @@ body[data-role="employee"] [data-panel="requests"] #requestsOpenCards {
   font-size: 16px;
 }
 
-.employee-contract-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-  border: 1px solid transparent;
-}
-
-.employee-contract-badge.is-neutral {
-  background: #f3eee7;
-  border-color: #ddd2c4;
-  color: #675947;
-}
-
-.employee-contract-badge.is-match {
-  background: #eef8f2;
-  border-color: #bfd9c8;
-  color: #2f6a45;
-}
-
-.employee-contract-badge.is-under {
-  background: #eef5ff;
-  border-color: #bfd2ef;
-  color: #355d95;
-}
-
-.employee-contract-badge.is-over {
-  background: #fff4e7;
-  border-color: #ebc691;
-  color: #9a5c10;
-}
-
 .employee-status-badge {
   display: inline-flex;
   align-items: center;
@@ -1581,31 +1564,9 @@ body[data-role="employee"] [data-panel="requests"] #requestsOpenCards {
   color: #8a2f21;
 }
 
-.employee-role-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 800;
-  border: 1px solid var(--border);
-  background: #f8f3e8;
-  color: var(--text);
-}
-
-.employee-role-badge.is-planner {
-  background: #fff1df;
-  color: #8c4d08;
-}
-
-.employee-role-badge.is-employee {
-  background: #eef4fb;
-  color: #355d95;
-}
-
 .employee-summary-head {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 10px;
   align-items: center;
 }
@@ -1620,40 +1581,6 @@ body[data-role="employee"] [data-panel="requests"] #requestsOpenCards {
   gap: 6px;
   align-items: center;
   margin-top: 4px;
-}
-
-.employee-summary-actions {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-end;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.employee-test-mail-button {
-  padding: 5px 9px;
-  border-radius: 999px;
-  font-size: 11px;
-  background: #fff3e3;
-  color: #8c4d08;
-  border: 1px solid rgba(242, 140, 40, 0.22);
-}
-
-.employee-test-mail-button:hover {
-  background: #fee7c5;
-}
-
-.favorite-toggle {
-  padding: 5px 9px;
-  border-radius: 999px;
-  background: #efe5d2;
-  color: var(--text);
-  font-size: 11px;
-}
-
-.favorite-toggle.is-active {
-  background: #f0c85a;
-  color: #4f3d00;
 }
 
 .employee-permissions-list {
@@ -1676,6 +1603,29 @@ body[data-role="employee"] [data-panel="requests"] #requestsOpenCards {
   font-size: 18px;
   font-weight: 800;
   color: var(--text);
+}
+
+.employee-detail-section + .employee-detail-section {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.employee-inline-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.employee-inline-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.employee-inline-toggle span {
+  font-weight: 600;
 }
 
 .employee-standard-shift-card {
