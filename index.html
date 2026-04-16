@@ -117,46 +117,57 @@
 
       <section class="staff-panel role-planner app-panel" data-panel="employees" data-slot="left">
         <h2>Medewerkers</h2>
-        <div id="employeeListCard" class="simple-list empty">Nog geen medewerkers toegevoegd.</div>
-      </section>
-
-      <section class="staff-panel role-planner app-panel" data-panel="employees" data-slot="right">
-        <h2>Medewerker toevoegen</h2>
-        <div class="staff-actions">
+        <div class="staff-actions employee-add-actions">
           <label>
             Nieuwe medewerker
             <input type="text" id="newEmployeeName" placeholder="Naam medewerker">
           </label>
           <button type="button" id="addEmployeeButton">Medewerker toevoegen</button>
         </div>
+        <div id="employeeListCard" class="simple-list empty">Nog geen medewerkers toegevoegd.</div>
       </section>
 
       <section class="staff-panel role-planner app-panel" data-panel="employees" data-slot="right">
-        <h2>Medewerkerstatus</h2>
+        <h2>Basisgegevens</h2>
+        <div id="employeeDetailTitle" class="employee-detail-title">Kies links een medewerker</div>
         <div class="staff-actions">
-          <label>
+          <label class="hidden">
             Medewerker
             <select id="removeEmployeeSelect">
               <option value="">Kies medewerker voor statuswijziging</option>
             </select>
           </label>
-            <label>
-              Status
-              <select id="employeeStatusSelect">
-                <option value="active">Actief</option>
-                <option value="inactive">Inactief</option>
-                <option value="former">Uit dienst</option>
-              </select>
-            </label>
-            <label>
-              E-mail
-              <input type="email" id="employeeEmailInput" placeholder="naam@bakkerijstroet.nl">
-            </label>
-            <div id="employeeStatusImpact" class="panel-note">Actieve medewerkers blijven beschikbaar voor planning en aanvragen.</div>
-            <button type="button" id="saveEmployeeEmailButton" class="secondary">E-mail opslaan</button>
-            <button type="button" id="removeEmployeeButton" class="warning">Status wijzigen</button>
-          </div>
-        </section>
+          <label>
+            Naam
+            <input type="text" id="employeeNameDisplay" readonly>
+          </label>
+          <label>
+            E-mailadres
+            <input type="email" id="employeeEmailInput" placeholder="naam@bakkerijstroet.nl" required autocomplete="email">
+          </label>
+          <label>
+            Rol
+            <select id="employeeRoleSelect">
+              <option value="employee">Medewerker</option>
+              <option value="planner">Directie / Planner</option>
+            </select>
+          </label>
+          <label>
+            Status
+            <select id="employeeStatusSelect">
+              <option value="active">Actief</option>
+              <option value="inactive">Inactief</option>
+              <option value="former">Uit dienst</option>
+            </select>
+          </label>
+          <div id="employeeStatusImpact" class="panel-note">Actieve medewerkers blijven beschikbaar voor planning en aanvragen.</div>
+        </div>
+      </section>
+
+      <section class="staff-panel role-planner app-panel" data-panel="employees" data-slot="right">
+        <h2>Mag uitvoeren</h2>
+        <div id="employeePermissionsList" class="employee-permissions-list empty">Nog geen medewerkers toegevoegd.</div>
+      </section>
 
       <section class="staff-panel role-planner app-panel" data-panel="employees" data-slot="right">
         <h2>Vast rooster</h2>
@@ -164,8 +175,17 @@
       </section>
 
       <section class="staff-panel role-planner app-panel" data-panel="employees" data-slot="right">
-        <h2>Bevoegdheden en voorkeur</h2>
-        <div id="employeePermissionsList" class="employee-permissions-list empty">Nog geen medewerkers toegevoegd.</div>
+        <h2>Contracturen</h2>
+        <div id="employeeContractPanel" class="employee-contract-panel empty">Nog geen medewerkers toegevoegd.</div>
+      </section>
+
+      <section class="staff-panel role-planner app-panel" data-panel="employees" data-slot="right">
+        <h2>Acties</h2>
+        <div class="form-actions compact-actions">
+          <button type="button" id="saveEmployeeEmailButton" class="secondary">Opslaan</button>
+          <button type="button" id="employeeDetailTestMailButton" class="secondary">Test mail</button>
+          <button type="button" id="removeEmployeeButton" class="secondary hidden">Status opslaan</button>
+        </div>
       </section>
 
       <section class="staff-panel role-planner app-panel" data-panel="planning" data-slot="bottom">

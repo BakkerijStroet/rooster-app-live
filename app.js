@@ -78,10 +78,14 @@ const newEmployeeNameInput = document.getElementById("newEmployeeName");
 const addEmployeeButton = document.getElementById("addEmployeeButton");
 const removeEmployeeSelect = document.getElementById("removeEmployeeSelect");
 const employeeStatusSelect = document.getElementById("employeeStatusSelect");
+const employeeRoleSelect = document.getElementById("employeeRoleSelect");
 const employeeEmailInput = document.getElementById("employeeEmailInput");
+const employeeNameDisplayInput = document.getElementById("employeeNameDisplay");
 const removeEmployeeButton = document.getElementById("removeEmployeeButton");
 const saveEmployeeEmailButton = document.getElementById("saveEmployeeEmailButton");
+const employeeDetailTestMailButton = document.getElementById("employeeDetailTestMailButton");
 const employeeStatusImpact = document.getElementById("employeeStatusImpact");
+const employeeDetailTitle = document.getElementById("employeeDetailTitle");
 const createRestorePointButton = document.getElementById("createRestorePointButton");
 const backupRestoreSelect = document.getElementById("backupRestoreSelect");
 const restoreBackupButton = document.getElementById("restoreBackupButton");
@@ -96,6 +100,7 @@ const FIXED_TEST_MAIL_RECIPIENT = "info@bakkerijstroet.nl";
 const employeeListCard = document.getElementById("employeeListCard");
 const employeeStandardShiftList = document.getElementById("employeeStandardShiftList");
 const employeePermissionsList = document.getElementById("employeePermissionsList");
+const employeeContractPanel = document.getElementById("employeeContractPanel");
 const planningAuthorizationHint = document.getElementById("planningAuthorizationHint");
 const timeOffEmployeeSelect = document.getElementById("timeOffEmployee");
 const timeOffTypeSelect = document.getElementById("timeOffType");
@@ -154,6 +159,8 @@ const appPanels = Array.from(document.querySelectorAll(".app-panel"));
 const planningEmployeeSearchInput = document.getElementById("planningEmployeeSearch");
 const portalEmployeeSelect = document.getElementById("portalEmployee");
 const portalEmployeeBadge = document.getElementById("portalEmployeeBadge");
+
+const employeeEditorDrafts = {};
 const portalEmployeeSearchInput = document.getElementById("portalEmployeeSearch");
 const myScheduleWeekInput = document.getElementById("myScheduleWeek");
 const mySchedulePreviousWeekButton = document.getElementById("mySchedulePreviousWeekButton");
@@ -1172,12 +1179,21 @@ function saveEmployees() {
 function getEmployeeStatusMetaDefaults() {
   return {
     status: "active",
+    role: "employee",
     contractHours: 0,
     email: "",
     updatedAt: "",
     updatedByRole: "",
     updatedByName: ""
   };
+}
+
+function normalizeEmployeeAppRole(value) {
+  return value === "planner" ? "planner" : "employee";
+}
+
+function getDefaultEmployeeAppRole(employeeName) {
+  return ["Chantal", "Twan"].includes(employeeName) ? "planner" : "employee";
 }
 
 function getConfiguredEmployeeContractHours() {
@@ -1223,6 +1239,27 @@ function normalizeEmployeeStatus(value) {
 function normalizeEmployeeEmail(value) {
   const emailValue = typeof value === "string" ? value.trim() : "";
   return emailValue;
+}
+
+function isValidEmployeeEmail(email) {
+  const normalizedEmail = normalizeEmployeeEmail(email);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
+}
+
+function findEmployeeByEmail(email, excludedEmployeeName = "") {
+  const normalizedEmail = normalizeEmployeeEmail(email).toLowerCase();
+
+  if (!normalizedEmail) {
+    return "";
+  }
+
+  return employees.find((employeeName) => {
+    if (employeeName === excludedEmployeeName) {
+      return false;
+    }
+
+    return getEmployeeEmail(employeeName).toLowerCase() === normalizedEmail;
+  }) || "";
 }
 
 function normalizeMailSenderName(value) {
@@ -1326,6 +1363,7 @@ function loadEmployeeMeta() {
       const currentMeta = parsedMeta?.[employeeName];
       normalized[employeeName] = {
         status: normalizeEmployeeStatus(currentMeta?.status),
+        role: normalizeEmployeeAppRole(currentMeta?.role || getDefaultEmployeeAppRole(employeeName)),
         contractHours: normalizeContractHours(currentMeta?.contractHours ?? getConfiguredEmployeeContractHours()[employeeName] ?? 0),
         email: normalizeEmployeeEmail(currentMeta?.email),
         updatedAt: typeof currentMeta?.updatedAt === "string" ? currentMeta.updatedAt : "",
@@ -1420,8 +1458,24 @@ function getEmployeeContractHours(employeeName) {
   return normalizeContractHours(employeeMeta?.[employeeName]?.contractHours ?? 0);
 }
 
+function getEmployeeAppRole(employeeName) {
+  return normalizeEmployeeAppRole(employeeMeta?.[employeeName]?.role || getDefaultEmployeeAppRole(employeeName));
+}
+
 function getEmployeeEmail(employeeName) {
   return normalizeEmployeeEmail(employeeMeta?.[employeeName]?.email);
+}
+
+function isEmployeeMailTestEnabled(employeeName) {
+  return String(employeeName || "").trim().toLowerCase() === "twan";
+}
+
+function getMailEligibleEmployeeEmail(employeeName) {
+  if (!isEmployeeMailTestEnabled(employeeName)) {
+    return "";
+  }
+
+  return getEmployeeEmail(employeeName);
 }
 
 function getPlannerSummaryEmailRecipients() {
@@ -1429,6 +1483,56 @@ function getPlannerSummaryEmailRecipients() {
     mailSettings?.senderEmail || mailSettings?.testRecipientEmail || FIXED_TEST_MAIL_RECIPIENT
   );
   return plannerEmail ? [plannerEmail] : [];
+}
+
+function getSelectedEmployeeAdminName() {
+  if (!employees.length) {
+    return "";
+  }
+
+  const selectedName = removeEmployeeSelect?.value || "";
+  return employees.includes(selectedName) ? selectedName : employees[0];
+}
+
+function cloneSerializableValue(value) {
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  return JSON.parse(JSON.stringify(value));
+}
+
+function createEmployeeEditorDraft(employeeName) {
+  return {
+    email: getEmployeeEmail(employeeName),
+    role: getEmployeeAppRole(employeeName),
+    status: getEmployeeStatus(employeeName),
+    permissions: cloneSerializableValue(employeePermissions?.[employeeName] || {}),
+    standardShift: typeof employeeStandardShifts?.[employeeName] === "string" ? employeeStandardShifts[employeeName] : "",
+    basePatternId: getEmployeeBasePatternId(employeeName),
+    customRoster: cloneSerializableValue(getEmployeeCustomRosterConfig(employeeName)),
+    contractHours: getEmployeeContractHours(employeeName)
+  };
+}
+
+function getEmployeeEditorDraft(employeeName) {
+  if (!employeeName) {
+    return null;
+  }
+
+  if (!employeeEditorDrafts[employeeName]) {
+    employeeEditorDrafts[employeeName] = createEmployeeEditorDraft(employeeName);
+  }
+
+  return employeeEditorDrafts[employeeName];
+}
+
+function clearEmployeeEditorDraft(employeeName) {
+  if (!employeeName) {
+    return;
+  }
+
+  delete employeeEditorDrafts[employeeName];
 }
 
 function getEmployeeStatusLabel(status) {
@@ -1558,8 +1662,8 @@ function normalizeEmployeeCustomRosterConfig(config, employeeName = "") {
   };
 }
 
-function getDerivedCustomRosterFromBasePattern(employeeName, weekValue = getCurrentWeekValue()) {
-  const patternId = getEmployeeBasePatternId(employeeName);
+function getDerivedCustomRosterFromBasePattern(employeeName, weekValue = getCurrentWeekValue(), basePatternIdOverride = "") {
+  const patternId = basePatternIdOverride || getEmployeeBasePatternId(employeeName);
   const weekValues = createEmptyCustomRosterWeek();
   const variant = getWeekPatternVariant(weekValue);
 
@@ -1623,14 +1727,14 @@ function getEmployeeCustomRosterConfig(employeeName) {
   return normalizeEmployeeCustomRosterConfig(employeeCustomRosters?.[employeeName], employeeName);
 }
 
-function getEmployeeEditableRosterConfig(employeeName) {
-  const config = getEmployeeCustomRosterConfig(employeeName);
+function getEmployeeEditableRosterConfig(employeeName, configOverride = null, basePatternIdOverride = "") {
+  const config = configOverride || getEmployeeCustomRosterConfig(employeeName);
   const currentWeekValue = weekInput?.value || getCurrentWeekValue();
   const nextConfig = {
     ...config,
-    single: hasCustomRosterWeekValues(config.single) ? config.single : getDerivedCustomRosterFromBasePattern(employeeName, currentWeekValue),
-    weekA: hasCustomRosterWeekValues(config.weekA) ? config.weekA : getDerivedCustomRosterFromBasePattern(employeeName, "2025-W01"),
-    weekB: hasCustomRosterWeekValues(config.weekB) ? config.weekB : getDerivedCustomRosterFromBasePattern(employeeName, "2025-W02")
+    single: hasCustomRosterWeekValues(config.single) ? config.single : getDerivedCustomRosterFromBasePattern(employeeName, currentWeekValue, basePatternIdOverride),
+    weekA: hasCustomRosterWeekValues(config.weekA) ? config.weekA : getDerivedCustomRosterFromBasePattern(employeeName, "2025-W01", basePatternIdOverride),
+    weekB: hasCustomRosterWeekValues(config.weekB) ? config.weekB : getDerivedCustomRosterFromBasePattern(employeeName, "2025-W02", basePatternIdOverride)
   };
 
   return nextConfig;
@@ -4792,7 +4896,7 @@ function maybeShowOpenRequestReminder() {
     const storedEmailReminderKey = preferences.mailDigestState?.employeeMissingHoursEmail?.[employeeName] || "";
 
     if (storedEmailReminderKey !== emailReminderKey) {
-      const employeeEmail = getEmployeeEmail(employeeName);
+      const employeeEmail = getMailEligibleEmployeeEmail(employeeName);
 
       if (employeeEmail) {
         preferences.mailDigestState.employeeMissingHoursEmail = preferences.mailDigestState.employeeMissingHoursEmail || {};
@@ -10081,7 +10185,7 @@ function buildMailRecipients(employeeNames = []) {
 
   return uniqueEmployeeNames.map((employeeName) => ({
     employeeName,
-    email: getEmployeeEmail(employeeName)
+    email: getMailEligibleEmployeeEmail(employeeName)
   }));
 }
 
@@ -10451,7 +10555,7 @@ function queueRequestMailDelivery(request, mailEntry, options = {}) {
     .filter(Boolean);
 
   if (!recipientEmails.length) {
-    updateMailLogEntry(request, mailEntry, { status: "missing-email", error: "" }, persist);
+    updateMailLogEntry(request, mailEntry, { status: "missing-email", error: "Geen e-mailadres ingesteld" }, persist);
     return;
   }
 
@@ -10649,7 +10753,7 @@ function getRequestMailStatusText(request, options = {}) {
   }
 
   if (latestMail.status === "missing-email") {
-    return `Mail niet aangemaakt: geen e-mailadres voor ${recipientLabel}.`;
+    return latestMail.error || "Geen e-mailadres ingesteld";
   }
 
   if (latestMail.status === "queued") {
@@ -12333,63 +12437,27 @@ function renderEmployeeList() {
     employeeListCard.textContent = "Nog geen medewerkers toegevoegd.";
     return;
   }
-
-  const permissionShifts = getPermissionShiftDescriptors();
+  const selectedEmployee = getSelectedEmployeeAdminName();
 
   employeeListCard.className = "employee-summary-list";
   employeeListCard.innerHTML = getEmployeesWithFavoritesFirst(employees)
     .map((employee) => {
-      const allowedShifts = permissionShifts.filter((shift) => isEmployeeAuthorizedForShift(employee, shift.name));
-      const standardShiftName = employeeStandardShifts[employee];
       const employeeStatus = getEmployeeStatus(employee);
-      const basePattern = getEmployeeBasePattern(employee);
-      const contractHours = getEmployeeContractHours(employee);
-      const selectedWeek = weekInput?.value || getCurrentWeekValue();
-      const strongPreferenceNote = getEmployeeStrongPreferenceNote(employee, selectedWeek);
-      const plannedWeekHours = getEmployeeWeekHours(employee, selectedWeek, entries);
-      const contractDifference = contractHours > 0 ? Math.round((plannedWeekHours - contractHours) * 10) / 10 : 0;
-      const contractStateClass = contractHours <= 0
-        ? "is-neutral"
-        : contractDifference > 1
-          ? "is-over"
-          : contractDifference < -1
-            ? "is-under"
-            : "is-match";
-      const preferredShifts = permissionShifts
-        .map((shift) => ({
-          name: shift.name,
-          rank: getEmployeeShiftPreference(employee, shift.name)
-        }))
-        .filter((shift) => shift.rank > 0)
-        .sort((shiftA, shiftB) => shiftA.rank - shiftB.rank || shiftA.name.localeCompare(shiftB.name, "nl"))
-        .slice(0, 3);
 
       return `
-        <article class="employee-summary-card">
+        <article class="employee-summary-card ${employee === selectedEmployee ? "is-active" : ""}" data-employee-select="${employee}">
           <div class="employee-summary-head">
-            <div>
+            <div class="employee-summary-main">
               <h3>${employee}</h3>
-              <div class="employee-meta-row">
+              <div class="employee-summary-subline">
                 <span class="employee-status-badge ${getEmployeeStatusClass(employeeStatus)}">${getEmployeeStatusLabel(employeeStatus)}</span>
-                <span class="employee-contract-badge ${contractStateClass}">${getEmployeeContractTypeLabel(employee)}</span>
-                ${contractHours > 0 ? `<span class="panel-note">Deze week ${formatHours(plannedWeekHours)} gepland</span>` : ""}
-                ${standardShiftName ? `<span class="panel-note">Vaste bakkerijdienst: ${standardShiftName}</span>` : ""}
-                ${basePattern?.id ? `<span class="panel-note">Basisrooster: ${basePattern.label}</span>` : ""}
-                ${strongPreferenceNote ? `<span class="panel-note">${strongPreferenceNote}</span>` : ""}
               </div>
             </div>
-            <button type="button" class="favorite-toggle ${isFavoriteEmployee(employee) ? "is-active" : ""}" data-favorite-employee="${employee}" aria-label="${isFavoriteEmployee(employee) ? "Verwijder favoriet" : "Maak favoriet"}">${isFavoriteEmployee(employee) ? "Favoriet" : "Favoriet maken"}</button>
+            <div class="employee-summary-actions">
+              <button type="button" class="employee-test-mail-button" data-employee-test-mail="${employee}">Test mail</button>
+              <button type="button" class="favorite-toggle ${isFavoriteEmployee(employee) ? "is-active" : ""}" data-favorite-employee="${employee}" aria-label="${isFavoriteEmployee(employee) ? "Verwijder favoriet" : "Maak favoriet"}">${isFavoriteEmployee(employee) ? "Favoriet" : "Favoriet maken"}</button>
+            </div>
           </div>
-          ${preferredShifts.length
-            ? `<div class="employee-preference-row">
-                ${preferredShifts.map((shift) => `<span class="employee-preference-tag">#${shift.rank} ${shift.name}</span>`).join("")}
-              </div>`
-            : ""}
-          ${allowedShifts.length
-            ? `<div class="employee-shift-tags">
-                ${allowedShifts.map((shift) => `<span class="employee-shift-tag ${shift.color || "shift-tone-inpak"}">${shift.name}</span>`).join("")}
-              </div>`
-            : '<span class="employee-shift-empty">Nog geen bevoegde diensten ingesteld.</span>'}
         </article>
       `;
     })
@@ -12419,21 +12487,29 @@ function renderEmployeeStandardShifts() {
     .map((shift) => `<option value="${shift.name}">${shift.name}</option>`)
     .join("");
 
-  employeeStandardShiftList.className = "employee-standard-shift-list";
-  employeeStandardShiftList.innerHTML = employees.map((employeeName) => {
-    const rosterProfile = getEmployeeBaseRosterProfile(employeeName);
-    const customRoster = getEmployeeCustomRosterConfig(employeeName);
-    const editableRoster = getEmployeeEditableRosterConfig(employeeName);
-    const currentWeekLabel = editableRoster.mode === "biweekly" ? "Huidige week (alleen als A/B leeg is)" : "Huidige week";
-    const effectiveRoster = getEmployeeEffectiveRosterWeek(employeeName, weekInput?.value || getCurrentWeekValue());
-    const contractHours = getEmployeeContractHours(employeeName);
-    const selectedWeek = weekInput?.value || getCurrentWeekValue();
-    const strongPreferenceNote = getEmployeeStrongPreferenceNote(employeeName, selectedWeek);
-    const plannedWeekHours = getEmployeeWeekHours(employeeName, selectedWeek, entries);
+  const employeeName = getSelectedEmployeeAdminName();
 
-    return `
+  if (!employeeName) {
+    employeeStandardShiftList.className = "employee-standard-shift-list empty";
+    employeeStandardShiftList.textContent = "Kies eerst links een medewerker.";
+    return;
+  }
+
+  const employeeDraft = getEmployeeEditorDraft(employeeName);
+  const rosterProfile = getEmployeeBaseRosterProfile(employeeName);
+  const selectedBasePatternId = typeof employeeDraft?.basePatternId === "string" ? employeeDraft.basePatternId : getEmployeeBasePatternId(employeeName);
+  const selectedStandardShift = typeof employeeDraft?.standardShift === "string" ? employeeDraft.standardShift : (employeeStandardShifts[employeeName] || "");
+  const customRoster = normalizeEmployeeCustomRosterConfig(employeeDraft?.customRoster, employeeName);
+  const editableRoster = getEmployeeEditableRosterConfig(employeeName, customRoster, selectedBasePatternId);
+  const currentWeekLabel = editableRoster.mode === "biweekly" ? "Huidige week (alleen als A/B leeg is)" : "Huidige week";
+  const effectiveRoster = getEmployeeEffectiveRosterWeek(employeeName, weekInput?.value || getCurrentWeekValue());
+  const selectedWeek = weekInput?.value || getCurrentWeekValue();
+  const strongPreferenceNote = getEmployeeStrongPreferenceNote(employeeName, selectedWeek);
+  const basePatternDescription = getEmployeeBasePatternCatalogMap()[selectedBasePatternId]?.description || "Geen vaste basisplanning ingesteld.";
+
+  employeeStandardShiftList.className = "employee-standard-shift-list";
+  employeeStandardShiftList.innerHTML = `
     <article class="employee-standard-shift-card">
-      <h3>${employeeName}</h3>
       <div class="employee-roster-summary-grid">
         <div class="employee-roster-summary-item">
           <span class="employee-roster-summary-label">Werkdagen</span>
@@ -12459,33 +12535,21 @@ function renderEmployeeStandardShifts() {
           <span class="employee-roster-summary-label">2-wekelijks</span>
           <strong>${rosterProfile.biweeklyText}</strong>
         </div>
-        <div class="employee-roster-summary-item">
-          <span class="employee-roster-summary-label">Contract</span>
-          <strong>${getEmployeeContractTypeLabel(employeeName)}</strong>
-        </div>
-        <div class="employee-roster-summary-item">
-          <span class="employee-roster-summary-label">Gepland deze week</span>
-          <strong>${formatHours(plannedWeekHours)}</strong>
-        </div>
       </div>
       <div class="employee-roster-controls">
-      <label>
-        Vaste bakkerijdienst
-        <select data-standard-shift-employee="${employeeName}">
-          <option value="">Geen vaste koppeling</option>
-          ${shiftOptions}
-        </select>
-      </label>
-      <label>
-        Basisrooster
-        <select data-base-pattern-employee="${employeeName}">
-          ${basePatternOptions}
-        </select>
-      </label>
-      <label>
-        Contracturen per week
-        <input type="number" min="0" max="40" step="0.5" value="${contractHours > 0 ? contractHours : 0}" data-contract-hours-employee="${employeeName}">
-      </label>
+        <label>
+          Vaste bakkerijdienst
+          <select data-standard-shift-employee="${employeeName}">
+            <option value="">Geen vaste koppeling</option>
+            ${shiftOptions}
+          </select>
+        </label>
+        <label>
+          Basisrooster
+          <select data-base-pattern-employee="${employeeName}">
+            ${basePatternOptions}
+          </select>
+        </label>
       </div>
       <div class="employee-week-pattern-editor">
         <label class="employee-week-pattern-mode">
@@ -12502,41 +12566,58 @@ function renderEmployeeStandardShifts() {
           `
           : renderEmployeeRosterPatternGrid(employeeName, "single", editableRoster.single, currentWeekLabel)}
       </div>
-      <div class="panel-note employee-base-pattern-note">${effectiveRoster.source === "custom" ? "Handmatig vast rooster actief. Automatisch plannen gebruikt deze dagdelen eerst." : (getEmployeeBasePattern(employeeName)?.description || "Geen vaste basisplanning ingesteld.")}</div>
+      <div class="panel-note employee-base-pattern-note">${effectiveRoster.source === "custom" ? "Handmatig vast rooster actief. Automatisch plannen gebruikt deze dagdelen eerst." : basePatternDescription}</div>
       ${strongPreferenceNote ? `<div class="panel-note employee-base-pattern-note">${strongPreferenceNote}</div>` : ""}
     </article>
   `;
-  }).join("");
 
-  employees.forEach((employeeName) => {
-    const select = employeeStandardShiftList.querySelector(`[data-standard-shift-employee="${employeeName}"]`);
-    const basePatternSelect = employeeStandardShiftList.querySelector(`[data-base-pattern-employee="${employeeName}"]`);
-    const rosterModeSelect = employeeStandardShiftList.querySelector(`[data-roster-mode-employee="${employeeName}"]`);
-    const customRoster = getEmployeeCustomRosterConfig(employeeName);
-    const editableRoster = getEmployeeEditableRosterConfig(employeeName);
+  const select = employeeStandardShiftList.querySelector(`[data-standard-shift-employee="${employeeName}"]`);
+  const basePatternSelect = employeeStandardShiftList.querySelector(`[data-base-pattern-employee="${employeeName}"]`);
+  const rosterModeSelect = employeeStandardShiftList.querySelector(`[data-roster-mode-employee="${employeeName}"]`);
 
-    if (select) {
-      select.value = employeeStandardShifts[employeeName] || "";
-    }
+  if (select) {
+    select.value = selectedStandardShift;
+  }
 
-    if (basePatternSelect) {
-      basePatternSelect.value = getEmployeeBasePatternId(employeeName);
-    }
+  if (basePatternSelect) {
+    basePatternSelect.value = selectedBasePatternId;
+  }
 
-    if (rosterModeSelect) {
-      rosterModeSelect.value = customRoster.mode;
-    }
+  if (rosterModeSelect) {
+    rosterModeSelect.value = customRoster.mode;
+  }
 
-    [["single", editableRoster.single], ["weekA", editableRoster.weekA], ["weekB", editableRoster.weekB]].forEach(([weekKey, weekValues]) => {
-      getEditableRosterWeekdayDefinitions().forEach((weekday) => {
-        const daySelect = employeeStandardShiftList.querySelector(`[data-roster-pattern-employee="${employeeName}"][data-roster-pattern-week="${weekKey}"][data-roster-pattern-day="${weekday.number}"]`);
+  [["single", editableRoster.single], ["weekA", editableRoster.weekA], ["weekB", editableRoster.weekB]].forEach(([weekKey, weekValues]) => {
+    getEditableRosterWeekdayDefinitions().forEach((weekday) => {
+      const daySelect = employeeStandardShiftList.querySelector(`[data-roster-pattern-employee="${employeeName}"][data-roster-pattern-week="${weekKey}"][data-roster-pattern-day="${weekday.number}"]`);
 
-        if (daySelect) {
-          daySelect.value = weekValues?.[weekday.number] || "";
-        }
-      });
+      if (daySelect) {
+        daySelect.value = weekValues?.[weekday.number] || "";
+      }
     });
   });
+}
+
+function getPermissionShiftGroups() {
+  const permissionShifts = getPermissionShiftDescriptors();
+  return [
+    {
+      title: "Bakkerijdiensten",
+      shifts: permissionShifts.filter((shift) => !isShopShiftName(shift.name) && !isAllroundShiftName(shift.name) && !isStageShiftName(shift.name))
+    },
+    {
+      title: "Allround diensten",
+      shifts: permissionShifts.filter((shift) => isAllroundShiftName(shift.name))
+    },
+    {
+      title: "Winkeldiensten",
+      shifts: permissionShifts.filter((shift) => isShopShiftName(shift.name))
+    },
+    {
+      title: "Stageplekken",
+      shifts: permissionShifts.filter((shift) => isStageShiftName(shift.name))
+    }
+  ].filter((group) => group.shifts.length);
 }
 
 function renderEmployeePermissions() {
@@ -12550,42 +12631,90 @@ function renderEmployeePermissions() {
     return;
   }
 
-  const permissionShifts = getPermissionShiftDescriptors();
+  const employeeName = getSelectedEmployeeAdminName();
 
+  if (!employeeName) {
+    employeePermissionsList.className = "employee-permissions-list empty";
+    employeePermissionsList.textContent = "Kies eerst links een medewerker.";
+    return;
+  }
+
+  const employeeDraft = getEmployeeEditorDraft(employeeName);
+  const groupedShifts = getPermissionShiftGroups();
   employeePermissionsList.className = "employee-permissions-list";
-  employeePermissionsList.innerHTML = employees.map((employeeName) => `
+  employeePermissionsList.innerHTML = `
     <article class="employee-permission-card">
-      <h3>${employeeName}</h3>
-      <p class="panel-note">Bevoegdheid aan/uit en voorkeursvolgorde voor automatisch plannen. 1 is hoogste voorkeur.</p>
-      <div class="permission-grid">
-        ${permissionShifts.map((shift) => `
-          <label class="permission-item ${shift.color || "shift-tone-inpak"}">
-            <div class="permission-toggle">
-              <input
-                type="checkbox"
-                data-permission-employee="${employeeName}"
-                data-permission-shift="${shift.name}"
-                ${isEmployeeAuthorizedForShift(employeeName, shift.name) ? "checked" : ""}
-              >
-              <span>${shift.name}</span>
-            </div>
-            <span class="permission-preference">
-              <small>Voorkeur</small>
-              <input
-                type="number"
-                min="0"
-                max="99"
-                step="1"
-                value="${getEmployeeShiftPreference(employeeName, shift.name)}"
-                data-preference-employee="${employeeName}"
-                data-preference-shift="${shift.name}"
-              >
-            </span>
-          </label>
-        `).join("")}
+      <p class="panel-note">Zet per dienst aan of deze medewerker de dienst mag uitvoeren.</p>
+      ${groupedShifts.map((group) => `
+        <section class="permission-group-block">
+          <h3>${group.title}</h3>
+          <div class="permission-grid">
+            ${group.shifts.map((shift) => `
+              <label class="permission-item ${shift.color || "shift-tone-inpak"}">
+                <div class="permission-toggle">
+                  <input
+                    type="checkbox"
+                    data-permission-employee="${employeeName}"
+                    data-permission-shift="${shift.name}"
+                    ${employeeDraft?.permissions?.[shift.name] !== false ? "checked" : ""}
+                  >
+                  <span>${shift.name}</span>
+                </div>
+              </label>
+            `).join("")}
+          </div>
+        </section>
+      `).join("")}
+    </article>
+  `;
+}
+
+function renderEmployeeContractPanel() {
+  if (!employeeContractPanel) {
+    return;
+  }
+
+  if (!employees.length) {
+    employeeContractPanel.className = "employee-contract-panel empty";
+    employeeContractPanel.textContent = "Nog geen medewerkers toegevoegd.";
+    return;
+  }
+
+  const employeeName = getSelectedEmployeeAdminName();
+
+  if (!employeeName) {
+    employeeContractPanel.className = "employee-contract-panel empty";
+    employeeContractPanel.textContent = "Kies eerst links een medewerker.";
+    return;
+  }
+
+  const employeeDraft = getEmployeeEditorDraft(employeeName);
+  const selectedWeek = weekInput?.value || getCurrentWeekValue();
+  const contractHours = typeof employeeDraft?.contractHours === "number" ? employeeDraft.contractHours : getEmployeeContractHours(employeeName);
+  const plannedWeekHours = getEmployeeWeekHours(employeeName, selectedWeek, entries);
+  const contractTypeLabel = contractHours > 0 ? `Vast contract ${formatHours(contractHours)}` : "0-uren contract";
+
+  employeeContractPanel.className = "employee-contract-panel";
+  employeeContractPanel.innerHTML = `
+    <article class="employee-contract-card">
+      <div class="employee-roster-summary-grid">
+        <div class="employee-roster-summary-item">
+          <span class="employee-roster-summary-label">Contracttype</span>
+          <strong>${contractTypeLabel}</strong>
+        </div>
+        <div class="employee-roster-summary-item">
+          <span class="employee-roster-summary-label">Gepland deze week</span>
+          <strong>${formatHours(plannedWeekHours)}</strong>
+        </div>
+      </div>
+      <div class="employee-roster-controls">
+        <label>
+          Contracturen per week
+          <input type="number" min="0" max="40" step="0.5" value="${contractHours > 0 ? contractHours : 0}" data-contract-hours-employee="${employeeName}">
+        </label>
       </div>
     </article>
-  `).join("");
+  `;
 }
 
 function renderEmployeeStatusControls() {
@@ -12596,21 +12725,38 @@ function renderEmployeeStatusControls() {
   if (!employees.length) {
     removeEmployeeSelect.value = "";
     employeeStatusSelect.value = "active";
+    if (employeeRoleSelect) {
+      employeeRoleSelect.value = "employee";
+    }
     if (employeeEmailInput) {
       employeeEmailInput.value = "";
+    }
+    if (employeeNameDisplayInput) {
+      employeeNameDisplayInput.value = "";
+    }
+    if (employeeDetailTitle) {
+      employeeDetailTitle.textContent = "Kies links een medewerker";
     }
     employeeStatusImpact.textContent = "Nog geen medewerkers toegevoegd.";
     return;
   }
 
-  const selectedEmployee = removeEmployeeSelect.value && employees.includes(removeEmployeeSelect.value)
-    ? removeEmployeeSelect.value
-    : employees[0] || "";
+  const selectedEmployee = getSelectedEmployeeAdminName();
+  const employeeDraft = selectedEmployee ? getEmployeeEditorDraft(selectedEmployee) : null;
 
   removeEmployeeSelect.value = selectedEmployee;
-  employeeStatusSelect.value = selectedEmployee ? getEmployeeStatus(selectedEmployee) : "active";
+  employeeStatusSelect.value = employeeDraft?.status || (selectedEmployee ? getEmployeeStatus(selectedEmployee) : "active");
+  if (employeeRoleSelect) {
+    employeeRoleSelect.value = employeeDraft?.role || (selectedEmployee ? getEmployeeAppRole(selectedEmployee) : "employee");
+  }
   if (employeeEmailInput) {
-    employeeEmailInput.value = selectedEmployee ? getEmployeeEmail(selectedEmployee) : "";
+    employeeEmailInput.value = employeeDraft?.email || (selectedEmployee ? getEmployeeEmail(selectedEmployee) : "");
+  }
+  if (employeeNameDisplayInput) {
+    employeeNameDisplayInput.value = selectedEmployee;
+  }
+  if (employeeDetailTitle) {
+    employeeDetailTitle.textContent = selectedEmployee || "Kies links een medewerker";
   }
   employeeStatusImpact.textContent = formatEmployeeStatusImpact(employeeStatusSelect.value);
 }
@@ -15652,8 +15798,9 @@ function renderActiveTabContent() {
   if (activeTab === "employees") {
     renderEmployeeList();
     renderEmployeeStatusControls();
-    renderEmployeeStandardShifts();
     renderEmployeePermissions();
+    renderEmployeeStandardShifts();
+    renderEmployeeContractPanel();
     return;
   }
 
@@ -17502,7 +17649,9 @@ addEmployeeButton.addEventListener("click", () => {
   employees.push(employeeName);
   employees.sort((nameA, nameB) => nameA.localeCompare(nameB, "nl"));
   employeeMeta[employeeName] = {
+    ...getEmployeeStatusMetaDefaults(),
     status: "active",
+    role: getDefaultEmployeeAppRole(employeeName),
     updatedAt: getNowIsoString(),
     updatedByRole: isPlannerRole() ? "planner" : "employee",
     updatedByName: isPlannerRole() ? "Planner / Directie" : (getRoleScopedEmployeeName() || "Medewerker")
@@ -17523,6 +17672,9 @@ addEmployeeButton.addEventListener("click", () => {
       employeeStatus: "active"
     }
   });
+  if (removeEmployeeSelect) {
+    removeEmployeeSelect.value = employeeName;
+  }
   render();
   nameSelect.value = employeeName;
   preferences.lastEmployee = employeeName;
@@ -17769,24 +17921,11 @@ employeePermissionsList?.addEventListener("change", (event) => {
     return;
   }
 
-  employeePermissions[employeeName][shiftName] = checkbox.checked;
-  saveEmployeePermissions();
-  persistProtectedChange({
-    reason: `Bevoegdheid gewijzigd: ${employeeName} ${shiftName}`,
-    scope: "employee",
-    action: "employee-permission-updated",
-    message: `Bevoegdheid bijgewerkt voor ${employeeName}.`,
-    details: {
-      employeeName,
-      shiftName,
-      allowed: checkbox.checked
-    }
-  });
-  renderEmployeeSelectors();
-  renderDayPlanner();
-  renderEmployeeList();
-  renderShiftPreferenceEditor();
-  showSavedMessage();
+  const employeeDraft = getEmployeeEditorDraft(employeeName);
+  employeeDraft.permissions = {
+    ...(employeeDraft.permissions || {}),
+    [shiftName]: checkbox.checked
+  };
 });
 
 shiftPreferenceShiftSelect?.addEventListener("change", () => {
@@ -17833,47 +17972,6 @@ shiftPreferenceList?.addEventListener("change", (event) => {
   showSavedMessage();
 });
 
-employeePermissionsList?.addEventListener("change", (event) => {
-  const input = event.target.closest('input[type="number"][data-preference-employee][data-preference-shift]');
-
-  if (!input) {
-    return;
-  }
-
-  if (!isPlannerRole()) {
-    renderEmployeePermissions();
-    showMessage("Alleen planner of directie kan voorkeursvolgorde wijzigen.", "error");
-    return;
-  }
-
-  const employeeName = input.dataset.preferenceEmployee;
-  const shiftName = input.dataset.preferenceShift;
-
-  if (!employeeName || !shiftName || !employeeShiftPreferences[employeeName]) {
-    return;
-  }
-
-  const numericValue = Number(input.value);
-  const normalizedValue = Number.isFinite(numericValue) && numericValue > 0 ? Math.floor(numericValue) : 0;
-  input.value = normalizedValue === 0 ? "0" : String(normalizedValue);
-  employeeShiftPreferences[employeeName][shiftName] = normalizedValue;
-  saveEmployeeShiftPreferences();
-  persistProtectedChange({
-    reason: `Voorkeursvolgorde gewijzigd: ${employeeName} ${shiftName}`,
-    scope: "employee",
-    action: "employee-shift-preference-updated",
-    message: `Voorkeursvolgorde bijgewerkt voor ${employeeName}.`,
-    details: {
-      employeeName,
-      shiftName,
-      preferenceOrder: normalizedValue
-    }
-  });
-  renderEmployeeList();
-  renderShiftPreferenceEditor();
-  showSavedMessage();
-});
-
 employeeStandardShiftList?.addEventListener("change", (event) => {
   const select = event.target.closest("select[data-standard-shift-employee]");
 
@@ -17893,23 +17991,12 @@ employeeStandardShiftList?.addEventListener("change", (event) => {
         return;
       }
 
-      employeeCustomRosters[employeeName] = {
-        ...getEmployeeCustomRosterConfig(employeeName),
+      const employeeDraft = getEmployeeEditorDraft(employeeName);
+      employeeDraft.customRoster = {
+        ...normalizeEmployeeCustomRosterConfig(employeeDraft.customRoster, employeeName),
         mode: rosterModeSelect.value === "biweekly" ? "biweekly" : "single"
       };
-      saveEmployeeCustomRosters();
-      persistProtectedChange({
-        reason: `Vast rooster weektype gewijzigd: ${employeeName}`,
-        scope: "employee",
-        action: "employee-custom-roster-mode-updated",
-        message: `Vast rooster bijgewerkt voor ${employeeName}.`,
-        details: {
-          employeeName,
-          mode: employeeCustomRosters[employeeName].mode
-        }
-      });
       renderEmployeeStandardShifts();
-      showSavedMessage();
       return;
     }
 
@@ -17930,71 +18017,15 @@ employeeStandardShiftList?.addEventListener("change", (event) => {
         return;
       }
 
-      const nextConfig = getEmployeeCustomRosterConfig(employeeName);
+      const employeeDraft = getEmployeeEditorDraft(employeeName);
+      const nextConfig = normalizeEmployeeCustomRosterConfig(employeeDraft.customRoster, employeeName);
       const targetWeekKey = weekKey === "weekA" || weekKey === "weekB" ? weekKey : "single";
       nextConfig[targetWeekKey] = {
         ...nextConfig[targetWeekKey],
         [weekday]: normalizeRosterDaypartValue(rosterDaySelect.value)
       };
-      employeeCustomRosters[employeeName] = nextConfig;
-      saveEmployeeCustomRosters();
-      persistProtectedChange({
-        reason: `Vast rooster dagdeel gewijzigd: ${employeeName}`,
-        scope: "employee",
-        action: "employee-custom-roster-daypart-updated",
-        message: `Vast rooster bijgewerkt voor ${employeeName}.`,
-        details: {
-          employeeName,
-          weekKey: targetWeekKey,
-          weekday,
-          daypart: nextConfig[targetWeekKey][weekday] || ""
-        }
-      });
+      employeeDraft.customRoster = nextConfig;
       renderEmployeeStandardShifts();
-      renderEmployeeList();
-      showSavedMessage();
-      return;
-    }
-
-    const contractHoursInput = event.target.closest("input[data-contract-hours-employee]");
-
-    if (contractHoursInput) {
-      if (!isPlannerRole()) {
-        renderEmployeeStandardShifts();
-        showMessage("Alleen planner of directie kan contracturen wijzigen.", "error");
-        return;
-      }
-
-      const employeeName = contractHoursInput.dataset.contractHoursEmployee;
-
-      if (!employeeName || !employeeMeta[employeeName]) {
-        return;
-      }
-
-      const normalizedContractHours = normalizeContractHours(contractHoursInput.value);
-      contractHoursInput.value = normalizedContractHours > 0 ? String(normalizedContractHours) : "0";
-      employeeMeta[employeeName] = {
-        ...getEmployeeStatusMetaDefaults(),
-        ...employeeMeta[employeeName],
-        contractHours: normalizedContractHours,
-        updatedAt: getNowIsoString(),
-        updatedByRole: isPlannerRole() ? "planner" : "employee",
-        updatedByName: isPlannerRole() ? "Planner / Directie" : (getRoleScopedEmployeeName() || "Medewerker")
-      };
-      saveEmployeeMeta();
-      persistProtectedChange({
-        reason: `Contracturen gewijzigd: ${employeeName}`,
-        scope: "employee",
-        action: "employee-contract-hours-updated",
-        message: `Contracturen bijgewerkt voor ${employeeName}.`,
-        details: {
-          employeeName,
-          contractHours: normalizedContractHours
-        }
-      });
-      renderEmployeeStandardShifts();
-      renderEmployeeList();
-      showSavedMessage();
       return;
     }
 
@@ -18016,21 +18047,9 @@ employeeStandardShiftList?.addEventListener("change", (event) => {
       return;
     }
 
-    employeeBasePatterns[employeeName] = basePatternSelect.value || "";
-    saveEmployeeBasePatterns();
-    persistProtectedChange({
-      reason: `Basisrooster gewijzigd: ${employeeName}`,
-      scope: "employee",
-      action: "employee-base-pattern-updated",
-      message: `Basisrooster bijgewerkt voor ${employeeName}.`,
-      details: {
-        employeeName,
-        basePatternId: basePatternSelect.value || ""
-      }
-    });
+    const employeeDraft = getEmployeeEditorDraft(employeeName);
+    employeeDraft.basePatternId = basePatternSelect.value || "";
     renderEmployeeStandardShifts();
-    renderEmployeeList();
-    showSavedMessage();
     return;
   }
 
@@ -18046,39 +18065,122 @@ employeeStandardShiftList?.addEventListener("change", (event) => {
     return;
   }
 
-  employeeStandardShifts[employeeName] = select.value || "";
-  saveEmployeeStandardShifts();
-  persistProtectedChange({
-    reason: `Vaste bakkerijdienst gewijzigd: ${employeeName}`,
-    scope: "employee",
-    action: "employee-standard-shift-updated",
-    message: `Vaste bakkerijdienst bijgewerkt voor ${employeeName}.`,
-    details: {
-      employeeName,
-      standardShiftName: select.value || ""
-    }
-  });
-  renderEmployeeList();
-  showSavedMessage();
+  const employeeDraft = getEmployeeEditorDraft(employeeName);
+  employeeDraft.standardShift = select.value || "";
+});
+
+employeeContractPanel?.addEventListener("change", (event) => {
+  const contractHoursInput = event.target.closest("input[data-contract-hours-employee]");
+
+  if (!contractHoursInput) {
+    return;
+  }
+
+  if (!isPlannerRole()) {
+    renderEmployeeContractPanel();
+    showMessage("Alleen planner of directie kan contracturen wijzigen.", "error");
+    return;
+  }
+
+  const employeeName = contractHoursInput.dataset.contractHoursEmployee;
+
+  if (!employeeName || !employeeMeta[employeeName]) {
+    return;
+  }
+
+  const normalizedContractHours = normalizeContractHours(contractHoursInput.value);
+  contractHoursInput.value = normalizedContractHours > 0 ? String(normalizedContractHours) : "0";
+  const employeeDraft = getEmployeeEditorDraft(employeeName);
+  employeeDraft.contractHours = normalizedContractHours;
 });
 
 employeeListCard?.addEventListener("click", (event) => {
+  const testMailButton = event.target.closest("button[data-employee-test-mail]");
+
+  if (testMailButton) {
+    if (!isPlannerRole()) {
+      showMessage("Mail verzenden mislukt", "error");
+      return;
+    }
+
+    const employeeName = testMailButton.dataset.employeeTestMail;
+
+    if (!employeeName || !employees.includes(employeeName)) {
+      showMessage("Mail verzenden mislukt", "error");
+      return;
+    }
+
+    const employeeEmail = getEmployeeEmail(employeeName);
+
+    if (!employeeEmail) {
+      showMessage("Geen e-mailadres ingesteld", "error");
+      return;
+    }
+
+    const originalLabel = testMailButton.textContent;
+    testMailButton.disabled = true;
+    testMailButton.textContent = "Verzenden...";
+
+    sendEmail(
+      employeeEmail,
+      "Test mail Roosterapp",
+      "Dit is een testmail vanuit de Roosterapp"
+    )
+      .then((result) => {
+        if (!result.ok) {
+          showMessage(result.error || "Mail verzenden mislukt", "error");
+          return;
+        }
+
+        showMessage("Testmail verzonden", "success");
+      })
+      .catch((error) => {
+        showMessage(
+          error instanceof Error && error.message ? error.message : "Mail verzenden mislukt",
+          "error"
+        );
+      })
+      .finally(() => {
+        testMailButton.disabled = false;
+        testMailButton.textContent = originalLabel;
+      });
+    return;
+  }
+
   const button = event.target.closest("button[data-favorite-employee]");
 
-  if (!button) {
+  if (button) {
+    const employeeName = button.dataset.favoriteEmployee;
+
+    if (!employeeName) {
+      return;
+    }
+
+    toggleFavoriteEmployee(employeeName);
+    renderEmployeeList();
+    renderEmployeeSelectors();
+    showSavedMessage();
     return;
   }
 
-  const employeeName = button.dataset.favoriteEmployee;
+  const card = event.target.closest("[data-employee-select]");
 
-  if (!employeeName) {
+  if (!card || !removeEmployeeSelect) {
     return;
   }
 
-  toggleFavoriteEmployee(employeeName);
+  const employeeName = card.dataset.employeeSelect;
+
+  if (!employeeName || !employees.includes(employeeName)) {
+    return;
+  }
+
+  removeEmployeeSelect.value = employeeName;
   renderEmployeeList();
-  renderEmployeeSelectors();
-  showSavedMessage();
+  renderEmployeeStatusControls();
+  renderEmployeePermissions();
+  renderEmployeeStandardShifts();
+  renderEmployeeContractPanel();
 });
 
 submitTimeOffButton.addEventListener("click", () => {
@@ -18443,7 +18545,34 @@ Bewaarde historie:
 });
 
 employeeStatusSelect?.addEventListener("change", () => {
+  const employeeName = getSelectedEmployeeAdminName();
+  const employeeDraft = getEmployeeEditorDraft(employeeName);
+
+  if (employeeDraft) {
+    employeeDraft.status = normalizeEmployeeStatus(employeeStatusSelect.value);
+  }
+
   employeeStatusImpact.textContent = formatEmployeeStatusImpact(employeeStatusSelect.value);
+});
+
+employeeRoleSelect?.addEventListener("change", () => {
+  const employeeName = getSelectedEmployeeAdminName();
+  const employeeDraft = getEmployeeEditorDraft(employeeName);
+
+  if (employeeDraft) {
+    employeeDraft.role = normalizeEmployeeAppRole(employeeRoleSelect.value);
+  }
+});
+
+employeeEmailInput?.addEventListener("input", () => {
+  const employeeName = getSelectedEmployeeAdminName();
+  const employeeDraft = getEmployeeEditorDraft(employeeName);
+
+  employeeEmailInput.setCustomValidity("");
+
+  if (employeeDraft) {
+    employeeDraft.email = employeeEmailInput.value;
+  }
 });
 
 removeEmployeeSelect?.addEventListener("change", () => {
@@ -18451,16 +18580,16 @@ removeEmployeeSelect?.addEventListener("change", () => {
     return;
   }
 
-  employeeStatusSelect.value = removeEmployeeSelect.value ? getEmployeeStatus(removeEmployeeSelect.value) : "active";
-  if (employeeEmailInput) {
-    employeeEmailInput.value = removeEmployeeSelect.value ? getEmployeeEmail(removeEmployeeSelect.value) : "";
-  }
-  employeeStatusImpact.textContent = formatEmployeeStatusImpact(employeeStatusSelect.value);
+  renderEmployeeList();
+  renderEmployeeStatusControls();
+  renderEmployeePermissions();
+  renderEmployeeStandardShifts();
+  renderEmployeeContractPanel();
 });
 
 saveEmployeeEmailButton?.addEventListener("click", () => {
   if (!isPlannerRole()) {
-    showMessage("Alleen planner of directie kan e-mailadressen beheren.", "error");
+    showMessage("Alleen planner of directie kan medewerkers beheren.", "error");
     return;
   }
 
@@ -18471,28 +18600,164 @@ saveEmployeeEmailButton?.addEventListener("click", () => {
     return;
   }
 
+  const employeeDraft = getEmployeeEditorDraft(employeeName);
   const normalizedEmail = normalizeEmployeeEmail(employeeEmailInput?.value);
+  const normalizedRole = normalizeEmployeeAppRole(employeeRoleSelect?.value);
+  const nextStatus = normalizeEmployeeStatus(employeeStatusSelect?.value);
+  const normalizedContractHours = normalizeContractHours(employeeDraft?.contractHours);
+  const normalizedPermissions = Object.fromEntries(
+    getPermissionShiftDescriptors().map((shift) => [
+      shift.name,
+      employeeDraft?.permissions?.[shift.name] !== false
+    ])
+  );
+  const normalizedStandardShift = typeof employeeDraft?.standardShift === "string" ? employeeDraft.standardShift : "";
+  const normalizedBasePatternId = typeof employeeDraft?.basePatternId === "string" ? employeeDraft.basePatternId : getEmployeeBasePatternId(employeeName);
+  const normalizedCustomRoster = normalizeEmployeeCustomRosterConfig(employeeDraft?.customRoster, employeeName);
+  const currentStatus = getEmployeeStatus(employeeName);
+  const duplicateEmployeeName = findEmployeeByEmail(normalizedEmail, employeeName);
+
+  if (!normalizedEmail) {
+    employeeEmailInput?.setCustomValidity("Vul een e-mailadres in.");
+    employeeEmailInput?.reportValidity();
+    showMessage("Vul een e-mailadres in.", "error");
+    return;
+  }
+
+  if (!isValidEmployeeEmail(normalizedEmail)) {
+    employeeEmailInput?.setCustomValidity("Vul een geldig e-mailadres in, bijvoorbeeld naam@domein.nl.");
+    employeeEmailInput?.reportValidity();
+    showMessage("Vul een geldig e-mailadres in, bijvoorbeeld naam@domein.nl.", "error");
+    return;
+  }
+
+  if (duplicateEmployeeName) {
+    employeeEmailInput?.setCustomValidity(`Dit e-mailadres is al gekoppeld aan ${duplicateEmployeeName}.`);
+    employeeEmailInput?.reportValidity();
+    showMessage(`Dit e-mailadres is al gekoppeld aan ${duplicateEmployeeName}.`, "error");
+    return;
+  }
+
+  employeeEmailInput?.setCustomValidity("");
+
+  if (currentStatus !== nextStatus) {
+    const linkedEntryCount = entries.filter((entry) => entry.name === employeeName).length;
+    const linkedRequestCount = timeOffRequests.filter((request) => request.employeeName === employeeName).length +
+      swapRequests.filter((request) => request.employeeName === employeeName || request.targetEmployeeName === employeeName).length;
+    const linkedWorkLogCount = workLogs.filter((log) => log.employeeName === employeeName).length;
+    const impactText = `${employeeName} krijgt status ${getEmployeeStatusLabel(nextStatus)}.
+
+Gevolgen:
+- historische gegevens blijven bewaard
+- medewerker verdwijnt uit standaard actieve keuzelijsten
+- medewerker kan niet meer normaal ingepland worden
+- medewerker kan niet meer als medewerker inloggen als status niet actief is
+
+Bewaarde historie:
+- ${linkedEntryCount} roosterregels
+- ${linkedRequestCount} aanvragen of ruilverzoeken
+- ${linkedWorkLogCount} urenregistraties`;
+
+    if (!confirmAction(`${impactText}\n\nWeet je zeker dat je deze wijziging wilt opslaan?`)) {
+      return;
+    }
+  }
+
   employeeMeta[employeeName] = {
     ...getEmployeeStatusMetaDefaults(),
     ...employeeMeta[employeeName],
+    role: normalizedRole,
     email: normalizedEmail,
+    status: nextStatus,
+    contractHours: normalizedContractHours,
     updatedAt: getNowIsoString(),
     updatedByRole: "planner",
     updatedByName: "Planner / Directie"
   };
+  employeePermissions[employeeName] = normalizedPermissions;
+  employeeStandardShifts[employeeName] = normalizedStandardShift;
+  employeeBasePatterns[employeeName] = normalizedBasePatternId;
+  employeeCustomRosters[employeeName] = normalizedCustomRoster;
+
   saveEmployeeMeta();
+  saveEmployeePermissions();
+  saveEmployeeStandardShifts();
+  saveEmployeeBasePatterns();
+  saveEmployeeCustomRosters();
+  syncEmployeePermissions();
+  syncEmployeeStandardShifts();
+  syncEmployeeBasePatterns();
+  syncEmployeeCustomRosters();
+  clearEmployeeEditorDraft(employeeName);
+
   persistProtectedChange({
-    reason: `E-mailadres gewijzigd: ${employeeName}`,
+    reason: `Medewerker opgeslagen: ${employeeName}`,
     scope: "employee",
-    action: "employee-email-updated",
-    message: `E-mailadres bijgewerkt voor ${employeeName}.`,
+    action: "employee-saved",
+    message: `Medewerker bijgewerkt voor ${employeeName}.`,
     details: {
       employeeName,
-      email: normalizedEmail
+      email: normalizedEmail,
+      role: normalizedRole,
+      status: nextStatus,
+      contractHours: normalizedContractHours,
+      standardShiftName: normalizedStandardShift,
+      basePatternId: normalizedBasePatternId
     }
   });
-  renderEmployeeStatusControls();
-  showMessage("E-mailadres opgeslagen.", "success");
+
+  renderEmployeeSelectors();
+  renderDayPlanner();
+  render();
+  showMessage("Medewerker opgeslagen", "success");
+});
+
+employeeDetailTestMailButton?.addEventListener("click", async () => {
+  if (!isPlannerRole()) {
+    showMessage("Mail verzenden mislukt", "error");
+    return;
+  }
+
+  const employeeName = removeEmployeeSelect?.value;
+
+  if (!employeeName || !employeeMeta[employeeName]) {
+    showMessage("Kies eerst een medewerker.", "error");
+    return;
+  }
+
+  const employeeEmail = getEmployeeEmail(employeeName);
+
+  if (!employeeEmail) {
+    showMessage("Geen e-mailadres ingesteld", "error");
+    return;
+  }
+
+  const originalLabel = employeeDetailTestMailButton.textContent;
+  employeeDetailTestMailButton.disabled = true;
+  employeeDetailTestMailButton.textContent = "Verzenden...";
+
+  try {
+    const result = await sendEmail(
+      employeeEmail,
+      "Test mail Roosterapp",
+      "Dit is een testmail vanuit de Roosterapp"
+    );
+
+    if (!result.ok) {
+      showMessage(result.error || "Mail verzenden mislukt", "error");
+      return;
+    }
+
+    showMessage("Testmail verzonden", "success");
+  } catch (error) {
+    showMessage(
+      error instanceof Error && error.message ? error.message : "Mail verzenden mislukt",
+      "error"
+    );
+  } finally {
+    employeeDetailTestMailButton.disabled = false;
+    employeeDetailTestMailButton.textContent = originalLabel;
+  }
 });
 
 createRestorePointButton?.addEventListener("click", () => {
