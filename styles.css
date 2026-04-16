@@ -186,6 +186,7 @@ h3 {
   flex: 0 0 auto;
   margin-left: auto;
   max-width: 100%;
+  flex-wrap: wrap;
 }
 
 .brand-chip {

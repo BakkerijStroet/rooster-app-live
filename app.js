@@ -9,6 +9,8 @@ const currentEmployeeBadge = document.getElementById("currentEmployeeBadge");
 const roleIndicator = document.getElementById("roleIndicator");
 const brandRoleChip = document.getElementById("brandRoleChip");
 const mailTestModeBadge = document.getElementById("mailTestModeBadge");
+const debugSuccessToastButton = document.getElementById("debugSuccessToastButton");
+const debugErrorToastButton = document.getElementById("debugErrorToastButton");
 const environmentDebugBanner = document.getElementById("environmentDebugBanner");
 const testModeBadge = document.getElementById("testModeBadge");
 const switchUserButton = document.getElementById("switchUserButton");
@@ -4155,28 +4157,42 @@ function exportHoursForAdministration() {
 }
 
 function getMessageAutoHideMs(type) {
-  return type === "error" ? 4200 : type === "warning" ? 3400 : 2200;
+  return 3000;
+}
+
+function ensureGlobalMessageContainer() {
+  if (!messageBox) {
+    return null;
+  }
+
+  if (messageBox.parentElement !== document.body) {
+    document.body.appendChild(messageBox);
+  }
+
+  return messageBox;
 }
 
 function renderActiveMessage() {
-  if (!messageBox) {
+  const toastBox = ensureGlobalMessageContainer();
+
+  if (!toastBox) {
     return;
   }
 
   if (!activeMessageState) {
-    messageBox.textContent = "";
-    messageBox.hidden = true;
-    messageBox.className = "message hidden compact-message";
-    messageBox.removeAttribute("role");
-    messageBox.removeAttribute("aria-live");
+    toastBox.textContent = "";
+    toastBox.hidden = true;
+    toastBox.className = "message hidden compact-message";
+    toastBox.removeAttribute("role");
+    toastBox.removeAttribute("aria-live");
     return;
   }
 
-  messageBox.textContent = activeMessageState.text;
-  messageBox.hidden = false;
-  messageBox.className = `message compact-message ${activeMessageState.type}`;
-  messageBox.setAttribute("role", activeMessageState.type === "error" ? "alert" : "status");
-  messageBox.setAttribute("aria-live", activeMessageState.type === "error" ? "assertive" : "polite");
+  toastBox.textContent = activeMessageState.text;
+  toastBox.hidden = false;
+  toastBox.className = `message compact-message ${activeMessageState.type}`;
+  toastBox.setAttribute("role", activeMessageState.type === "error" ? "alert" : "status");
+  toastBox.setAttribute("aria-live", activeMessageState.type === "error" ? "assertive" : "polite");
 }
 
 function scheduleActiveMessageHide() {
@@ -4254,16 +4270,24 @@ function showMessage(text, type) {
   enqueueMessage(text, type);
 }
 
+function showSuccess(text) {
+  enqueueMessage(text, "success", 3000);
+}
+
+function showError(text) {
+  enqueueMessage(text, "error", 3000);
+}
+
 function showSuccessNotice(text, options = {}) {
   const { deferred = false } = options;
   if (deferred) {
     window.setTimeout(() => {
-      showMessage(text, "success");
+      showSuccess(text);
     }, 0);
     return;
   }
 
-  showMessage(text, "success");
+  showSuccess(text);
 }
 
 function triggerSuccess(text, options = {}) {
@@ -4272,7 +4296,17 @@ function triggerSuccess(text, options = {}) {
 
 function showToast(text, options = {}) {
   const { type = "success" } = options;
-  showMessage(text, type);
+  if (type === "error") {
+    showError(text);
+    return;
+  }
+
+  if (type === "warning") {
+    enqueueMessage(text, "warning", 3000);
+    return;
+  }
+
+  showSuccess(text);
 }
 
 function showSavedMessage() {
@@ -14794,6 +14828,16 @@ function applyRoleUI() {
     dashboardTestMailButton.hidden = !isPlannerRole();
   }
 
+  if (debugSuccessToastButton) {
+    debugSuccessToastButton.classList.toggle("hidden", !isPlannerRole());
+    debugSuccessToastButton.hidden = !isPlannerRole();
+  }
+
+  if (debugErrorToastButton) {
+    debugErrorToastButton.classList.toggle("hidden", !isPlannerRole());
+    debugErrorToastButton.hidden = !isPlannerRole();
+  }
+
   if (!isPlannerRole()) {
     employeeFilterInput.value = "";
     employeeSearchInput.value = "";
@@ -18914,7 +18958,7 @@ function submitTimeOffRequest(composer) {
     preserveEmployee: !isPlannerRole()
   });
   render();
-  showToast("Aanvraag verzonden");
+  showSuccess("Aanvraag verzonden");
 }
 
 submitFreeDayButton?.addEventListener("click", () => {
@@ -19100,7 +19144,7 @@ submitSwapButton.addEventListener("click", () => {
   });
   resetSwapComposer({ preserveEmployee: !isPlannerRole() });
     render();
-    showToast("Aanvraag verzonden");
+    showSuccess("Aanvraag verzonden");
   });
 
 removeEmployeeButton?.addEventListener("click", () => {
@@ -19373,7 +19417,7 @@ Bewaarde historie:
   renderDayPlanner();
   render();
   if (showSuccessMessage) {
-    showToast("Medewerker opgeslagen");
+    showSuccess("Medewerker opgeslagen");
   }
   return true;
 }
@@ -19452,7 +19496,7 @@ employeeDetailTestMailButton?.addEventListener("click", async () => {
     };
     saveEmployeeMeta();
     renderEmployeeDetailMailStatus(employeeName);
-    showToast("Testmail verzonden");
+    showSuccess("Testmail verzonden");
     showMessage(`Testmodus: mail gaat nu alleen naar ${FIXED_TEST_MAIL_RECIPIENT}`, "success");
   } catch (error) {
     employeeMeta[employeeName] = {
@@ -19632,6 +19676,12 @@ async function handleTestMailSend() {
 
 testMailButton?.addEventListener("click", handleTestMailSend);
 dashboardTestMailButton?.addEventListener("click", handleTestMailSend);
+debugSuccessToastButton?.addEventListener("click", () => {
+  showSuccess("Test succesmelding");
+});
+debugErrorToastButton?.addEventListener("click", () => {
+  showError("Test foutmelding");
+});
 
 if (testMailButton) {
   testMailButton.dataset.mailHandlerBound = "true";
