@@ -18867,17 +18867,16 @@ function submitTimeOffRequest(composer) {
   }
 
   if (!employeeName || !startDate || !reason || (type === "vakantie" && !endDate)) {
-    showMessage(
+    showError(
       isPlannerRole()
         ? "Kies medewerker, status, datum of periode en reden voor de afwezigheid."
-        : "Kies type aanvraag, datum of periode en reden.",
-      "error"
+        : "Kies type aanvraag, datum of periode en reden."
     );
     return;
   }
 
   if (type === "vakantie" && endDate < startDate) {
-    showMessage("De einddatum van de vakantie moet gelijk zijn aan of later zijn dan de begindatum.", "error");
+    showError("De einddatum van de vakantie moet gelijk zijn aan of later zijn dan de begindatum.");
     return;
   }
 
@@ -18891,7 +18890,7 @@ function submitTimeOffRequest(composer) {
     request.status === "open" &&
     requestOverlapsRange(request, startDate, endDate)
   )) {
-    showMessage("Voor deze medewerker staat al een open afwezigheidsaanvraag in deze periode.", "error");
+    showError("Voor deze medewerker staat al een open afwezigheidsaanvraag in deze periode.");
     return;
   }
 
@@ -18989,11 +18988,10 @@ submitSwapButton.addEventListener("click", () => {
   const date = entryDetails?.date || currentSwapForm.date || swapDateInput.value;
 
   if (!employeeName || !date || !entryValue || !targetEmployeeName) {
-    showMessage(
+    showError(
       isPlannerRole()
         ? "Kies medewerker, datum, dienst en een overnemer of open aanbieden."
-        : "Kies datum, dienst en een geschikte collega.",
-      "error"
+        : "Kies datum, dienst en een geschikte collega."
     );
     return;
   }
@@ -19003,12 +19001,12 @@ submitSwapButton.addEventListener("click", () => {
   }
 
   if (employeeName === targetEmployeeName) {
-    showMessage("Een medewerker kan niet zijn eigen dienst overnemen.", "error");
+    showError("Een medewerker kan niet zijn eigen dienst overnemen.");
     return;
   }
 
   if (!isPlannerRole() && targetEmployeeName === "__open__") {
-    showMessage("Kies een geschikte collega of schakel directie in.", "error");
+    showError("Kies een geschikte collega of schakel directie in.");
     return;
   }
 
@@ -19019,7 +19017,7 @@ submitSwapButton.addEventListener("click", () => {
   const entry = entryDetails?.entry || null;
 
   if (!entry) {
-    showMessage("De gekozen dienst is niet meer gevonden.", "error");
+    showError("De gekozen dienst is niet meer gevonden.");
     render();
     return;
   }
@@ -19028,7 +19026,7 @@ submitSwapButton.addEventListener("click", () => {
     const replacementCandidates = getSwapCandidatesForEntryDetails(entryDetails);
 
     if (!replacementCandidates.includes(targetEmployeeName)) {
-      showMessage("Deze collega is niet bevoegd of niet beschikbaar voor deze dienst.", "error");
+      showError("Deze collega is niet bevoegd of niet beschikbaar voor deze dienst.");
       renderSwapTargetOptions();
       return;
     }
@@ -19049,7 +19047,7 @@ submitSwapButton.addEventListener("click", () => {
     request.startTime === entry.startTime &&
     request.endTime === entry.endTime
   )) {
-    showMessage("Voor deze dienst bestaat al een open ruilverzoek.", "error");
+    showError("Voor deze dienst bestaat al een open ruilverzoek.");
     return;
   }
 
@@ -19284,14 +19282,14 @@ function saveSelectedEmployeeDetails(options = {}) {
   const { showSuccessMessage = true } = options;
 
   if (!isPlannerRole()) {
-    showMessage("Alleen planner of directie kan medewerkers beheren.", "error");
+    showError("Alleen planner of directie kan medewerkers beheren.");
     return false;
   }
 
   const employeeName = removeEmployeeSelect.value;
 
   if (!employeeName || !employeeMeta[employeeName]) {
-    showMessage("Kies eerst een medewerker.", "error");
+    showError("Kies eerst een medewerker.");
     return false;
   }
 
@@ -19316,21 +19314,21 @@ function saveSelectedEmployeeDetails(options = {}) {
   if (!normalizedEmail) {
     setEmployeeEmailFieldError("Vul een e-mailadres in.");
     employeeEmailInput?.reportValidity();
-    showMessage("Vul een e-mailadres in.", "error");
+    showError("Vul een e-mailadres in.");
     return false;
   }
 
   if (!isValidEmployeeEmail(normalizedEmail)) {
     setEmployeeEmailFieldError("Vul een geldig e-mailadres in, bijvoorbeeld naam@domein.nl.");
     employeeEmailInput?.reportValidity();
-    showMessage("Vul een geldig e-mailadres in, bijvoorbeeld naam@domein.nl.", "error");
+    showError("Vul een geldig e-mailadres in, bijvoorbeeld naam@domein.nl.");
     return false;
   }
 
   if (duplicateEmployeeName) {
     setEmployeeEmailFieldError(`Dit e-mailadres is al gekoppeld aan ${duplicateEmployeeName}.`);
     employeeEmailInput?.reportValidity();
-    showMessage(`Dit e-mailadres is al gekoppeld aan ${duplicateEmployeeName}.`, "error");
+    showError(`Dit e-mailadres is al gekoppeld aan ${duplicateEmployeeName}.`);
     return false;
   }
 
@@ -19449,21 +19447,21 @@ saveEmployeeEmailButton?.addEventListener("click", () => {
 
 employeeDetailTestMailButton?.addEventListener("click", async () => {
   if (!isPlannerRole()) {
-    showMessage("Mail verzenden mislukt", "error");
+    showError("Mail verzenden mislukt");
     return;
   }
 
   const employeeName = removeEmployeeSelect?.value;
 
   if (!employeeName || !employeeMeta[employeeName]) {
-    showMessage("Kies eerst een medewerker.", "error");
+    showError("Kies eerst een medewerker.");
     return;
   }
 
   const employeeEmail = getEmployeeEmail(employeeName);
 
   if (!employeeEmail) {
-    showMessage("Geen e-mailadres ingesteld", "error");
+    showError("Geen e-mailadres ingesteld");
     setEmployeeEmailFieldError("Geen e-mailadres ingesteld");
     return;
   }
@@ -19484,7 +19482,7 @@ employeeDetailTestMailButton?.addEventListener("click", async () => {
       };
       saveEmployeeMeta();
       renderEmployeeDetailMailStatus(employeeName);
-      showMessage(result.error || "Mail verzenden mislukt", "error");
+      showError(result.error || "Mail verzenden mislukt");
       return;
     }
 
@@ -19497,7 +19495,7 @@ employeeDetailTestMailButton?.addEventListener("click", async () => {
     saveEmployeeMeta();
     renderEmployeeDetailMailStatus(employeeName);
     showSuccess("Testmail verzonden");
-    showMessage(`Testmodus: mail gaat nu alleen naar ${FIXED_TEST_MAIL_RECIPIENT}`, "success");
+    showSuccess(`Testmodus: mail gaat nu alleen naar ${FIXED_TEST_MAIL_RECIPIENT}`);
   } catch (error) {
     employeeMeta[employeeName] = {
       ...employeeMeta[employeeName],
@@ -19507,10 +19505,7 @@ employeeDetailTestMailButton?.addEventListener("click", async () => {
     };
     saveEmployeeMeta();
     renderEmployeeDetailMailStatus(employeeName);
-    showMessage(
-      error instanceof Error && error.message ? error.message : "Mail verzenden mislukt",
-      "error"
-    );
+    showError(error instanceof Error && error.message ? error.message : "Mail verzenden mislukt");
   } finally {
     employeeDetailTestMailButton.disabled = false;
     employeeDetailTestMailButton.textContent = originalLabel;
