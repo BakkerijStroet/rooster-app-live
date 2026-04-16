@@ -3559,6 +3559,10 @@ function getTodayDateValue() {
   return formatLocalDateValue(today);
 }
 
+function getTodayString() {
+  return getTodayDateValue();
+}
+
 function getTomorrowDateValue() {
   const tomorrow = new Date();
   tomorrow.setHours(0, 0, 0, 0);
