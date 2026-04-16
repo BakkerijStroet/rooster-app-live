@@ -9,6 +9,7 @@ const currentEmployeeBadge = document.getElementById("currentEmployeeBadge");
 const roleIndicator = document.getElementById("roleIndicator");
 const brandRoleChip = document.getElementById("brandRoleChip");
 const mailTestModeBadge = document.getElementById("mailTestModeBadge");
+const environmentDebugBanner = document.getElementById("environmentDebugBanner");
 const testModeBadge = document.getElementById("testModeBadge");
 const switchUserButton = document.getElementById("switchUserButton");
 const resetTestDataButton = document.getElementById("resetTestDataButton");
@@ -14779,6 +14780,13 @@ function applyRoleUI() {
     mailTestModeBadge.classList.toggle("hidden", !showMailTestMode);
     mailTestModeBadge.hidden = !showMailTestMode;
     mailTestModeBadge.setAttribute("aria-hidden", showMailTestMode ? "false" : "true");
+  }
+
+  if (environmentDebugBanner) {
+    const showEnvironmentDebugBanner = window.location.protocol === "file:";
+    environmentDebugBanner.classList.toggle("hidden", !showEnvironmentDebugBanner);
+    environmentDebugBanner.hidden = !showEnvironmentDebugBanner;
+    environmentDebugBanner.setAttribute("aria-hidden", showEnvironmentDebugBanner ? "false" : "true");
   }
 
   if (dashboardTestMailButton) {
