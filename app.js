@@ -845,9 +845,13 @@ async function fetchClerkConfig() {
   }
 
   const payload = await response.json();
+  const hasPublishableKey = Boolean(payload?.hasPublishableKey || (typeof payload?.publishableKey === "string" && payload.publishableKey.trim()));
+
+  console.info("[clerk] frontend publishable key aanwezig:", hasPublishableKey ? "ja" : "nee");
 
   return {
-    publishableKey: typeof payload?.publishableKey === "string" ? payload.publishableKey.trim() : ""
+    publishableKey: typeof payload?.publishableKey === "string" ? payload.publishableKey.trim() : "",
+    hasPublishableKey
   };
 }
 
@@ -874,6 +878,7 @@ function getClerkFrontendApiDomain(publishableKey) {
 async function ensureClerkUiBundleLoaded(publishableKey) {
   if (window.__internal_ClerkUICtor) {
     clerkAuthState.uiLoaded = true;
+    console.info("[clerk] ui bundle geladen:", "ja");
     return;
   }
 
@@ -914,6 +919,7 @@ async function ensureClerkUiBundleLoaded(publishableKey) {
   });
 
   clerkAuthState.uiLoaded = Boolean(window.__internal_ClerkUICtor);
+  console.info("[clerk] ui bundle geladen:", clerkAuthState.uiLoaded ? "ja" : "nee");
 
   if (!clerkAuthState.uiLoaded) {
     throw new Error("Clerk UI componenten zijn niet beschikbaar.");
@@ -1035,6 +1041,7 @@ async function mountClerkSignInIfNeeded() {
   }
 
   if (typeof clerkAuthState.clerk.mountSignIn !== "function") {
+    showClerkAuthMessage("Clerk login UI is nog niet beschikbaar.", "error");
     return;
   }
 
@@ -1146,7 +1153,7 @@ async function initializeClerkAuthentication() {
   showClerkAuthMessage("Inloggen laden...");
 
   try {
-    const { publishableKey } = await fetchClerkConfig();
+    const { publishableKey, hasPublishableKey } = await fetchClerkConfig();
 
     if (!publishableKey) {
       throw new Error("Clerk is nog niet geconfigureerd.");
@@ -1164,6 +1171,9 @@ async function initializeClerkAuthentication() {
     await clerk.load({
       ui: { ClerkUI: window.__internal_ClerkUICtor }
     });
+    console.info("[clerk] runtime geladen:", clerk ? "ja" : "nee");
+    console.info("[clerk] provider geladen:", "n.v.t. (vanilla javascript)");
+    console.info("[clerk] VITE_CLERK_PUBLISHABLE_KEY aanwezig:", hasPublishableKey ? "ja" : "nee");
     clerkAuthState.enabled = true;
     clerkAuthState.ready = true;
     clerkAuthState.clerk = clerk;
