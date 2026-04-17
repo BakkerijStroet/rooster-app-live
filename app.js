@@ -350,7 +350,7 @@ const TAB_ALIASES = Object.freeze({
 });
 let editIndex = null;
 let editingShiftId = null;
-let currentMainTab = TABS.WEEK_CURRENT;
+let currentMainTab = SIMPLE_MAIN_TAB_EMERGENCY_MODE ? "week" : TABS.WEEK_CURRENT;
 let hasInitializedDefaultTab = false;
 let activeEmployeeWeekView = "today";
 let activeRole = preferences.lastRole === "employee" ? "employee" : "planner";
@@ -14002,7 +14002,9 @@ function setCurrentMainTab(tabName, options = {}) {
     return;
   }
 
-  const requestedTabName = getNormalizedTabName(rawRequestedTabName);
+  const requestedTabName = SIMPLE_MAIN_TAB_EMERGENCY_MODE
+    ? rawRequestedTabName.toLowerCase()
+    : getNormalizedTabName(rawRequestedTabName);
   console.info("[tabs] genormaliseerde tab:", requestedTabName);
 
   if (SIMPLE_MAIN_TAB_EMERGENCY_MODE) {
@@ -18080,15 +18082,38 @@ function renderHoursApproval() {
 
 function renderActiveTabContent() {
   if (SIMPLE_MAIN_TAB_EMERGENCY_MODE) {
-    const contentByTab = {
-      [TABS.DASHBOARD]: ["DASHBOARD WERKT", "Dashboard is actief."],
-      [TABS.WEEK_CURRENT]: ["WEEK WERKT", "Rooster deze week is actief."],
-      [TABS.EMPLOYEES]: ["MEDEWERKERS WERKT", "Medewerkers is actief."],
-      [TABS.REQUESTS]: ["AANVRAGEN WERKT", "Aanvragen is actief."],
-      [TABS.MY_HOURS]: ["MIJN UREN WERKT", "Mijn uren is actief."],
-      [TABS.HOURS_APPROVAL]: ["UREN ACCORDEREN WERKT", "Uren accorderen is actief."]
-    };
-    const [title, text] = contentByTab[currentMainTab] || ["TAB WERKT", `Actieve tab: ${currentMainTab}`];
+    let title = "TAB WERKT";
+    let text = `Actieve tab: ${currentMainTab}`;
+
+    if (currentMainTab === "dashboard") {
+      title = "DASHBOARD WERKT";
+      text = "Dashboard is actief.";
+    }
+
+    if (currentMainTab === "week") {
+      title = "WEEK WERKT";
+      text = "Rooster deze week is actief.";
+    }
+
+    if (currentMainTab === "medewerkers") {
+      title = "MEDEWERKERS WERKT";
+      text = "Medewerkers is actief.";
+    }
+
+    if (currentMainTab === "aanvragen") {
+      title = "AANVRAGEN WERKT";
+      text = "Aanvragen is actief.";
+    }
+
+    if (currentMainTab === "uren") {
+      title = "UREN WERKT";
+      text = "Mijn uren is actief.";
+    }
+
+    if (currentMainTab === "uren-accorderen") {
+      title = "UREN ACCORDEREN WERKT";
+      text = "Uren accorderen is actief.";
+    }
 
     if (simpleTabEmergencyTitle) {
       simpleTabEmergencyTitle.textContent = title;
@@ -18366,7 +18391,7 @@ function installSimpleDomClickDebug() {
 
   testEmployeesTabButton?.addEventListener("click", () => {
     console.info("[tabs] pure DOM medewerkersknop klik");
-    setCurrentMainTab(TABS.EMPLOYEES);
+    setCurrentMainTab("medewerkers");
     window.alert("medewerkers klik");
   });
 }
