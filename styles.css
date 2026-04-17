@@ -289,7 +289,19 @@ h3 {
   cursor: pointer;
   position: relative;
   z-index: 100000;
-  pointer-events: auto;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+.app-nav,
+.app-nav button,
+#test-click,
+#tab-medewerkers,
+.simple-main-tab-button {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  position: relative;
+  z-index: 100000 !important;
 }
 
 .simple-main-tab-button.is-active {

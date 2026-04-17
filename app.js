@@ -14049,6 +14049,11 @@ function setCurrentMainTab(tabName, options = {}) {
   render();
 }
 
+window.__forceTabClick = function forceTabClick(tabName) {
+  console.info("[tabs] inline force tab click:", tabName);
+  setCurrentMainTab(tabName, { force: true });
+};
+
 function isDefaultFreeDay(dateValue) {
   const weekday = new Date(`${dateValue}T00:00:00`).getDay();
   return weekday === 0 || weekday === 1;
@@ -22436,8 +22441,6 @@ appNav?.addEventListener("click", (event) => {
   const simpleButton = event.target.closest(".simple-main-tab-button");
 
   if (simpleButton && !simpleButton.hidden) {
-    event.preventDefault();
-    event.stopPropagation();
     console.info("[tabs] klik simpele hoofdtab:", simpleButton.dataset.simpleTab);
     if (simpleButton.dataset.simpleTab === TABS.EMPLOYEES) {
       console.info("klik medewerkers");
@@ -22454,8 +22457,6 @@ appNav?.addEventListener("click", (event) => {
     return;
   }
 
-  event.preventDefault();
-  event.stopPropagation();
   if (button.dataset.tab === TABS.EMPLOYEES) {
     console.info("klik medewerkers");
     window.alert("klik werkt");
@@ -22508,8 +22509,6 @@ mobileBottomNav?.addEventListener("click", (event) => {
     return;
   }
 
-  event.preventDefault();
-  event.stopPropagation();
   setCurrentMainTab(button.dataset.goTab, { force: true });
 });
 
