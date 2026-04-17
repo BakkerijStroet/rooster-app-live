@@ -14005,6 +14005,15 @@ function setCurrentMainTab(tabName, options = {}) {
   const requestedTabName = getNormalizedTabName(rawRequestedTabName);
   console.info("[tabs] genormaliseerde tab:", requestedTabName);
 
+  if (SIMPLE_MAIN_TAB_EMERGENCY_MODE) {
+    applyCurrentMainTabState(requestedTabName, { markInitialized: true });
+    console.info("[tabs] currentMainTab gezet naar:", currentMainTab);
+    updateTabVisibility();
+    renderActiveTabContentSafely();
+    renderEmployeePersistenceDebug();
+    return;
+  }
+
   applyCurrentMainTabState(requestedTabName, { markInitialized: true });
   console.info("[tabs] currentMainTab gezet naar:", currentMainTab);
   updateTabVisibility();
@@ -18367,6 +18376,15 @@ function render() {
     installTabHitTestDebug();
     installForcedClickLayerDebug();
     installSimpleDomClickDebug();
+
+    if (SIMPLE_MAIN_TAB_EMERGENCY_MODE) {
+      updateTabVisibility();
+      renderEmployeePersistenceDebug();
+      renderActiveTabContentSafely();
+      renderActiveMessage();
+      return;
+    }
+
     ensureEmployeeIdentityForCurrentRole();
     applyRoleUI();
     updateTabVisibility();
