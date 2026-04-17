@@ -265,10 +265,22 @@ h3 {
   z-index: 9999;
   pointer-events: auto;
   isolation: isolate;
+  outline: 2px solid #ff5c35;
+  outline-offset: 3px;
 }
 
 .app-nav * {
   pointer-events: auto;
+}
+
+[data-tab-hit-debug="nav"] {
+  outline: 3px solid #ff5c35 !important;
+  outline-offset: 4px !important;
+}
+
+[data-tab-hit-debug="blocker"] {
+  outline: 3px solid #0066ff !important;
+  outline-offset: -2px !important;
 }
 
 .session-bar {
@@ -280,6 +292,36 @@ h3 {
   border: 1px solid rgba(216, 116, 47, 0.1);
   border-radius: 18px;
   background: linear-gradient(180deg, rgba(255, 253, 250, 0.92) 0%, rgba(244, 239, 233, 0.92) 100%);
+  position: relative;
+  z-index: 1;
+}
+
+.brand-header,
+.session-bar,
+#plannerDashboard {
+  position: relative;
+  z-index: 1;
+}
+
+.brand-header,
+.session-bar,
+#plannerDashboard {
+  pointer-events: none;
+}
+
+.brand-header button,
+.brand-header a,
+.brand-header input,
+.brand-header select,
+.session-bar button,
+.session-bar a,
+.session-bar input,
+.session-bar select,
+#plannerDashboard button,
+#plannerDashboard a,
+#plannerDashboard input,
+#plannerDashboard select {
+  pointer-events: auto;
 }
 
 .app-shell.focus-week-mode > .session-bar,

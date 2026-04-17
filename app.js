@@ -388,6 +388,8 @@ const mobileMediaQuery = window.matchMedia("(max-width: 640px)");
 let messageTimeoutId = null;
 let activeMessageState = null;
 let queuedMessageStates = [];
+let tabHitTestDebugInstalled = false;
+let lastTabHitTestSignature = "";
 const employeeAllowedTabs = [TABS.WEEK_CURRENT, TABS.MY_SCHEDULE, TABS.MY_HOURS, TABS.REQUESTS];
 let planningDataRevision = 0;
 let requestDataRevision = 0;
@@ -18148,8 +18150,74 @@ function renderEmployeePersistenceDebug() {
   debugElement.hidden = false;
 }
 
+function getDebugElementSignature(element) {
+  if (!element) {
+    return "(geen element)";
+  }
+
+  const idPart = element.id ? `#${element.id}` : "";
+  const classPart = element.className && typeof element.className === "string"
+    ? `.${element.className.trim().replace(/\s+/g, ".")}`
+    : "";
+
+  return `${element.tagName?.toLowerCase?.() || "unknown"}${idPart}${classPart}`;
+}
+
+function installTabHitTestDebug() {
+  if (tabHitTestDebugInstalled) {
+    return;
+  }
+
+  tabHitTestDebugInstalled = true;
+
+  document.addEventListener("mousemove", (event) => {
+    if (!isPlannerRole() || !appNav || appNav.hidden) {
+      return;
+    }
+
+    const navRect = appNav.getBoundingClientRect();
+    const isOverNav =
+      event.clientX >= navRect.left &&
+      event.clientX <= navRect.right &&
+      event.clientY >= navRect.top &&
+      event.clientY <= navRect.bottom;
+
+    if (!isOverNav) {
+      return;
+    }
+
+    const topElement = document.elementFromPoint(event.clientX, event.clientY);
+    const signature = getDebugElementSignature(topElement);
+
+    if (signature === lastTabHitTestSignature) {
+      return;
+    }
+
+    lastTabHitTestSignature = signature;
+    console.info("[tabs-hit-test] boven tabs:", signature, {
+      id: topElement?.id || "",
+      className: topElement?.className || "",
+      position: topElement ? window.getComputedStyle(topElement).position : "",
+      zIndex: topElement ? window.getComputedStyle(topElement).zIndex : "",
+      pointerEvents: topElement ? window.getComputedStyle(topElement).pointerEvents : "",
+      opacity: topElement ? window.getComputedStyle(topElement).opacity : ""
+    });
+
+    document.querySelectorAll("[data-tab-hit-debug='nav'], [data-tab-hit-debug='blocker']").forEach((element) => {
+      element.removeAttribute("data-tab-hit-debug");
+    });
+
+    appNav.setAttribute("data-tab-hit-debug", "nav");
+
+    if (topElement && topElement !== appNav && !appNav.contains(topElement)) {
+      topElement.setAttribute("data-tab-hit-debug", "blocker");
+    }
+  }, true);
+}
+
 function render() {
   try {
+    installTabHitTestDebug();
     ensureEmployeeIdentityForCurrentRole();
     applyRoleUI();
     updateTabVisibility();
