@@ -332,6 +332,7 @@ const TABS = Object.freeze({
 
 const SIMPLE_MAIN_TAB_EMERGENCY_MODE = true;
 let simpleDomClickDebugInstalled = false;
+let emergencyMainTabBindingsInstalled = false;
 const TAB_VALUES = new Set(Object.values(TABS));
 const TAB_ALIASES = Object.freeze({
   rooster: TABS.WEEK_CURRENT,
@@ -13913,7 +13914,29 @@ function updateTabVisibility() {
   updateFocusModeUI();
 }
 
+function normalizeEmergencyMainTab(tabName) {
+  return String(tabName || "").trim().toLowerCase() || "week";
+}
+
+function applyEmergencyMainTab(tabName) {
+  console.info("[tabs-debug] applyEmergencyMainTab:start", {
+    requestedTab: tabName,
+    before: emergencyMainTab
+  });
+  emergencyMainTab = normalizeEmergencyMainTab(tabName);
+  currentMainTab = emergencyMainTab;
+  console.info("[tabs-debug] applyEmergencyMainTab:after-set", {
+    requestedTab: tabName,
+    after: emergencyMainTab
+  });
+  renderEmergencyMainTabState();
+  renderEmployeePersistenceDebug();
+}
+
 function renderEmergencyMainTabState() {
+  console.info("[tabs-debug] renderEmergencyMainTabState:before-render", {
+    emergencyMainTab
+  });
   currentMainTab = emergencyMainTab;
 
   simpleMainTabButtons.forEach((button) => {
@@ -14056,11 +14079,7 @@ function setCurrentMainTab(tabName, options = {}) {
   console.info("[tabs] genormaliseerde tab:", requestedTabName);
 
   if (SIMPLE_MAIN_TAB_EMERGENCY_MODE) {
-    emergencyMainTab = requestedTabName;
-    currentMainTab = emergencyMainTab;
-    console.info("[tabs] currentMainTab gezet naar:", currentMainTab);
-    renderEmergencyMainTabState();
-    renderEmployeePersistenceDebug();
+    applyEmergencyMainTab(requestedTabName);
     return;
   }
 
@@ -14111,10 +14130,7 @@ function setCurrentMainTab(tabName, options = {}) {
 window.__forceTabClick = function forceTabClick(tabName) {
   console.info("[tabs] inline force tab click:", tabName);
   if (SIMPLE_MAIN_TAB_EMERGENCY_MODE) {
-    emergencyMainTab = String(tabName || "").trim().toLowerCase() || "week";
-    currentMainTab = emergencyMainTab;
-    renderEmergencyMainTabState();
-    renderEmployeePersistenceDebug();
+    applyEmergencyMainTab(tabName);
     return;
   }
   setCurrentMainTab(tabName, { force: true });
@@ -18410,11 +18426,31 @@ function installSimpleDomClickDebug() {
     console.info("[tabs] pure DOM testknop klik");
     window.alert("pure DOM klik werkt");
   });
+}
 
-  testEmployeesTabButton?.addEventListener("click", () => {
-    console.info("[tabs] pure DOM medewerkersknop klik");
-    setCurrentMainTab("medewerkers");
-    window.alert("medewerkers klik");
+function installEmergencyMainTabBindings() {
+  if (emergencyMainTabBindingsInstalled || !SIMPLE_MAIN_TAB_EMERGENCY_MODE) {
+    return;
+  }
+
+  emergencyMainTabBindingsInstalled = true;
+
+  simpleMainTabButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const requestedTab = button.dataset.simpleTab || "week";
+      console.info("[tabs-debug] installEmergencyMainTabBindings:click", {
+        requestedTab,
+        before: emergencyMainTab
+      });
+      if (requestedTab === "medewerkers") {
+        window.alert("medewerkers klik");
+      }
+      applyEmergencyMainTab(requestedTab);
+      console.info("[tabs-debug] installEmergencyMainTabBindings:after-apply", {
+        requestedTab,
+        after: emergencyMainTab
+      });
+    });
   });
 }
 
@@ -18423,6 +18459,7 @@ function render() {
     installTabHitTestDebug();
     installForcedClickLayerDebug();
     installSimpleDomClickDebug();
+    installEmergencyMainTabBindings();
 
     if (SIMPLE_MAIN_TAB_EMERGENCY_MODE) {
       updateTabVisibility();
