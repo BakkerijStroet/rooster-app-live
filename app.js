@@ -7024,10 +7024,6 @@ function getDefaultTabForCurrentRole() {
 function initializeDefaultTabIfNeeded(force = false) {
   if (force || !hasInitializedDefaultTab) {
     hasInitializedDefaultTab = true;
-
-    if (!activeTab) {
-      activeTab = TABS.WEEK_CURRENT;
-    }
   }
 }
 
