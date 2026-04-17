@@ -1,4 +1,4 @@
-const form = document.getElementById("schedule-form");
+﻿const form = document.getElementById("schedule-form");
 const scheduleBoard = document.getElementById("schedule-board");
 const totalsContainer = document.getElementById("totals");
 const myScheduleBoard = document.getElementById("myScheduleBoard");
@@ -1070,6 +1070,7 @@ async function mountClerkSignInIfNeeded() {
     });
     clerkAuthState.signInMounted = true;
     updateLoginOverlayMode("clerk");
+    showClerkAuthMessage("Log in met je e-mailadres en wachtwoord.", "info");
   } catch (error) {
     clerkAuthState.signInMounted = false;
     showClerkAuthMessage(getClerkAuthErrorMessage(error), "error");
@@ -1095,14 +1096,28 @@ function unmountClerkSignInIfNeeded() {
 
 async function syncClerkAuthenticatedUser(user) {
   const { employeeName, role, email } = resolveClerkUserAccess(user);
+  const nextRole = role === "planner" ? "planner" : "employee";
+  const sameAuthenticatedContext = Boolean(
+    preferences.hasUserSession &&
+    clerkAuthState.employeeName === employeeName &&
+    clerkAuthState.email === email &&
+    clerkAuthState.role === nextRole
+  );
 
   clerkAuthState.user = user;
   clerkAuthState.email = email;
-  clearLegacyAuthenticatedUiState();
+
+  if (!sameAuthenticatedContext) {
+    clearLegacyAuthenticatedUiState();
+  }
+
   applyAuthenticatedEmployeeContext(employeeName, role);
   showClerkAuthMessage("");
   closeLoginOverlay();
-  reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
+  reloadForLoggedInUser({
+    resetToDefaultTab: !sameAuthenticatedContext,
+    resetWeekToCurrent: !sameAuthenticatedContext
+  });
 }
 
 async function handleClerkUnauthenticatedState() {
@@ -1120,19 +1135,15 @@ async function beginClerkSignIn() {
   }
 
   try {
-    showClerkAuthMessage("Inlogscherm openen...");
+    openLoginOverlay();
+    updateLoginOverlayMode("clerk");
+    showClerkAuthMessage("Log in met je e-mailadres en wachtwoord.", "info");
+    await mountClerkSignInIfNeeded();
 
-    if (typeof clerkAuthState.clerk.openSignIn === "function") {
-      await clerkAuthState.clerk.openSignIn();
-      return;
+    const firstInteractiveField = clerkSignInMount?.querySelector('input, button, [tabindex]:not([tabindex="-1"])');
+    if (firstInteractiveField && typeof firstInteractiveField.focus === "function") {
+      firstInteractiveField.focus();
     }
-
-    if (typeof clerkAuthState.clerk.redirectToSignIn === "function") {
-      await clerkAuthState.clerk.redirectToSignIn();
-      return;
-    }
-
-    throw new Error("Clerk loginactie is niet beschikbaar.");
   } catch (error) {
     showClerkAuthMessage(getClerkAuthErrorMessage(error), "error");
   }
@@ -1705,7 +1716,7 @@ function getWorkLogQuickPresets(field, currentValue = "") {
 
     if (matchingPreset) {
       matchingPreset.isLastUsed = true;
-    matchingPreset.label = `${matchingPreset.label} · laatst`;
+    matchingPreset.label = `${matchingPreset.label} Â· laatst`;
     } else {
       items.unshift({
         value: lastValue,
@@ -2257,15 +2268,15 @@ function renderEmployeeDetailMailStatus(employeeName = getSelectedEmployeeAdminN
   }
 
   if (!status) {
-    employeeDetailMailStatus.textContent = `${employeeEmailText} · klaar om te versturen`;
+    employeeDetailMailStatus.textContent = `${employeeEmailText} Â· klaar om te versturen`;
     employeeDetailMailStatus.classList.remove("hidden");
     return;
   }
 
   if (status === "sent") {
-    employeeDetailMailStatus.textContent = `${employeeEmailText} · verzonden${sentAt}`;
+    employeeDetailMailStatus.textContent = `${employeeEmailText} Â· verzonden${sentAt}`;
   } else {
-    employeeDetailMailStatus.textContent = `${employeeEmailText} · mislukt${message ? ` · ${message}` : ""}`;
+    employeeDetailMailStatus.textContent = `${employeeEmailText} Â· mislukt${message ? ` Â· ${message}` : ""}`;
   }
 
   employeeDetailMailStatus.classList.remove("hidden");
@@ -5603,7 +5614,7 @@ function renderWorkLogCardMarkup(entry, workLog = getWorkLogForEntry(entry), opt
         </div>
       ` : ""}
       ${workLog?.employeeReply ? `<div class="hours-registration-audit">Reactie medewerker: ${workLog.employeeReply}</div>` : ""}
-        ${latestAudit ? `<div class="hours-registration-audit">Laatste wijziging: ${formatDateTime(latestAudit.at)} · ${latestAudit.actorName}${latestAudit.summary ? ` · ${latestAudit.summary}` : ""}</div>` : ""}
+        ${latestAudit ? `<div class="hours-registration-audit">Laatste wijziging: ${formatDateTime(latestAudit.at)} Â· ${latestAudit.actorName}${latestAudit.summary ? ` Â· ${latestAudit.summary}` : ""}</div>` : ""}
       ${workLog && (workLog.status === "open" || workLog.status === "approved")
         ? `<div class="hours-registration-lock">${workLog.status === "approved"
           ? (isPlannerRole()
@@ -5738,7 +5749,7 @@ function renderSimpleEmployeeHoursFormMarkup(employeeName, day, dayEntries = [])
         ? "open"
         : "empty";
   const plannedSummary = dayEntries.length
-    ? dayEntries.map((entry) => `${getShiftName(entry)} · ${entry.startTime} - ${entry.endTime}`).join("<br>")
+    ? dayEntries.map((entry) => `${getShiftName(entry)} Â· ${entry.startTime} - ${entry.endTime}`).join("<br>")
     : "Geen dienst gepland";
   const quickHoursChoices = [2, 4, 6, 8];
 
@@ -6725,7 +6736,7 @@ function renderShiftCard(entry, {
     ? `
         <div class="planner-audit">
           <div class="planner-audit-flags">${plannerAuditFlags.join("")}</div>
-          ${uniquePlannerAuditReasons.length ? `<div class="planner-audit-line">${uniquePlannerAuditReasons.join(" • ")}</div>` : ""}
+          ${uniquePlannerAuditReasons.length ? `<div class="planner-audit-line">${uniquePlannerAuditReasons.join(" â€¢ ")}</div>` : ""}
         </div>
       `
     : "";
@@ -6972,7 +6983,7 @@ function renderEmployeeFocusSummaryCard(day, entriesForDay, approvedRequestsForD
       <div class="employee-focus-head">
         <div>
           <strong>${title}</strong>
-          <span>${formatWeekday(day)} · ${formatDate(day)}</span>
+          <span>${formatWeekday(day)} Â· ${formatDate(day)}</span>
         </div>
       </div>
       <div class="employee-focus-body">
@@ -7027,7 +7038,7 @@ function formatEmployeeWeekLabel(weekValue) {
     return "";
   }
 
-  return `Week ${weekValue.replace("-W", " - ")} · ${formatDate(weekDates[0])} - ${formatDate(weekDates[weekDates.length - 1])}`;
+  return `Week ${weekValue.replace("-W", " - ")} Â· ${formatDate(weekDates[0])} - ${formatDate(weekDates[weekDates.length - 1])}`;
 }
 
 function renderEmployeeRosterDayCard(day, entriesForDay, approvedRequestsForDay, title, options = {}) {
@@ -7050,7 +7061,7 @@ function renderEmployeeRosterDayCard(day, entriesForDay, approvedRequestsForDay,
   const statusMarkup = dayStatus
     ? `<span class="status-pill status-${dayStatus === "goedgekeurd" ? "approved" : dayStatus === "ingediend" ? "open" : "empty"}">${dayStatus === "goedgekeurd" ? "Goedgekeurd" : dayStatus === "ingediend" ? "Ingediend" : "Ingevuld"}</span>`
     : "";
-  const metaLine = subtitle || `${formatWeekday(day)} · ${formatDate(day)}`;
+  const metaLine = subtitle || `${formatWeekday(day)} Â· ${formatDate(day)}`;
 
   return `
     <article class="employee-roster-day-card ${getRelativeDayState(day) ? `is-${getRelativeDayState(day)}` : ""}">
@@ -9538,8 +9549,8 @@ function autoFillWeekSchedule(selectedWeekOverride = "") {
   render();
   showMessage(
     remainingOpenCount > 0
-    ? `Automatisch voorstel klaar · ${proposedEntries.length} ingevuld · ${remainingOpenCount} open`
-    : `Automatisch voorstel klaar · ${proposedEntries.length} ingevuld · 0 open`,
+    ? `Automatisch voorstel klaar Â· ${proposedEntries.length} ingevuld Â· ${remainingOpenCount} open`
+    : `Automatisch voorstel klaar Â· ${proposedEntries.length} ingevuld Â· 0 open`,
     "success"
   );
 }
@@ -10412,7 +10423,7 @@ function renderDeviationWhyOverview(selectedWeek, visibleEntries) {
           <div class="deviation-why-item">
             <span class="deviation-why-shift">${formatWeekday(entry.day)} - ${getShiftName(entry)}</span>
             <span class="deviation-why-employee">${entry.name}</span>
-                      <span class="deviation-why-reason">${reasons.join(" · ")}</span>
+                      <span class="deviation-why-reason">${reasons.join(" Â· ")}</span>
           </div>
         `).join("")}
       </div>
@@ -10510,7 +10521,7 @@ function renderPlannerControlPanel(selectedWeek, visibleEntries) {
     .slice(0, 6)
     .map((entry) => ({
       title: `${formatWeekday(entry.day)} - ${getShiftName(entry)}`,
-      detail: getDeviationReasonSummary(entry).join(" · "),
+      detail: getDeviationReasonSummary(entry).join(" Â· "),
       day: entry.day,
       entry,
       stateClass: "is-deviation"
@@ -10540,7 +10551,7 @@ function renderPlannerControlPanel(selectedWeek, visibleEntries) {
     .filter(Boolean)
     .map((employee) => ({
       title: employee.employeeName,
-      detail: `Contract ${formatHours(employee.contractHours)} · Gepland ${formatHours(employee.plannedHours)} · ${employee.difference === 0 ? "Op schema" : `${employee.difference > 0 ? "+" : "-"}${formatHours(Math.abs(employee.difference))}`}`,
+      detail: `Contract ${formatHours(employee.contractHours)} Â· Gepland ${formatHours(employee.plannedHours)} Â· ${employee.difference === 0 ? "Op schema" : `${employee.difference > 0 ? "+" : "-"}${formatHours(Math.abs(employee.difference))}`}`,
       employeeName: employee.employeeName,
       targetKind: "employee",
       stateClass: employee.stateClass
@@ -10690,7 +10701,7 @@ function getSchedulePlanningWeekData(weekValue, sourceEntries = entries) {
     details: {
       openPreview: openItems.slice(0, 4).map((item) => `${formatWeekday(item.day)}: ${item.shift.name}`),
       replacementPreview: replacementItems.slice(0, 3).map((item) => `${formatWeekday(item.day)}: ${item.entry.replacementFor} -> ${item.entry.name}`),
-    deviationPreview: deviationItems.slice(0, 3).map((item) => `${formatWeekday(item.day)}: ${getShiftName(item.entry)} · ${getDeviationReasonSummary(item.entry).join(" · ")}`),
+    deviationPreview: deviationItems.slice(0, 3).map((item) => `${formatWeekday(item.day)}: ${getShiftName(item.entry)} Â· ${getDeviationReasonSummary(item.entry).join(" Â· ")}`),
       specialDayPreview: specialDayItems.slice(0, 4).map((item) => `${formatWeekday(item.day)}: ${item.info.nameLabel}`),
       contractPreview: contractImbalanceEmployees.slice(0, 3).map((employee) => `${employee.employeeName}: ${employee.difference > 0 ? "+" : "-"}${formatHours(Math.abs(employee.difference))}`),
       plannedCount: weekEntries.length
@@ -13620,7 +13631,7 @@ function renderOpenReplacementOverview(weekValue) {
           <article class="open-replacement-item">
             <div class="open-replacement-meta">
               <strong>${formatWeekday(item.day)} - ${item.shift.name}</strong>
-                    <span>${formatDate(item.day)} · Normaal ${item.normalEmployee}${item.reason ? ` (${item.reason})` : ""}</span>
+                    <span>${formatDate(item.day)} Â· Normaal ${item.normalEmployee}${item.reason ? ` (${item.reason})` : ""}</span>
             </div>
             <div class="open-replacement-actions">
               <label class="sr-only" for="replacement-${item.day}-${item.shift.id}">Vervanger kiezen</label>
@@ -14902,7 +14913,7 @@ function renderDayPlanner() {
             <strong>${shift.name}</strong>
             <span class="day-planner-badge">${statusLabel}</span>
           </div>
-              <span>${formatWeekday(selectedDate)} · ${shift.startTime} - ${shift.endTime}</span>
+              <span>${formatWeekday(selectedDate)} Â· ${shift.startTime} - ${shift.endTime}</span>
           ${standardCoverage.standardEmployee ? `<span class="day-planner-note is-info">Normaal op deze dienst: ${standardCoverage.standardEmployee}${standardCoverage.isAbsent ? ` (${standardCoverage.reason})` : ""}</span>` : ""}
           ${isOptionalShift(shift) ? '<span class="day-planner-note is-info">Optioneel: telt niet mee voor planning compleet.</span>' : ""}
           ${existingEntry?.replacementFor ? `<span class="day-planner-note is-info">Vervanging actief: ${existingEntry.name} vervangt ${existingEntry.replacementFor}</span>` : ""}
@@ -16464,7 +16475,7 @@ function renderMyHours() {
                 <span>${formatHours(workedHoursTotal)} ingevuld</span>
                 <span>Status: ${status.label}</span>
               </div>
-              ${noteTexts.length ? `<div class="hours-history-note">${noteTexts.join(" · ")}</div>` : ""}
+              ${noteTexts.length ? `<div class="hours-history-note">${noteTexts.join(" Â· ")}</div>` : ""}
             </article>
           `;
         }).join("")
@@ -17290,7 +17301,7 @@ function submitWorkLogsForWeek(weekValue, employeeName) {
     log.updatedAt = submittedAt;
     log.auditTrail = [
       ...(log.auditTrail || []),
-        createWorkLogAuditEntry("submit-week", "week in één keer ingediend")
+        createWorkLogAuditEntry("submit-week", "week in Ã©Ã©n keer ingediend")
     ];
   });
 
@@ -17374,7 +17385,7 @@ function renderHoursApproval() {
           <strong>${log.employeeName}</strong>
           <span class="status-pill status-${statusClass}">${getWorkLogStatusLabel(log)}</span>
         </div>
-        <div class="request-meta">${formatWeekday(log.day)} ${formatDate(log.day)} · ${formatHours(workedHours)}</div>
+        <div class="request-meta">${formatWeekday(log.day)} ${formatDate(log.day)} Â· ${formatHours(workedHours)}</div>
         ${log.shiftName ? `<div class="hours-registration-audit">${log.shiftName}</div>` : ""}
         ${noteText ? `<div class="hours-history-note">${escapeHtml(noteText)}</div>` : ""}
         ${isHandled ? "" : `
@@ -17397,7 +17408,7 @@ function renderHoursApproval() {
       <div class="hours-registration-head">
         <div>
           <strong>Open uren</strong>
-          <span>${selectedEmployee || "Alle medewerkers"} · ${selectedWeek.replace("-W", " week ")}</span>
+          <span>${selectedEmployee || "Alle medewerkers"} Â· ${selectedWeek.replace("-W", " week ")}</span>
         </div>
       </div>
       <div class="hours-registration-meta">
@@ -18984,7 +18995,7 @@ repeatShiftButton.addEventListener("click", () => {
 
 copyPreviousWeekButton.addEventListener("click", () => {
   if (!isPlannerRole()) {
-    showMessage("Alleen planner of directie kan weken kopiëren.", "error");
+    showMessage("Alleen planner of directie kan weken kopiÃ«ren.", "error");
     return;
   }
 
@@ -19002,7 +19013,7 @@ copyPreviousWeekButton.addEventListener("click", () => {
   }
 
   if (!ensureWeekActionAllowed(targetWeek, {
-    actionLabel: "een week te kopiëren",
+    actionLabel: "een week te kopiÃ«ren",
     blockPlannerWhenLocked: true
   })) {
     return;
@@ -19022,7 +19033,7 @@ copyPreviousWeekButton.addEventListener("click", () => {
     return;
   }
 
-  const confirmed = confirmAction(`Weet je zeker dat je ${sourceEntries.length} dienst(en) wilt kopiëren van ${sourceWeek} naar ${targetWeek}?`);
+  const confirmed = confirmAction(`Weet je zeker dat je ${sourceEntries.length} dienst(en) wilt kopiÃ«ren van ${sourceWeek} naar ${targetWeek}?`);
 
   if (!confirmed) {
     return;
@@ -21688,6 +21699,8 @@ activeTab = getDefaultTabForCurrentRole();
 updateTabVisibility();
 render();
 void initializeClerkAuthentication();
+
+
 
 
 
