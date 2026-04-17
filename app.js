@@ -390,6 +390,103 @@ syncEmployeeBasePatterns();
 syncEmployeeCustomRosters();
 ensureEmergencyDirectorAccessRecord();
 
+const twanLoginEmail = "t_stroet@hotmail.com";
+const employeePersistenceState = {
+  source: "default",
+  backupUsed: false,
+  loadedCount: Array.isArray(employees) ? employees.length : 0,
+  savedCount: 0,
+  twanFound: false
+};
+
+function updateEmployeePersistenceState(partial = {}) {
+  if (typeof partial.source === "string" && partial.source) {
+    employeePersistenceState.source = partial.source;
+  }
+
+  if ("backupUsed" in partial) {
+    employeePersistenceState.backupUsed = employeePersistenceState.backupUsed || Boolean(partial.backupUsed);
+  }
+
+  if (Number.isFinite(Number(partial.loadedCount))) {
+    employeePersistenceState.loadedCount = Math.max(0, Math.floor(Number(partial.loadedCount)));
+  }
+
+  if (Number.isFinite(Number(partial.savedCount))) {
+    employeePersistenceState.savedCount = Math.max(0, Math.floor(Number(partial.savedCount)));
+  }
+
+  if ("twanFound" in partial) {
+    employeePersistenceState.twanFound = Boolean(partial.twanFound);
+  }
+}
+
+function getNormalizedEmployeeListCandidate(candidate) {
+  return Array.isArray(candidate) ? sanitizeEmployeesForStorage(candidate) : [];
+}
+
+function getEmployeeListPersistenceCandidates(mode = currentDataMode) {
+  const storageKeyName = getScopedStorageKeyForMode(employeeStorageKey, mode);
+  const primaryRaw = getStoredJsonValue(localStorage, storageKeyName);
+  const sessionRaw = getStoredJsonValue(sessionStorage, storageKeyName);
+  const emergencySnapshot = getEmployeeEmergencyBackupForMode(mode)?.snapshot;
+  const latestSnapshot = getLatestBackupSnapshotForMode(mode);
+
+  return {
+    storageKeyName,
+    hasPrimaryValue: primaryRaw !== null,
+    primaryEmployees: getNormalizedEmployeeListCandidate(primaryRaw),
+    sessionEmployees: getNormalizedEmployeeListCandidate(sessionRaw),
+    emergencyEmployees: getNormalizedEmployeeListCandidate(emergencySnapshot?.employees),
+    latestBackupEmployees: getNormalizedEmployeeListCandidate(latestSnapshot?.employees),
+    recoveredEmployees: getNormalizedEmployeeListCandidate(collectRecoveredEmployeeNamesForMode(mode))
+  };
+}
+
+function getStoredEmployeeListResult(mode = currentDataMode) {
+  const candidates = getEmployeeListPersistenceCandidates(mode);
+  const backupCandidates = [
+    candidates.sessionEmployees,
+    candidates.emergencyEmployees,
+    candidates.latestBackupEmployees,
+    candidates.recoveredEmployees
+  ].filter((candidate) => candidate.length > 0);
+
+  let source = "default";
+  let backupUsed = false;
+  let employeeNames = [];
+
+  if (candidates.primaryEmployees.length > 0 || (candidates.hasPrimaryValue && backupCandidates.length === 0)) {
+    source = "primary";
+    employeeNames = sanitizeEmployeesForStorage([...candidates.primaryEmployees, ...candidates.recoveredEmployees]);
+  } else if (backupCandidates.length > 0) {
+    source = "backup";
+    backupUsed = true;
+    employeeNames = sanitizeEmployeesForStorage([...backupCandidates[0], ...candidates.recoveredEmployees]);
+    safeSetStorageItem(candidates.storageKeyName, JSON.stringify(employeeNames), "medewerkers");
+  } else if (mode === "test") {
+    source = "default";
+    employeeNames = getTestSeedEmployeeNames();
+  }
+
+  updateEmployeePersistenceState({
+    source,
+    backupUsed,
+    loadedCount: employeeNames.length
+  });
+
+  console.info(`[employee-persist] employees loaded from: ${source}`, {
+    count: employeeNames.length,
+    backupUsed: backupUsed ? "ja" : "nee"
+  });
+
+  return {
+    employeeNames,
+    source,
+    backupUsed
+  };
+}
+
 function getScopedStorageKey(baseKey) {
   return currentDataMode === "test" ? `${baseKey}__test` : baseKey;
 }
@@ -419,6 +516,11 @@ function reportAppError(userMessage, error, context = "") {
 function safeSetStorageItem(storageKeyName, serializedValue, label = "gegevens") {
   try {
     localStorage.setItem(storageKeyName, serializedValue);
+    try {
+      sessionStorage.setItem(storageKeyName, serializedValue);
+    } catch {
+      // Session storage is only a secondary safety net.
+    }
     return true;
   } catch (error) {
     reportAppError(`Opslaan mislukt voor ${label}. Probeer het opnieuw of maak eerst een back-up.`, error, `save:${label}`);
@@ -639,6 +741,12 @@ function getConfiguredBakeryEmployeeNames() {
 }
 
 function ensureConfiguredBakeryEmployees() {
+  const shouldSeedConfiguredEmployees = currentDataMode === "live" && employeePersistenceState.source === "default";
+
+  if (!shouldSeedConfiguredEmployees) {
+    return;
+  }
+
   const configuredEmployees = getConfiguredBakeryEmployeeNames();
   const missingEmployees = configuredEmployees.filter((employeeName) => !employees.includes(employeeName));
 
@@ -865,6 +973,16 @@ function restoreEmployeeEmergencyBackupIfNeeded(mode = currentDataMode) {
   saveEmployeeShiftPreferences();
   saveEmployeeBasePatterns();
   saveEmployeeCustomRosters();
+  updateEmployeePersistenceState({
+    source: "backup",
+    backupUsed: true,
+    loadedCount: employees.length,
+    twanFound: Boolean(findEmployeeByEmail(twanLoginEmail))
+  });
+  console.info("[employee-persist] employees loaded from: backup", {
+    count: employees.length,
+    backupUsed: "ja"
+  });
 
   return true;
 }
@@ -883,6 +1001,13 @@ function getRecoveredEmployeeDataForMode(baseKey, snapshotField, mode = currentD
     return sessionValue;
   }
 
+  const emergencyBackup = getEmployeeEmergencyBackupForMode(mode);
+  const emergencyValue = emergencyBackup?.snapshot?.[snapshotField];
+  if (emergencyValue && typeof emergencyValue === "object") {
+    safeSetStorageItem(storageKeyName, JSON.stringify(emergencyValue), label);
+    return emergencyValue;
+  }
+
   const latestSnapshot = getLatestBackupSnapshotForMode(mode);
   const backupValue = latestSnapshot?.[snapshotField];
 
@@ -895,66 +1020,11 @@ function getRecoveredEmployeeDataForMode(baseKey, snapshotField, mode = currentD
 }
 
 function getEmployeesForMode(mode) {
-  const savedEmployees = localStorage.getItem(getScopedStorageKeyForMode(employeeStorageKey, mode));
-  const recoveredEmployees = collectRecoveredEmployeeNamesForMode(mode);
-
-  if (!savedEmployees) {
-    if (recoveredEmployees.length) {
-      safeSetStorageItem(
-        getScopedStorageKeyForMode(employeeStorageKey, mode),
-        JSON.stringify(recoveredEmployees),
-        "medewerkers"
-      );
-      return recoveredEmployees;
-    }
-
-    return mode === "test" ? getTestSeedEmployeeNames() : [];
-  }
-
-  try {
-    const parsedEmployees = JSON.parse(savedEmployees);
-
-    if (!Array.isArray(parsedEmployees)) {
-      if (recoveredEmployees.length) {
-        safeSetStorageItem(
-          getScopedStorageKeyForMode(employeeStorageKey, mode),
-          JSON.stringify(recoveredEmployees),
-          "medewerkers"
-        );
-        return recoveredEmployees;
-      }
-
-      return mode === "test" ? getTestSeedEmployeeNames() : [];
-    }
-
-    const normalizedEmployees = sanitizeEmployeesForStorage(parsedEmployees);
-    const mergedEmployees = sanitizeEmployeesForStorage([...normalizedEmployees, ...recoveredEmployees]);
-
-    if (JSON.stringify(mergedEmployees) !== JSON.stringify(normalizedEmployees)) {
-      safeSetStorageItem(
-        getScopedStorageKeyForMode(employeeStorageKey, mode),
-        JSON.stringify(mergedEmployees),
-        "medewerkers"
-      );
-    }
-
-    return mergedEmployees.length ? mergedEmployees : (mode === "test" ? getTestSeedEmployeeNames() : []);
-  } catch {
-    if (recoveredEmployees.length) {
-      safeSetStorageItem(
-        getScopedStorageKeyForMode(employeeStorageKey, mode),
-        JSON.stringify(recoveredEmployees),
-        "medewerkers"
-      );
-      return recoveredEmployees;
-    }
-
-    return mode === "test" ? getTestSeedEmployeeNames() : [];
-  }
+  return getStoredEmployeeListResult(mode).employeeNames;
 }
 
 function getEmployeeMetaForMode(mode, modeEmployees = getEmployeesForMode(mode)) {
-  const savedMeta = localStorage.getItem(getScopedStorageKeyForMode(employeeMetaStorageKey, mode));
+  const savedMeta = getRecoveredEmployeeDataForMode(employeeMetaStorageKey, "employeeMeta", mode, "medewerkergegevens");
   const defaults = Object.fromEntries(modeEmployees.map((employeeName) => [employeeName, getEmployeeStatusMetaDefaults()]));
 
   if (!savedMeta) {
@@ -962,12 +1032,22 @@ function getEmployeeMetaForMode(mode, modeEmployees = getEmployeesForMode(mode))
   }
 
   try {
-    const parsedMeta = JSON.parse(savedMeta);
+    const parsedMeta = savedMeta;
     const normalized = {};
 
     modeEmployees.forEach((employeeName) => {
       normalized[employeeName] = {
+        ...getEmployeeStatusMetaDefaults(),
+        ...(parsedMeta?.[employeeName] && typeof parsedMeta[employeeName] === "object" ? parsedMeta[employeeName] : {}),
         status: normalizeEmployeeStatus(parsedMeta?.[employeeName]?.status),
+        role: normalizeEmployeeAppRole(parsedMeta?.[employeeName]?.role),
+        contractHours: normalizeContractHours(parsedMeta?.[employeeName]?.contractHours ?? 0),
+        email: normalizeEmployeeEmail(parsedMeta?.[employeeName]?.email),
+        loginAllowed: parsedMeta?.[employeeName]?.loginAllowed !== false,
+        mailTestUser: Boolean(parsedMeta?.[employeeName]?.mailTestUser),
+        lastTestMailAt: typeof parsedMeta?.[employeeName]?.lastTestMailAt === "string" ? parsedMeta[employeeName].lastTestMailAt : "",
+        lastTestMailStatus: typeof parsedMeta?.[employeeName]?.lastTestMailStatus === "string" ? parsedMeta[employeeName].lastTestMailStatus : "",
+        lastTestMailMessage: typeof parsedMeta?.[employeeName]?.lastTestMailMessage === "string" ? parsedMeta[employeeName].lastTestMailMessage : "",
         updatedAt: typeof parsedMeta?.[employeeName]?.updatedAt === "string" ? parsedMeta[employeeName].updatedAt : "",
         updatedByRole: parsedMeta?.[employeeName]?.updatedByRole === "planner" ? "planner" : (parsedMeta?.[employeeName]?.updatedByRole === "employee" ? "employee" : ""),
         updatedByName: typeof parsedMeta?.[employeeName]?.updatedByName === "string" ? parsedMeta[employeeName].updatedByName : ""
@@ -1272,6 +1352,9 @@ function resolveClerkUserAccess(user) {
 
   console.info("[clerk-access] gekoppelde medewerker:", employeeName || "(geen)");
   console.info("[clerk-access] gevonden medewerker e-mailadres:", matchedEmployeeEmail || "(geen)");
+  if (email === twanLoginEmail) {
+    console.info("[clerk-access] Twan record gevonden:", employeeName ? "ja" : "nee");
+  }
 
   if (email === emergencySetupDirectorEmail) {
     const directieEmployeeName = ensureEmergencyDirectorAccessRecord();
@@ -2045,8 +2128,35 @@ function loadEmployees() {
 }
 
 function saveEmployees() {
-  replaceArrayContents(employees, sanitizeEmployeesForStorage(employees));
-  safeSetStorageItem(getScopedStorageKey(employeeStorageKey), JSON.stringify(employees), "medewerkers");
+  const normalizedEmployees = sanitizeEmployeesForStorage(employees);
+  const storageKeyName = getScopedStorageKey(employeeStorageKey);
+  const serializedEmployees = JSON.stringify(normalizedEmployees);
+
+  replaceArrayContents(employees, normalizedEmployees);
+
+  if (!safeSetStorageItem(storageKeyName, serializedEmployees, "medewerkers")) {
+    return false;
+  }
+
+  const persistedEmployees = getNormalizedEmployeeListCandidate(
+    getStoredJsonValue(localStorage, storageKeyName) ?? getStoredJsonValue(sessionStorage, storageKeyName)
+  );
+
+  if (JSON.stringify(persistedEmployees) !== JSON.stringify(normalizedEmployees)) {
+    reportAppError("Medewerkergegevens konden niet betrouwbaar worden opgeslagen.", new Error("employees-readback-mismatch"), "save:employees");
+    return false;
+  }
+
+  updateEmployeePersistenceState({
+    source: "primary",
+    loadedCount: persistedEmployees.length,
+    savedCount: persistedEmployees.length,
+    twanFound: Boolean(findEmployeeByEmail(twanLoginEmail))
+  });
+
+  console.info("[employee-persist] employees saved count:", persistedEmployees.length);
+  saveEmployeeEmergencyBackup("Medewerkergegevens opgeslagen");
+  return true;
 }
 
 function getEmployeeStatusMetaDefaults() {
@@ -2098,6 +2208,8 @@ function ensureEmergencyDirectorAccessRecord() {
   if (changed) {
     saveEmployees();
     saveEmployeeMeta();
+    saveEmployeeEmergencyBackup("Directie-account hersteld");
+    refreshEmployeePersistenceDebugState();
   }
 
   return employeeName;
@@ -2305,7 +2417,10 @@ function loadEmployeeMeta() {
 }
 
 function saveEmployeeMeta() {
-  safeSetStorageItem(getScopedStorageKey(employeeMetaStorageKey), JSON.stringify(employeeMeta), "medewerkerstatus");
+  if (safeSetStorageItem(getScopedStorageKey(employeeMetaStorageKey), JSON.stringify(employeeMeta), "medewerkerstatus")) {
+    saveEmployeeEmergencyBackup("Medewerkerstatus opgeslagen");
+    refreshEmployeePersistenceDebugState();
+  }
 }
 
 function loadAuditLog() {
@@ -3253,7 +3368,10 @@ function loadEmployeePermissions() {
 }
 
 function saveEmployeePermissions() {
-  safeSetStorageItem(getScopedStorageKey(employeePermissionsStorageKey), JSON.stringify(employeePermissions), "bevoegdheden");
+  if (safeSetStorageItem(getScopedStorageKey(employeePermissionsStorageKey), JSON.stringify(employeePermissions), "bevoegdheden")) {
+    saveEmployeeEmergencyBackup("Medewerkerbevoegdheden opgeslagen");
+    refreshEmployeePersistenceDebugState();
+  }
 }
 
 function getBakeryCoreShifts() {
@@ -3289,7 +3407,10 @@ function loadEmployeeStandardShifts() {
 }
 
 function saveEmployeeStandardShifts() {
-  safeSetStorageItem(getScopedStorageKey(employeeStandardShiftStorageKey), JSON.stringify(employeeStandardShifts), "vaste diensten");
+  if (safeSetStorageItem(getScopedStorageKey(employeeStandardShiftStorageKey), JSON.stringify(employeeStandardShifts), "vaste diensten")) {
+    saveEmployeeEmergencyBackup("Vaste diensten opgeslagen");
+    refreshEmployeePersistenceDebugState();
+  }
 }
 
 function loadEmployeeShiftPreferences() {
@@ -3324,7 +3445,10 @@ function loadEmployeeShiftPreferences() {
 }
 
 function saveEmployeeShiftPreferences() {
-  safeSetStorageItem(getScopedStorageKey(employeeShiftPreferenceStorageKey), JSON.stringify(employeeShiftPreferences), "dienstvoorkeuren");
+  if (safeSetStorageItem(getScopedStorageKey(employeeShiftPreferenceStorageKey), JSON.stringify(employeeShiftPreferences), "dienstvoorkeuren")) {
+    saveEmployeeEmergencyBackup("Dienstvoorkeuren opgeslagen");
+    refreshEmployeePersistenceDebugState();
+  }
 }
 
 function getEmployeeBasePatternCatalog() {
@@ -3471,7 +3595,10 @@ function loadEmployeeBasePatterns() {
 }
 
 function saveEmployeeBasePatterns() {
-  safeSetStorageItem(getScopedStorageKey(employeeBasePatternStorageKey), JSON.stringify(employeeBasePatterns), "basisroosters");
+  if (safeSetStorageItem(getScopedStorageKey(employeeBasePatternStorageKey), JSON.stringify(employeeBasePatterns), "basisroosters")) {
+    saveEmployeeEmergencyBackup("Basisroosters opgeslagen");
+    refreshEmployeePersistenceDebugState();
+  }
 }
 
 function loadEmployeeCustomRosters() {
@@ -3497,7 +3624,10 @@ function loadEmployeeCustomRosters() {
 }
 
 function saveEmployeeCustomRosters() {
-  safeSetStorageItem(getScopedStorageKey(employeeCustomRosterStorageKey), JSON.stringify(employeeCustomRosters), "vaste roosterpatronen");
+  if (safeSetStorageItem(getScopedStorageKey(employeeCustomRosterStorageKey), JSON.stringify(employeeCustomRosters), "vaste roosterpatronen")) {
+    saveEmployeeEmergencyBackup("Vaste roosterpatronen opgeslagen");
+    refreshEmployeePersistenceDebugState();
+  }
 }
 
 function syncEmployeePermissions() {
@@ -4294,6 +4424,7 @@ function reloadScopedData() {
   syncEmployeeShiftPreferences();
   syncEmployeeBasePatterns();
   syncEmployeeCustomRosters();
+  refreshEmployeePersistenceDebugState();
 }
 
 function resetTestPlanningData() {
@@ -17834,6 +17965,56 @@ function renderActiveTabContent() {
   }
 }
 
+function ensureEmployeePersistenceDebugElement() {
+  let debugElement = document.getElementById("employeePersistenceDebug");
+  if (debugElement) {
+    return debugElement;
+  }
+
+  const appShell = document.querySelector(".app-shell");
+  if (!appShell) {
+    return null;
+  }
+
+  debugElement = document.createElement("div");
+  debugElement.id = "employeePersistenceDebug";
+  debugElement.hidden = true;
+  debugElement.style.cssText = "margin:12px 0 0; padding:8px 12px; border:1px solid #f0d7b1; border-radius:12px; background:#fff6ea; color:#6b4a19; font-size:12px; line-height:1.4;";
+
+  const header = appShell.querySelector(".brand-header");
+  if (header && header.parentElement === appShell) {
+    header.insertAdjacentElement("afterend", debugElement);
+  } else {
+    appShell.prepend(debugElement);
+  }
+
+  return debugElement;
+}
+
+function refreshEmployeePersistenceDebugState() {
+  updateEmployeePersistenceState({
+    loadedCount: employees.length,
+    twanFound: Boolean(findEmployeeByEmail(twanLoginEmail))
+  });
+}
+
+function renderEmployeePersistenceDebug() {
+  const debugElement = ensureEmployeePersistenceDebugElement();
+  if (!debugElement) {
+    return;
+  }
+
+  if (!isPlannerRole()) {
+    debugElement.hidden = true;
+    debugElement.textContent = "";
+    return;
+  }
+
+  refreshEmployeePersistenceDebugState();
+  debugElement.textContent = `Medewerkers: ${employeePersistenceState.loadedCount} · bron: ${employeePersistenceState.source} · backup gebruikt: ${employeePersistenceState.backupUsed ? "ja" : "nee"} · Twan record: ${employeePersistenceState.twanFound ? "gevonden" : "niet gevonden"}`;
+  debugElement.hidden = false;
+}
+
 function render() {
   try {
     ensureEmployeeIdentityForCurrentRole();
@@ -17841,6 +18022,7 @@ function render() {
     updateTabVisibility();
     renderHoursExportControls();
     renderDashboard();
+    renderEmployeePersistenceDebug();
     renderEmployeeSelectors();
     renderActiveTabContent();
     maybeShowOpenRequestReminder();
@@ -20650,6 +20832,22 @@ Bewaarde historie:
   saveEmployeeStandardShifts();
   saveEmployeeBasePatterns();
   saveEmployeeCustomRosters();
+  saveEmployeeEmergencyBackup("Medewerker opgeslagen");
+  refreshEmployeePersistenceDebugState();
+
+  const persistedEmployeeNames = getStoredJsonValueForMode(employeeStorageKey);
+  const persistedMeta = getStoredJsonValueForMode(employeeMetaStorageKey);
+  const persistedPermissions = getStoredJsonValueForMode(employeePermissionsStorageKey);
+  const employeeSavedCorrectly = Array.isArray(persistedEmployeeNames) &&
+    persistedEmployeeNames.includes(employeeName) &&
+    normalizeEmployeeEmail(persistedMeta?.[employeeName]?.email) === normalizedEmail &&
+    Boolean(persistedPermissions?.[employeeName]);
+
+  if (!employeeSavedCorrectly) {
+    showError("Medewerkergegevens konden niet betrouwbaar worden opgeslagen.");
+    return false;
+  }
+
   syncEmployeePermissions();
   syncEmployeeStandardShifts();
   syncEmployeeBasePatterns();
@@ -22031,6 +22229,8 @@ if (employeeEmergencyRestoreApplied) {
   showSuccess("Medewerkergegevens hersteld uit noodbackup");
 }
 void initializeClerkAuthentication();
+
+
 
 
 
