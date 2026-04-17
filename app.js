@@ -310,6 +310,7 @@ const backupHistory = loadBackupHistory();
 let editIndex = null;
 let editingShiftId = null;
 let activeTab = "week-current";
+let hasInitializedDefaultTab = false;
 let activeEmployeeWeekView = "today";
 let activeRole = preferences.lastRole === "employee" ? "employee" : "planner";
 let editingTimeOffId = null;
@@ -1482,9 +1483,16 @@ async function syncClerkAuthenticatedUser(user) {
   applyAuthenticatedEmployeeContext(employeeName, role);
   showClerkAuthMessage("");
   closeLoginOverlay();
+
+  if (sameAuthenticatedContext) {
+    unmountClerkSignInIfNeeded();
+    render();
+    return;
+  }
+
   reloadForLoggedInUser({
-    resetToDefaultTab: !sameAuthenticatedContext,
-    resetWeekToCurrent: !sameAuthenticatedContext
+    resetToDefaultTab: true,
+    resetWeekToCurrent: true
   });
 }
 
@@ -6977,6 +6985,18 @@ function getDefaultTabForCurrentRole() {
   return getDefaultTabForRole(activeRole);
 }
 
+function initializeDefaultTabIfNeeded(force = false) {
+  if (force || !hasInitializedDefaultTab) {
+    activeTab = getDefaultTabForCurrentRole();
+    hasInitializedDefaultTab = true;
+    return;
+  }
+
+  if (!isTabAllowedForCurrentRole(activeTab)) {
+    activeTab = getDefaultTabForCurrentRole();
+  }
+}
+
 function handleBlockedTabAccess(tabName) {
   if (isPlannerRole()) {
     return false;
@@ -7049,8 +7069,10 @@ function reloadForLoggedInUser(options = {}) {
     return;
   }
 
-  if (resetToDefaultTab || !isTabAllowedForCurrentRole(activeTab)) {
-    activeTab = getDefaultTabForCurrentRole();
+  if (resetToDefaultTab && !hasInitializedDefaultTab) {
+    initializeDefaultTabIfNeeded(true);
+  } else {
+    initializeDefaultTabIfNeeded(false);
   }
 
   if (!isPlannerRole()) {
@@ -13902,7 +13924,15 @@ function setActiveTab(tabName, options = {}) {
     return;
   }
 
+  if (activeTab === normalizedTabName && !options.force) {
+    updateTabVisibility();
+    resetTabScrollPosition();
+    render();
+    return;
+  }
+
   activeTab = normalizedTabName;
+  hasInitializedDefaultTab = true;
   updateTabVisibility();
   resetTabScrollPosition();
 
@@ -22273,7 +22303,7 @@ newShiftColorInput.value = "shift-tone-oven";
 updateFormState();
 reloadScopedData();
 applySavedPreferences();
-activeTab = getDefaultTabForCurrentRole();
+initializeDefaultTabIfNeeded(true);
 updateTabVisibility();
 render();
 if (employeeEmergencyRestoreApplied) {
