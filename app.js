@@ -399,6 +399,7 @@ let activeMessageState = null;
 let queuedMessageStates = [];
 let tabHitTestDebugInstalled = false;
 let lastTabHitTestSignature = "";
+let forcedClickLayerDebugInstalled = false;
 const employeeAllowedTabs = [TABS.WEEK_CURRENT, TABS.MY_SCHEDULE, TABS.MY_HOURS, TABS.REQUESTS];
 let planningDataRevision = 0;
 let requestDataRevision = 0;
@@ -18273,6 +18274,70 @@ function installTabHitTestDebug() {
   }, true);
 }
 
+function logElementAtPoint(label, x, y) {
+  const topElement = document.elementFromPoint(x, y);
+  const parentElement = topElement?.parentElement || null;
+
+  console.info(`[tabs-hit-test] ${label}:`, {
+    tagName: topElement?.tagName || "",
+    id: topElement?.id || "",
+    className: topElement?.className || "",
+    parentTagName: parentElement?.tagName || "",
+    parentId: parentElement?.id || "",
+    parentClassName: parentElement?.className || "",
+    position: topElement ? window.getComputedStyle(topElement).position : "",
+    zIndex: topElement ? window.getComputedStyle(topElement).zIndex : "",
+    pointerEvents: topElement ? window.getComputedStyle(topElement).pointerEvents : "",
+    opacity: topElement ? window.getComputedStyle(topElement).opacity : ""
+  });
+
+  return topElement;
+}
+
+function installForcedClickLayerDebug() {
+  if (forcedClickLayerDebugInstalled) {
+    return;
+  }
+
+  forcedClickLayerDebugInstalled = true;
+
+  const runHitTest = () => {
+    if (testClickButton) {
+      const testRect = testClickButton.getBoundingClientRect();
+      if (testRect.width > 0 && testRect.height > 0) {
+        logElementAtPoint(
+          "boven testknop",
+          testRect.left + testRect.width / 2,
+          testRect.top + testRect.height / 2
+        );
+      }
+    }
+
+    if (appNav) {
+      const navRect = appNav.getBoundingClientRect();
+      if (navRect.width > 0 && navRect.height > 0) {
+        logElementAtPoint(
+          "boven tabs links",
+          navRect.left + Math.min(24, navRect.width / 4),
+          navRect.top + navRect.height / 2
+        );
+        logElementAtPoint(
+          "boven tabs midden",
+          navRect.left + navRect.width / 2,
+          navRect.top + navRect.height / 2
+        );
+        logElementAtPoint(
+          "boven tabs rechts",
+          navRect.right - Math.min(24, navRect.width / 4),
+          navRect.top + navRect.height / 2
+        );
+      }
+    }
+  };
+
+  window.setTimeout(runHitTest, 100);
+}
+
 function installSimpleDomClickDebug() {
   if (simpleDomClickDebugInstalled) {
     return;
@@ -18295,6 +18360,7 @@ function installSimpleDomClickDebug() {
 function render() {
   try {
     installTabHitTestDebug();
+    installForcedClickLayerDebug();
     installSimpleDomClickDebug();
     ensureEmployeeIdentityForCurrentRole();
     applyRoleUI();

@@ -7512,6 +7512,34 @@ body[data-role="planner"] .container {
   margin-right: 16px;
 }
 
+/* Tijdelijke brute noodfix voor kliklaag van de noodtabs */
+.container,
+.app-shell,
+#test-click,
+.app-nav,
+.simple-main-tab-button,
+#simpleTabEmergencyPanel {
+  position: relative;
+  z-index: 99999;
+  pointer-events: auto !important;
+}
+
+.app-shell > :not(#test-click):not(.app-nav):not(#simpleTabEmergencyPanel) {
+  pointer-events: none !important;
+}
+
+.login-overlay,
+.login-overlay.hidden,
+.brand-header,
+.session-bar,
+#plannerDashboard,
+.app-panel,
+.app-panel.is-active,
+.mobile-bottom-nav,
+.dashboard {
+  pointer-events: none !important;
+}
+
 body[data-role="planner"] .app-shell {
   width: 100%;
   max-width: none;
