@@ -1779,7 +1779,7 @@ function getEmployeeStatusMetaDefaults() {
 }
 
 function normalizeEmployeeAppRole(value) {
-  return value === "planner" ? "planner" : "employee";
+  return value === "planner" || value === "directie" ? "planner" : "employee";
 }
 
 function getDefaultEmployeeAppRole(employeeName) {
