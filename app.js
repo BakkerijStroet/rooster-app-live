@@ -1191,8 +1191,10 @@ async function initializeClerkAuthentication() {
 
     if (typeof clerk.addListener === "function") {
       clerk.addListener(({ user }) => {
-        if (user) {
-          syncClerkAuthenticatedUser(user).catch((error) => {
+        const resolvedUser = user || clerk.user || null;
+
+        if (resolvedUser) {
+          syncClerkAuthenticatedUser(resolvedUser).catch((error) => {
             console.error("Clerk synchronisatie mislukt.", error);
             clerk.signOut?.().catch(() => {});
             openLoginOverlay();
