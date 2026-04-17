@@ -262,7 +262,12 @@ h3 {
   background: linear-gradient(180deg, rgba(255, 253, 250, 0.98) 0%, rgba(245, 240, 234, 0.96) 100%);
   box-shadow: var(--shadow-soft);
   position: relative;
-  z-index: 30;
+  z-index: 9999;
+  pointer-events: auto;
+  isolation: isolate;
+}
+
+.app-nav * {
   pointer-events: auto;
 }
 
@@ -380,6 +385,11 @@ h3 {
     linear-gradient(180deg, rgba(255, 251, 246, 0.9), rgba(249, 249, 249, 0.94)),
     rgba(42, 34, 22, 0.18);
   backdrop-filter: blur(10px);
+}
+
+.login-overlay.hidden {
+  display: none !important;
+  pointer-events: none !important;
 }
 
 body[data-auth-locked="true"] .session-bar,
@@ -1451,10 +1461,12 @@ body[data-role="employee"] [data-panel="requests"] #requestsOpenCards {
   align-items: center;
   gap: 8px;
   position: relative;
-  z-index: 31;
+  z-index: 10000;
   pointer-events: auto;
   cursor: pointer;
   user-select: none;
+  outline: 2px solid rgba(242, 140, 40, 0.22);
+  outline-offset: 1px;
 }
 
 .nav-tab::before {
