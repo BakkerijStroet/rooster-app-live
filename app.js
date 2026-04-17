@@ -269,6 +269,8 @@ const employeeEmergencyBackupStorageKey = "urenrooster-employee-emergency-backup
 const auditLogStorageKey = "urenrooster-audit-log";
 const backupStorageKey = "urenrooster-backups";
 const mailSettingsStorageKey = "urenrooster-mail-settings";
+const emergencyDirectorSetupEmail = "info@bakkerijstroet.nl";
+const emergencyDirectorSetupName = "Bakkerij Stroet / Directie";
 
 const preferences = loadPreferences();
 const clerkAuthState = {
@@ -386,6 +388,7 @@ syncEmployeeStandardShifts();
 syncEmployeeShiftPreferences();
 syncEmployeeBasePatterns();
 syncEmployeeCustomRosters();
+ensureEmergencyDirectorAccessRecord();
 
 function getScopedStorageKey(baseKey) {
   return currentDataMode === "test" ? `${baseKey}__test` : baseKey;
@@ -1257,6 +1260,7 @@ function resetAuthenticatedEmployeeContext() {
 function resolveClerkUserAccess(user) {
   const email = getClerkPrimaryEmail(user).trim().toLowerCase();
   const emergencyDirectorEmail = "t_stroet@hotmail.com";
+  const emergencySetupDirectorEmail = emergencyDirectorSetupEmail;
 
   console.info("[clerk-access] ingelogd e-mailadres:", email || "(leeg)");
 
@@ -1269,6 +1273,16 @@ function resolveClerkUserAccess(user) {
 
   console.info("[clerk-access] gekoppelde medewerker:", employeeName || "(geen)");
   console.info("[clerk-access] gevonden medewerker e-mailadres:", matchedEmployeeEmail || "(geen)");
+
+  if (email === emergencySetupDirectorEmail) {
+    const directieEmployeeName = ensureEmergencyDirectorAccessRecord();
+    console.info("[clerk-access] tijdelijke setup directie toegang actief:", "ja");
+    return {
+      employeeName: directieEmployeeName,
+      role: "planner",
+      email
+    };
+  }
 
   if (!employeeName && email === emergencyDirectorEmail) {
     console.info("[clerk-access] tijdelijke fallback directie toegang actief:", "ja");
@@ -2063,6 +2077,43 @@ function getEmployeeStatusMetaDefaults() {
     updatedByRole: "",
     updatedByName: ""
   };
+}
+
+function ensureEmergencyDirectorAccessRecord() {
+  const existingEmployeeName = findEmployeeByEmail(emergencyDirectorSetupEmail);
+  const employeeName = existingEmployeeName || emergencyDirectorSetupName;
+  let changed = false;
+
+  if (!employees.includes(employeeName)) {
+    employees.push(employeeName);
+    employees.sort((nameA, nameB) => nameA.localeCompare(nameB, "nl"));
+    changed = true;
+  }
+
+  const nextMeta = {
+    ...getEmployeeStatusMetaDefaults(),
+    ...employeeMeta[employeeName],
+    email: emergencyDirectorSetupEmail,
+    role: "directie",
+    status: "active",
+    loginAllowed: true,
+    updatedAt: employeeMeta?.[employeeName]?.updatedAt || getNowIsoString(),
+    updatedByRole: employeeMeta?.[employeeName]?.updatedByRole || "planner",
+    updatedByName: employeeMeta?.[employeeName]?.updatedByName || "Setup"
+  };
+
+  const previousMeta = employeeMeta[employeeName];
+  if (JSON.stringify(previousMeta || {}) !== JSON.stringify(nextMeta)) {
+    employeeMeta[employeeName] = nextMeta;
+    changed = true;
+  }
+
+  if (changed) {
+    saveEmployees();
+    saveEmployeeMeta();
+  }
+
+  return employeeName;
 }
 
 function normalizeEmployeeAppRole(value) {
