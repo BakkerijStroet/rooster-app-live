@@ -6163,7 +6163,14 @@ function saveSimpleHoursForm(workLogId) {
   const actualStart = entry.startTime || existingLog?.plannedStart || "09:00";
   const actualEnd = addMinutesToTimeValue(actualStart, roundedHours * 60);
   const notes = notesInput.value.trim();
-  const auditEntry = createWorkLogAuditEntry("save", `eenvoudige ureninvoer: ${formatHours(roundedHours)}`);
+  const submittedAt = getNowIsoString();
+  const nextStatus = isPlannerRole()
+    ? (existingLog?.status === "approved" ? "approved" : (existingLog?.status || "draft"))
+    : "open";
+  const auditEntry = createWorkLogAuditEntry(
+    nextStatus === "open" ? "submit" : "save",
+    `eenvoudige ureninvoer: ${formatHours(roundedHours)}`
+  );
 
   const nextLog = {
     id: workLogId,
@@ -6178,9 +6185,9 @@ function saveSimpleHoursForm(workLogId) {
     notes,
     employeeReply: existingLog?.employeeReply || "",
     mailLog: sanitizeRequestMailLog(existingLog?.mailLog),
-    status: existingLog?.status === "approved" ? "approved" : "draft",
+    status: nextStatus,
     managerNote: existingLog?.managerNote || "",
-    submittedAt: existingLog?.submittedAt || "",
+    submittedAt: nextStatus === "open" ? submittedAt : (existingLog?.submittedAt || ""),
     updatedAt: auditEntry.at,
     auditTrail: [...(existingLog?.auditTrail || []), auditEntry]
   };
@@ -6195,16 +6202,21 @@ function saveSimpleHoursForm(workLogId) {
 
   saveWorkLogs();
   persistProtectedChange({
-    reason: `Uren opgeslagen: ${entry.name} ${entry.day}`,
+    reason: nextStatus === "open"
+      ? `Uren ingediend: ${entry.name} ${entry.day}`
+      : `Uren opgeslagen: ${entry.name} ${entry.day}`,
     scope: "worklog",
-    action: "worklog-saved",
-    message: `Urenregistratie bijgewerkt voor ${entry.name} op ${formatDate(entry.day)}.`,
+    action: nextStatus === "open" ? "worklog-submitted" : "worklog-saved",
+    message: nextStatus === "open"
+      ? `Urenregistratie ingediend voor ${entry.name} op ${formatDate(entry.day)}.`
+      : `Urenregistratie bijgewerkt voor ${entry.name} op ${formatDate(entry.day)}.`,
     details: {
       workLogId,
       employeeName: entry.name,
       day: entry.day,
       shiftName: entry.isManualHours ? "Gewerkte uren" : getShiftName(entry),
-      status: nextLog.status
+      status: nextLog.status,
+      workedHours: roundedHours
     }
   });
   const nextOpenDate = entries
