@@ -265,6 +265,7 @@ const employeeShiftPreferenceStorageKey = "urenrooster-employee-shift-preference
 const employeeBasePatternStorageKey = "urenrooster-employee-base-patterns";
 const employeeCustomRosterStorageKey = "urenrooster-employee-custom-rosters";
 const employeeMetaStorageKey = "urenrooster-employee-meta";
+const employeeEmergencyBackupStorageKey = "urenrooster-employee-emergency-backup";
 const auditLogStorageKey = "urenrooster-audit-log";
 const backupStorageKey = "urenrooster-backups";
 const mailSettingsStorageKey = "urenrooster-mail-settings";
@@ -374,6 +375,8 @@ const derivedDataCache = {
 if (dayPlannerNote) {
   dayPlannerNote.textContent = "Kies een dag en plan alle diensten van die dag in een keer.";
 }
+
+const employeeEmergencyRestoreApplied = restoreEmployeeEmergencyBackupIfNeeded();
 
 mergeEmployeesFromEntries();
 ensureConfiguredBakeryEmployees();
@@ -645,10 +648,263 @@ function ensureConfiguredBakeryEmployees() {
   saveEmployees();
 }
 
+function getStoredJsonValue(storage, storageKeyName) {
+  if (!storage || !storageKeyName) {
+    return null;
+  }
+
+  try {
+    const rawValue = storage.getItem(storageKeyName);
+    return rawValue ? JSON.parse(rawValue) : null;
+  } catch {
+    return null;
+  }
+}
+
+function addRecoveredEmployeeNames(targetSet, values) {
+  if (!values) {
+    return;
+  }
+
+  if (Array.isArray(values)) {
+    values.forEach((value) => {
+      if (typeof value === "string" && value.trim()) {
+        targetSet.add(value.trim());
+      }
+    });
+    return;
+  }
+
+  if (values && typeof values === "object") {
+    Object.keys(values).forEach((key) => {
+      if (typeof key === "string" && key.trim()) {
+        targetSet.add(key.trim());
+      }
+    });
+  }
+}
+
+function addRecoveredEmployeeNamesFromRecords(targetSet, records, fieldNames = ["employeeName"]) {
+  if (!Array.isArray(records)) {
+    return;
+  }
+
+  records.forEach((record) => {
+    if (!record || typeof record !== "object") {
+      return;
+    }
+
+    fieldNames.forEach((fieldName) => {
+      const value = record[fieldName];
+      if (typeof value === "string" && value.trim()) {
+        targetSet.add(value.trim());
+      }
+    });
+  });
+}
+
+function addRecoveredEmployeeNamesFromBackupSnapshot(targetSet, snapshot) {
+  if (!snapshot || typeof snapshot !== "object") {
+    return;
+  }
+
+  addRecoveredEmployeeNames(targetSet, snapshot.employees);
+  addRecoveredEmployeeNames(targetSet, snapshot.employeeMeta);
+  addRecoveredEmployeeNames(targetSet, snapshot.employeePermissions);
+  addRecoveredEmployeeNames(targetSet, snapshot.employeeStandardShifts);
+  addRecoveredEmployeeNames(targetSet, snapshot.employeeShiftPreferences);
+  addRecoveredEmployeeNames(targetSet, snapshot.employeeBasePatterns);
+  addRecoveredEmployeeNames(targetSet, snapshot.employeeCustomRosters);
+  addRecoveredEmployeeNamesFromRecords(targetSet, snapshot.entries, ["name"]);
+  addRecoveredEmployeeNamesFromRecords(targetSet, snapshot.timeOffRequests, ["employeeName", "targetEmployeeName"]);
+  addRecoveredEmployeeNamesFromRecords(targetSet, snapshot.swapRequests, ["employeeName", "offeredBy", "swapWithEmployee", "targetEmployeeName"]);
+  addRecoveredEmployeeNamesFromRecords(targetSet, snapshot.workLogs, ["employeeName"]);
+}
+
+function collectRecoveredEmployeeNamesForMode(mode) {
+  const recoveredNames = new Set();
+  const modeKey = (baseKey) => getScopedStorageKeyForMode(baseKey, mode);
+  const storages = [localStorage, sessionStorage];
+
+  storages.forEach((storage) => {
+    addRecoveredEmployeeNames(recoveredNames, getStoredJsonValue(storage, modeKey(employeeStorageKey)));
+    addRecoveredEmployeeNames(recoveredNames, getStoredJsonValue(storage, modeKey(employeeMetaStorageKey)));
+    addRecoveredEmployeeNames(recoveredNames, getStoredJsonValue(storage, modeKey(employeePermissionsStorageKey)));
+    addRecoveredEmployeeNames(recoveredNames, getStoredJsonValue(storage, modeKey(employeeStandardShiftStorageKey)));
+    addRecoveredEmployeeNames(recoveredNames, getStoredJsonValue(storage, modeKey(employeeShiftPreferenceStorageKey)));
+    addRecoveredEmployeeNames(recoveredNames, getStoredJsonValue(storage, modeKey(employeeBasePatternStorageKey)));
+    addRecoveredEmployeeNames(recoveredNames, getStoredJsonValue(storage, modeKey(employeeCustomRosterStorageKey)));
+    addRecoveredEmployeeNamesFromRecords(recoveredNames, getStoredJsonValue(storage, modeKey(storageKey)), ["name"]);
+    addRecoveredEmployeeNamesFromRecords(recoveredNames, getStoredJsonValue(storage, modeKey(timeOffStorageKey)), ["employeeName", "targetEmployeeName"]);
+    addRecoveredEmployeeNamesFromRecords(recoveredNames, getStoredJsonValue(storage, modeKey(swapStorageKey)), ["employeeName", "offeredBy", "swapWithEmployee", "targetEmployeeName"]);
+    addRecoveredEmployeeNamesFromRecords(recoveredNames, getStoredJsonValue(storage, modeKey(workLogStorageKey)), ["employeeName"]);
+
+    const backups = getStoredJsonValue(storage, modeKey(backupStorageKey));
+    if (Array.isArray(backups)) {
+      backups.forEach((backup) => {
+        addRecoveredEmployeeNamesFromBackupSnapshot(recoveredNames, backup?.snapshot);
+      });
+    }
+  });
+
+  const normalizedRecoveredNames = sanitizeEmployeesForStorage([...recoveredNames]);
+
+  if (mode === "test" && !normalizedRecoveredNames.length) {
+    return getTestSeedEmployeeNames();
+  }
+
+  return normalizedRecoveredNames;
+}
+
+function getStoredJsonValueForMode(baseKey, mode = currentDataMode) {
+  const storageKeyName = getScopedStorageKeyForMode(baseKey, mode);
+  const localValue = getStoredJsonValue(localStorage, storageKeyName);
+
+  if (localValue !== null) {
+    return localValue;
+  }
+
+  const sessionValue = getStoredJsonValue(sessionStorage, storageKeyName);
+  return sessionValue !== null ? sessionValue : null;
+}
+
+function getLatestBackupSnapshotForMode(mode = currentDataMode) {
+  const storageKeyName = getScopedStorageKeyForMode(backupStorageKey, mode);
+  const snapshots = [];
+
+  [localStorage, sessionStorage].forEach((storage) => {
+    const backups = getStoredJsonValue(storage, storageKeyName);
+
+    if (!Array.isArray(backups)) {
+      return;
+    }
+
+    backups.forEach((backup) => {
+      if (
+        backup &&
+        typeof backup === "object" &&
+        typeof backup.createdAt === "string" &&
+        backup.snapshot &&
+        typeof backup.snapshot === "object"
+      ) {
+        snapshots.push(backup);
+      }
+    });
+  });
+
+  if (!snapshots.length) {
+    return null;
+  }
+
+  snapshots.sort((backupA, backupB) => String(backupB.createdAt).localeCompare(String(backupA.createdAt)));
+  return snapshots[0]?.snapshot || null;
+}
+
+function createEmployeeEmergencyBackupSnapshot() {
+  return {
+    createdAt: getNowIsoString(),
+    employees: [...employees],
+    employeeMeta: structuredClone(employeeMeta),
+    employeePermissions: structuredClone(employeePermissions),
+    employeeStandardShifts: structuredClone(employeeStandardShifts),
+    employeeShiftPreferences: structuredClone(employeeShiftPreferences),
+    employeeBasePatterns: structuredClone(employeeBasePatterns),
+    employeeCustomRosters: structuredClone(employeeCustomRosters)
+  };
+}
+
+function getEmployeeEmergencyBackupForMode(mode = currentDataMode) {
+  return getStoredJsonValueForMode(employeeEmergencyBackupStorageKey, mode);
+}
+
+function saveEmployeeEmergencyBackup(reason = "Medewerkergegevens opgeslagen") {
+  const backup = {
+    reason,
+    snapshot: createEmployeeEmergencyBackupSnapshot()
+  };
+  const storageKeyName = getScopedStorageKey(employeeEmergencyBackupStorageKey);
+  safeSetStorageItem(storageKeyName, JSON.stringify(backup), "medewerker noodbackup");
+  return backup;
+}
+
+function restoreEmployeeEmergencyBackupIfNeeded(mode = currentDataMode) {
+  const hasPrimaryEmployeeData = Boolean(employees.length) ||
+    Object.keys(employeeMeta).length > 0 ||
+    Object.keys(employeePermissions).length > 0 ||
+    Object.keys(employeeStandardShifts).length > 0 ||
+    Object.keys(employeeShiftPreferences).length > 0 ||
+    Object.keys(employeeBasePatterns).length > 0 ||
+    Object.keys(employeeCustomRosters).length > 0;
+
+  if (hasPrimaryEmployeeData) {
+    return false;
+  }
+
+  const emergencyBackup = getEmployeeEmergencyBackupForMode(mode);
+  const snapshot = emergencyBackup?.snapshot;
+
+  if (!snapshot || typeof snapshot !== "object") {
+    return false;
+  }
+
+  replaceArrayContents(employees, Array.isArray(snapshot.employees) ? sanitizeEmployeesForStorage(snapshot.employees) : []);
+  replaceObjectContents(employeeMeta, snapshot.employeeMeta && typeof snapshot.employeeMeta === "object" ? structuredClone(snapshot.employeeMeta) : {});
+  replaceObjectContents(employeePermissions, snapshot.employeePermissions && typeof snapshot.employeePermissions === "object" ? structuredClone(snapshot.employeePermissions) : {});
+  replaceObjectContents(employeeStandardShifts, snapshot.employeeStandardShifts && typeof snapshot.employeeStandardShifts === "object" ? structuredClone(snapshot.employeeStandardShifts) : {});
+  replaceObjectContents(employeeShiftPreferences, snapshot.employeeShiftPreferences && typeof snapshot.employeeShiftPreferences === "object" ? structuredClone(snapshot.employeeShiftPreferences) : {});
+  replaceObjectContents(employeeBasePatterns, snapshot.employeeBasePatterns && typeof snapshot.employeeBasePatterns === "object" ? structuredClone(snapshot.employeeBasePatterns) : {});
+  replaceObjectContents(employeeCustomRosters, snapshot.employeeCustomRosters && typeof snapshot.employeeCustomRosters === "object" ? structuredClone(snapshot.employeeCustomRosters) : {});
+
+  saveEmployees();
+  saveEmployeeMeta();
+  saveEmployeePermissions();
+  saveEmployeeStandardShifts();
+  saveEmployeeShiftPreferences();
+  saveEmployeeBasePatterns();
+  saveEmployeeCustomRosters();
+
+  return true;
+}
+
+function getRecoveredEmployeeDataForMode(baseKey, snapshotField, mode = currentDataMode, label = "gegevens") {
+  const storageKeyName = getScopedStorageKeyForMode(baseKey, mode);
+  const directValue = getStoredJsonValue(localStorage, storageKeyName);
+
+  if (directValue !== null) {
+    return directValue;
+  }
+
+  const sessionValue = getStoredJsonValue(sessionStorage, storageKeyName);
+  if (sessionValue !== null) {
+    safeSetStorageItem(storageKeyName, JSON.stringify(sessionValue), label);
+    return sessionValue;
+  }
+
+  const latestSnapshot = getLatestBackupSnapshotForMode(mode);
+  const backupValue = latestSnapshot?.[snapshotField];
+
+  if (backupValue && typeof backupValue === "object") {
+    safeSetStorageItem(storageKeyName, JSON.stringify(backupValue), label);
+    return backupValue;
+  }
+
+  return null;
+}
+
 function getEmployeesForMode(mode) {
   const savedEmployees = localStorage.getItem(getScopedStorageKeyForMode(employeeStorageKey, mode));
+  const recoveredEmployees = collectRecoveredEmployeeNamesForMode(mode);
 
   if (!savedEmployees) {
+    if (recoveredEmployees.length) {
+      safeSetStorageItem(
+        getScopedStorageKeyForMode(employeeStorageKey, mode),
+        JSON.stringify(recoveredEmployees),
+        "medewerkers"
+      );
+      return recoveredEmployees;
+    }
+
     return mode === "test" ? getTestSeedEmployeeNames() : [];
   }
 
@@ -656,17 +912,40 @@ function getEmployeesForMode(mode) {
     const parsedEmployees = JSON.parse(savedEmployees);
 
     if (!Array.isArray(parsedEmployees)) {
+      if (recoveredEmployees.length) {
+        safeSetStorageItem(
+          getScopedStorageKeyForMode(employeeStorageKey, mode),
+          JSON.stringify(recoveredEmployees),
+          "medewerkers"
+        );
+        return recoveredEmployees;
+      }
+
       return mode === "test" ? getTestSeedEmployeeNames() : [];
     }
 
-    const normalizedEmployees = [...new Set(
-      parsedEmployees
-        .filter((employee) => typeof employee === "string" && employee.trim() !== "")
-        .map((employee) => employee.trim())
-    )].sort((nameA, nameB) => nameA.localeCompare(nameB, "nl"));
+    const normalizedEmployees = sanitizeEmployeesForStorage(parsedEmployees);
+    const mergedEmployees = sanitizeEmployeesForStorage([...normalizedEmployees, ...recoveredEmployees]);
 
-    return normalizedEmployees.length ? normalizedEmployees : (mode === "test" ? getTestSeedEmployeeNames() : []);
+    if (JSON.stringify(mergedEmployees) !== JSON.stringify(normalizedEmployees)) {
+      safeSetStorageItem(
+        getScopedStorageKeyForMode(employeeStorageKey, mode),
+        JSON.stringify(mergedEmployees),
+        "medewerkers"
+      );
+    }
+
+    return mergedEmployees.length ? mergedEmployees : (mode === "test" ? getTestSeedEmployeeNames() : []);
   } catch {
+    if (recoveredEmployees.length) {
+      safeSetStorageItem(
+        getScopedStorageKeyForMode(employeeStorageKey, mode),
+        JSON.stringify(recoveredEmployees),
+        "medewerkers"
+      );
+      return recoveredEmployees;
+    }
+
     return mode === "test" ? getTestSeedEmployeeNames() : [];
   }
 }
@@ -954,7 +1233,6 @@ function applyAuthenticatedEmployeeContext(employeeName, role) {
   preferences.lastPortalEmployee = nextRole === "employee" ? employeeName : "";
   preferences.lastHoursEmployee = nextRole === "employee" ? employeeName : "";
   savePreferences();
-  reloadScopedData();
   if (nextRole === "employee") {
     syncScopedEmployeeSelectors(employeeName);
   }
@@ -1762,27 +2040,7 @@ function buildWorkLogQuickButtons(workLogId, field, currentValue = "", disabled 
 }
 
 function loadEmployees() {
-  const savedEmployees = localStorage.getItem(getScopedStorageKey(employeeStorageKey));
-
-  if (!savedEmployees) {
-    return [];
-  }
-
-  try {
-    const parsedEmployees = JSON.parse(savedEmployees);
-
-    if (!Array.isArray(parsedEmployees)) {
-      return [];
-    }
-
-    return [...new Set(
-      parsedEmployees
-        .filter((employee) => typeof employee === "string" && employee.trim() !== "")
-        .map((employee) => employee.trim())
-    )].sort((nameA, nameB) => nameA.localeCompare(nameB, "nl"));
-  } catch {
-    return [];
-  }
+  return getEmployeesForMode(currentDataMode);
 }
 
 function saveEmployees() {
@@ -1965,7 +2223,7 @@ function hasConfiguredMailSender() {
 }
 
 function loadEmployeeMeta() {
-  const savedMeta = localStorage.getItem(getScopedStorageKey(employeeMetaStorageKey));
+  const savedMeta = getRecoveredEmployeeDataForMode(employeeMetaStorageKey, "employeeMeta", currentDataMode, "medewerkerstatus");
   const defaults = Object.fromEntries(
     employees.map((employeeName) => [
       employeeName,
@@ -1981,7 +2239,7 @@ function loadEmployeeMeta() {
   }
 
   try {
-    const parsedMeta = JSON.parse(savedMeta);
+    const parsedMeta = savedMeta;
     const normalized = {};
 
     employees.forEach((employeeName) => {
@@ -2810,6 +3068,9 @@ function persistProtectedChange({
   if (scope === "roster") {
     markWeeksAsInReview(collectWeekValuesFromDetails(details));
   }
+  if (scope === "employee") {
+    saveEmployeeEmergencyBackup(reason);
+  }
   createBackupSnapshot(reason, details);
   recordAuditEvent(scope, action, message, details);
 }
@@ -2850,6 +3111,7 @@ function restoreBackupById(backupId) {
   saveEmployeeShiftPreferences();
   saveEmployeeBasePatterns();
   saveEmployeeCustomRosters();
+  saveEmployeeEmergencyBackup(`Noodbackup hersteld via herstelpunt: ${backup.reason}`);
   savePlanningSettings();
   syncEmployeeMeta();
   syncEmployeePermissions();
@@ -2923,7 +3185,7 @@ function getPermissionShiftDescriptors() {
 
 function loadEmployeePermissions() {
   const allShiftNames = getPermissionShiftDescriptors().map((shift) => shift.name);
-  const savedPermissions = localStorage.getItem(getScopedStorageKey(employeePermissionsStorageKey));
+  const savedPermissions = getRecoveredEmployeeDataForMode(employeePermissionsStorageKey, "employeePermissions", currentDataMode, "bevoegdheden");
   const defaultPermissions = {};
 
   employees.forEach((employee) => {
@@ -2935,7 +3197,7 @@ function loadEmployeePermissions() {
   }
 
   try {
-    const parsedPermissions = JSON.parse(savedPermissions);
+    const parsedPermissions = savedPermissions;
     const normalizedPermissions = {};
 
     employees.forEach((employee) => {
@@ -2965,7 +3227,7 @@ function isBakeryCoreShift(shift) {
 }
 
 function loadEmployeeStandardShifts() {
-  const savedStandardShifts = localStorage.getItem(getScopedStorageKey(employeeStandardShiftStorageKey));
+  const savedStandardShifts = getRecoveredEmployeeDataForMode(employeeStandardShiftStorageKey, "employeeStandardShifts", currentDataMode, "vaste diensten");
   const validShiftNames = new Set(getBakeryCoreShifts().map((shift) => shift.name));
   const defaults = Object.fromEntries(employees.map((employeeName) => [employeeName, ""]));
 
@@ -2974,7 +3236,7 @@ function loadEmployeeStandardShifts() {
   }
 
   try {
-    const parsedStandardShifts = JSON.parse(savedStandardShifts);
+    const parsedStandardShifts = savedStandardShifts;
     const normalized = {};
 
     employees.forEach((employeeName) => {
@@ -2994,7 +3256,7 @@ function saveEmployeeStandardShifts() {
 
 function loadEmployeeShiftPreferences() {
   const allShiftNames = getPermissionShiftDescriptors().map((shift) => shift.name);
-  const savedPreferences = localStorage.getItem(getScopedStorageKey(employeeShiftPreferenceStorageKey));
+  const savedPreferences = getRecoveredEmployeeDataForMode(employeeShiftPreferenceStorageKey, "employeeShiftPreferences", currentDataMode, "dienstvoorkeuren");
   const defaults = {};
 
   employees.forEach((employeeName) => {
@@ -3006,7 +3268,7 @@ function loadEmployeeShiftPreferences() {
   }
 
   try {
-    const parsedPreferences = JSON.parse(savedPreferences);
+    const parsedPreferences = savedPreferences;
     const normalizedPreferences = {};
 
     employees.forEach((employeeName) => {
@@ -3147,7 +3409,7 @@ function getDefaultEmployeeBasePatternId(employeeName) {
 }
 
 function loadEmployeeBasePatterns() {
-  const savedPatterns = localStorage.getItem(getScopedStorageKey(employeeBasePatternStorageKey));
+  const savedPatterns = getRecoveredEmployeeDataForMode(employeeBasePatternStorageKey, "employeeBasePatterns", currentDataMode, "basisroosters");
   const validPatternIds = new Set(getEmployeeBasePatternCatalog().map((pattern) => pattern.id));
   const defaults = Object.fromEntries(employees.map((employeeName) => [employeeName, getDefaultEmployeeBasePatternId(employeeName)]));
 
@@ -3156,7 +3418,7 @@ function loadEmployeeBasePatterns() {
   }
 
   try {
-    const parsedPatterns = JSON.parse(savedPatterns);
+    const parsedPatterns = savedPatterns;
     const normalized = {};
 
     employees.forEach((employeeName) => {
@@ -3175,7 +3437,7 @@ function saveEmployeeBasePatterns() {
 }
 
 function loadEmployeeCustomRosters() {
-  const savedRosters = localStorage.getItem(getScopedStorageKey(employeeCustomRosterStorageKey));
+  const savedRosters = getRecoveredEmployeeDataForMode(employeeCustomRosterStorageKey, "employeeCustomRosters", currentDataMode, "vaste roosterpatronen");
   const defaults = Object.fromEntries(employees.map((employeeName) => [employeeName, createDefaultEmployeeCustomRoster(employeeName)]));
 
   if (!savedRosters) {
@@ -3183,7 +3445,7 @@ function loadEmployeeCustomRosters() {
   }
 
   try {
-    const parsedRosters = JSON.parse(savedRosters);
+    const parsedRosters = savedRosters;
     const normalized = {};
 
     employees.forEach((employeeName) => {
@@ -20332,6 +20594,7 @@ Bewaarde historie:
   employeeBasePatterns[employeeName] = normalizedBasePatternId;
   employeeCustomRosters[employeeName] = normalizedCustomRoster;
 
+  saveEmployees();
   saveEmployeeMeta();
   saveEmployeePermissions();
   saveEmployeeStandardShifts();
@@ -21714,6 +21977,9 @@ applySavedPreferences();
 activeTab = getDefaultTabForCurrentRole();
 updateTabVisibility();
 render();
+if (employeeEmergencyRestoreApplied) {
+  showSuccess("Medewerkergegevens hersteld uit noodbackup");
+}
 void initializeClerkAuthentication();
 
 
