@@ -977,11 +977,21 @@ function resetAuthenticatedEmployeeContext() {
 
 function resolveClerkUserAccess(user) {
   const email = getClerkPrimaryEmail(user).trim().toLowerCase();
+  const emergencyDirectorEmail = "t_stroet@hotmail.com";
 
   console.info("[clerk-access] ingelogd e-mailadres:", email || "(leeg)");
 
   if (!email) {
     throw new Error("Er is geen e-mailadres gekoppeld aan deze login.");
+  }
+
+  if (email === emergencyDirectorEmail) {
+    console.info("[clerk-access] tijdelijke fallback directie toegang actief:", "ja");
+    return {
+      employeeName: findEmployeeByEmail(email) || "Directie",
+      role: "planner",
+      email
+    };
   }
 
   const employeeName = findEmployeeByEmail(email);
