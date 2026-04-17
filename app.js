@@ -704,25 +704,11 @@ function getClerkAuthErrorMessage(error, fallback = "Inloggen mislukt.") {
 
   if (typeof error === "string") {
     const normalized = error.trim();
-    if (
-      normalized.includes("niet bekend in de medewerkerslijst") ||
-      normalized.includes("niet actief") ||
-      normalized.includes("uitgeschakeld")
-    ) {
-      return "Neem contact op met de planner.";
-    }
     return normalized || fallback;
   }
 
   if (typeof error?.message === "string" && error.message.trim()) {
     const normalized = error.message.trim();
-    if (
-      normalized.includes("niet bekend in de medewerkerslijst") ||
-      normalized.includes("niet actief") ||
-      normalized.includes("uitgeschakeld")
-    ) {
-      return "Neem contact op met de planner.";
-    }
     return normalized || fallback;
   }
 
@@ -990,29 +976,43 @@ function resetAuthenticatedEmployeeContext() {
 }
 
 function resolveClerkUserAccess(user) {
-  const email = getClerkPrimaryEmail(user).toLowerCase();
+  const email = getClerkPrimaryEmail(user).trim().toLowerCase();
+
+  console.info("[clerk-access] ingelogd e-mailadres:", email || "(leeg)");
 
   if (!email) {
     throw new Error("Er is geen e-mailadres gekoppeld aan deze login.");
   }
 
   const employeeName = findEmployeeByEmail(email);
+  const matchedEmployeeEmail = employeeName ? getEmployeeEmail(employeeName).trim().toLowerCase() : "";
+
+  console.info("[clerk-access] gekoppelde medewerker:", employeeName || "(geen)");
+  console.info("[clerk-access] gevonden medewerker e-mailadres:", matchedEmployeeEmail || "(geen)");
 
   if (!employeeName) {
-    throw new Error("Dit e-mailadres is niet bekend in de medewerkerslijst. Toegang is geblokkeerd.");
+    throw new Error("Ingelogd e-mailadres komt niet overeen met medewerkerrecord.");
   }
 
-  if (normalizeEmployeeStatus(getEmployeeStatus(employeeName)) !== "active") {
+  const normalizedStatus = normalizeEmployeeStatus(getEmployeeStatus(employeeName));
+  const loginAllowed = isEmployeeLoginAllowed(employeeName);
+  const role = getEmployeeAppRole(employeeName);
+
+  console.info("[clerk-access] medewerker status:", normalizedStatus);
+  console.info("[clerk-access] login toegestaan:", loginAllowed ? "ja" : "nee");
+  console.info("[clerk-access] medewerker rol:", role);
+
+  if (normalizedStatus !== "active") {
     throw new Error("Deze medewerker is niet actief en kan niet inloggen.");
   }
 
-  if (!isEmployeeLoginAllowed(employeeName)) {
+  if (!loginAllowed) {
     throw new Error("Inloggen is voor deze medewerker uitgeschakeld.");
   }
 
   return {
     employeeName,
-    role: getEmployeeAppRole(employeeName),
+    role,
     email
   };
 }
