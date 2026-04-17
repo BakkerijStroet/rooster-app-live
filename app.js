@@ -181,6 +181,7 @@ const portalEmployeeSelect = document.getElementById("portalEmployee");
 const portalEmployeeBadge = document.getElementById("portalEmployeeBadge");
 
 const employeeEditorDrafts = {};
+let employeeAdminSelection = "";
 const portalEmployeeSearchInput = document.getElementById("portalEmployeeSearch");
 const myScheduleWeekInput = document.getElementById("myScheduleWeek");
 const mySchedulePreviousWeekButton = document.getElementById("mySchedulePreviousWeekButton");
@@ -985,20 +986,20 @@ function resolveClerkUserAccess(user) {
     throw new Error("Er is geen e-mailadres gekoppeld aan deze login.");
   }
 
-  if (email === emergencyDirectorEmail) {
-    console.info("[clerk-access] tijdelijke fallback directie toegang actief:", "ja");
-    return {
-      employeeName: findEmployeeByEmail(email) || "Directie",
-      role: "planner",
-      email
-    };
-  }
-
   const employeeName = findEmployeeByEmail(email);
   const matchedEmployeeEmail = employeeName ? getEmployeeEmail(employeeName).trim().toLowerCase() : "";
 
   console.info("[clerk-access] gekoppelde medewerker:", employeeName || "(geen)");
   console.info("[clerk-access] gevonden medewerker e-mailadres:", matchedEmployeeEmail || "(geen)");
+
+  if (!employeeName && email === emergencyDirectorEmail) {
+    console.info("[clerk-access] tijdelijke fallback directie toegang actief:", "ja");
+    return {
+      employeeName: "Directie",
+      role: "planner",
+      email
+    };
+  }
 
   if (!employeeName) {
     throw new Error("Ingelogd e-mailadres komt niet overeen met medewerkerrecord.");
@@ -2131,11 +2132,14 @@ function getPlannerSummaryEmailRecipients() {
 
 function getSelectedEmployeeAdminName() {
   if (!employees.length) {
+    employeeAdminSelection = "";
     return "";
   }
 
-  const selectedName = removeEmployeeSelect?.value || "";
-  return employees.includes(selectedName) ? selectedName : employees[0];
+  const selectedName = employeeAdminSelection || removeEmployeeSelect?.value || "";
+  const resolvedName = employees.includes(selectedName) ? selectedName : employees[0];
+  employeeAdminSelection = resolvedName;
+  return resolvedName;
 }
 
 function selectEmployeeForAdmin(employeeName) {
@@ -2147,6 +2151,7 @@ function selectEmployeeForAdmin(employeeName) {
     return;
   }
 
+  employeeAdminSelection = employeeName;
   removeEmployeeSelect.value = employeeName;
   renderEmployeeList();
   renderEmployeeEditorDetails();
@@ -13881,7 +13886,7 @@ function toggleFavoriteEmployee(employeeName) {
 
 function renderEmployeeSelectors() {
   const selectedName = nameSelect.value;
-  const selectedRemoveName = removeEmployeeSelect.value;
+  const selectedRemoveName = employeeAdminSelection || removeEmployeeSelect.value;
   const selectedTimeOffEmployees = getAllTimeOffEmployeeSelects().map((select) => select.value);
   const selectedSwapEmployee = swapEmployeeSelect.value;
   const selectedSwapTargetEmployee = swapTargetEmployeeSelect.value;
@@ -13932,7 +13937,9 @@ function renderEmployeeSelectors() {
   currentEmployeeSelect.innerHTML = `<option value="">Kies medewerker</option>${activeOptions}`;
 
   nameSelect.value = suitableEmployees.includes(selectedName) ? selectedName : "";
-  removeEmployeeSelect.value = employees.includes(selectedRemoveName) ? selectedRemoveName : "";
+  const resolvedAdminSelection = employees.includes(selectedRemoveName) ? selectedRemoveName : (employees[0] || "");
+  removeEmployeeSelect.value = resolvedAdminSelection;
+  employeeAdminSelection = resolvedAdminSelection;
   getAllTimeOffEmployeeSelects().forEach((select, index) => {
     const selectedValue = selectedTimeOffEmployees[index] || "";
     select.value = getActiveEmployees().includes(selectedValue) ? selectedValue : "";
@@ -20203,6 +20210,7 @@ removeEmployeeSelect?.addEventListener("change", () => {
     return;
   }
 
+  employeeAdminSelection = removeEmployeeSelect.value || employees[0] || "";
   renderEmployeeList();
   renderEmployeeStatusControls();
   renderEmployeePermissions();
@@ -20349,6 +20357,7 @@ Bewaarde historie:
   renderEmployeeSelectors();
   renderDayPlanner();
   render();
+  selectEmployeeForAdmin(employeeName);
   if (showSuccessMessage) {
     showSuccess("Medewerker opgeslagen");
   }
