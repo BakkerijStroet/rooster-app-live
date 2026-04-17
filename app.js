@@ -855,6 +855,16 @@ async function loadClerkConstructor() {
   return clerkModule?.Clerk || clerkModule?.default?.Clerk || clerkModule?.default || null;
 }
 
+function getDefaultTabForRole(role) {
+  const normalizedRole = typeof role === "string" ? role.trim().toLowerCase() : "";
+
+  if (normalizedRole === "directie" || normalizedRole === "planner") {
+    return "week-current";
+  }
+
+  return "week-current";
+}
+
 function clearLegacyAuthenticatedUiState() {
   activeRole = "employee";
   currentDataMode = "live";
@@ -6386,7 +6396,7 @@ function getSafeTabForCurrentRole(tabName) {
 }
 
 function getDefaultTabForCurrentRole() {
-  return "week-current";
+  return getDefaultTabForRole(activeRole);
 }
 
 function handleBlockedTabAccess(tabName) {
