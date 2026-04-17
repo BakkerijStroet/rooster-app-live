@@ -114,6 +114,8 @@ const employeeStandardShiftList = document.getElementById("employeeStandardShift
 const employeePermissionsList = document.getElementById("employeePermissionsList");
 const employeeContractPanel = document.getElementById("employeeContractPanel");
 const planningAuthorizationHint = document.getElementById("planningAuthorizationHint");
+const newEmployeeEmailInput = document.getElementById("newEmployeeEmail");
+const newEmployeeRoleSelect = document.getElementById("newEmployeeRole");
 const freeDayEmployeeSelect = document.getElementById("freeDayEmployee");
 const freeDayDateInput = document.getElementById("freeDayDate");
 const freeDayReasonInput = document.getElementById("freeDayReason");
@@ -694,17 +696,33 @@ function getEmployeeMetaForMode(mode, modeEmployees = getEmployeesForMode(mode))
   }
 }
 
-function getClerkAuthErrorMessage(error, fallback = "Inloggen via Clerk is niet gelukt.") {
+function getClerkAuthErrorMessage(error, fallback = "Inloggen mislukt.") {
   if (!error) {
     return fallback;
   }
 
   if (typeof error === "string") {
-    return error;
+    const normalized = error.trim();
+    if (
+      normalized.includes("niet bekend in de medewerkerslijst") ||
+      normalized.includes("niet actief") ||
+      normalized.includes("uitgeschakeld")
+    ) {
+      return "Neem contact op met de planner.";
+    }
+    return normalized || fallback;
   }
 
   if (typeof error?.message === "string" && error.message.trim()) {
-    return error.message.trim();
+    const normalized = error.message.trim();
+    if (
+      normalized.includes("niet bekend in de medewerkerslijst") ||
+      normalized.includes("niet actief") ||
+      normalized.includes("uitgeschakeld")
+    ) {
+      return "Neem contact op met de planner.";
+    }
+    return normalized || fallback;
   }
 
   return fallback;
@@ -4754,7 +4772,7 @@ function showToast(text, options = {}) {
 }
 
 function showSavedMessage() {
-  showSuccessNotice("Opgeslagen.");
+  showSuccessNotice("Opgeslagen");
 }
 
 function showDeletedMessage(text = "Verwijderd.") {
@@ -15654,26 +15672,9 @@ function applyRoleUI() {
     mailTestModeBadge.setAttribute("aria-hidden", "true");
   }
 
-  if (environmentDebugBanner) {
-    const showEnvironmentDebugBanner = window.location.protocol === "file:";
-    environmentDebugBanner.classList.toggle("hidden", !showEnvironmentDebugBanner);
-    environmentDebugBanner.hidden = !showEnvironmentDebugBanner;
-    environmentDebugBanner.setAttribute("aria-hidden", showEnvironmentDebugBanner ? "false" : "true");
-  }
-
   if (dashboardTestMailButton) {
     dashboardTestMailButton.classList.toggle("hidden", !isPlannerRole());
     dashboardTestMailButton.hidden = !isPlannerRole();
-  }
-
-  if (debugSuccessToastButton) {
-    debugSuccessToastButton.classList.toggle("hidden", !isPlannerRole());
-    debugSuccessToastButton.hidden = !isPlannerRole();
-  }
-
-  if (debugErrorToastButton) {
-    debugErrorToastButton.classList.toggle("hidden", !isPlannerRole());
-    debugErrorToastButton.hidden = !isPlannerRole();
   }
 
   if (!isPlannerRole()) {
@@ -19111,9 +19112,21 @@ addEmployeeButton.addEventListener("click", () => {
   }
 
   const employeeName = newEmployeeNameInput.value.trim();
+  const employeeEmail = normalizeEmployeeEmail(newEmployeeEmailInput?.value);
+  const employeeRole = normalizeEmployeeAppRole(newEmployeeRoleSelect?.value);
 
   if (!employeeName) {
     showMessage("Vul eerst een naam van een medewerker in.", "error");
+    return;
+  }
+
+  if (!employeeEmail) {
+    showMessage("Vul een e-mailadres in.", "error");
+    return;
+  }
+
+  if (!isValidEmployeeEmail(employeeEmail)) {
+    showMessage("Vul een geldig e-mailadres in, bijvoorbeeld naam@domein.nl.", "error");
     return;
   }
 
@@ -19122,12 +19135,20 @@ addEmployeeButton.addEventListener("click", () => {
     return;
   }
 
+  const duplicateEmployeeName = findEmployeeByEmail(employeeEmail);
+  if (duplicateEmployeeName) {
+    showMessage(`Dit e-mailadres is al gekoppeld aan ${duplicateEmployeeName}.`, "error");
+    return;
+  }
+
   employees.push(employeeName);
   employees.sort((nameA, nameB) => nameA.localeCompare(nameB, "nl"));
   employeeMeta[employeeName] = {
     ...getEmployeeStatusMetaDefaults(),
     status: "active",
-    role: getDefaultEmployeeAppRole(employeeName),
+    role: employeeRole,
+    email: employeeEmail,
+    loginAllowed: true,
     updatedAt: getNowIsoString(),
     updatedByRole: isPlannerRole() ? "planner" : "employee",
     updatedByName: isPlannerRole() ? "Planner / Directie" : (getRoleScopedEmployeeName() || "Medewerker")
@@ -19145,7 +19166,10 @@ addEmployeeButton.addEventListener("click", () => {
     message: `Medewerker ${employeeName} toegevoegd.`,
     details: {
       employeeName,
-      employeeStatus: "active"
+      employeeEmail,
+      employeeRole,
+      employeeStatus: "active",
+      loginAllowed: true
     }
   });
   if (removeEmployeeSelect) {
@@ -19156,6 +19180,12 @@ addEmployeeButton.addEventListener("click", () => {
   preferences.lastEmployee = employeeName;
   savePreferences();
   newEmployeeNameInput.value = "";
+  if (newEmployeeEmailInput) {
+    newEmployeeEmailInput.value = "";
+  }
+  if (newEmployeeRoleSelect) {
+    newEmployeeRoleSelect.value = "employee";
+  }
   showSavedMessage();
 });
 
@@ -20495,12 +20525,6 @@ async function handleTestMailSend() {
 
 testMailButton?.addEventListener("click", handleTestMailSend);
 dashboardTestMailButton?.addEventListener("click", handleTestMailSend);
-debugSuccessToastButton?.addEventListener("click", () => {
-  showSuccess("Test succesmelding");
-});
-debugErrorToastButton?.addEventListener("click", () => {
-  showError("Test foutmelding");
-});
 
 if (testMailButton) {
   testMailButton.dataset.mailHandlerBound = "true";
