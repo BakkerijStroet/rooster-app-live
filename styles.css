@@ -261,6 +261,9 @@ h3 {
   border-radius: 20px;
   background: linear-gradient(180deg, rgba(255, 253, 250, 0.98) 0%, rgba(245, 240, 234, 0.96) 100%);
   box-shadow: var(--shadow-soft);
+  position: relative;
+  z-index: 30;
+  pointer-events: auto;
 }
 
 .session-bar {
@@ -1447,6 +1450,11 @@ body[data-role="employee"] [data-panel="requests"] #requestsOpenCards {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  position: relative;
+  z-index: 31;
+  pointer-events: auto;
+  cursor: pointer;
+  user-select: none;
 }
 
 .nav-tab::before {
@@ -1479,6 +1487,9 @@ body[data-role="employee"] [data-panel="requests"] #requestsOpenCards {
 
 .mobile-bottom-nav {
   display: none;
+  position: relative;
+  z-index: 30;
+  pointer-events: auto;
 }
 
 .hidden-by-role {
@@ -6726,6 +6737,11 @@ button,
     font-size: 13px;
     border: 1px solid rgba(138, 85, 54, 0.12);
     box-shadow: none;
+    position: relative;
+    z-index: 31;
+    pointer-events: auto;
+    cursor: pointer;
+    user-select: none;
   }
 
   .mobile-nav-button.active {

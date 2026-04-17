@@ -17,6 +17,8 @@ const testModeBadge = document.getElementById("testModeBadge");
 const switchUserButton = document.getElementById("switchUserButton");
 const resetTestDataButton = document.getElementById("resetTestDataButton");
 const loginOverlay = document.getElementById("loginOverlay");
+const appNav = document.querySelector(".app-nav");
+const mobileBottomNav = document.querySelector(".mobile-bottom-nav");
 const loginOverlayTitle = document.getElementById("loginOverlayTitle");
 const loginOverlayNote = document.getElementById("loginOverlayNote");
 const clerkAuthStatus = document.getElementById("clerkAuthStatus");
@@ -307,9 +309,39 @@ const employeeMeta = loadEmployeeMeta();
 const mailSettings = loadMailSettings();
 const auditLog = loadAuditLog();
 const backupHistory = loadBackupHistory();
+const TABS = Object.freeze({
+  DASHBOARD: "dashboard",
+  WEEK_CURRENT: "week-current",
+  WEEK_NEXT: "week-next",
+  SCHEDULE_PLANNING: "schedule-planning",
+  MY_SCHEDULE: "my-schedule",
+  MY_HOURS: "my-hours",
+  HOURS_APPROVAL: "hours-approval",
+  REQUESTS: "requests",
+  EMPLOYEES: "employees",
+  SERVICES: "services",
+  PLANNING: "planning",
+  BACKUP: "backup"
+});
+const TAB_VALUES = new Set(Object.values(TABS));
+const TAB_ALIASES = Object.freeze({
+  rooster: TABS.WEEK_CURRENT,
+  roster: TABS.WEEK_CURRENT,
+  "rooster-deze-week": TABS.WEEK_CURRENT,
+  "rooster deze week": TABS.WEEK_CURRENT,
+  weekoverview: TABS.WEEK_CURRENT,
+  "week-overview": TABS.WEEK_CURRENT,
+  weekcurrent: TABS.WEEK_CURRENT,
+  weeknext: TABS.WEEK_NEXT,
+  roosterinplannen: TABS.SCHEDULE_PLANNING,
+  "schedule-planning": TABS.SCHEDULE_PLANNING,
+  myschedule: TABS.MY_SCHEDULE,
+  myhours: TABS.MY_HOURS,
+  hoursapproval: TABS.HOURS_APPROVAL
+});
 let editIndex = null;
 let editingShiftId = null;
-let activeTab = "week-current";
+let activeTab = TABS.WEEK_CURRENT;
 let hasInitializedDefaultTab = false;
 let activeEmployeeWeekView = "today";
 let activeRole = preferences.lastRole === "employee" ? "employee" : "planner";
@@ -356,7 +388,7 @@ const mobileMediaQuery = window.matchMedia("(max-width: 640px)");
 let messageTimeoutId = null;
 let activeMessageState = null;
 let queuedMessageStates = [];
-const employeeAllowedTabs = ["week-current", "my-schedule", "my-hours", "requests"];
+const employeeAllowedTabs = [TABS.WEEK_CURRENT, TABS.MY_SCHEDULE, TABS.MY_HOURS, TABS.REQUESTS];
 let planningDataRevision = 0;
 let requestDataRevision = 0;
 let previewDataRevision = 0;
@@ -1276,20 +1308,24 @@ async function ensureClerkUiBundleLoaded(publishableKey) {
   }
 }
 
-function getDefaultTabForRole(role) {
+function normalizeAppRole(role) {
   const normalizedRole = typeof role === "string" ? role.trim().toLowerCase() : "";
+  return normalizedRole === "directie" || normalizedRole === "planner" ? "planner" : "employee";
+}
 
-  if (normalizedRole === "directie" || normalizedRole === "planner") {
-    return "week-current";
+function getDefaultTabForRole(role) {
+  const normalizedRole = normalizeAppRole(role);
+
+  if (normalizedRole === "planner") {
+    return TABS.WEEK_CURRENT;
   }
 
-  return "week-current";
+  return TABS.WEEK_CURRENT;
 }
 
 function clearLegacyAuthenticatedUiState() {
   activeRole = "employee";
   currentDataMode = "live";
-  activeTab = getDefaultTabForRole("employee");
   activeEmployeeWeekView = "today";
 
   if (roleSelect) roleSelect.value = "employee";
@@ -1303,7 +1339,7 @@ function clearLegacyAuthenticatedUiState() {
 }
 
 function applyAuthenticatedEmployeeContext(employeeName, role) {
-  const nextRole = role === "planner" ? "planner" : "employee";
+  const nextRole = normalizeAppRole(role);
 
   activeRole = nextRole;
   clerkAuthState.employeeName = employeeName;
@@ -1465,7 +1501,7 @@ function unmountClerkSignInIfNeeded() {
 
 async function syncClerkAuthenticatedUser(user) {
   const { employeeName, role, email } = resolveClerkUserAccess(user);
-  const nextRole = role === "planner" ? "planner" : "employee";
+  const nextRole = normalizeAppRole(role);
   const sameAuthenticatedContext = Boolean(
     preferences.hasUserSession &&
     clerkAuthState.employeeName === employeeName &&
@@ -6416,7 +6452,7 @@ function maybeShowOpenRequestReminder() {
   }
 
   if (isPlannerRole()) {
-    if (activeTab !== "week-current") {
+    if (activeTab !== TABS.WEEK_CURRENT) {
       return;
     }
 
@@ -6526,7 +6562,7 @@ function maybeShowOpenRequestReminder() {
     return;
   }
 
-  if (activeTab !== "my-hours" && activeTab !== "week-current") {
+  if (activeTab !== TABS.MY_HOURS && activeTab !== TABS.WEEK_CURRENT) {
     return;
   }
 
@@ -6593,7 +6629,7 @@ function getCurrentEmployeeName() {
 }
 
 function isPlannerRole() {
-  return activeRole === "planner";
+  return normalizeAppRole(activeRole) === "planner";
 }
 
 function getEmployeeIdentity() {
@@ -6987,13 +7023,11 @@ function getDefaultTabForCurrentRole() {
 
 function initializeDefaultTabIfNeeded(force = false) {
   if (force || !hasInitializedDefaultTab) {
-    activeTab = getDefaultTabForCurrentRole();
     hasInitializedDefaultTab = true;
-    return;
-  }
 
-  if (!isTabAllowedForCurrentRole(activeTab)) {
-    activeTab = getDefaultTabForCurrentRole();
+    if (!activeTab) {
+      activeTab = TABS.WEEK_CURRENT;
+    }
   }
 }
 
@@ -7007,7 +7041,6 @@ function handleBlockedTabAccess(tabName) {
   }
 
   showMessage("Deze beheerpagina is alleen beschikbaar voor planner of directie.", "error");
-  activeTab = getDefaultTabForCurrentRole();
   return true;
 }
 
@@ -10706,7 +10739,7 @@ function renderPlannerContractOverview(selectedWeek, visibleEntries) {
     return;
   }
 
-  if (!isPlannerRole() || !(activeTab === "week-current" || activeTab === "week-next")) {
+  if (!isPlannerRole() || !(activeTab === TABS.WEEK_CURRENT || activeTab === TABS.WEEK_NEXT)) {
     plannerContractOverview.className = "planner-contract-overview hidden";
     plannerContractOverview.innerHTML = "";
     return;
@@ -10859,7 +10892,7 @@ function renderDeviationWhyOverview(selectedWeek, visibleEntries) {
     return;
   }
 
-  if (!isPlannerRole() || !(activeTab === "week-current" || activeTab === "week-next")) {
+  if (!isPlannerRole() || !(activeTab === TABS.WEEK_CURRENT || activeTab === TABS.WEEK_NEXT)) {
     deviationWhyOverview.className = "deviation-why-overview hidden";
     deviationWhyOverview.innerHTML = "";
     return;
@@ -10948,7 +10981,7 @@ function renderPlannerControlPanel(selectedWeek, visibleEntries) {
     return;
   }
 
-  if (!isPlannerRole() || !(activeTab === "week-current" || activeTab === "week-next")) {
+  if (!isPlannerRole() || !(activeTab === TABS.WEEK_CURRENT || activeTab === TABS.WEEK_NEXT)) {
     plannerControlPanel.className = "planner-control-panel hidden";
     plannerControlPanel.innerHTML = "";
     return;
@@ -11185,7 +11218,6 @@ function getSchedulePlanningWeekData(weekValue, sourceEntries = entries) {
 }
 
 function openSpecificWeekInRoster(weekValue) {
-  activeTab = "week-current";
   weekFilterInput.value = weekValue;
   weekInput.value = weekValue;
   hoursWeekInput.value = weekValue;
@@ -11391,7 +11423,7 @@ function renderWeekReviewStatus(selectedWeek) {
     return;
   }
 
-  if (!isPlannerRole() || !(activeTab === "week-current" || activeTab === "week-next")) {
+  if (!isPlannerRole() || !(activeTab === TABS.WEEK_CURRENT || activeTab === TABS.WEEK_NEXT)) {
     weekReviewStatusPanel.className = "week-review-status hidden";
     weekReviewStatusPanel.innerHTML = "";
     return;
@@ -13691,15 +13723,15 @@ function clearPlannerWeekInsights() {
 }
 
 function isFocusModeActive() {
-  return Boolean(preferences.plannerFocusMode) && isPlannerRole() && (activeTab === "week-current" || activeTab === "week-next");
+  return Boolean(preferences.plannerFocusMode) && isPlannerRole() && (activeTab === TABS.WEEK_CURRENT || activeTab === TABS.WEEK_NEXT);
 }
 
 function isControlModeActive() {
-  return Boolean(preferences.plannerControlMode) && isPlannerRole() && (activeTab === "week-current" || activeTab === "week-next");
+  return Boolean(preferences.plannerControlMode) && isPlannerRole() && (activeTab === TABS.WEEK_CURRENT || activeTab === TABS.WEEK_NEXT);
 }
 
 function isDeviationOnlyModeActive() {
-  return Boolean(preferences.plannerDeviationOnly) && isPlannerRole() && (activeTab === "week-current" || activeTab === "week-next");
+  return Boolean(preferences.plannerDeviationOnly) && isPlannerRole() && (activeTab === TABS.WEEK_CURRENT || activeTab === TABS.WEEK_NEXT);
 }
 
 function updateFocusModeUI() {
@@ -13713,26 +13745,26 @@ function updateFocusModeUI() {
   appShell?.classList.toggle("focus-week-mode", isActive);
 
   if (focusModeButton) {
-    focusModeButton.classList.toggle("hidden", !isPlannerRole() || !(activeTab === "week-current" || activeTab === "week-next"));
+    focusModeButton.classList.toggle("hidden", !isPlannerRole() || !(activeTab === TABS.WEEK_CURRENT || activeTab === TABS.WEEK_NEXT));
     focusModeButton.classList.toggle("active", isActive);
     focusModeButton.textContent = isActive ? "Focusmodus uit" : "Focusmodus aan";
   }
 
   if (controlModeButton) {
-    controlModeButton.classList.toggle("hidden", !isPlannerRole() || !(activeTab === "week-current" || activeTab === "week-next"));
+    controlModeButton.classList.toggle("hidden", !isPlannerRole() || !(activeTab === TABS.WEEK_CURRENT || activeTab === TABS.WEEK_NEXT));
     controlModeButton.classList.toggle("active", isControlActive);
     controlModeButton.textContent = isControlActive ? "Controlemodus uit" : "Controlemodus aan";
   }
 
   if (deviationOnlyButton) {
-    deviationOnlyButton.classList.toggle("hidden", !isPlannerRole() || !(activeTab === "week-current" || activeTab === "week-next"));
+    deviationOnlyButton.classList.toggle("hidden", !isPlannerRole() || !(activeTab === TABS.WEEK_CURRENT || activeTab === TABS.WEEK_NEXT));
     deviationOnlyButton.classList.toggle("active", isDeviationOnlyActive);
     deviationOnlyButton.textContent = isDeviationOnlyActive ? "Alles tonen" : "Alleen afwijkingen tonen";
   }
 }
 
 function isWeekTabName(tabName) {
-  return tabName === "week-current" || tabName === "week-next";
+  return tabName === TABS.WEEK_CURRENT || tabName === TABS.WEEK_NEXT;
 }
 
 function scrollToPlannerEmployee(employeeName) {
@@ -13779,10 +13811,15 @@ function scrollToPlannerShift(day, shiftId) {
 }
 
 function getNormalizedTabName(tabName) {
-  const nextTabName = String(tabName || "").trim();
+  const rawTabName = String(tabName || "").trim();
+  const nextTabName = TAB_ALIASES[rawTabName.toLowerCase()] || rawTabName;
 
   if (!nextTabName) {
-    return getDefaultTabForCurrentRole();
+    return activeTab || getDefaultTabForCurrentRole();
+  }
+
+  if (TAB_VALUES.has(nextTabName)) {
+    return nextTabName;
   }
 
   const hasMatchingButton = navTabs.some((button) => button.dataset.tab === nextTabName) ||
@@ -13793,11 +13830,26 @@ function getNormalizedTabName(tabName) {
     (isWeekTabName(nextTabName) && (panel.hasAttribute("data-week-panel") || panel.dataset.panel === "week-summary"))
   );
 
-  return hasMatchingButton || hasMatchingPanel ? nextTabName : getDefaultTabForCurrentRole();
+  return hasMatchingButton || hasMatchingPanel ? nextTabName : (activeTab || getDefaultTabForCurrentRole());
+}
+
+function applyActiveTabState(tabName, options = {}) {
+  const normalizedTabName = getNormalizedTabName(tabName);
+
+  if (!normalizedTabName) {
+    return activeTab;
+  }
+
+  activeTab = normalizedTabName;
+
+  if (options.markInitialized) {
+    hasInitializedDefaultTab = true;
+  }
+
+  return activeTab;
 }
 
 function updateTabVisibility() {
-  activeTab = getSafeTabForCurrentRole(getNormalizedTabName(activeTab));
   const isWeekTab = isWeekTabName(activeTab);
 
   navTabs.forEach((button) => {
@@ -13812,7 +13864,7 @@ function updateTabVisibility() {
     const isAllowed = isTabAllowedForCurrentRole(button.dataset.goTab);
     button.hidden = !isAllowed;
     button.setAttribute("aria-hidden", isAllowed ? "false" : "true");
-    const isRosterButton = button.dataset.goTab === "week-current";
+    const isRosterButton = button.dataset.goTab === TABS.WEEK_CURRENT;
     const isRosterTab = isWeekTab;
     button.classList.toggle("active", isRosterButton ? isRosterTab : button.dataset.goTab === activeTab);
   });
@@ -13832,6 +13884,13 @@ function updateTabVisibility() {
     panel.style.display = isVisible ? "" : "none";
     panel.setAttribute("aria-hidden", isVisible ? "false" : "true");
   });
+
+  console.info(
+    "[tabs] zichtbare panelen:",
+    appPanels
+      .filter((panel) => !panel.hidden)
+      .map((panel) => `${panel.dataset.panel || "(geen)"}${panel.dataset.slot ? `:${panel.dataset.slot}` : ""}`)
+  );
 
   updateFocusModeUI();
 }
@@ -13896,49 +13955,24 @@ function resetTabScrollPosition() {
 }
 
 function setActiveTab(tabName, options = {}) {
-  const normalizedTabName = getNormalizedTabName(tabName);
+  const rawRequestedTabName = String(tabName || "").trim();
+  console.info("[tabs] aangeklikte tab:", rawRequestedTabName || "(leeg)");
 
-  if (needsLoginSelection()) {
-    openLoginOverlay();
+  if (!rawRequestedTabName) {
     return;
   }
 
-  if (
-    activeTab === "employees" &&
-    normalizedTabName !== "employees" &&
-    !options.skipEmployeeUnsavedCheck
-  ) {
-    const employeeName = getSelectedEmployeeAdminName();
-    const navigationChoice = confirmEmployeeEditorNavigation(employeeName);
+  const requestedTabName = getNormalizedTabName(rawRequestedTabName);
+  console.info("[tabs] genormaliseerde tab:", requestedTabName);
 
-    if (navigationChoice === "cancel") {
-      updateTabVisibility();
-      return;
-    }
-  }
-
-  if (handleBlockedTabAccess(normalizedTabName)) {
-    updateTabVisibility();
-    resetTabScrollPosition();
-    render();
-    return;
-  }
-
-  if (activeTab === normalizedTabName && !options.force) {
-    updateTabVisibility();
-    resetTabScrollPosition();
-    render();
-    return;
-  }
-
-  activeTab = normalizedTabName;
-  hasInitializedDefaultTab = true;
+  applyActiveTabState(requestedTabName, { markInitialized: true });
+  console.info("[tabs] activeTab gezet naar:", activeTab);
   updateTabVisibility();
   resetTabScrollPosition();
 
   const currentWeek = getCurrentWeekValue();
 
-  if (normalizedTabName === "week-current") {
+  if (requestedTabName === TABS.WEEK_CURRENT) {
     weekFilterInput.value = currentWeek;
     weekInput.value = currentWeek;
     hoursWeekInput.value = currentWeek;
@@ -13947,14 +13981,14 @@ function setActiveTab(tabName, options = {}) {
     }
   }
 
-  if (normalizedTabName === "week-next") {
+  if (requestedTabName === TABS.WEEK_NEXT) {
     const nextWeek = getNextWeekValue(currentWeek);
     weekFilterInput.value = nextWeek;
     weekInput.value = nextWeek;
     hoursWeekInput.value = nextWeek;
   }
 
-  if (normalizedTabName === "my-hours" && !isPlannerRole() && !options.preserveMyHoursSection) {
+  if (requestedTabName === TABS.MY_HOURS && !isPlannerRole() && !options.preserveMyHoursSection) {
     activeMyHoursSection = "fill";
     activeMyHoursEntryMode = "planned";
     if (hoursDateInput) {
@@ -13966,7 +14000,7 @@ function setActiveTab(tabName, options = {}) {
     }
   }
 
-  if (normalizedTabName === "requests") {
+  if (requestedTabName === TABS.REQUESTS) {
     activeRequestType = "vrije-dag";
     activeRequestComposer = "free";
   }
@@ -16095,7 +16129,7 @@ function renderDashboard() {
     return;
   }
 
-  const shouldShowDashboard = isPlannerRole() && activeTab === "dashboard";
+  const shouldShowDashboard = isPlannerRole() && activeTab === TABS.DASHBOARD;
   plannerDashboard.classList.toggle("hidden", !shouldShowDashboard);
 
   if (!shouldShowDashboard) {
@@ -16259,8 +16293,8 @@ function applyRoleUI() {
   if (roleIndicator) {
     roleIndicator.hidden = !isPlannerRole();
   }
-  plannerDashboard.classList.toggle("hidden", !isPlannerRole() || activeTab !== "dashboard");
-  plannerDashboard.hidden = !isPlannerRole() || activeTab !== "dashboard";
+  plannerDashboard.classList.toggle("hidden", !isPlannerRole() || activeTab !== TABS.DASHBOARD);
+  plannerDashboard.hidden = !isPlannerRole() || activeTab !== TABS.DASHBOARD;
   plannerOnlyTabs.forEach((button) => {
     button.classList.toggle("hidden-by-role", !isPlannerRole());
     button.hidden = !isPlannerRole();
@@ -17196,7 +17230,7 @@ function openHoursForDate(targetDate) {
   }
   savePreferences();
   syncScopedEmployeeSelectors(scopedEmployeeName);
-  setActiveTab("my-hours", { preserveMyHoursSection: true });
+  setActiveTab(TABS.MY_HOURS, { preserveMyHoursSection: true });
   renderMyHours();
   renderMySchedule();
   renderSchedule();
@@ -17975,13 +18009,13 @@ function renderHoursApproval() {
 }
 
 function renderActiveTabContent() {
-  if (activeTab === "dashboard") {
+  if (activeTab === TABS.DASHBOARD) {
     renderHomeSummary();
     renderHomeWeekOverview();
     return;
   }
 
-  if (activeTab === "requests") {
+  if (activeTab === TABS.REQUESTS) {
     renderRequestsOpenSummary();
     renderSwapEntryOptions();
     renderTimeOffRequests();
@@ -17989,7 +18023,7 @@ function renderActiveTabContent() {
     return;
   }
 
-  if (activeTab === "employees") {
+  if (activeTab === TABS.EMPLOYEES) {
     renderEmployeeList();
     renderEmployeeStatusControls();
     renderEmployeePermissions();
@@ -17998,45 +18032,45 @@ function renderActiveTabContent() {
     return;
   }
 
-  if (activeTab === "services") {
+  if (activeTab === TABS.SERVICES) {
     renderShiftSelectors();
     renderShiftList();
     renderShiftPreferenceEditor();
     return;
   }
 
-  if (activeTab === "planning") {
+  if (activeTab === TABS.PLANNING) {
     renderPlanningSettings();
     return;
   }
 
-  if (activeTab === "schedule-planning") {
+  if (activeTab === TABS.SCHEDULE_PLANNING) {
     renderSchedulePlanningOverview();
     return;
   }
 
-  if (activeTab === "backup") {
+  if (activeTab === TABS.BACKUP) {
     renderBackupRestore();
     renderMailSettings();
     return;
   }
 
-  if (activeTab === "my-schedule") {
+  if (activeTab === TABS.MY_SCHEDULE) {
     renderMySchedule();
     return;
   }
 
-  if (activeTab === "my-hours") {
+  if (activeTab === TABS.MY_HOURS) {
     renderMyHours();
     return;
   }
 
-  if (activeTab === "hours-approval") {
+  if (activeTab === TABS.HOURS_APPROVAL) {
     renderHoursApproval();
     return;
   }
 
-  if (activeTab === "week-current" || activeTab === "week-next") {
+  if (activeTab === TABS.WEEK_CURRENT || activeTab === TABS.WEEK_NEXT) {
     renderEmployeeFilterOptions();
     updateWeekViewTitle();
     renderSchedule();
@@ -18092,7 +18126,7 @@ function renderEmployeePersistenceDebug() {
   }
 
   refreshEmployeePersistenceDebugState();
-  debugElement.textContent = `Medewerkers: ${employeePersistenceState.loadedCount} · bron: ${employeePersistenceState.source} · backup gebruikt: ${employeePersistenceState.backupUsed ? "ja" : "nee"} · Twan record: ${employeePersistenceState.twanFound ? "gevonden" : "niet gevonden"}`;
+  debugElement.textContent = `activeTab: ${activeTab} · Medewerkers: ${employeePersistenceState.loadedCount} · bron: ${employeePersistenceState.source} · backup gebruikt: ${employeePersistenceState.backupUsed ? "ja" : "nee"} · Twan record: ${employeePersistenceState.twanFound ? "gevonden" : "niet gevonden"}`;
   debugElement.hidden = false;
 }
 
@@ -22162,6 +22196,18 @@ navTabs.forEach((button) => {
   });
 });
 
+appNav?.addEventListener("click", (event) => {
+  const button = event.target.closest(".nav-tab");
+
+  if (!button || button.hidden) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+  setActiveTab(button.dataset.tab, { force: true });
+});
+
 quickLinks.forEach((button) => {
   button.addEventListener("click", () => {
     setActiveTab(button.dataset.goTab);
@@ -22196,8 +22242,20 @@ mobileNavButtons.forEach((button) => {
   });
 });
 
+mobileBottomNav?.addEventListener("click", (event) => {
+  const button = event.target.closest(".mobile-nav-button");
+
+  if (!button || button.hidden) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+  setActiveTab(button.dataset.goTab, { force: true });
+});
+
 window.addEventListener("beforeunload", (event) => {
-  if (activeTab !== "employees") {
+  if (activeTab !== TABS.EMPLOYEES) {
     return;
   }
 
