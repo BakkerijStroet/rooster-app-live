@@ -1008,6 +1008,7 @@ function resolveClerkUserAccess(user) {
   const normalizedStatus = normalizeEmployeeStatus(getEmployeeStatus(employeeName));
   const loginAllowed = isEmployeeLoginAllowed(employeeName);
   const role = getEmployeeAppRole(employeeName);
+  const normalizedRole = normalizeEmployeeAppRole(role);
 
   console.info("[clerk-access] medewerker status:", normalizedStatus);
   console.info("[clerk-access] login toegestaan:", loginAllowed ? "ja" : "nee");
@@ -1021,9 +1022,13 @@ function resolveClerkUserAccess(user) {
     throw new Error("Inloggen is voor deze medewerker uitgeschakeld.");
   }
 
+  if (!["employee", "planner"].includes(normalizedRole)) {
+    throw new Error("De rol van dit medewerkerrecord is ongeldig. Neem contact op met de planner.");
+  }
+
   return {
     employeeName,
-    role,
+    role: normalizedRole,
     email
   };
 }
@@ -15799,9 +15804,11 @@ function applyRoleUI() {
   }
 
   if (switchUserButton) {
-    switchUserButton.textContent = clerkAuthState.enabled ? "Uitloggen" : "Wissel gebruiker";
-    switchUserButton.classList.toggle("hidden", authLocked);
-    switchUserButton.hidden = authLocked;
+    const showLogoutButton = hasClerkAuthenticatedSession();
+    switchUserButton.textContent = "Uitloggen";
+    switchUserButton.classList.toggle("hidden", !showLogoutButton);
+    switchUserButton.hidden = !showLogoutButton;
+    switchUserButton.setAttribute("aria-hidden", showLogoutButton ? "false" : "true");
   }
 
   if (resetTestDataButton) {
