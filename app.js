@@ -175,9 +175,13 @@ const timeOffRequestsContainer = requestTimeOffPanel;
 const swapRequestsContainer = requestSwapPanel;
 const plannerDashboard = document.getElementById("plannerDashboard");
 const navTabs = Array.from(document.querySelectorAll(".nav-tab"));
+const simpleMainTabButtons = Array.from(document.querySelectorAll(".simple-main-tab-button"));
 const plannerOnlyTabs = Array.from(document.querySelectorAll(".planner-only-tab"));
 const mobileNavButtons = Array.from(document.querySelectorAll(".mobile-nav-button"));
 const appPanels = Array.from(document.querySelectorAll(".app-panel"));
+const simpleTabEmergencyPanel = document.getElementById("simpleTabEmergencyPanel");
+const simpleTabEmergencyTitle = document.getElementById("simpleTabEmergencyTitle");
+const simpleTabEmergencyText = document.getElementById("simpleTabEmergencyText");
 const planningEmployeeSearchInput = document.getElementById("planningEmployeeSearch");
 const portalEmployeeSelect = document.getElementById("portalEmployee");
 const portalEmployeeBadge = document.getElementById("portalEmployeeBadge");
@@ -323,6 +327,8 @@ const TABS = Object.freeze({
   PLANNING: "planning",
   BACKUP: "backup"
 });
+
+const SIMPLE_MAIN_TAB_EMERGENCY_MODE = true;
 const TAB_VALUES = new Set(Object.values(TABS));
 const TAB_ALIASES = Object.freeze({
   rooster: TABS.WEEK_CURRENT,
@@ -13852,6 +13858,34 @@ function applyCurrentMainTabState(tabName, options = {}) {
 }
 
 function updateTabVisibility() {
+  if (SIMPLE_MAIN_TAB_EMERGENCY_MODE) {
+    simpleMainTabButtons.forEach((button) => {
+      const isAllowed = isPlannerRole() || !button.classList.contains("planner-only-tab");
+      button.hidden = !isAllowed;
+      button.classList.toggle("is-active", button.dataset.simpleTab === currentMainTab);
+    });
+
+    appPanels.forEach((panel) => {
+      panel.classList.remove("is-active");
+      panel.hidden = true;
+      panel.style.display = "none";
+      panel.setAttribute("aria-hidden", "true");
+    });
+
+    if (plannerDashboard) {
+      plannerDashboard.hidden = true;
+      plannerDashboard.style.display = "none";
+    }
+
+    if (simpleTabEmergencyPanel) {
+      simpleTabEmergencyPanel.hidden = false;
+      simpleTabEmergencyPanel.style.display = "grid";
+    }
+
+    console.info("[tabs] noodmodus zichtbare hoofdtab:", currentMainTab);
+    return;
+  }
+
   const isWeekTab = isWeekTabName(currentMainTab);
 
   navTabs.forEach((button) => {
@@ -18027,6 +18061,27 @@ function renderHoursApproval() {
 }
 
 function renderActiveTabContent() {
+  if (SIMPLE_MAIN_TAB_EMERGENCY_MODE) {
+    const contentByTab = {
+      [TABS.DASHBOARD]: ["DASHBOARD WERKT", "Dashboard is actief."],
+      [TABS.WEEK_CURRENT]: ["WEEK WERKT", "Rooster deze week is actief."],
+      [TABS.EMPLOYEES]: ["MEDEWERKERS WERKT", "Medewerkers is actief."],
+      [TABS.REQUESTS]: ["AANVRAGEN WERKT", "Aanvragen is actief."],
+      [TABS.MY_HOURS]: ["MIJN UREN WERKT", "Mijn uren is actief."],
+      [TABS.HOURS_APPROVAL]: ["UREN ACCORDEREN WERKT", "Uren accorderen is actief."]
+    };
+    const [title, text] = contentByTab[currentMainTab] || ["TAB WERKT", `Actieve tab: ${currentMainTab}`];
+
+    if (simpleTabEmergencyTitle) {
+      simpleTabEmergencyTitle.textContent = title;
+    }
+    if (simpleTabEmergencyText) {
+      simpleTabEmergencyText.textContent = text;
+    }
+    console.info("[tabs] render currentMainTab:", currentMainTab);
+    return;
+  }
+
   console.info("[tabs] render currentMainTab:", currentMainTab);
 
   if (currentMainTab === TABS.DASHBOARD) {
@@ -22289,6 +22344,21 @@ navTabs.forEach((button) => {
 });
 
 appNav?.addEventListener("click", (event) => {
+  const simpleButton = event.target.closest(".simple-main-tab-button");
+
+  if (simpleButton && !simpleButton.hidden) {
+    event.preventDefault();
+    event.stopPropagation();
+    console.info("[tabs] klik simpele hoofdtab:", simpleButton.dataset.simpleTab);
+    if (simpleButton.dataset.simpleTab === TABS.EMPLOYEES) {
+      console.info("klik medewerkers");
+      window.alert("klik werkt");
+    }
+    setCurrentMainTab(simpleButton.dataset.simpleTab);
+    console.info("[tabs] na klik simpele hoofdtab:", currentMainTab);
+    return;
+  }
+
   const button = event.target.closest(".nav-tab");
 
   if (!button || button.hidden) {
