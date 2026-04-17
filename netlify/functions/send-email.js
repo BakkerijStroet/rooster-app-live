@@ -4,12 +4,6 @@ const { buildJsonResponse, sendWithResend } = require("../../server/email-servic
 
 
 exports.handler = async (event) => {
-  console.info("[resend] netlify send-email invoked", {
-    method: event.httpMethod,
-    hasApiKey: Boolean(process.env.RESEND_API_KEY),
-    hasFromEnv: Boolean(process.env.RESEND_FROM_EMAIL)
-  });
-
   if (event.httpMethod !== "POST") {
     return buildJsonResponse(405, { success: false, message: "Method not allowed" });
   }
@@ -32,7 +26,7 @@ exports.handler = async (event) => {
     result = await sendWithResend({
       ...effectivePayload,
       fallbackFromName: process.env.RESEND_FROM_NAME || "Bakkerij Stroet",
-      fallbackFromEmail: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+      fallbackFromEmail: process.env.RESEND_FROM_EMAIL || "info@bakkerijstroet.nl",
       apiKey: process.env.RESEND_API_KEY
     });
   } catch (error) {

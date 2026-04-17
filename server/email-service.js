@@ -39,21 +39,8 @@ function normalizeSenderConfig({ fromName, fromEmail, fallbackFromName, fallback
 async function sendWithResend({ to, subject, message, fromName, fromEmail, fallbackFromName, fallbackFromEmail, apiKey }) {
   const recipients = normalizeEmailList(to);
   const senderConfig = normalizeSenderConfig({ fromName, fromEmail, fallbackFromName, fallbackFromEmail });
-  console.info("[resend] sendWithResend:start", {
-    hasApiKey: Boolean(apiKey),
-    recipientCount: recipients.length,
-    hasFromName: Boolean(fromName),
-    hasFromEmail: Boolean(fromEmail),
-    hasResolvedFromName: Boolean(senderConfig.fromName),
-    hasResolvedFromEmail: Boolean(senderConfig.fromEmail),
-    hasFromAddress: Boolean(senderConfig.fromEmail),
-    hasToAddress: recipients.length > 0,
-    hasSubject: Boolean(subject),
-    hasMessage: Boolean(message)
-  });
 
   if (!apiKey) {
-    console.warn("[resend] sendWithResend:missing-api-key");
     return { ok: false, statusCode: 500, error: "RESEND_API_KEY ontbreekt." };
   }
 

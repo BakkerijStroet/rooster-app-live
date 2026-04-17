@@ -17,11 +17,13 @@ const testModeBadge = document.getElementById("testModeBadge");
 const switchUserButton = document.getElementById("switchUserButton");
 const resetTestDataButton = document.getElementById("resetTestDataButton");
 const loginOverlay = document.getElementById("loginOverlay");
-const loginRoleSelect = document.getElementById("loginRoleSelect");
-const loginEmployeeLabel = document.getElementById("loginEmployeeLabel");
-const loginEmployeeSelect = document.getElementById("loginEmployeeSelect");
-const loginTestModeCheckbox = document.getElementById("loginTestMode");
-const loginConfirmButton = document.getElementById("loginConfirmButton");
+const loginOverlayTitle = document.getElementById("loginOverlayTitle");
+const loginOverlayNote = document.getElementById("loginOverlayNote");
+const clerkAuthStatus = document.getElementById("clerkAuthStatus");
+const clerkSignInMount = document.getElementById("clerkSignInMount");
+const clerkLoginActions = document.getElementById("clerkLoginActions");
+const clerkLoginButton = document.getElementById("clerkLoginButton");
+const clerkLogoutButton = document.getElementById("clerkLogoutButton");
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
 const newButton = document.getElementById("newButton");
@@ -87,11 +89,14 @@ const employeeRoleSelect = document.getElementById("employeeRoleSelect");
 const employeeEmailInput = document.getElementById("employeeEmailInput");
 const employeeEmailError = document.getElementById("employeeEmailError");
 const employeeMailTestUserInput = document.getElementById("employeeMailTestUserInput");
+const employeeLoginAllowedInput = document.getElementById("employeeLoginAllowedInput");
 const employeeNameDisplayInput = document.getElementById("employeeNameDisplay");
+const employeeClerkStatus = document.getElementById("employeeClerkStatus");
 const employeeDetailMailStatus = document.getElementById("employeeDetailMailStatus");
 const removeEmployeeButton = document.getElementById("removeEmployeeButton");
 const saveEmployeeEmailButton = document.getElementById("saveEmployeeEmailButton");
 const employeeDetailTestMailButton = document.getElementById("employeeDetailTestMailButton");
+const employeeInviteButton = document.getElementById("employeeInviteButton");
 const employeeStatusImpact = document.getElementById("employeeStatusImpact");
 const employeeDetailTitle = document.getElementById("employeeDetailTitle");
 const createRestorePointButton = document.getElementById("createRestorePointButton");
@@ -262,6 +267,19 @@ const backupStorageKey = "urenrooster-backups";
 const mailSettingsStorageKey = "urenrooster-mail-settings";
 
 const preferences = loadPreferences();
+const clerkAuthState = {
+  enabled: false,
+  ready: false,
+  initializing: false,
+  clerk: null,
+  user: null,
+  email: "",
+  employeeName: "",
+  role: "employee",
+  publishableKey: "",
+  error: "",
+  signInMounted: false
+};
 let currentDataMode = "live";
 if (preferences.lastDataMode !== "live") {
   preferences.lastDataMode = "live";
@@ -676,24 +694,424 @@ function getEmployeeMetaForMode(mode, modeEmployees = getEmployeesForMode(mode))
   }
 }
 
-function getLoginRoleValue() {
-  return loginRoleSelect?.value === "employee" ? "employee" : "planner";
+function getClerkAuthErrorMessage(error, fallback = "Inloggen via Clerk is niet gelukt.") {
+  if (!error) {
+    return fallback;
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  if (typeof error?.message === "string" && error.message.trim()) {
+    return error.message.trim();
+  }
+
+  return fallback;
+}
+
+function getClerkPrimaryEmail(user) {
+  if (!user) {
+    return "";
+  }
+
+  if (Array.isArray(user.emailAddresses) && user.emailAddresses.length) {
+    const primaryId = typeof user.primaryEmailAddressId === "string" ? user.primaryEmailAddressId : "";
+    const primaryAddress = user.emailAddresses.find((entry) => entry?.id === primaryId) || user.emailAddresses[0];
+    return normalizeEmployeeEmail(primaryAddress?.emailAddress);
+  }
+
+  return "";
+}
+
+function hasClerkAuthenticatedSession() {
+  return Boolean(clerkAuthState.enabled && clerkAuthState.ready && clerkAuthState.user && clerkAuthState.employeeName);
+}
+
+function isClerkAuthRequired() {
+  return true;
+}
+
+function isClerkAccessLocked() {
+  if (!isClerkAuthRequired()) {
+    return false;
+  }
+
+  return !hasClerkAuthenticatedSession();
 }
 
 function hasRememberedUserSession() {
+  if (clerkAuthState.enabled) {
+    return hasClerkAuthenticatedSession();
+  }
+
   return Boolean(preferences.hasUserSession);
 }
 
 function needsLoginSelection() {
-  if (!hasRememberedUserSession()) {
-    return true;
+  if (clerkAuthState.enabled || clerkAuthState.initializing || !clerkAuthState.ready) {
+    return !hasClerkAuthenticatedSession();
   }
 
-  if (activeRole !== "employee") {
-    return false;
+  return !hasClerkAuthenticatedSession();
+}
+
+function showClerkAuthMessage(message, type = "info") {
+  if (!clerkAuthStatus) {
+    return;
   }
 
-  return !getEmployeeIdentity();
+  const nextMessage = typeof message === "string" ? message.trim() : "";
+  clerkAuthStatus.textContent = nextMessage;
+  clerkAuthStatus.classList.remove("hidden", "is-error", "is-success");
+
+  if (!nextMessage) {
+    clerkAuthStatus.classList.add("hidden");
+    clerkAuthStatus.setAttribute("aria-hidden", "true");
+    return;
+  }
+
+  clerkAuthStatus.setAttribute("aria-hidden", "false");
+
+  if (type === "error") {
+    clerkAuthStatus.classList.add("is-error");
+    return;
+  }
+
+  if (type === "success") {
+    clerkAuthStatus.classList.add("is-success");
+  }
+}
+
+function updateLoginOverlayMode(mode = "clerk") {
+  const useLegacyMode = false;
+
+  if (clerkSignInMount) {
+    clerkSignInMount.classList.remove("hidden");
+    clerkSignInMount.setAttribute("aria-hidden", "false");
+  }
+
+  if (clerkLoginActions) {
+    const hideActions = useLegacyMode || clerkAuthState.signInMounted;
+    clerkLoginActions.classList.toggle("hidden", hideActions);
+    clerkLoginActions.setAttribute("aria-hidden", hideActions ? "true" : "false");
+  }
+
+  if (clerkLogoutButton) {
+    const showLogoutButton = !useLegacyMode && Boolean(clerkAuthState.user);
+    clerkLogoutButton.classList.toggle("hidden", !showLogoutButton);
+    clerkLogoutButton.setAttribute("aria-hidden", showLogoutButton ? "false" : "true");
+  }
+
+  if (loginOverlayTitle) {
+    loginOverlayTitle.textContent = "Inloggen";
+  }
+
+  if (loginOverlayNote) {
+    loginOverlayNote.textContent = "Log in met je e-mailadres en wachtwoord om de roosterapp te openen.";
+  }
+}
+
+async function fetchClerkConfig() {
+  const response = await fetch("/api/clerk-config", {
+    method: "GET",
+    headers: {
+      Accept: "application/json"
+    },
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error("Clerk configuratie is niet bereikbaar.");
+  }
+
+  const payload = await response.json();
+
+  return {
+    publishableKey: typeof payload?.publishableKey === "string" ? payload.publishableKey.trim() : ""
+  };
+}
+
+async function loadClerkConstructor() {
+  const clerkModule = await import("https://esm.sh/@clerk/clerk-js@latest?bundle");
+  return clerkModule?.Clerk || clerkModule?.default?.Clerk || clerkModule?.default || null;
+}
+
+function clearLegacyAuthenticatedUiState() {
+  activeRole = "employee";
+  currentDataMode = "live";
+  activeTab = getDefaultTabForRole("employee");
+  activeEmployeeWeekView = "today";
+
+  if (roleSelect) roleSelect.value = "employee";
+  if (currentEmployeeSelect) currentEmployeeSelect.value = "";
+  if (portalEmployeeSelect) portalEmployeeSelect.value = "";
+  if (hoursEmployeeSelect) hoursEmployeeSelect.value = "";
+  getAllTimeOffEmployeeSelects().forEach((select) => {
+    select.value = "";
+  });
+  if (swapEmployeeSelect) swapEmployeeSelect.value = "";
+}
+
+function applyAuthenticatedEmployeeContext(employeeName, role) {
+  const nextRole = role === "planner" ? "planner" : "employee";
+
+  activeRole = nextRole;
+  clerkAuthState.employeeName = employeeName;
+  clerkAuthState.role = activeRole;
+  currentDataMode = "live";
+  preferences.lastDataMode = "live";
+  preferences.lastRole = activeRole;
+  preferences.hasUserSession = true;
+  preferences.employeeIdentity = nextRole === "employee" ? employeeName : "";
+  preferences.lastEmployee = nextRole === "employee" ? employeeName : "";
+  preferences.lastPortalEmployee = nextRole === "employee" ? employeeName : "";
+  preferences.lastHoursEmployee = nextRole === "employee" ? employeeName : "";
+  savePreferences();
+  reloadScopedData();
+  if (nextRole === "employee") {
+    syncScopedEmployeeSelectors(employeeName);
+  }
+}
+
+function resetAuthenticatedEmployeeContext() {
+  clerkAuthState.user = null;
+  clerkAuthState.email = "";
+  clerkAuthState.employeeName = "";
+  clerkAuthState.role = "employee";
+  preferences.hasUserSession = false;
+  preferences.employeeIdentity = "";
+  preferences.lastEmployee = "";
+  preferences.lastPortalEmployee = "";
+  preferences.lastHoursEmployee = "";
+  preferences.lastRole = "employee";
+  preferences.lastDataMode = "live";
+  clearLegacyAuthenticatedUiState();
+  savePreferences();
+}
+
+function resolveClerkUserAccess(user) {
+  const email = getClerkPrimaryEmail(user).toLowerCase();
+
+  if (!email) {
+    throw new Error("Er is geen e-mailadres gekoppeld aan deze login.");
+  }
+
+  const employeeName = findEmployeeByEmail(email);
+
+  if (!employeeName) {
+    throw new Error("Dit e-mailadres is niet bekend in de medewerkerslijst. Toegang is geblokkeerd.");
+  }
+
+  if (normalizeEmployeeStatus(getEmployeeStatus(employeeName)) !== "active") {
+    throw new Error("Deze medewerker is niet actief en kan niet inloggen.");
+  }
+
+  if (!isEmployeeLoginAllowed(employeeName)) {
+    throw new Error("Inloggen is voor deze medewerker uitgeschakeld.");
+  }
+
+  return {
+    employeeName,
+    role: getEmployeeAppRole(employeeName),
+    email
+  };
+}
+
+function openLoginOverlay() {
+  if (!loginOverlay) {
+    return;
+  }
+
+  updateLoginOverlayMode("clerk");
+  loginOverlay.classList.remove("hidden");
+}
+
+function closeLoginOverlay() {
+  loginOverlay?.classList.add("hidden");
+}
+
+async function mountClerkSignInIfNeeded() {
+  if (!clerkAuthState.enabled || !clerkSignInMount || !clerkAuthState.clerk || clerkAuthState.user) {
+    return;
+  }
+
+  if (typeof clerkAuthState.clerk.mountSignIn !== "function") {
+    return;
+  }
+
+  if (clerkAuthState.signInMounted) {
+    return;
+  }
+
+  try {
+    clerkSignInMount.innerHTML = "";
+    clerkAuthState.clerk.mountSignIn(clerkSignInMount, {
+      appearance: {
+        variables: {
+          colorPrimary: "#F28C28"
+        }
+      }
+    });
+    clerkAuthState.signInMounted = true;
+    updateLoginOverlayMode("clerk");
+  } catch (error) {
+    clerkAuthState.signInMounted = false;
+    showClerkAuthMessage(getClerkAuthErrorMessage(error), "error");
+  }
+}
+
+function unmountClerkSignInIfNeeded() {
+  if (!clerkSignInMount) {
+    return;
+  }
+
+  if (clerkAuthState.clerk && typeof clerkAuthState.clerk.unmountSignIn === "function" && clerkAuthState.signInMounted) {
+    try {
+      clerkAuthState.clerk.unmountSignIn(clerkSignInMount);
+    } catch {
+      // ignore unmount errors and clear the mount manually below
+    }
+  }
+
+  clerkSignInMount.innerHTML = "";
+  clerkAuthState.signInMounted = false;
+}
+
+async function syncClerkAuthenticatedUser(user) {
+  const { employeeName, role, email } = resolveClerkUserAccess(user);
+
+  clerkAuthState.user = user;
+  clerkAuthState.email = email;
+  clearLegacyAuthenticatedUiState();
+  applyAuthenticatedEmployeeContext(employeeName, role);
+  showClerkAuthMessage("");
+  closeLoginOverlay();
+  reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
+}
+
+async function handleClerkUnauthenticatedState() {
+  resetAuthenticatedEmployeeContext();
+  updateLoginOverlayMode("clerk");
+  render();
+  openLoginOverlay();
+  await mountClerkSignInIfNeeded();
+}
+
+async function beginClerkSignIn() {
+  if (!clerkAuthState.enabled || !clerkAuthState.clerk) {
+    showClerkAuthMessage("Clerk login is nog niet beschikbaar.", "error");
+    return;
+  }
+
+  try {
+    showClerkAuthMessage("Inlogscherm openen...");
+
+    if (typeof clerkAuthState.clerk.openSignIn === "function") {
+      await clerkAuthState.clerk.openSignIn();
+      return;
+    }
+
+    if (typeof clerkAuthState.clerk.redirectToSignIn === "function") {
+      await clerkAuthState.clerk.redirectToSignIn();
+      return;
+    }
+
+    throw new Error("Clerk loginactie is niet beschikbaar.");
+  } catch (error) {
+    showClerkAuthMessage(getClerkAuthErrorMessage(error), "error");
+  }
+}
+
+async function signOutAuthenticatedUser() {
+  if (clerkAuthState.enabled && clerkAuthState.clerk && typeof clerkAuthState.clerk.signOut === "function") {
+    try {
+      await clerkAuthState.clerk.signOut();
+    } catch (error) {
+      showError(getClerkAuthErrorMessage(error, "Uitloggen is niet gelukt."));
+      return;
+    }
+  }
+
+  unmountClerkSignInIfNeeded();
+  await handleClerkUnauthenticatedState();
+}
+
+async function initializeClerkAuthentication() {
+  if (clerkAuthState.initializing) {
+    return;
+  }
+
+  clerkAuthState.initializing = true;
+  render();
+  openLoginOverlay();
+  showClerkAuthMessage("Inloggen laden...");
+
+  try {
+    const { publishableKey } = await fetchClerkConfig();
+
+    if (!publishableKey) {
+      throw new Error("Clerk is nog niet geconfigureerd.");
+    }
+
+    const ClerkConstructor = await loadClerkConstructor();
+
+    if (typeof ClerkConstructor !== "function") {
+      throw new Error("Clerk kon niet worden geladen.");
+    }
+
+    const clerk = new ClerkConstructor(publishableKey);
+    await clerk.load();
+    clerkAuthState.enabled = true;
+    clerkAuthState.ready = true;
+    clerkAuthState.clerk = clerk;
+    clerkAuthState.publishableKey = publishableKey;
+
+    if (typeof clerk.addListener === "function") {
+      clerk.addListener(({ user }) => {
+        if (user) {
+          syncClerkAuthenticatedUser(user).catch((error) => {
+            console.error("Clerk synchronisatie mislukt.", error);
+            clerk.signOut?.().catch(() => {});
+            openLoginOverlay();
+            mountClerkSignInIfNeeded().catch(() => {});
+            showClerkAuthMessage(getClerkAuthErrorMessage(error), "error");
+          });
+        } else {
+          handleClerkUnauthenticatedState().catch((error) => {
+            console.error("Clerk uitlogstatus mislukt.", error);
+            showClerkAuthMessage(getClerkAuthErrorMessage(error), "error");
+          });
+        }
+      });
+    }
+
+    if (clerk.user) {
+      try {
+        await syncClerkAuthenticatedUser(clerk.user);
+      } catch (error) {
+        await clerk.signOut?.().catch(() => {});
+        render();
+        openLoginOverlay();
+        await mountClerkSignInIfNeeded();
+        showClerkAuthMessage(getClerkAuthErrorMessage(error), "error");
+      }
+      return;
+    }
+
+    render();
+    openLoginOverlay();
+    await mountClerkSignInIfNeeded();
+  } catch (error) {
+    clerkAuthState.ready = true;
+    clerkAuthState.enabled = false;
+    clerkAuthState.error = getClerkAuthErrorMessage(error);
+    render();
+    openLoginOverlay();
+    showClerkAuthMessage(clerkAuthState.error, "error");
+  } finally {
+    clerkAuthState.initializing = false;
+  }
 }
 
 function loadEntries() {
@@ -1237,6 +1655,7 @@ function getEmployeeStatusMetaDefaults() {
     role: "employee",
     contractHours: 0,
     email: "",
+    loginAllowed: true,
     mailTestUser: false,
     lastTestMailAt: "",
     lastTestMailStatus: "",
@@ -1353,7 +1772,7 @@ function sanitizeRequestMailLog(mailLog = []) {
 function getMailSettingsDefaults() {
   return {
     senderName: "Bakkerij Stroet",
-    senderEmail: "",
+    senderEmail: "info@bakkerijstroet.nl",
     testRecipientEmail: "",
     updatedAt: "",
     updatedByRole: "",
@@ -1431,6 +1850,7 @@ function loadEmployeeMeta() {
         role: normalizeEmployeeAppRole(currentMeta?.role || getDefaultEmployeeAppRole(employeeName)),
         contractHours: normalizeContractHours(currentMeta?.contractHours ?? getConfiguredEmployeeContractHours()[employeeName] ?? 0),
         email: normalizeEmployeeEmail(currentMeta?.email),
+        loginAllowed: currentMeta?.loginAllowed !== false,
         mailTestUser: false,
         lastTestMailAt: typeof currentMeta?.lastTestMailAt === "string" ? currentMeta.lastTestMailAt : "",
         lastTestMailStatus: typeof currentMeta?.lastTestMailStatus === "string" ? currentMeta.lastTestMailStatus : "",
@@ -1535,6 +1955,18 @@ function getEmployeeEmail(employeeName) {
   return normalizeEmployeeEmail(employeeMeta?.[employeeName]?.email);
 }
 
+function isEmployeeLoginAllowed(employeeName) {
+  return employeeMeta?.[employeeName]?.loginAllowed !== false;
+}
+
+function canEmployeeAccessApp(employeeName) {
+  if (!employeeName || !employees.includes(employeeName)) {
+    return false;
+  }
+
+  return normalizeEmployeeStatus(getEmployeeStatus(employeeName)) === "active" && isEmployeeLoginAllowed(employeeName);
+}
+
 function getAppMailSentMessage() {
   return "Mail verzonden";
 }
@@ -1584,6 +2016,7 @@ function createEmployeeEditorDraft(employeeName) {
     email: getEmployeeEmail(employeeName),
     role: getEmployeeAppRole(employeeName),
     status: getEmployeeStatus(employeeName),
+    loginAllowed: isEmployeeLoginAllowed(employeeName),
     mailTestUser: isEmployeeMailTestEnabled(employeeName),
     permissions: cloneSerializableValue(employeePermissions?.[employeeName] || {}),
     standardShift: typeof employeeStandardShifts?.[employeeName] === "string" ? employeeStandardShifts[employeeName] : "",
@@ -1624,6 +2057,7 @@ function getEmployeeEditorSnapshot(employeeName, draftOverride = null) {
     email: normalizeEmployeeEmail(draft?.email),
     role: normalizeEmployeeAppRole(draft?.role),
     status: normalizeEmployeeStatus(draft?.status),
+    loginAllowed: draft?.loginAllowed !== false,
     mailTestUser: Boolean(draft?.mailTestUser),
     permissions: Object.fromEntries(
       getPermissionShiftDescriptors().map((shift) => [
@@ -1693,6 +2127,16 @@ function renderEmployeeDetailMailStatus(employeeName = getSelectedEmployeeAdminN
   }
 
   employeeDetailMailStatus.classList.remove("hidden");
+}
+
+function setEmployeeClerkStatus(message = "", type = "") {
+  if (!employeeClerkStatus) {
+    return;
+  }
+
+  employeeClerkStatus.textContent = message || "";
+  employeeClerkStatus.dataset.state = type || "";
+  employeeClerkStatus.classList.toggle("hidden", !message);
 }
 
 function setEmployeeEmailFieldError(message = "") {
@@ -2088,6 +2532,7 @@ function syncEmployeeMeta() {
         employeeMeta[employeeName].contractHours ?? configuredContractHours[employeeName] ?? 0
       );
       const normalizedEmail = normalizeEmployeeEmail(employeeMeta[employeeName].email);
+      const normalizedLoginAllowed = employeeMeta[employeeName].loginAllowed !== false;
       const normalizedMailTestUser = Boolean(employeeMeta[employeeName].mailTestUser);
       const normalizedLastTestMailAt = typeof employeeMeta[employeeName].lastTestMailAt === "string" ? employeeMeta[employeeName].lastTestMailAt : "";
       const normalizedLastTestMailStatus = typeof employeeMeta[employeeName].lastTestMailStatus === "string" ? employeeMeta[employeeName].lastTestMailStatus : "";
@@ -2105,6 +2550,11 @@ function syncEmployeeMeta() {
 
       if (employeeMeta[employeeName].email !== normalizedEmail) {
         employeeMeta[employeeName].email = normalizedEmail;
+        changed = true;
+      }
+
+      if (employeeMeta[employeeName].loginAllowed !== normalizedLoginAllowed) {
+        employeeMeta[employeeName].loginAllowed = normalizedLoginAllowed;
         changed = true;
       }
 
@@ -5533,6 +5983,10 @@ function isPlannerRole() {
 }
 
 function getEmployeeIdentity() {
+  if (!isPlannerRole() && hasClerkAuthenticatedSession() && clerkAuthState.employeeName) {
+    return clerkAuthState.employeeName;
+  }
+
   return preferences.employeeIdentity &&
     employees.includes(preferences.employeeIdentity) &&
     isEmployeeActive(preferences.employeeIdentity)
@@ -5543,6 +5997,10 @@ function getEmployeeIdentity() {
 function getRoleScopedEmployeeName(fallbackName = "") {
   if (isPlannerRole()) {
     return fallbackName;
+  }
+
+  if (hasClerkAuthenticatedSession() && clerkAuthState.employeeName) {
+    return clerkAuthState.employeeName;
   }
 
   return getEmployeeIdentity() || getCurrentEmployeeName() || fallbackName;
@@ -5565,6 +6023,11 @@ function syncScopedEmployeeSelectors(employeeName = getRoleScopedEmployeeName())
 function ensureEmployeeIdentityForCurrentRole() {
   if (isPlannerRole()) {
     return "";
+  }
+
+  if (hasClerkAuthenticatedSession() && clerkAuthState.employeeName) {
+    syncScopedEmployeeSelectors(clerkAuthState.employeeName);
+    return clerkAuthState.employeeName;
   }
 
   const currentIdentity = getEmployeeIdentity();
@@ -5606,7 +6069,7 @@ function getOwnEmployeeNameOrWarn() {
   const ownEmployeeName = getRoleScopedEmployeeName();
 
   if (!ownEmployeeName) {
-    showMessage("Kies eerst je eigen naam bovenaan de app.", "error");
+    showMessage("Je account is nog niet gekoppeld aan een medewerker.", "error");
     return "";
   }
 
@@ -5900,6 +6363,10 @@ function isTabAllowedForCurrentRole(tabName) {
   return employeeAllowedTabs.includes(tabName);
 }
 
+function getSafeTabForCurrentRole(tabName) {
+  return isTabAllowedForCurrentRole(tabName) ? tabName : getDefaultTabForCurrentRole();
+}
+
 function getDefaultTabForCurrentRole() {
   return "week-current";
 }
@@ -5967,97 +6434,6 @@ function updateTestModeBadge() {
   testModeBadge.classList.add("hidden");
 }
 
-function updateLoginRoleState() {
-  if (!loginEmployeeLabel) {
-    return;
-  }
-
-  const isEmployeeLogin = getLoginRoleValue() === "employee";
-  loginEmployeeLabel.classList.toggle("hidden", !isEmployeeLogin);
-}
-
-function populateLoginEmployeeSelect() {
-  if (!loginEmployeeSelect) {
-    return;
-  }
-
-  const selectedValue = loginEmployeeSelect.value;
-  const previewMode = "live";
-  const modeEmployees = getEmployeesForMode(previewMode);
-  const modeEmployeeMeta = getEmployeeMetaForMode(previewMode, modeEmployees);
-  const availableEmployees = modeEmployees.filter((employeeName) => normalizeEmployeeStatus(modeEmployeeMeta?.[employeeName]?.status) === "active");
-  const options = buildEmployeeOptions(getEmployeesWithFavoritesFirst(availableEmployees));
-  loginEmployeeSelect.innerHTML = `<option value="">Kies medewerker</option>${options}`;
-  if (availableEmployees.includes(selectedValue)) {
-    loginEmployeeSelect.value = selectedValue;
-  } else {
-    loginEmployeeSelect.value = "";
-  }
-}
-
-function openLoginOverlay() {
-  if (!loginOverlay) {
-    return;
-  }
-
-  populateLoginEmployeeSelect();
-  loginRoleSelect.value = activeRole;
-  if (loginTestModeCheckbox) {
-    loginTestModeCheckbox.checked = false;
-  }
-  populateLoginEmployeeSelect();
-  loginEmployeeSelect.value = getEmployeeIdentity() || preferences.lastPortalEmployee || preferences.lastEmployee || "";
-  updateLoginRoleState();
-  loginOverlay.classList.remove("hidden");
-}
-
-function closeLoginOverlay() {
-  loginOverlay?.classList.add("hidden");
-}
-
-function applyLoggedInUserSelection({ showStartupMessage = false } = {}) {
-  activeRole = getLoginRoleValue();
-  const selectedMode = "live";
-
-  if (activeRole === "employee") {
-    const selectedEmployee = loginEmployeeSelect.value;
-    const modeEmployees = getEmployeesForMode(selectedMode);
-    const modeEmployeeMeta = getEmployeeMetaForMode(selectedMode, modeEmployees);
-    const availableEmployees = modeEmployees.filter((employeeName) => normalizeEmployeeStatus(modeEmployeeMeta?.[employeeName]?.status) === "active");
-
-    if (!selectedEmployee || !availableEmployees.includes(selectedEmployee)) {
-      showMessage("Kies eerst een medewerker.", "error");
-      return false;
-    }
-
-    preferences.employeeIdentity = selectedEmployee;
-  } else {
-    preferences.employeeIdentity = "";
-  }
-
-  currentDataMode = selectedMode;
-  preferences.lastRole = activeRole;
-  preferences.lastDataMode = currentDataMode;
-  preferences.hasUserSession = true;
-  savePreferences();
-  reloadScopedData();
-
-  if (activeRole === "employee" && !getEmployeeIdentity()) {
-    showMessage("De gekozen medewerker bestaat niet in deze gegevensset.", "error");
-    openLoginOverlay();
-    return false;
-  }
-
-  closeLoginOverlay();
-  reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
-
-  if (showStartupMessage) {
-    showMessage("Gebruiker geladen.", "success");
-  }
-
-  return true;
-}
-
 function reloadForLoggedInUser(options = {}) {
   const { resetToDefaultTab = false, resetWeekToCurrent = false } = options;
 
@@ -6080,11 +6456,12 @@ function reloadForLoggedInUser(options = {}) {
   }
 
   closeLoginOverlay();
+  unmountClerkSignInIfNeeded();
   render();
 }
 
 function isMobileView() {
-  return !isPlannerRole() || mobileMediaQuery.matches;
+  return !isPlannerRole();
 }
 
 function formatShortWeekday(value) {
@@ -10844,15 +11221,7 @@ function hasRequestMailNotification(request, type, recipientSignature, periodKey
 }
 
 async function sendEmail(to, subject, message) {
-  console.info("[test-mail] sendEmail:start", {
-    to,
-    subject,
-    hasSender: hasConfiguredMailSender(),
-    protocol: window.location.protocol
-  });
-
   if (!to || (Array.isArray(to) && to.length === 0)) {
-    console.warn("[test-mail] sendEmail:no-recipient");
     return {
       ok: false,
       error: "Geen ontvanger opgegeven."
@@ -10860,7 +11229,6 @@ async function sendEmail(to, subject, message) {
   }
 
   if (window.location.protocol === "file:") {
-    console.warn("[test-mail] sendEmail:file-preview");
     return {
       ok: false,
       error: "Lokale preview zonder serverroute."
@@ -10910,10 +11278,6 @@ async function sendEmail(to, subject, message) {
         error: payloadMessage || "Verzenden mislukt."
       };
     }
-
-    console.info("[test-mail] sendEmail:success", {
-      id: typeof payload?.id === "string" ? payload.id : ""
-    });
     return {
       ok: true,
       id: typeof payload?.id === "string" ? payload.id : "",
@@ -10931,11 +11295,6 @@ async function sendEmail(to, subject, message) {
 }
 
 async function sendTestEmailRequest(recipient) {
-  console.info("[test-mail] sendTestEmailRequest:start", {
-    protocol: window.location.protocol,
-    recipient
-  });
-
   if (window.location.protocol === "file:") {
     return {
       ok: false,
@@ -10974,13 +11333,6 @@ async function sendTestEmailRequest(recipient) {
       : typeof payload?.error === "string"
         ? payload.error
         : "";
-
-    console.info("[test-mail] sendTestEmailRequest:response", {
-      status: response.status,
-      ok: response.ok,
-      body: payload
-    });
-
     if (!response.ok || payload?.success === false) {
       console.error("[test-mail] sendTestEmailRequest:response-error", {
         status: response.status,
@@ -11015,6 +11367,64 @@ async function sendTestEmailRequest(recipient) {
   }
 }
 
+async function sendClerkInvitationRequest({ email, employeeName, role }) {
+  if (window.location.protocol === "file:") {
+    return {
+      ok: false,
+      error: "Lokale preview zonder serverroute."
+    };
+  }
+
+  if (!email) {
+    return {
+      ok: false,
+      error: "Geen e-mailadres ingesteld"
+    };
+  }
+
+  try {
+    const response = await fetch("/api/clerk-user-action", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        action: "invite",
+        email,
+        employeeName,
+        role
+      })
+    });
+
+    const contentType = response.headers.get("content-type") || "";
+    const payload = contentType.includes("application/json")
+      ? await response.json().catch(() => ({}))
+      : {};
+    const payloadMessage = typeof payload?.message === "string"
+      ? payload.message
+      : "Uitnodigen mislukt.";
+
+    if (!response.ok || payload?.success === false) {
+      return {
+        ok: false,
+        error: payloadMessage || "Uitnodigen mislukt."
+      };
+    }
+
+    return {
+      ok: true,
+      message: payloadMessage || "Uitnodiging verzonden"
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error && error.message
+        ? `Backend route niet bereikbaar: ${error.message}`
+        : "Backend route niet bereikbaar."
+    };
+  }
+}
+
 function getTestMailErrorMessage(errorText) {
   const normalized = typeof errorText === "string" ? errorText.trim() : "";
 
@@ -11022,6 +11432,11 @@ function getTestMailErrorMessage(errorText) {
     return "Mail verzenden mislukt.";
   }
   return normalized;
+}
+
+function formatProfessionalEmailBody(message) {
+  const normalizedMessage = typeof message === "string" ? message.trim() : "";
+  return `Bakkerij Stroet\n\n${normalizedMessage}`.trim();
 }
 
 const EMAIL_TEMPLATES = {
@@ -11109,11 +11524,15 @@ function buildEmailTemplate(templateKey, context = {}) {
   if (typeof templateBuilder !== "function") {
     return {
       subject: "Update",
-      message: "Er is een update."
+      message: formatProfessionalEmailBody("Er is een update.")
     };
   }
 
-  return templateBuilder(context);
+  const template = templateBuilder(context) || {};
+  return {
+    subject: typeof template.subject === "string" ? template.subject : "Update",
+    message: formatProfessionalEmailBody(typeof template.message === "string" ? template.message : "Er is een update.")
+  };
 }
 
 async function sendTemplatedEmail(to, templateKey, context = {}) {
@@ -11196,7 +11615,7 @@ function queueRequestMailDelivery(request, mailEntry, options = {}) {
       onStatusChange(request, mailEntry);
     }
     if (notifyUser) {
-      showMessage(notifyErrorMessage || "Mail verzenden mislukt: Geen e-mailadres ingesteld", "error");
+      showMessage(notifyErrorMessage || "Geen e-mailadres ingesteld", "error");
     }
     return;
   }
@@ -11237,7 +11656,7 @@ function queueRequestMailDelivery(request, mailEntry, options = {}) {
       onStatusChange(request, mailEntry);
     }
     if (notifyUser) {
-      showMessage(notifyErrorMessage || `Mail verzenden mislukt: ${result.error || "onbekende fout"}`, "error");
+      showMessage(notifyErrorMessage || "Mail kon niet worden verzonden", "error");
     }
   });
 }
@@ -12750,7 +13169,7 @@ function getNormalizedTabName(tabName) {
 }
 
 function updateTabVisibility() {
-  activeTab = getNormalizedTabName(activeTab);
+  activeTab = getSafeTabForCurrentRole(getNormalizedTabName(activeTab));
   const isWeekTab = isWeekTabName(activeTab);
 
   navTabs.forEach((button) => {
@@ -12762,6 +13181,9 @@ function updateTabVisibility() {
   });
 
   mobileNavButtons.forEach((button) => {
+    const isAllowed = isTabAllowedForCurrentRole(button.dataset.goTab);
+    button.hidden = !isAllowed;
+    button.setAttribute("aria-hidden", isAllowed ? "false" : "true");
     const isRosterButton = button.dataset.goTab === "week-current";
     const isRosterTab = isWeekTab;
     button.classList.toggle("active", isRosterButton ? isRosterTab : button.dataset.goTab === activeTab);
@@ -12796,6 +13218,11 @@ function resetTabScrollPosition() {
 
 function setActiveTab(tabName, options = {}) {
   const normalizedTabName = getNormalizedTabName(tabName);
+
+  if (needsLoginSelection()) {
+    openLoginOverlay();
+    return;
+  }
 
   if (
     activeTab === "employees" &&
@@ -13368,6 +13795,13 @@ function renderEmployeeSelectors() {
 
   if (!isPlannerRole() && employeeIdentity) {
     syncScopedEmployeeSelectors(employeeIdentity);
+    currentEmployeeSelect.value = employeeIdentity;
+    portalEmployeeSelect.value = employeeIdentity;
+    hoursEmployeeSelect.value = employeeIdentity;
+    getAllTimeOffEmployeeSelects().forEach((select) => {
+      select.value = employeeIdentity;
+    });
+    swapEmployeeSelect.value = employeeIdentity;
   }
 
   const employeeLocked = !isPlannerRole() && Boolean(employeeIdentity);
@@ -13378,7 +13812,6 @@ function renderEmployeeSelectors() {
     select.disabled = employeeLocked;
   });
   swapEmployeeSelect.disabled = employeeLocked;
-  populateLoginEmployeeSelect();
 
   updateRoleContextBadge(currentEmployeeBadge, getRoleScopedEmployeeName());
   updateRoleContextBadge(portalEmployeeBadge, getRoleScopedEmployeeName(portalEmployeeSelect.value));
@@ -13715,10 +14148,14 @@ function renderEmployeeStatusControls() {
     if (employeeMailTestUserInput) {
       employeeMailTestUserInput.checked = false;
     }
+    if (employeeLoginAllowedInput) {
+      employeeLoginAllowedInput.checked = true;
+    }
     if (employeeDetailTitle) {
       employeeDetailTitle.textContent = "Kies links een medewerker";
     }
     employeeStatusImpact.textContent = "Nog geen medewerkers toegevoegd.";
+    setEmployeeClerkStatus("");
     return;
   }
 
@@ -13733,6 +14170,9 @@ function renderEmployeeStatusControls() {
   if (employeeEmailInput) {
     employeeEmailInput.value = employeeDraft?.email || (selectedEmployee ? getEmployeeEmail(selectedEmployee) : "");
   }
+  if (employeeLoginAllowedInput) {
+    employeeLoginAllowedInput.checked = employeeDraft?.loginAllowed !== false;
+  }
   if (employeeMailTestUserInput) {
     employeeMailTestUserInput.checked = false;
     employeeMailTestUserInput.disabled = true;
@@ -13746,6 +14186,7 @@ function renderEmployeeStatusControls() {
     employeeDetailTitle.textContent = selectedEmployee || "Kies links een medewerker";
   }
   employeeStatusImpact.textContent = formatEmployeeStatusImpact(employeeStatusSelect.value);
+  setEmployeeClerkStatus("");
   renderEmployeeDetailMailStatus(selectedEmployee);
 }
 
@@ -13774,7 +14215,7 @@ function renderMailSettings() {
   }
 
   mailSenderNameInput.value = normalizeMailSenderName(mailSettings.senderName || "Bakkerij Stroet");
-  mailSenderEmailInput.value = normalizeEmployeeEmail(mailSettings.senderEmail);
+  mailSenderEmailInput.value = normalizeEmployeeEmail(mailSettings.senderEmail || "info@bakkerijstroet.nl");
 
   if (!hasConfiguredMailSender()) {
     mailSettingsStatus.textContent = "Nog niet compleet: vul afzendernaam en e-mailadres in.";
@@ -15092,10 +15533,20 @@ function applyRoleUI() {
   const sessionBar = document.querySelector(".session-bar");
   const roleLabel = roleSelect?.closest("label") || null;
   const currentEmployeeLabel = currentEmployeeSelect?.closest("label") || null;
+  const portalEmployeeLabel = portalEmployeeSelect?.closest("label") || null;
+  const hoursEmployeeLabel = hoursEmployeeSelect?.closest("label") || null;
+  const freeDayEmployeeLabel = freeDayEmployeeSelect?.closest("label") || null;
+  const vacationEmployeeLabel = vacationEmployeeSelect?.closest("label") || null;
+  const sickEmployeeLabel = sickEmployeeSelect?.closest("label") || null;
+  const swapEmployeeLabel = swapEmployeeSelect?.closest("label") || null;
+  const authLocked = isClerkAccessLocked();
 
   document.body.dataset.role = activeRole;
+  document.body.dataset.layoutMode = isPlannerRole() ? "planner-desktop" : "employee-mobile";
   document.body.dataset.employeeLocked = employeeLocked ? "true" : "false";
+  document.body.dataset.authLocked = authLocked ? "true" : "false";
   roleSelect.value = activeRole;
+  roleSelect.disabled = clerkAuthState.enabled;
   currentEmployeeSelect.disabled = isPlannerRole() || employeeLocked;
   sessionBar?.classList.toggle("hidden", !isPlannerRole());
   sessionBar?.setAttribute("aria-hidden", isPlannerRole() ? "false" : "true");
@@ -15105,6 +15556,17 @@ function applyRoleUI() {
   if (currentEmployeeLabel) {
     currentEmployeeLabel.hidden = !isPlannerRole();
   }
+  [portalEmployeeLabel, hoursEmployeeLabel, freeDayEmployeeLabel, vacationEmployeeLabel, sickEmployeeLabel, swapEmployeeLabel].forEach((label) => {
+    if (label) {
+      label.hidden = !isPlannerRole();
+    }
+  });
+  [portalPreviousEmployeeButton, portalNextEmployeeButton, hoursPreviousEmployeeButton, hoursNextEmployeeButton].forEach((button) => {
+    if (button) {
+      button.hidden = !isPlannerRole();
+      button.setAttribute("aria-hidden", isPlannerRole() ? "false" : "true");
+    }
+  });
   if (roleIndicator) {
     roleIndicator.hidden = !isPlannerRole();
   }
@@ -15177,7 +15639,9 @@ function applyRoleUI() {
   }
 
   if (switchUserButton) {
-    switchUserButton.textContent = "Wissel gebruiker";
+    switchUserButton.textContent = clerkAuthState.enabled ? "Uitloggen" : "Wissel gebruiker";
+    switchUserButton.classList.toggle("hidden", authLocked);
+    switchUserButton.hidden = authLocked;
   }
 
   if (resetTestDataButton) {
@@ -19151,14 +19615,6 @@ function submitTimeOffRequest(composer) {
     const endDate = type === "vakantie" ? (currentTimeOffForm.endDate || startDate) : startDate;
     const reason = (currentTimeOffForm.reason || "").trim();
 
-    console.info("[requests] submitTimeOffRequest:start", {
-      composer,
-      employeeName,
-      type,
-      startDate,
-      endDate
-    });
-
     if (!ensureOwnRequestAction(employeeName, "een afwezigheidsaanvraag")) {
       return;
     }
@@ -19232,7 +19688,7 @@ function submitTimeOffRequest(composer) {
       registerTimeOffMailNotification(currentTimeOffRequest, "submitted", [employeeName], {
         notifyUser: true,
         notifySuccessMessage: getAppMailSentMessage(),
-        notifyErrorMessage: "Aanvraag opgeslagen, mail niet verzonden"
+        notifyErrorMessage: "Mail kon niet worden verzonden"
       });
     }
     saveTimeOffRequests();
@@ -19424,7 +19880,7 @@ submitSwapButton.addEventListener("click", () => {
       registerSwapMailNotification(currentRequest, "submitted", [currentRequest.employeeName], {
         notifyUser: true,
         notifySuccessMessage: getAppMailSentMessage(),
-        notifyErrorMessage: "Aanvraag opgeslagen, mail niet verzonden"
+        notifyErrorMessage: "Mail kon niet worden verzonden"
       });
     }
 
@@ -19558,6 +20014,15 @@ employeeEmailInput?.addEventListener("input", () => {
   }
 });
 
+employeeLoginAllowedInput?.addEventListener("change", () => {
+  const employeeName = getSelectedEmployeeAdminName();
+  const employeeDraft = getEmployeeEditorDraft(employeeName);
+
+  if (employeeDraft) {
+    employeeDraft.loginAllowed = employeeLoginAllowedInput.checked !== false;
+  }
+});
+
 employeeMailTestUserInput?.addEventListener("change", () => {
   const employeeName = getSelectedEmployeeAdminName();
   const employeeDraft = getEmployeeEditorDraft(employeeName);
@@ -19598,6 +20063,7 @@ function saveSelectedEmployeeDetails(options = {}) {
   const normalizedEmail = normalizeEmployeeEmail(employeeEmailInput?.value);
   const normalizedRole = normalizeEmployeeAppRole(employeeRoleSelect?.value);
   const nextStatus = normalizeEmployeeStatus(employeeStatusSelect?.value);
+  const loginAllowed = employeeLoginAllowedInput?.checked !== false;
   const shouldEnableMailTestUser = false;
   const normalizedContractHours = normalizeContractHours(employeeDraft?.contractHours);
   const normalizedPermissions = Object.fromEntries(
@@ -19673,6 +20139,7 @@ Bewaarde historie:
     role: normalizedRole,
     email: normalizedEmail,
     status: nextStatus,
+    loginAllowed,
     mailTestUser: shouldEnableMailTestUser,
     contractHours: normalizedContractHours,
     updatedAt: getNowIsoString(),
@@ -19705,6 +20172,7 @@ Bewaarde historie:
       email: normalizedEmail,
       role: normalizedRole,
       status: nextStatus,
+      loginAllowed,
       mailTestUser: shouldEnableMailTestUser,
       contractHours: normalizedContractHours,
       standardShiftName: normalizedStandardShift,
@@ -19809,6 +20277,80 @@ employeeDetailTestMailButton?.addEventListener("click", async () => {
   } finally {
     employeeDetailTestMailButton.disabled = false;
     employeeDetailTestMailButton.textContent = originalLabel;
+  }
+});
+
+employeeInviteButton?.addEventListener("click", async () => {
+  if (!isPlannerRole()) {
+    showError("Uitnodigen mislukt");
+    return;
+  }
+
+  const employeeName = getSelectedEmployeeAdminName();
+
+  if (!employeeName || !employeeMeta?.[employeeName]) {
+    showError("Kies eerst een medewerker.");
+    return;
+  }
+
+  if (hasUnsavedEmployeeChanges(employeeName)) {
+    showError("Sla eerst de medewerker op voordat je een uitnodiging verstuurt.");
+    return;
+  }
+
+  if (normalizeEmployeeStatus(getEmployeeStatus(employeeName)) !== "active") {
+    const message = "Alleen actieve medewerkers kunnen worden uitgenodigd.";
+    setEmployeeClerkStatus(message, "error");
+    showError(message);
+    return;
+  }
+
+  if (!isEmployeeLoginAllowed(employeeName)) {
+    const message = "Login toegestaan staat uit voor deze medewerker.";
+    setEmployeeClerkStatus(message, "error");
+    showError(message);
+    return;
+  }
+
+  const employeeEmail = getEmployeeEmail(employeeName);
+
+  if (!employeeEmail) {
+    const message = "Geen e-mailadres ingesteld";
+    setEmployeeClerkStatus(message, "error");
+    setEmployeeEmailFieldError(message);
+    showError(message);
+    return;
+  }
+
+  clearEmployeeEmailFieldError();
+  setEmployeeClerkStatus("Uitnodiging wordt verzonden...", "pending");
+
+  const originalLabel = employeeInviteButton.textContent;
+  employeeInviteButton.disabled = true;
+  employeeInviteButton.textContent = "Verzenden...";
+
+  try {
+    const result = await sendClerkInvitationRequest({
+      email: employeeEmail,
+      employeeName,
+      role: getEmployeeAppRole(employeeName)
+    });
+
+    if (!result.ok) {
+      setEmployeeClerkStatus(result.error || "Uitnodigen mislukt.", "error");
+      showError(result.error || "Uitnodigen mislukt.");
+      return;
+    }
+
+    setEmployeeClerkStatus(result.message || "Uitnodiging verzonden.", "success");
+    showSuccess(result.message || "Uitnodiging verzonden");
+  } catch (error) {
+    const message = error instanceof Error && error.message ? error.message : "Uitnodigen mislukt.";
+    setEmployeeClerkStatus(message, "error");
+    showError(message);
+  } finally {
+    employeeInviteButton.disabled = false;
+    employeeInviteButton.textContent = originalLabel;
   }
 });
 
@@ -19917,30 +20459,12 @@ function setTestMailButtonsDisabled(isDisabled) {
 }
 
 async function handleTestMailSend() {
-  console.info("[test-mail] handler:clicked", {
-    activeTab,
-    role: activeRole,
-    buttonVisible: !dashboardTestMailButton?.hidden
-  });
-
   setTestMailButtonsDisabled(true);
 
   try {
     if (!isPlannerRole()) {
-      console.warn("[test-mail] handler:not-planner");
       showMessage("Mail verzenden mislukt", "error");
       return;
-    }
-
-    console.info("[test-mail] handler:recipient", {
-      recipient: getConfiguredTestMailRecipient(),
-      configuredSender: hasConfiguredMailSender()
-    });
-
-    if (!hasConfiguredMailSender()) {
-      console.info("[test-mail] handler:no-local-sender-settings", {
-        willUseServerFallback: true
-      });
     }
 
     const testRecipient = getConfiguredTestMailRecipient();
@@ -19952,15 +20476,11 @@ async function handleTestMailSend() {
 
     const result = await sendTestEmailRequest(testRecipient);
 
-    console.info("[test-mail] handler:result", result);
-
     if (!result.ok) {
-      console.warn("[test-mail] handler:send-failed", result);
       showMessage(getTestMailErrorMessage(result.error), "error");
       return;
     }
 
-    console.info("[test-mail] handler:done", result);
     showMessage(result.message || "Mail verzonden", "success");
   } catch (error) {
     console.error("[test-mail] handler:exception", error);
@@ -19984,12 +20504,10 @@ debugErrorToastButton?.addEventListener("click", () => {
 
 if (testMailButton) {
   testMailButton.dataset.mailHandlerBound = "true";
-  console.info("[test-mail] binding:settings-button-ready");
 }
 
 if (dashboardTestMailButton) {
   dashboardTestMailButton.dataset.mailHandlerBound = "true";
-  console.info("[test-mail] binding:dashboard-button-ready");
 }
 
 printButton.addEventListener("click", () => {
@@ -20798,6 +21316,11 @@ hoursExportButton?.addEventListener("click", () => {
 });
 
 roleSelect.addEventListener("change", () => {
+  if (clerkAuthState.enabled) {
+    roleSelect.value = activeRole;
+    return;
+  }
+
   activeRole = roleSelect.value;
   preferences.lastRole = activeRole;
   preferences.hasUserSession = true;
@@ -20820,29 +21343,36 @@ roleSelect.addEventListener("change", () => {
 });
 
 currentEmployeeSelect.addEventListener("change", () => {
-  if (!isPlannerRole() && currentEmployeeSelect.value && !getEmployeeIdentity()) {
-    preferences.employeeIdentity = currentEmployeeSelect.value;
-    preferences.hasUserSession = true;
-    savePreferences();
-  }
+  if (!isPlannerRole()) {
+    const ownEmployeeName = getOwnEmployeeNameOrWarn();
 
-  if (!isPlannerRole() && getEmployeeIdentity()) {
-    currentEmployeeSelect.value = getEmployeeIdentity();
-  }
+    if (!ownEmployeeName) {
+      currentEmployeeSelect.value = "";
+      reloadForLoggedInUser();
+      return;
+    }
 
-  if (!isPlannerRole() && currentEmployeeSelect.value) {
-    portalEmployeeSelect.value = currentEmployeeSelect.value;
-    hoursEmployeeSelect.value = currentEmployeeSelect.value;
+    currentEmployeeSelect.value = ownEmployeeName;
+    portalEmployeeSelect.value = ownEmployeeName;
+    hoursEmployeeSelect.value = ownEmployeeName;
     getAllTimeOffEmployeeSelects().forEach((select) => {
-      select.value = currentEmployeeSelect.value;
+      select.value = ownEmployeeName;
     });
-    swapEmployeeSelect.value = currentEmployeeSelect.value;
+    swapEmployeeSelect.value = ownEmployeeName;
+    reloadForLoggedInUser();
+    return;
   }
 
   reloadForLoggedInUser();
 });
 
 switchUserButton?.addEventListener("click", () => {
+  if (clerkAuthState.enabled) {
+    signOutAuthenticatedUser();
+    return;
+  }
+
+  showClerkAuthMessage("Clerk login is vereist voor live gebruik.", "error");
   openLoginOverlay();
 });
 
@@ -20850,16 +21380,12 @@ resetTestDataButton?.addEventListener("click", () => {
   resetTestPlanningData();
 });
 
-loginRoleSelect?.addEventListener("change", () => {
-  updateLoginRoleState();
+clerkLoginButton?.addEventListener("click", () => {
+  beginClerkSignIn();
 });
 
-loginTestModeCheckbox?.addEventListener("change", () => {
-  populateLoginEmployeeSelect();
-});
-
-loginConfirmButton?.addEventListener("click", () => {
-  applyLoggedInUserSelection({ showStartupMessage: true });
+clerkLogoutButton?.addEventListener("click", () => {
+  signOutAuthenticatedUser();
 });
 
 navTabs.forEach((button) => {
@@ -21011,14 +21537,8 @@ reloadScopedData();
 applySavedPreferences();
 activeTab = getDefaultTabForCurrentRole();
 updateTabVisibility();
-
-if (needsLoginSelection()) {
-  render();
-  openLoginOverlay();
-} else {
-  closeLoginOverlay();
-  reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
-}
+render();
+void initializeClerkAuthentication();
 
 
 

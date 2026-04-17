@@ -62,27 +62,20 @@
       </section>
       <section class="login-overlay hidden" id="loginOverlay" aria-live="polite">
         <div class="login-card">
-          <h2>Gebruiker kiezen</h2>
-          <p class="panel-note">Kies hoe je de app wilt openen.</p>
-          <label>
-            Gebruikerstype
-            <select id="loginRoleSelect">
-              <option value="planner">Directie / Planner</option>
-              <option value="employee">Medewerker</option>
-            </select>
-          </label>
-          <label id="loginEmployeeLabel">
-            Medewerker
-            <select id="loginEmployeeSelect">
-              <option value="">Kies medewerker</option>
-            </select>
-          </label>
-          <label class="login-checkbox hidden" aria-hidden="true">
-            <input type="checkbox" id="loginTestMode">
-            <span>Gebruik testmodus met aparte testdata</span>
-          </label>
-          <div class="form-actions compact-actions">
-            <button type="button" id="loginConfirmButton">Start app</button>
+          <div class="login-brand">
+            <img src="bakkerij-stroet-logo.jpg" alt="Bakkerij Stroet logo" class="login-brand-logo">
+            <div class="login-brand-copy">
+              <strong>Bakkerij Stroet</strong>
+              <span>Rooster &amp; uren</span>
+            </div>
+          </div>
+          <h2 id="loginOverlayTitle">Inloggen</h2>
+          <p class="panel-note" id="loginOverlayNote">Log in met je e-mailadres en wachtwoord om de roosterapp te openen.</p>
+          <div id="clerkAuthStatus" class="login-auth-status hidden" aria-live="polite"></div>
+          <div id="clerkSignInMount" class="clerk-signin-mount" aria-live="polite"></div>
+          <div class="form-actions compact-actions" id="clerkLoginActions">
+            <button type="button" id="clerkLoginButton">Inloggen</button>
+            <button type="button" id="clerkLogoutButton" class="secondary hidden">Uitloggen</button>
           </div>
         </div>
       </section>
@@ -168,6 +161,10 @@
                 <option value="former">Uit dienst</option>
               </select>
             </label>
+            <label class="employee-inline-toggle">
+              <input type="checkbox" id="employeeLoginAllowedInput" checked>
+              <span>Login toegestaan</span>
+            </label>
             <div id="employeeStatusImpact" class="panel-note">Actieve medewerkers blijven beschikbaar voor planning en aanvragen.</div>
           </div>
         </div>
@@ -192,8 +189,11 @@
           <div class="form-actions compact-actions">
             <button type="button" id="saveEmployeeEmailButton" class="secondary">Opslaan</button>
             <button type="button" id="employeeDetailTestMailButton" class="secondary">Test mail</button>
+            <button type="button" id="employeeInviteButton" class="secondary">Uitnodigen via Clerk</button>
           </div>
+          <div id="employeeClerkStatus" class="panel-note hidden" aria-live="polite"></div>
           <div id="employeeDetailMailStatus" class="panel-note hidden" aria-live="polite"></div>
+          <div class="panel-note">Wachtwoord reset verloopt veilig via Clerk op het inlogscherm met ‘Wachtwoord vergeten’.</div>
         </div>
       </section>
 

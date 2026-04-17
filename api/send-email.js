@@ -28,12 +28,6 @@ function normalizeSenderConfig({ fromName, fromEmail, fallbackFromName, fallback
 }
 
 async function handler(req, res) {
-  console.info("[resend] api/send-email invoked", {
-    method: req.method,
-    hasApiKey: Boolean(process.env.RESEND_API_KEY),
-    hasFromEnv: Boolean(process.env.RESEND_FROM_EMAIL)
-  });
-
   if (req.method !== "POST") {
     res.statusCode = 405;
     res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -62,13 +56,7 @@ async function handler(req, res) {
       fromName: effectivePayload?.fromName,
       fromEmail: effectivePayload?.fromEmail,
       fallbackFromName: process.env.RESEND_FROM_NAME || "Bakkerij Stroet",
-      fallbackFromEmail: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"
-    });
-
-    console.info("[resend] api/send-email:prepared", {
-      hasApiKey: Boolean(process.env.RESEND_API_KEY),
-      hasFromAddress: Boolean(senderConfig.fromEmail),
-      hasToAddress: recipients.length > 0
+      fallbackFromEmail: process.env.RESEND_FROM_EMAIL || "info@bakkerijstroet.nl"
     });
 
     if (!process.env.RESEND_API_KEY) {
