@@ -174,6 +174,8 @@ const requestHandledNote = document.getElementById("requestHandledNote");
 const timeOffRequestsContainer = requestTimeOffPanel;
 const swapRequestsContainer = requestSwapPanel;
 const plannerDashboard = document.getElementById("plannerDashboard");
+const testClickButton = document.getElementById("test-click");
+const testEmployeesTabButton = document.getElementById("tab-medewerkers");
 const navTabs = Array.from(document.querySelectorAll(".nav-tab"));
 const simpleMainTabButtons = Array.from(document.querySelectorAll(".simple-main-tab-button"));
 const plannerOnlyTabs = Array.from(document.querySelectorAll(".planner-only-tab"));
@@ -329,6 +331,7 @@ const TABS = Object.freeze({
 });
 
 const SIMPLE_MAIN_TAB_EMERGENCY_MODE = true;
+let simpleDomClickDebugInstalled = false;
 const TAB_VALUES = new Set(Object.values(TABS));
 const TAB_ALIASES = Object.freeze({
   rooster: TABS.WEEK_CURRENT,
@@ -18270,9 +18273,29 @@ function installTabHitTestDebug() {
   }, true);
 }
 
+function installSimpleDomClickDebug() {
+  if (simpleDomClickDebugInstalled) {
+    return;
+  }
+
+  simpleDomClickDebugInstalled = true;
+
+  testClickButton?.addEventListener("click", () => {
+    console.info("[tabs] pure DOM testknop klik");
+    window.alert("pure DOM klik werkt");
+  });
+
+  testEmployeesTabButton?.addEventListener("click", () => {
+    console.info("[tabs] pure DOM medewerkersknop klik");
+    setCurrentMainTab(TABS.EMPLOYEES);
+    window.alert("medewerkers klik");
+  });
+}
+
 function render() {
   try {
     installTabHitTestDebug();
+    installSimpleDomClickDebug();
     ensureEmployeeIdentityForCurrentRole();
     applyRoleUI();
     updateTabVisibility();
