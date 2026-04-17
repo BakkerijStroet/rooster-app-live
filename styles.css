@@ -6894,7 +6894,10 @@ button,
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    position: static;
+    position: relative;
+    z-index: 99999;
+    pointer-events: auto;
+    isolation: isolate;
     padding: 0;
     background: transparent;
     backdrop-filter: none;
@@ -6905,6 +6908,9 @@ button,
     padding: 10px 12px;
     font-size: 14px;
     text-align: left;
+    position: relative;
+    z-index: 100000;
+    pointer-events: auto;
   }
 
   body[data-role="planner"] input,
