@@ -1259,7 +1259,6 @@ function resetAuthenticatedEmployeeContext() {
 
 function resolveClerkUserAccess(user) {
   const email = getClerkPrimaryEmail(user).trim().toLowerCase();
-  const emergencyDirectorEmail = "t_stroet@hotmail.com";
   const emergencySetupDirectorEmail = emergencyDirectorSetupEmail;
 
   console.info("[clerk-access] ingelogd e-mailadres:", email || "(leeg)");
@@ -1276,18 +1275,9 @@ function resolveClerkUserAccess(user) {
 
   if (email === emergencySetupDirectorEmail) {
     const directieEmployeeName = ensureEmergencyDirectorAccessRecord();
-    console.info("[clerk-access] tijdelijke setup directie toegang actief:", "ja");
+    console.info("[clerk-access] directe directie-login actief:", "ja");
     return {
       employeeName: directieEmployeeName,
-      role: "planner",
-      email
-    };
-  }
-
-  if (!employeeName && email === emergencyDirectorEmail) {
-    console.info("[clerk-access] tijdelijke fallback directie toegang actief:", "ja");
-    return {
-      employeeName: "Directie",
       role: "planner",
       email
     };
@@ -1299,12 +1289,13 @@ function resolveClerkUserAccess(user) {
 
   const normalizedStatus = normalizeEmployeeStatus(getEmployeeStatus(employeeName));
   const loginAllowed = isEmployeeLoginAllowed(employeeName);
-  const role = getEmployeeAppRole(employeeName);
-  const normalizedRole = normalizeEmployeeAppRole(role);
+  const configuredRole = getEmployeeAppRole(employeeName);
+  const normalizedRole = "employee";
 
   console.info("[clerk-access] medewerker status:", normalizedStatus);
   console.info("[clerk-access] login toegestaan:", loginAllowed ? "ja" : "nee");
-  console.info("[clerk-access] medewerker rol:", role);
+  console.info("[clerk-access] medewerker rol uit record:", configuredRole);
+  console.info("[clerk-access] toegepaste loginrol:", normalizedRole);
 
   if (normalizedStatus !== "active") {
     throw new Error("Deze medewerker is niet actief en kan niet inloggen.");
@@ -1312,10 +1303,6 @@ function resolveClerkUserAccess(user) {
 
   if (!loginAllowed) {
     throw new Error("Inloggen is voor deze medewerker uitgeschakeld.");
-  }
-
-  if (!["employee", "planner"].includes(normalizedRole)) {
-    throw new Error("De rol van dit medewerkerrecord is ongeldig. Neem contact op met de planner.");
   }
 
   return {
