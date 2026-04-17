@@ -13662,6 +13662,10 @@ function renderControlModeOverview(weekDates, visibleEntries) {
 }
 
 function updateWeekViewTitle() {
+  if (!isWeekTabName(activeTab)) {
+    return;
+  }
+
   const currentWeek = getCurrentWeekValue();
   const selectedWeek = weekFilterInput.value || currentWeek;
 
@@ -14380,6 +14384,10 @@ function getFilteredEntries(sourceEntries = getPlanningEntries()) {
 }
 
 function renderEmployeeFilterOptions() {
+  if (!isWeekTabName(activeTab)) {
+    return;
+  }
+
   const selectedValue = employeeFilterInput.value;
   const names = isPlannerRole()
     ? [...employees]
@@ -15369,6 +15377,10 @@ function autoFillSmartDayPlanner() {
 }
 
 function renderDayPlanner() {
+  if (!isWeekTabName(activeTab)) {
+    return;
+  }
+
   if (!dayPlannerPanel) {
     return;
   }
@@ -16396,6 +16408,10 @@ function applyRoleUI() {
 }
 
 function renderSchedule() {
+  if (!isWeekTabName(activeTab)) {
+    return;
+  }
+
   const selectedWeek = weekFilterInput.value;
   const roleVisibleEntriesAll = getEntriesVisibleForCurrentRole();
   const visibleEntries = getFilteredEntries(roleVisibleEntriesAll);
@@ -17347,6 +17363,10 @@ function quickCompleteWorkDay(targetDate) {
 }
 
 function renderTotals() {
+  if (!isWeekTabName(activeTab)) {
+    return;
+  }
+
   const visibleEntries = getFilteredEntries();
 
   if (visibleEntries.length === 0) {
@@ -18009,6 +18029,8 @@ function renderHoursApproval() {
 }
 
 function renderActiveTabContent() {
+  console.info("[tabs] render activeTab:", activeTab);
+
   if (activeTab === TABS.DASHBOARD) {
     renderHomeSummary();
     renderHomeWeekOverview();
@@ -22192,7 +22214,9 @@ clerkLogoutButton?.addEventListener("click", () => {
 
 navTabs.forEach((button) => {
   button.addEventListener("click", () => {
+    console.info("[tabs] klik hoofdtab:", button.dataset.tab);
     setActiveTab(button.dataset.tab);
+    console.info("[tabs] na klik hoofdtab:", activeTab);
   });
 });
 
@@ -22210,7 +22234,9 @@ appNav?.addEventListener("click", (event) => {
 
 quickLinks.forEach((button) => {
   button.addEventListener("click", () => {
+    console.info("[tabs] klik quick link:", button.dataset.goTab);
     setActiveTab(button.dataset.goTab);
+    console.info("[tabs] na klik quick link:", activeTab);
   });
 });
 
@@ -22238,7 +22264,9 @@ requestStatusFilter?.addEventListener("change", () => {
 
 mobileNavButtons.forEach((button) => {
   button.addEventListener("click", () => {
+    console.info("[tabs] klik mobiele tab:", button.dataset.goTab);
     setActiveTab(button.dataset.goTab);
+    console.info("[tabs] na klik mobiele tab:", activeTab);
   });
 });
 
