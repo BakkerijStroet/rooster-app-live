@@ -2125,6 +2125,24 @@ function getSelectedEmployeeAdminName() {
   return employees.includes(selectedName) ? selectedName : employees[0];
 }
 
+function selectEmployeeForAdmin(employeeName) {
+  if (!isPlannerRole() || !removeEmployeeSelect) {
+    return;
+  }
+
+  if (!employeeName || !employees.includes(employeeName)) {
+    return;
+  }
+
+  removeEmployeeSelect.value = employeeName;
+  renderEmployeeList();
+  renderEmployeeEditorDetails();
+  renderEmployeePermissions();
+  renderEmployeeStandardShifts();
+  renderEmployeeContractPanel();
+  renderEmployeeDetailMailStatus(employeeName);
+}
+
 function cloneSerializableValue(value) {
   if (value === null || value === undefined) {
     return value;
@@ -19711,6 +19729,9 @@ employeeListCard?.addEventListener("click", (event) => {
     return;
   }
 
+  event.preventDefault();
+  event.stopPropagation();
+
   const employeeName = card.dataset.employeeSelect;
 
   if (!employeeName || !employees.includes(employeeName)) {
@@ -19727,9 +19748,7 @@ employeeListCard?.addEventListener("click", (event) => {
     }
   }
 
-  removeEmployeeSelect.value = employeeName;
-  renderEmployeeList();
-  renderEmployeeEditorDetails();
+  selectEmployeeForAdmin(employeeName);
 });
 
 function submitTimeOffRequest(composer) {
