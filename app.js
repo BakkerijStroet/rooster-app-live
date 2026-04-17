@@ -350,7 +350,8 @@ const TAB_ALIASES = Object.freeze({
 });
 let editIndex = null;
 let editingShiftId = null;
-let currentMainTab = SIMPLE_MAIN_TAB_EMERGENCY_MODE ? "week" : TABS.WEEK_CURRENT;
+let emergencyMainTab = "week";
+let currentMainTab = SIMPLE_MAIN_TAB_EMERGENCY_MODE ? emergencyMainTab : TABS.WEEK_CURRENT;
 let hasInitializedDefaultTab = false;
 let activeEmployeeWeekView = "today";
 let activeRole = preferences.lastRole === "employee" ? "employee" : "planner";
@@ -13913,10 +13914,12 @@ function updateTabVisibility() {
 }
 
 function renderEmergencyMainTabState() {
+  currentMainTab = emergencyMainTab;
+
   simpleMainTabButtons.forEach((button) => {
     const isAllowed = isPlannerRole() || !button.classList.contains("planner-only-tab");
     button.hidden = !isAllowed;
-    button.classList.toggle("is-active", button.dataset.simpleTab === currentMainTab);
+    button.classList.toggle("is-active", button.dataset.simpleTab === emergencyMainTab);
   });
 
   appPanels.forEach((panel) => {
@@ -13937,34 +13940,34 @@ function renderEmergencyMainTabState() {
   }
 
   let title = "TAB WERKT";
-  let text = `Actieve tab: ${currentMainTab}`;
+  let text = `Actieve tab: ${emergencyMainTab}`;
 
-  if (currentMainTab === "dashboard") {
+  if (emergencyMainTab === "dashboard") {
     title = "DASHBOARD WERKT";
     text = "Dashboard is actief.";
   }
 
-  if (currentMainTab === "week") {
+  if (emergencyMainTab === "week") {
     title = "WEEK WERKT";
     text = "Rooster deze week is actief.";
   }
 
-  if (currentMainTab === "medewerkers") {
+  if (emergencyMainTab === "medewerkers") {
     title = "MEDEWERKERS WERKT";
     text = "Medewerkers is actief.";
   }
 
-  if (currentMainTab === "aanvragen") {
+  if (emergencyMainTab === "aanvragen") {
     title = "AANVRAGEN WERKT";
     text = "Aanvragen is actief.";
   }
 
-  if (currentMainTab === "uren") {
+  if (emergencyMainTab === "uren") {
     title = "UREN WERKT";
     text = "Mijn uren is actief.";
   }
 
-  if (currentMainTab === "uren-accorderen") {
+  if (emergencyMainTab === "uren-accorderen") {
     title = "UREN ACCORDEREN WERKT";
     text = "Uren accorderen is actief.";
   }
@@ -13977,7 +13980,7 @@ function renderEmergencyMainTabState() {
     simpleTabEmergencyText.textContent = text;
   }
 
-  console.info("[tabs] render noodtab:", currentMainTab);
+  console.info("[tabs] render noodtab:", emergencyMainTab);
 }
 
 function getActiveTabPanels() {
@@ -14053,7 +14056,8 @@ function setCurrentMainTab(tabName, options = {}) {
   console.info("[tabs] genormaliseerde tab:", requestedTabName);
 
   if (SIMPLE_MAIN_TAB_EMERGENCY_MODE) {
-    currentMainTab = requestedTabName;
+    emergencyMainTab = requestedTabName;
+    currentMainTab = emergencyMainTab;
     console.info("[tabs] currentMainTab gezet naar:", currentMainTab);
     renderEmergencyMainTabState();
     renderEmployeePersistenceDebug();
@@ -14106,6 +14110,13 @@ function setCurrentMainTab(tabName, options = {}) {
 
 window.__forceTabClick = function forceTabClick(tabName) {
   console.info("[tabs] inline force tab click:", tabName);
+  if (SIMPLE_MAIN_TAB_EMERGENCY_MODE) {
+    emergencyMainTab = String(tabName || "").trim().toLowerCase() || "week";
+    currentMainTab = emergencyMainTab;
+    renderEmergencyMainTabState();
+    renderEmployeePersistenceDebug();
+    return;
+  }
   setCurrentMainTab(tabName, { force: true });
 };
 
@@ -18243,7 +18254,7 @@ function renderEmployeePersistenceDebug() {
   }
 
   if (SIMPLE_MAIN_TAB_EMERGENCY_MODE) {
-    debugElement.textContent = `DEBUG TAB: ${currentMainTab}`;
+    debugElement.textContent = `DEBUG TAB: ${emergencyMainTab}`;
     debugElement.hidden = false;
     return;
   }
