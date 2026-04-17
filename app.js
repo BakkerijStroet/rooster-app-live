@@ -280,7 +280,8 @@ const clerkAuthState = {
   role: "employee",
   publishableKey: "",
   error: "",
-  signInMounted: false
+  signInMounted: false,
+  uiLoaded: false
 };
 let currentDataMode = "live";
 if (preferences.lastDataMode !== "live") {
@@ -855,6 +856,70 @@ async function loadClerkConstructor() {
   return clerkModule?.Clerk || clerkModule?.default?.Clerk || clerkModule?.default || null;
 }
 
+function getClerkFrontendApiDomain(publishableKey) {
+  const normalizedKey = typeof publishableKey === "string" ? publishableKey.trim() : "";
+
+  if (!normalizedKey) {
+    return "";
+  }
+
+  try {
+    const encodedDomain = normalizedKey.split("_")[2] || "";
+    return encodedDomain ? atob(encodedDomain).slice(0, -1) : "";
+  } catch {
+    return "";
+  }
+}
+
+async function ensureClerkUiBundleLoaded(publishableKey) {
+  if (window.__internal_ClerkUICtor) {
+    clerkAuthState.uiLoaded = true;
+    return;
+  }
+
+  const clerkDomain = getClerkFrontendApiDomain(publishableKey);
+
+  if (!clerkDomain) {
+    throw new Error("Clerk publishable key ontbreekt of is ongeldig.");
+  }
+
+  const existingScript = document.querySelector('script[data-clerk-ui-bundle="true"]');
+
+  if (existingScript) {
+    await new Promise((resolve, reject) => {
+      if (window.__internal_ClerkUICtor) {
+        resolve();
+        return;
+      }
+
+      existingScript.addEventListener("load", () => resolve(), { once: true });
+      existingScript.addEventListener("error", () => reject(new Error("Clerk UI kon niet worden geladen.")), { once: true });
+    });
+    clerkAuthState.uiLoaded = Boolean(window.__internal_ClerkUICtor);
+    if (!clerkAuthState.uiLoaded) {
+      throw new Error("Clerk UI componenten zijn niet beschikbaar.");
+    }
+    return;
+  }
+
+  await new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = `https://${clerkDomain}/npm/@clerk/ui@1/dist/ui.browser.js`;
+    script.async = true;
+    script.crossOrigin = "anonymous";
+    script.dataset.clerkUiBundle = "true";
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Clerk UI kon niet worden geladen."));
+    document.head.appendChild(script);
+  });
+
+  clerkAuthState.uiLoaded = Boolean(window.__internal_ClerkUICtor);
+
+  if (!clerkAuthState.uiLoaded) {
+    throw new Error("Clerk UI componenten zijn niet beschikbaar.");
+  }
+}
+
 function getDefaultTabForRole(role) {
   const normalizedRole = typeof role === "string" ? role.trim().toLowerCase() : "";
 
@@ -961,6 +1026,11 @@ function closeLoginOverlay() {
 
 async function mountClerkSignInIfNeeded() {
   if (!clerkAuthState.enabled || !clerkSignInMount || !clerkAuthState.clerk || clerkAuthState.user) {
+    return;
+  }
+
+  if (!clerkAuthState.uiLoaded || !window.__internal_ClerkUICtor) {
+    showClerkAuthMessage("Inlogscherm laden...", "info");
     return;
   }
 
@@ -1088,8 +1158,12 @@ async function initializeClerkAuthentication() {
       throw new Error("Clerk kon niet worden geladen.");
     }
 
+    await ensureClerkUiBundleLoaded(publishableKey);
+
     const clerk = new ClerkConstructor(publishableKey);
-    await clerk.load();
+    await clerk.load({
+      ui: { ClerkUI: window.__internal_ClerkUICtor }
+    });
     clerkAuthState.enabled = true;
     clerkAuthState.ready = true;
     clerkAuthState.clerk = clerk;
