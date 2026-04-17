@@ -13814,6 +13814,57 @@ function updateTabVisibility() {
   updateFocusModeUI();
 }
 
+function getActiveTabPanels() {
+  const isWeekTab = isWeekTabName(activeTab);
+
+  return appPanels.filter((panel) => {
+    if (panel.hidden) {
+      return false;
+    }
+
+    if (panel.dataset.panel === activeTab) {
+      return true;
+    }
+
+    return isWeekTab && (panel.hasAttribute("data-week-panel") || panel.dataset.panel === "week-summary");
+  });
+}
+
+function clearActiveTabRenderError() {
+  getActiveTabPanels().forEach((panel) => {
+    panel.querySelectorAll("[data-tab-render-error='true']").forEach((element) => element.remove());
+  });
+}
+
+function showActiveTabRenderError(error) {
+  const errorMessage = error instanceof Error && error.message
+    ? error.message
+    : "Deze tab kon niet worden geladen.";
+  const visiblePanels = getActiveTabPanels();
+
+  visiblePanels.forEach((panel) => {
+    const errorBox = document.createElement("div");
+    errorBox.dataset.tabRenderError = "true";
+    errorBox.className = "message message-error compact-message";
+    errorBox.style.marginTop = "12px";
+    errorBox.textContent = `Deze tab kon niet volledig worden geladen: ${errorMessage}`;
+    panel.prepend(errorBox);
+  });
+
+  showError(`Tab-fout: ${errorMessage}`);
+}
+
+function renderActiveTabContentSafely() {
+  clearActiveTabRenderError();
+
+  try {
+    renderActiveTabContent();
+  } catch (error) {
+    console.error("[tab-render] fout in actieve tab:", activeTab, error);
+    showActiveTabRenderError(error);
+  }
+}
+
 function resetTabScrollPosition() {
   window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   document.documentElement.scrollTop = 0;
@@ -18024,7 +18075,7 @@ function render() {
     renderDashboard();
     renderEmployeePersistenceDebug();
     renderEmployeeSelectors();
-    renderActiveTabContent();
+    renderActiveTabContentSafely();
     maybeShowOpenRequestReminder();
     renderActiveMessage();
   } catch (error) {
