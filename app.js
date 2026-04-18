@@ -14247,6 +14247,14 @@ function renderSwapEntryOptions() {
 }
 
 function renderTimeOffRequests() {
+  console.debug("[renderTimeOffRequests]", {
+    openTimeOffRequestsContainer: Boolean(openTimeOffRequestsContainer),
+    handledTimeOffRequestsContainer: Boolean(handledTimeOffRequestsContainer),
+    plannerFreeRequestsContainer: Boolean(plannerFreeRequestsContainer),
+    plannerVacationRequestsContainer: Boolean(plannerVacationRequestsContainer),
+    plannerSickRequestsContainer: Boolean(plannerSickRequestsContainer),
+    isPlannerRole: isPlannerRole()
+  });
   const { visibleTimeOffRequests } = getVisibleRequestSources();
   const visibleRequests = visibleTimeOffRequests.filter((request) => matchesRequestStatusFilter(request));
 
@@ -14351,6 +14359,12 @@ function renderTimeOffRequests() {
 }
 
 function renderSwapRequests() {
+  console.debug("[renderSwapRequests]", {
+    openSwapRequestsContainer: Boolean(openSwapRequestsContainer),
+    handledSwapRequestsContainer: Boolean(handledSwapRequestsContainer),
+    plannerSwapRequestsContainer: Boolean(plannerSwapRequestsContainer),
+    isPlannerRole: isPlannerRole()
+  });
   const { visibleSwapRequests } = getVisibleRequestSources();
   syncSwapReminderNotifications(visibleSwapRequests);
   const visibleRequests = visibleSwapRequests.filter((request) => matchesRequestStatusFilter(request));
@@ -14430,23 +14444,31 @@ function renderSwapRequests() {
       "Nog geen ruilverzoeken.",
       "swap"
     );
-    setClassName(openSwapRequestsContainer, "request-list hidden");
-    setClassName(handledSwapRequestsContainer, "request-list hidden");
-    openSwapRequestsContainer.innerHTML = "";
-    handledSwapRequestsContainer.innerHTML = "";
+    if (openSwapRequestsContainer) {
+      setClassName(openSwapRequestsContainer, "request-list hidden");
+      openSwapRequestsContainer.innerHTML = "";
+    }
+    if (handledSwapRequestsContainer) {
+      setClassName(handledSwapRequestsContainer, "request-list hidden");
+      handledSwapRequestsContainer.innerHTML = "";
+    }
     return;
   }
 
-  renderCards(
-    openSwapRequestsContainer,
-    sortedRequests.filter((request) => request.status === "open"),
-    "Nog geen open ruilverzoeken."
-  );
-  renderCards(
-    handledSwapRequestsContainer,
-    sortedRequests.filter((request) => request.status !== "open"),
-    "Nog geen afgehandelde ruilverzoeken."
-  );
+  if (openSwapRequestsContainer) {
+    renderCards(
+      openSwapRequestsContainer,
+      sortedRequests.filter((request) => request.status === "open"),
+      "Nog geen open ruilverzoeken."
+    );
+  }
+  if (handledSwapRequestsContainer) {
+    renderCards(
+      handledSwapRequestsContainer,
+      sortedRequests.filter((request) => request.status !== "open"),
+      "Nog geen afgehandelde ruilverzoeken."
+    );
+  }
 }
 
 function renderPlanningSettings() {
@@ -16531,6 +16553,15 @@ function renderActiveTabContent() {
 
 function render() {
   try {
+    console.debug("[render]", {
+      activeTab,
+      requestTimeOffPanel: Boolean(requestTimeOffPanel),
+      requestSwapPanel: Boolean(requestSwapPanel),
+      openTimeOffRequestsContainer: Boolean(openTimeOffRequestsContainer),
+      handledTimeOffRequestsContainer: Boolean(handledTimeOffRequestsContainer),
+      openSwapRequestsContainer: Boolean(openSwapRequestsContainer),
+      handledSwapRequestsContainer: Boolean(handledSwapRequestsContainer)
+    });
     ensureEmployeeIdentityForCurrentRole();
     applyRoleUI();
     updateTabVisibility();
