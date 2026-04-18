@@ -675,19 +675,11 @@ function getLoginRoleValue() {
 }
 
 function hasRememberedUserSession() {
-  return Boolean(preferences.hasUserSession);
+  return hasRememberedUserSessionHelper(preferences);
 }
 
 function needsLoginSelection() {
-  if (!hasRememberedUserSession()) {
-    return true;
-  }
-
-  if (activeRole !== "employee") {
-    return false;
-  }
-
-  return !getEmployeeIdentity();
+  return needsLoginSelectionHelper(hasRememberedUserSession(), activeRole, getEmployeeIdentity());
 }
 
 function loadEntries() {
@@ -2724,6 +2716,43 @@ const {
     return "Werkplek: Bakkerij";
   }
 } = window.StroetRenderHelpersFeature || {};
+
+const {
+  isPlannerRole: isPlannerRoleHelper = function fallbackIsPlannerRole(activeRoleValue) {
+    return activeRoleValue === "planner";
+  },
+  hasRememberedUserSession: hasRememberedUserSessionHelper = function fallbackHasRememberedUserSession(preferencesValue) {
+    return Boolean(preferencesValue?.hasUserSession);
+  },
+  getEmployeeIdentity: getEmployeeIdentityHelper = function fallbackGetEmployeeIdentity(preferencesValue, employeesValue, isEmployeeActive) {
+    return preferencesValue?.employeeIdentity &&
+      employeesValue.includes(preferencesValue.employeeIdentity) &&
+      isEmployeeActive(preferencesValue.employeeIdentity)
+      ? preferencesValue.employeeIdentity
+      : "";
+  },
+  needsLoginSelection: needsLoginSelectionHelper = function fallbackNeedsLoginSelection(hasUserSession, activeRoleValue, employeeIdentity) {
+    if (!hasUserSession) {
+      return true;
+    }
+
+    if (activeRoleValue !== "employee") {
+      return false;
+    }
+
+    return !employeeIdentity;
+  },
+  getRoleScopedEmployeeName: getRoleScopedEmployeeNameHelper = function fallbackGetRoleScopedEmployeeName(isPlannerRoleValue, employeeIdentity, currentEmployeeName, fallbackName = "") {
+    if (isPlannerRoleValue) {
+      return fallbackName;
+    }
+
+    return employeeIdentity || currentEmployeeName || fallbackName;
+  },
+  getPreferredEmployeeIdentityCandidate: getPreferredEmployeeIdentityCandidateHelper = function fallbackGetPreferredEmployeeIdentityCandidate(candidates, employeesValue) {
+    return candidates.find((employeeName) => employeeName && employeesValue.includes(employeeName)) || "";
+  }
+} = window.StroetBootstrapHelpersFeature || {};
 
 function getMailSettingsDefaults() {
   return getMailSettingsDefaultsHelper(FIXED_TEST_MAIL_RECIPIENT);
@@ -6491,23 +6520,20 @@ function getCurrentEmployeeName() {
 }
 
 function isPlannerRole() {
-  return activeRole === "planner";
+  return isPlannerRoleHelper(activeRole);
 }
 
 function getEmployeeIdentity() {
-  return preferences.employeeIdentity &&
-    employees.includes(preferences.employeeIdentity) &&
-    isEmployeeActive(preferences.employeeIdentity)
-    ? preferences.employeeIdentity
-    : "";
+  return getEmployeeIdentityHelper(preferences, employees, isEmployeeActive);
 }
 
 function getRoleScopedEmployeeName(fallbackName = "") {
-  if (isPlannerRole()) {
-    return fallbackName;
-  }
-
-  return getEmployeeIdentity() || getCurrentEmployeeName() || fallbackName;
+  return getRoleScopedEmployeeNameHelper(
+    isPlannerRole(),
+    getEmployeeIdentity(),
+    getCurrentEmployeeName(),
+    fallbackName
+  );
 }
 
 function syncScopedEmployeeSelectors(employeeName = getRoleScopedEmployeeName()) {
@@ -6550,14 +6576,12 @@ function ensureEmployeeIdentityForCurrentRole() {
 }
 
 function getPreferredEmployeeIdentityCandidate() {
-  const candidates = [
+  return getPreferredEmployeeIdentityCandidateHelper([
     getCurrentEmployeeName(),
     preferences.lastPortalEmployee,
     preferences.lastHoursEmployee,
     preferences.lastEmployee
-  ];
-
-  return candidates.find((employeeName) => employeeName && employees.includes(employeeName)) || "";
+  ], employees);
 }
 
 function getOwnEmployeeNameOrWarn() {
