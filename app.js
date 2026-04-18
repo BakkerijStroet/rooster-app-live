@@ -1306,10 +1306,7 @@ function hasFixedContractHours(employeeName) {
 }
 
 function getEmployeeContractTypeLabel(employeeName) {
-  const contractHours = getEmployeeContractHours(employeeName);
-  return contractHours > 0
-    ? `Vast contract ${formatHours(contractHours)}`
-    : "0-uren contract";
+  return getEmployeeContractTypeLabelHelper(getEmployeeContractHours, formatHours, employeeName);
 }
 
 function findEmployeeByEmail(email, excludedEmployeeName = "") {
@@ -2636,6 +2633,97 @@ const {
     return tabName === "week-current" || tabName === "week-next";
   }
 } = window.StroetNavigationFeature || {};
+
+const {
+  getEmployeeContractTypeLabel: getEmployeeContractTypeLabelHelper = function fallbackGetEmployeeContractTypeLabel(getEmployeeContractHours, formatHours, employeeName) {
+    const contractHours = getEmployeeContractHours(employeeName);
+    return contractHours > 0
+      ? `Vast contract ${formatHours(contractHours)}`
+      : "0-uren contract";
+  },
+  getPlannerSectionLabel: getPlannerSectionLabelHelper = function fallbackGetPlannerSectionLabel(sectionKey) {
+    if (sectionKey === "allround") {
+      return "Allround";
+    }
+
+    if (sectionKey === "shop") {
+      return "Winkel";
+    }
+
+    if (sectionKey === "optional") {
+      return "Stage";
+    }
+
+    return "Bakkerij";
+  },
+  getMonthLabel: getMonthLabelHelper = function fallbackGetMonthLabel(monthValue) {
+    const [year, month] = String(monthValue || "").split("-");
+
+    if (!year || !month) {
+      return "";
+    }
+
+    const date = new Date(Number(year), Number(month) - 1, 1);
+    return date.toLocaleDateString("nl-NL", {
+      month: "long",
+      year: "numeric"
+    });
+  },
+  getRosterDaypartLabel: getRosterDaypartLabelHelper = function fallbackGetRosterDaypartLabel(daypart) {
+    const labels = {
+      morning: "ochtend",
+      afternoon: "middag",
+      full: "hele dag"
+    };
+
+    return labels[daypart] || "vrij";
+  },
+  getShiftSummaryLabel: getShiftSummaryLabelHelper = function fallbackGetShiftSummaryLabel(formatWeekday, shiftName, dateValue, startTime, endTime, employeeName = "") {
+    const employeePart = employeeName ? ` - ${employeeName}` : "";
+    return `${formatWeekday(dateValue)}: ${shiftName}${employeePart} (${startTime} - ${endTime})`;
+  },
+  getShiftContextLabel: getShiftContextLabelHelper = function fallbackGetShiftContextLabel(getShiftName, entry) {
+    const shiftName = getShiftName(entry).toLowerCase();
+
+    if (shiftName.includes("winkel")) {
+      return "Werkplek: Winkel";
+    }
+
+    if (shiftName.includes("bezorg")) {
+      return "Werkplek: Bezorging";
+    }
+
+    if (shiftName.includes("banket")) {
+      return "Soort: Banket";
+    }
+
+    if (shiftName.includes("oven")) {
+      return "Soort: Ovendienst";
+    }
+
+    if (shiftName.includes("draai")) {
+      return "Soort: Draaidienst";
+    }
+
+    if (shiftName.includes("brood")) {
+      return "Soort: Brooddienst";
+    }
+
+    if (shiftName.includes("productie")) {
+      return "Soort: Productiedienst";
+    }
+
+    if (shiftName.includes("allround")) {
+      return "Soort: Allrounddienst";
+    }
+
+    if (shiftName.includes("inpak")) {
+      return "Soort: Inpakdienst";
+    }
+
+    return "Werkplek: Bakkerij";
+  }
+} = window.StroetRenderHelpersFeature || {};
 
 function getMailSettingsDefaults() {
   return getMailSettingsDefaultsHelper(FIXED_TEST_MAIL_RECIPIENT);
@@ -7304,19 +7392,7 @@ function getPlannerSectionKey(shiftLike) {
 }
 
 function getPlannerSectionLabel(sectionKey) {
-  if (sectionKey === "allround") {
-    return "Allround";
-  }
-
-  if (sectionKey === "shop") {
-    return "Winkel";
-  }
-
-  if (sectionKey === "optional") {
-    return "Stage";
-  }
-
-  return "Bakkerij";
+  return getPlannerSectionLabelHelper(sectionKey);
 }
 
 function renderOpenShiftCard(shift, day, { inlinePlanner = false } = {}) {
@@ -8308,17 +8384,7 @@ function getCurrentMonthValue() {
 }
 
 function getMonthLabel(monthValue) {
-  const [year, month] = String(monthValue || "").split("-");
-
-  if (!year || !month) {
-    return "";
-  }
-
-  const date = new Date(Number(year), Number(month) - 1, 1);
-  return date.toLocaleDateString("nl-NL", {
-    month: "long",
-    year: "numeric"
-  });
+  return getMonthLabelHelper(monthValue);
 }
 
 function getWeeksForMonth(monthValue) {
@@ -8645,13 +8711,7 @@ function isAfternoonShift(shift) {
 }
 
 function getRosterDaypartLabel(daypart) {
-  const labels = {
-    morning: "ochtend",
-    afternoon: "middag",
-    full: "hele dag"
-  };
-
-  return labels[daypart] || "vrij";
+  return getRosterDaypartLabelHelper(daypart);
 }
 
 function getShiftRosterDaypart(shift) {
@@ -10087,8 +10147,7 @@ function renderWeekStatusOverview(weekDates) {
 }
 
 function getShiftSummaryLabel(shiftName, dateValue, startTime, endTime, employeeName = "") {
-  const employeePart = employeeName ? ` - ${employeeName}` : "";
-  return `${formatWeekday(dateValue)}: ${shiftName}${employeePart} (${startTime} - ${endTime})`;
+  return getShiftSummaryLabelHelper(formatWeekday, shiftName, dateValue, startTime, endTime, employeeName);
 }
 
 function getPreviewShiftForEntry(entry) {
@@ -10915,45 +10974,7 @@ function renderWeekReviewStatus(selectedWeek) {
 }
 
 function getShiftContextLabel(entry) {
-  const shiftName = getShiftName(entry).toLowerCase();
-
-  if (shiftName.includes("winkel")) {
-    return "Werkplek: Winkel";
-  }
-
-  if (shiftName.includes("bezorg")) {
-    return "Werkplek: Bezorging";
-  }
-
-  if (shiftName.includes("banket")) {
-    return "Soort: Banket";
-  }
-
-  if (shiftName.includes("oven")) {
-    return "Soort: Ovendienst";
-  }
-
-  if (shiftName.includes("draai")) {
-    return "Soort: Draaidienst";
-  }
-
-  if (shiftName.includes("brood")) {
-    return "Soort: Brooddienst";
-  }
-
-  if (shiftName.includes("productie")) {
-    return "Soort: Productiedienst";
-  }
-
-  if (shiftName.includes("allround")) {
-    return "Soort: Allrounddienst";
-  }
-
-  if (shiftName.includes("inpak")) {
-    return "Soort: Inpakdienst";
-  }
-
-  return "Werkplek: Bakkerij";
+  return getShiftContextLabelHelper(getShiftName, entry);
 }
 
 const {
