@@ -1499,6 +1499,82 @@ const {
   }
 } = window.StroetMailFeature || {};
 
+const {
+  createAuditActorMeta = function fallbackCreateAuditActorMeta(options = {}) {
+    const {
+      isPlanner = false,
+      employeeName = "",
+      plannerName = "Planner / Directie",
+      employeeFallback = "Medewerker"
+    } = options;
+
+    return {
+      actorRole: isPlanner ? "planner" : "employee",
+      actorName: isPlanner
+        ? plannerName
+        : (typeof employeeName === "string" && employeeName ? employeeName : employeeFallback)
+    };
+  },
+  createBackupEntryId = function fallbackCreateBackupEntryId() {
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  },
+  getBackupEmptySummaryText = function fallbackGetBackupEmptySummaryText() {
+    return "Nog geen back-up beschikbaar.";
+  },
+  getBackupOptionLabel = function fallbackGetBackupOptionLabel(backup, options = {}) {
+    const formatDateTime = typeof options.formatDateTime === "function"
+      ? options.formatDateTime
+      : ((value) => String(value || ""));
+    return `${formatDateTime(backup.createdAt)} - ${backup.reason}`;
+  },
+  getBackupRestoreEmptyLabel = function fallbackGetBackupRestoreEmptyLabel() {
+    return "Kies herstelpunt";
+  },
+  getBackupSummaryText = function fallbackGetBackupSummaryText(history = [], options = {}) {
+    const formatDateTime = typeof options.formatDateTime === "function"
+      ? options.formatDateTime
+      : ((value) => String(value || ""));
+
+    if (!Array.isArray(history) || !history.length) {
+      return getBackupEmptySummaryText();
+    }
+
+    return `Laatste back-up: ${formatDateTime(history[0].createdAt)}. Totaal ${history.length} lokaal opgeslagen herstelpunt(en).`;
+  },
+  sanitizeAuditLog = function fallbackSanitizeAuditLog(log = []) {
+    return Array.isArray(log)
+      ? log
+        .filter((item) =>
+          item &&
+          typeof item.at === "string" &&
+          typeof item.scope === "string" &&
+          typeof item.action === "string"
+        )
+        .map((item) => ({
+          at: item.at,
+          scope: item.scope,
+          action: item.action,
+          actorRole: item.actorRole === "employee" ? "employee" : "planner",
+          actorName: typeof item.actorName === "string" ? item.actorName : "",
+          message: typeof item.message === "string" ? item.message : "",
+          details: item.details && typeof item.details === "object" ? item.details : {}
+        }))
+      : [];
+  },
+  sanitizeBackupHistory = function fallbackSanitizeBackupHistory(history = []) {
+    return Array.isArray(history)
+      ? history.filter((backup) =>
+        backup &&
+        typeof backup.id === "string" &&
+        typeof backup.createdAt === "string" &&
+        typeof backup.reason === "string" &&
+        backup.snapshot &&
+        typeof backup.snapshot === "object"
+      )
+      : [];
+  }
+} = window.StroetBackupFeature || {};
+
 function getMailSettingsDefaults() {
   return getMailSettingsDefaultsHelper(FIXED_TEST_MAIL_RECIPIENT);
 }
@@ -1596,25 +1672,7 @@ function loadAuditLog() {
 
   try {
     const parsedAuditLog = JSON.parse(savedAuditLog);
-
-    if (!Array.isArray(parsedAuditLog)) {
-      return [];
-    }
-
-    return parsedAuditLog.filter((item) =>
-      item &&
-      typeof item.at === "string" &&
-      typeof item.scope === "string" &&
-      typeof item.action === "string"
-    ).map((item) => ({
-      at: item.at,
-      scope: item.scope,
-      action: item.action,
-      actorRole: item.actorRole === "employee" ? "employee" : "planner",
-      actorName: typeof item.actorName === "string" ? item.actorName : "",
-      message: typeof item.message === "string" ? item.message : "",
-      details: item.details && typeof item.details === "object" ? item.details : {}
-    }));
+    return sanitizeAuditLog(parsedAuditLog);
   } catch {
     return [];
   }
@@ -1633,19 +1691,7 @@ function loadBackupHistory() {
 
   try {
     const parsedBackups = JSON.parse(savedBackups);
-
-    if (!Array.isArray(parsedBackups)) {
-      return [];
-    }
-
-    return parsedBackups.filter((backup) =>
-      backup &&
-      typeof backup.id === "string" &&
-      typeof backup.createdAt === "string" &&
-      typeof backup.reason === "string" &&
-      backup.snapshot &&
-      typeof backup.snapshot === "object"
-    );
+    return sanitizeBackupHistory(parsedBackups);
   } catch {
     return [];
   }
@@ -2271,12 +2317,17 @@ function syncEmployeeMeta() {
 }
 
 function recordAuditEvent(scope, action, message, details = {}) {
+  const actorMeta = createAuditActorMeta({
+    isPlanner: isPlannerRole(),
+    employeeName: getRoleScopedEmployeeName() || "Medewerker"
+  });
+
   auditLog.unshift({
     at: getNowIsoString(),
     scope,
     action,
-    actorRole: isPlannerRole() ? "planner" : "employee",
-    actorName: isPlannerRole() ? "Planner / Directie" : (getRoleScopedEmployeeName() || "Medewerker"),
+    actorRole: actorMeta.actorRole,
+    actorName: actorMeta.actorName,
     message,
     details
   });
@@ -2285,6 +2336,11 @@ function recordAuditEvent(scope, action, message, details = {}) {
 }
 
 function createBackupSnapshot(reason, metadata = {}) {
+  const actorMeta = createAuditActorMeta({
+    isPlanner: isPlannerRole(),
+    employeeName: getRoleScopedEmployeeName() || "Medewerker"
+  });
+
   const snapshot = {
     entries: cloneEntriesState(entries),
     employees: [...employees],
@@ -2303,11 +2359,11 @@ function createBackupSnapshot(reason, metadata = {}) {
   };
 
   backupHistory.unshift({
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: createBackupEntryId(),
     createdAt: getNowIsoString(),
     reason,
-    actorRole: isPlannerRole() ? "planner" : "employee",
-    actorName: isPlannerRole() ? "Planner / Directie" : (getRoleScopedEmployeeName() || "Medewerker"),
+    actorRole: actorMeta.actorRole,
+    actorName: actorMeta.actorName,
     metadata,
     snapshot
   });
@@ -13370,17 +13426,17 @@ function renderBackupRestore() {
   }
 
   if (!backupHistory.length) {
-    backupRestoreSelect.innerHTML = `<option value="">Kies herstelpunt</option>`;
-    backupSummary.textContent = "Nog geen back-up beschikbaar.";
+    backupRestoreSelect.innerHTML = `<option value="">${getBackupRestoreEmptyLabel()}</option>`;
+    backupSummary.textContent = getBackupEmptySummaryText();
     return;
   }
 
   const selectedValue = backupRestoreSelect.value;
-  backupRestoreSelect.innerHTML = `<option value="">Kies herstelpunt</option>${backupHistory.map((backup) => `
-    <option value="${backup.id}">${formatDateTime(backup.createdAt)} - ${backup.reason}</option>
+  backupRestoreSelect.innerHTML = `<option value="">${getBackupRestoreEmptyLabel()}</option>${backupHistory.map((backup) => `
+    <option value="${backup.id}">${getBackupOptionLabel(backup, { formatDateTime })}</option>
   `).join("")}`;
   backupRestoreSelect.value = backupHistory.some((backup) => backup.id === selectedValue) ? selectedValue : backupHistory[0].id;
-  backupSummary.textContent = `Laatste back-up: ${formatDateTime(backupHistory[0].createdAt)}. Totaal ${backupHistory.length} lokaal opgeslagen herstelpunt(en).`;
+  backupSummary.textContent = getBackupSummaryText(backupHistory, { formatDateTime });
 }
 
 function renderMailSettings() {
