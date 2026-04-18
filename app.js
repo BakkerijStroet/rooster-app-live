@@ -14201,7 +14201,7 @@ function renderSwapEntryOptions() {
   const currentValue = swapEntrySelect.value;
   const employeeName = !isPlannerRole() ? getRoleScopedEmployeeName() : swapEmployeeSelect.value;
   const date = swapDateInput.value;
-  const todayDate = getTodayString();
+  const todayDate = getTodayLocalDateValue();
 
   if (!isPlannerRole() && employeeName) {
     swapEmployeeSelect.value = employeeName;
