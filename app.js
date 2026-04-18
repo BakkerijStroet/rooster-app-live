@@ -1222,44 +1222,90 @@ function saveEmployees() {
   safeSetStorageItem(getScopedStorageKey(employeeStorageKey), JSON.stringify(employees), "medewerkers");
 }
 
-function getEmployeeStatusMetaDefaults() {
-  return {
-    status: "active",
-    role: "employee",
-    contractHours: 0,
-    email: "",
-    mailTestUser: false,
-    lastTestMailAt: "",
-    lastTestMailStatus: "",
-    lastTestMailMessage: "",
-    updatedAt: "",
-    updatedByRole: "",
-    updatedByName: ""
-  };
-}
+const {
+  formatEmployeeStatusImpact = function fallbackFormatEmployeeStatusImpact(status) {
+    if (status === "inactive") {
+      return "Inactief: blijft zichtbaar in historische gegevens, maar verdwijnt uit nieuwe planning, standaard keuzelijsten, aanvragen en medewerker-login.";
+    }
 
-function normalizeEmployeeAppRole(value) {
-  return value === "planner" ? "planner" : "employee";
-}
+    if (status === "former") {
+      return "Uit dienst: alle oude roosters, uren, aanvragen en goedkeuringen blijven bewaard. De medewerker verdwijnt uit nieuwe planning, standaard keuzelijsten en login.";
+    }
 
-function getDefaultEmployeeAppRole(employeeName) {
-  return ["Chantal", "Twan"].includes(employeeName) ? "planner" : "employee";
-}
+    return "Actief: zichtbaar in standaard keuzelijsten en beschikbaar voor planning, aanvragen en medewerker-login.";
+  },
+  getConfiguredEmployeeContractHours = function fallbackGetConfiguredEmployeeContractHours() {
+    return {
+      "Ronny": 38,
+      "Richard H": 38,
+      "Richard R": 38,
+      "Lindsey": 38,
+      "Marnix": 38,
+      "Luna": 32,
+      "Monique": 30,
+      "Saskia": 28,
+      "Gerry": 16,
+      "Wendy": 28
+    };
+  },
+  getDefaultEmployeeAppRole = function fallbackGetDefaultEmployeeAppRole(employeeName) {
+    return ["Chantal", "Twan"].includes(employeeName) ? "planner" : "employee";
+  },
+  getEmployeeStatusClass = function fallbackGetEmployeeStatusClass(status) {
+    if (status === "inactive") {
+      return "is-inactive";
+    }
 
-function getConfiguredEmployeeContractHours() {
-  return {
-    "Ronny": 38,
-    "Richard H": 38,
-    "Richard R": 38,
-    "Lindsey": 38,
-    "Marnix": 38,
-    "Luna": 32,
-    "Monique": 30,
-    "Saskia": 28,
-    "Gerry": 16,
-    "Wendy": 28
-  };
-}
+    if (status === "former") {
+      return "is-former";
+    }
+
+    return "is-active";
+  },
+  getEmployeeStatusLabel = function fallbackGetEmployeeStatusLabel(status) {
+    if (status === "inactive") {
+      return "Inactief";
+    }
+
+    if (status === "former") {
+      return "Uit dienst";
+    }
+
+    return "Actief";
+  },
+  getEmployeeStatusMetaDefaults = function fallbackGetEmployeeStatusMetaDefaults() {
+    return {
+      status: "active",
+      role: "employee",
+      contractHours: 0,
+      email: "",
+      mailTestUser: false,
+      lastTestMailAt: "",
+      lastTestMailStatus: "",
+      lastTestMailMessage: "",
+      updatedAt: "",
+      updatedByRole: "",
+      updatedByName: ""
+    };
+  },
+  isValidEmployeeEmail = function fallbackIsValidEmployeeEmail(email) {
+    const normalizedEmail = normalizeEmployeeEmail(email);
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
+  },
+  normalizeContractHours = function fallbackNormalizeContractHours(value) {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) && numericValue >= 0 ? Math.round(numericValue * 10) / 10 : 0;
+  },
+  normalizeEmployeeAppRole = function fallbackNormalizeEmployeeAppRole(value) {
+    return value === "planner" ? "planner" : "employee";
+  },
+  normalizeEmployeeEmail = function fallbackNormalizeEmployeeEmail(value) {
+    return typeof value === "string" ? value.trim() : "";
+  },
+  normalizeEmployeeStatus = function fallbackNormalizeEmployeeStatus(value) {
+    return ["active", "inactive", "former"].includes(value) ? value : "active";
+  }
+} = window.StroetEmployeesFeature || {};
 
 function getBakeryContractEmployeeNames() {
   return ["Ronny", "Richard H", "Richard R", "Lindsey", "Marnix"]
@@ -1275,25 +1321,6 @@ function getEmployeeContractTypeLabel(employeeName) {
   return contractHours > 0
     ? `Vast contract ${formatHours(contractHours)}`
     : "0-uren contract";
-}
-
-function normalizeContractHours(value) {
-  const numericValue = Number(value);
-  return Number.isFinite(numericValue) && numericValue >= 0 ? Math.round(numericValue * 10) / 10 : 0;
-}
-
-function normalizeEmployeeStatus(value) {
-  return ["active", "inactive", "former"].includes(value) ? value : "active";
-}
-
-function normalizeEmployeeEmail(value) {
-  const emailValue = typeof value === "string" ? value.trim() : "";
-  return emailValue;
-}
-
-function isValidEmployeeEmail(email) {
-  const normalizedEmail = normalizeEmployeeEmail(email);
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
 }
 
 function findEmployeeByEmail(email, excludedEmployeeName = "") {
@@ -1730,30 +1757,6 @@ function discardEmployeeEditorChanges(employeeName) {
 
   clearEmployeeEditorDraft(employeeName);
   renderEmployeeEditorDetails();
-}
-
-function getEmployeeStatusLabel(status) {
-  if (status === "inactive") {
-    return "Inactief";
-  }
-
-  if (status === "former") {
-    return "Uit dienst";
-  }
-
-  return "Actief";
-}
-
-function getEmployeeStatusClass(status) {
-  if (status === "inactive") {
-    return "is-inactive";
-  }
-
-  if (status === "former") {
-    return "is-former";
-  }
-
-  return "is-active";
 }
 
 function isEmployeeActive(employeeName) {
@@ -2261,18 +2264,6 @@ function restoreBackupById(backupId) {
     backupCreatedAt: backup.createdAt
   });
   return true;
-}
-
-function formatEmployeeStatusImpact(status) {
-  if (status === "inactive") {
-    return "Inactief: blijft zichtbaar in historische gegevens, maar verdwijnt uit nieuwe planning, standaard keuzelijsten, aanvragen en medewerker-login.";
-  }
-
-  if (status === "former") {
-    return "Uit dienst: alle oude roosters, uren, aanvragen en goedkeuringen blijven bewaard. De medewerker verdwijnt uit nieuwe planning, standaard keuzelijsten en login.";
-  }
-
-  return "Actief: zichtbaar in standaard keuzelijsten en beschikbaar voor planning, aanvragen en medewerker-login.";
 }
 
 function getPermissionShiftDescriptors() {
