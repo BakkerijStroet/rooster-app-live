@@ -1339,15 +1339,145 @@ function findEmployeeByEmail(email, excludedEmployeeName = "") {
   }) || "";
 }
 
-function normalizeMailSenderName(value) {
-  return typeof value === "string" ? value.trim() : "";
-}
+const {
+  buildEmailTemplate = function fallbackBuildEmailTemplate() {
+    return {
+      subject: "Update",
+      message: "Er is een update."
+    };
+  },
+  getAppMailQueuedMessage: getAppMailQueuedMessageHelper = function fallbackGetAppMailQueuedMessage(options = {}) {
+    const {
+      appMailTestModeEnabled = false,
+      fixedTestRecipient = "",
+      isReminder = false
+    } = options;
 
-function sanitizeRequestMailLog(mailLog = []) {
-  return Array.isArray(mailLog)
-    ? mailLog
-      .filter((item) => item && typeof item.type === "string" && typeof item.at === "string")
-      .map((item) => ({
+    if (appMailTestModeEnabled) {
+      return isReminder
+        ? `Herinnering wordt verzonden naar ${fixedTestRecipient} (testmodus)`
+        : `Mail wordt verzonden naar ${fixedTestRecipient} (testmodus)`;
+    }
+
+    return isReminder ? "Herinnering wordt verzonden." : "Mail wordt verzonden.";
+  },
+  getAppMailSentMessage: getAppMailSentMessageHelper = function fallbackGetAppMailSentMessage(options = {}) {
+    const { appMailTestModeEnabled = false, fixedTestRecipient = "" } = options;
+    return appMailTestModeEnabled
+      ? `Mail verzonden naar ${fixedTestRecipient} (testmodus)`
+      : "Mail verzonden";
+  },
+  getDefaultMailDigestState = function fallbackGetDefaultMailDigestState() {
+    return {
+      plannerSummary: "",
+      plannerOpenRequestsEmail: "",
+      plannerOverdueRequestsEmail: "",
+      plannerPendingHoursEmail: "",
+      plannerOverdueHoursEmail: "",
+      employeeMissingHours: {},
+      employeeMissingHoursEmail: {}
+    };
+  },
+  getMailDeliveryPrefix: getMailDeliveryPrefixHelper = function fallbackGetMailDeliveryPrefix(type, status, options = {}) {
+    const isReminder = type === "reminder";
+
+    if (status === "queued") {
+      return getAppMailQueuedMessageHelper({
+        ...options,
+        isReminder
+      });
+    }
+
+    if (status === "sent") {
+      return isReminder
+        ? `Herinnering verzonden naar ${options.fixedTestRecipient || ""} (testmodus)`
+        : getAppMailSentMessageHelper(options);
+    }
+
+    return isReminder
+      ? `Herinnering verzonden naar ${options.fixedTestRecipient || ""} (testmodus)`
+      : getAppMailSentMessageHelper(options);
+  },
+  getMailSettingsDefaults: getMailSettingsDefaultsHelper = function fallbackGetMailSettingsDefaults(testRecipientEmail = "") {
+    return {
+      senderName: "Bakkerij Stroet",
+      senderEmail: "",
+      testRecipientEmail,
+      updatedAt: "",
+      updatedByRole: "",
+      updatedByName: ""
+    };
+  },
+  getSwapMailSubject = function fallbackGetSwapMailSubject(type) {
+    return buildEmailTemplate(getSwapMailTemplateKey(type)).subject;
+  },
+  getSwapMailTemplateKey = function fallbackGetSwapMailTemplateKey(type) {
+    const templateMap = {
+      submitted: "swapSubmitted",
+      "request-created": "swapRequestCreated",
+      "auto-approved": "swapAutoApproved",
+      approved: "swapApproved",
+      rejected: "swapRejected",
+      "planner-help": "swapPlannerHelp",
+      reminder: "swapReminder"
+    };
+
+    return templateMap[type] || "swapSubmitted";
+  },
+  getSwapMailTemplateText = function fallbackGetSwapMailTemplateText(type) {
+    return buildEmailTemplate(getSwapMailTemplateKey(type)).message;
+  },
+  getTestMailErrorMessage = function fallbackGetTestMailErrorMessage(errorText) {
+    const normalized = typeof errorText === "string" ? errorText.trim() : "";
+
+    if (!normalized) {
+      return "Mail verzenden mislukt.";
+    }
+
+    return normalized;
+  },
+  getTimeOffMailSubject = function fallbackGetTimeOffMailSubject(request, type) {
+    return buildEmailTemplate(getTimeOffMailTemplateKey(request, type)).subject;
+  },
+  getTimeOffMailTemplateKey = function fallbackGetTimeOffMailTemplateKey(request, type) {
+    const templateMap = {
+      submitted: "timeoffSubmitted",
+      approved: "timeoffApproved",
+      rejected: "timeoffRejected"
+    };
+
+    return templateMap[type] || "timeoffSubmitted";
+  },
+  getTimeOffMailTemplateText = function fallbackGetTimeOffMailTemplateText(request, type) {
+    return buildEmailTemplate(getTimeOffMailTemplateKey(request, type)).message;
+  },
+  getWorkLogMailTemplateKey = function fallbackGetWorkLogMailTemplateKey(type) {
+    const templateMap = {
+      approved: "worklogApproved",
+      rejected: "worklogRejected",
+      revision: "worklogRevision"
+    };
+
+    return templateMap[type] || "";
+  },
+  hasConfiguredMailSender: hasConfiguredMailSenderHelper = function fallbackHasConfiguredMailSender(mailSettingsValue, options = {}) {
+    const normalizeEmail = typeof options.normalizeEmployeeEmail === "function"
+      ? options.normalizeEmployeeEmail
+      : normalizeEmployeeEmail;
+    const normalizeSender = typeof options.normalizeMailSenderName === "function"
+      ? options.normalizeMailSenderName
+      : ((value) => typeof value === "string" ? value.trim() : "");
+
+    return Boolean(normalizeSender(mailSettingsValue?.senderName)) && Boolean(normalizeEmail(mailSettingsValue?.senderEmail));
+  },
+  normalizeMailSenderName = function fallbackNormalizeMailSenderName(value) {
+    return typeof value === "string" ? value.trim() : "";
+  },
+  sanitizeRequestMailLog = function fallbackSanitizeRequestMailLog(mailLog = []) {
+    return Array.isArray(mailLog)
+      ? mailLog
+        .filter((item) => item && typeof item.type === "string" && typeof item.at === "string")
+        .map((item) => ({
           type: item.type,
           at: item.at,
           periodKey: typeof item.periodKey === "string" ? item.periodKey : "",
@@ -1361,34 +1491,16 @@ function sanitizeRequestMailLog(mailLog = []) {
               .filter((recipient) => recipient && typeof recipient.employeeName === "string")
               .map((recipient) => ({
                 employeeName: recipient.employeeName.trim(),
-              email: normalizeEmployeeEmail(recipient.email)
-            }))
-          : []
-      }))
-    : [];
-}
+                email: normalizeEmployeeEmail(recipient.email)
+              }))
+            : []
+        }))
+      : [];
+  }
+} = window.StroetMailFeature || {};
 
 function getMailSettingsDefaults() {
-  return {
-    senderName: "Bakkerij Stroet",
-    senderEmail: "",
-    testRecipientEmail: FIXED_TEST_MAIL_RECIPIENT,
-    updatedAt: "",
-    updatedByRole: "",
-    updatedByName: ""
-  };
-}
-
-function getDefaultMailDigestState() {
-  return {
-    plannerSummary: "",
-    plannerOpenRequestsEmail: "",
-    plannerOverdueRequestsEmail: "",
-    plannerPendingHoursEmail: "",
-    plannerOverdueHoursEmail: "",
-    employeeMissingHours: {},
-    employeeMissingHoursEmail: {}
-  };
+  return getMailSettingsDefaultsHelper(FIXED_TEST_MAIL_RECIPIENT);
 }
 
 function loadMailSettings() {
@@ -1419,7 +1531,10 @@ function saveMailSettings() {
 }
 
 function hasConfiguredMailSender() {
-  return Boolean(normalizeMailSenderName(mailSettings?.senderName)) && Boolean(normalizeEmployeeEmail(mailSettings?.senderEmail));
+  return hasConfiguredMailSenderHelper(mailSettings, {
+    normalizeEmployeeEmail,
+    normalizeMailSenderName
+  });
 }
 
 function loadEmployeeMeta() {
@@ -1557,19 +1672,18 @@ function getEmployeeEmail(employeeName) {
 }
 
 function getAppMailSentMessage() {
-  return APP_MAIL_TEST_MODE_ENABLED
-    ? `Mail verzonden naar ${FIXED_TEST_MAIL_RECIPIENT} (testmodus)`
-    : "Mail verzonden";
+  return getAppMailSentMessageHelper({
+    appMailTestModeEnabled: APP_MAIL_TEST_MODE_ENABLED,
+    fixedTestRecipient: FIXED_TEST_MAIL_RECIPIENT
+  });
 }
 
 function getAppMailQueuedMessage(isReminder = false) {
-  if (APP_MAIL_TEST_MODE_ENABLED) {
-    return isReminder
-      ? `Herinnering wordt verzonden naar ${FIXED_TEST_MAIL_RECIPIENT} (testmodus)`
-      : `Mail wordt verzonden naar ${FIXED_TEST_MAIL_RECIPIENT} (testmodus)`;
-  }
-
-  return isReminder ? "Herinnering wordt verzonden." : "Mail wordt verzonden.";
+  return getAppMailQueuedMessageHelper({
+    appMailTestModeEnabled: APP_MAIL_TEST_MODE_ENABLED,
+    fixedTestRecipient: FIXED_TEST_MAIL_RECIPIENT,
+    isReminder
+  });
 }
 
 function isEmployeeMailTestEnabled(employeeName) {
@@ -10663,107 +10777,6 @@ async function sendTestEmailRequest() {
   }
 }
 
-function getTestMailErrorMessage(errorText) {
-  const normalized = typeof errorText === "string" ? errorText.trim() : "";
-
-  if (!normalized) {
-    return "Mail verzenden mislukt.";
-  }
-  return normalized;
-}
-
-const EMAIL_TEMPLATES = {
-  test: () => ({
-    subject: "Test mail Roosterapp",
-    message: "Dit is een testmail vanuit de Roosterapp"
-  }),
-  timeoffSubmitted: () => ({
-    subject: "Uw aanvraag is ontvangen",
-    message: "Uw aanvraag is ontvangen en staat in behandeling."
-  }),
-  timeoffApproved: () => ({
-    subject: "Uw aanvraag is goedgekeurd",
-    message: "Uw aanvraag is goedgekeurd."
-  }),
-  timeoffRejected: () => ({
-    subject: "Uw aanvraag is afgekeurd",
-    message: "Uw aanvraag is afgekeurd."
-  }),
-  swapSubmitted: () => ({
-    subject: "Uw ruilverzoek is ontvangen",
-    message: "Uw ruilverzoek is ontvangen."
-  }),
-  swapRequestCreated: () => ({
-    subject: "Nieuw ruilverzoek",
-    message: "Je hebt een ruilverzoek ontvangen."
-  }),
-  swapAutoApproved: () => ({
-    subject: "Uw ruilverzoek is goedgekeurd",
-    message: "Uw ruilverzoek is goedgekeurd."
-  }),
-  swapApproved: () => ({
-    subject: "Uw ruilverzoek is goedgekeurd",
-    message: "Uw ruilverzoek is goedgekeurd."
-  }),
-  swapRejected: () => ({
-    subject: "Uw ruilverzoek is afgekeurd",
-    message: "Uw ruilverzoek is afgekeurd."
-  }),
-  swapPlannerHelp: () => ({
-    subject: "Directie ingeschakeld",
-    message: "Directie is ingeschakeld."
-  }),
-  swapReminder: () => ({
-    subject: "Herinnering ruilverzoek",
-    message: "Herinnering: reageer op ruilverzoek."
-  }),
-  employeeHoursReminder: () => ({
-    subject: "Uren vorige week nog open",
-    message: "U heeft uw gewerkte uren van vorige week nog niet ingevuld."
-  }),
-  worklogApproved: () => ({
-    subject: "Uw uren zijn goedgekeurd",
-    message: "Uw uren zijn goedgekeurd."
-  }),
-  worklogRejected: () => ({
-    subject: "Uw uren zijn afgekeurd",
-    message: "Uw uren zijn afgekeurd."
-  }),
-  worklogRevision: () => ({
-    subject: "Uw uren hebben een opmerking",
-    message: "Uw uren zijn teruggestuurd met een opmerking."
-  }),
-  plannerOpenRequestsSummary: () => ({
-    subject: "Open aanvragen in de Roosterapp",
-    message: "Er staan open aanvragen in de Roosterapp."
-  }),
-  plannerOpenRequestsReminder: () => ({
-    subject: "Open acties vragen aandacht",
-    message: "Er staan nog open acties die aandacht nodig hebben."
-  }),
-  plannerHoursApprovalSummary: () => ({
-    subject: "Uren klaar voor goedkeuring",
-    message: "Er staan uren klaar om goed te keuren in de Roosterapp."
-  }),
-  plannerHoursApprovalReminder: () => ({
-    subject: "Open acties vragen aandacht",
-    message: "Er staan nog open acties die aandacht nodig hebben."
-  })
-};
-
-function buildEmailTemplate(templateKey, context = {}) {
-  const templateBuilder = EMAIL_TEMPLATES[templateKey];
-
-  if (typeof templateBuilder !== "function") {
-    return {
-      subject: "Update",
-      message: "Er is een update."
-    };
-  }
-
-  return templateBuilder(context);
-}
-
 async function sendTemplatedEmail(to, templateKey, context = {}) {
   const { subject, message } = buildEmailTemplate(templateKey, context);
   return sendEmail(to, subject, message);
@@ -10804,14 +10817,6 @@ function updateMailLogEntry(request, mailEntry, patch = {}, persist = null) {
   if (typeof persist === "function") {
     persist();
   }
-}
-
-function getSwapMailSubject(type) {
-  return buildEmailTemplate(getSwapMailTemplateKey(type)).subject;
-}
-
-function getTimeOffMailSubject(request, type) {
-  return buildEmailTemplate(getTimeOffMailTemplateKey(request, type)).subject;
 }
 
 function queueRequestMailDelivery(request, mailEntry, options = {}) {
@@ -11021,30 +11026,11 @@ function getLatestSwapMailNotification(request) {
   return getLatestRequestMailNotification(request);
 }
 
-function getSwapMailTemplateText(type) {
-  return buildEmailTemplate(getSwapMailTemplateKey(type)).message;
-}
-
-function getTimeOffMailTemplateText(request, type) {
-  return buildEmailTemplate(getTimeOffMailTemplateKey(request, type)).message;
-}
-
 function getMailDeliveryPrefix(type, status) {
-  const isReminder = type === "reminder";
-
-  if (status === "queued") {
-    return getAppMailQueuedMessage(isReminder);
-  }
-
-  if (status === "sent") {
-    return isReminder
-      ? `Herinnering verzonden naar ${FIXED_TEST_MAIL_RECIPIENT} (testmodus)`
-      : getAppMailSentMessage();
-  }
-
-  return isReminder
-    ? `Herinnering verzonden naar ${FIXED_TEST_MAIL_RECIPIENT} (testmodus)`
-    : getAppMailSentMessage();
+  return getMailDeliveryPrefixHelper(type, status, {
+    appMailTestModeEnabled: APP_MAIL_TEST_MODE_ENABLED,
+    fixedTestRecipient: FIXED_TEST_MAIL_RECIPIENT
+  });
 }
 
 function getRequestMailStatusText(request, options = {}) {
@@ -11158,16 +11144,6 @@ function registerTimeOffMailNotification(request, type, employeeNames = [], opti
     persist: saveTimeOffRequests,
     onStatusChange: () => render()
   });
-}
-
-function getWorkLogMailTemplateKey(type) {
-  const templateMap = {
-    approved: "worklogApproved",
-    rejected: "worklogRejected",
-    revision: "worklogRevision"
-  };
-
-  return templateMap[type] || "";
 }
 
 function registerWorkLogMailNotification(workLog, type, employeeNames = [], options = {}) {
