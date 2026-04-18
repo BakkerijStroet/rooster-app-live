@@ -346,6 +346,14 @@ const derivedDataCache = {
   approvedTimeOff: []
 };
 
+function setClassName(element, value) {
+  if (!element) {
+    return;
+  }
+
+  element.className = value;
+}
+
 if (dayPlannerNote) {
   dayPlannerNote.textContent = "Kies een dag en plan alle diensten van die dag in een keer.";
 }
@@ -4165,7 +4173,7 @@ function renderActiveMessage() {
   if (!activeMessageState) {
     messageBox.textContent = "";
     messageBox.hidden = true;
-    messageBox.className = "message hidden compact-message";
+    setClassName(messageBox, "message hidden compact-message");
     messageBox.removeAttribute("role");
     messageBox.removeAttribute("aria-live");
     return;
@@ -4173,7 +4181,7 @@ function renderActiveMessage() {
 
   messageBox.textContent = activeMessageState.text;
   messageBox.hidden = false;
-  messageBox.className = `message compact-message ${activeMessageState.type}`;
+  setClassName(messageBox, `message compact-message ${activeMessageState.type}`);
   messageBox.setAttribute("role", activeMessageState.type === "error" ? "alert" : "status");
   messageBox.setAttribute("aria-live", activeMessageState.type === "error" ? "assertive" : "polite");
 }
@@ -5714,10 +5722,12 @@ function openLoginOverlay() {
   populateLoginEmployeeSelect();
   loginEmployeeSelect.value = getEmployeeIdentity() || preferences.lastPortalEmployee || preferences.lastEmployee || "";
   updateLoginRoleState();
+  appShell?.classList.add("login-required");
   loginOverlay.classList.remove("hidden");
 }
 
 function closeLoginOverlay() {
+  appShell?.classList.remove("login-required");
   loginOverlay?.classList.add("hidden");
 }
 
@@ -9169,7 +9179,7 @@ function renderWeekStatusOverview(weekDates) {
     return;
   }
 
-  weekStatusOverview.className = "week-status-overview";
+  setClassName(weekStatusOverview, "week-status-overview");
   weekStatusOverview.innerHTML = weekDates.map((day) => {
     const message = getDayPlanningMessage(day);
     const cardClass = message.type === "full"
@@ -9303,7 +9313,7 @@ function renderAutoFillSummaryOverview(selectedWeek) {
   }
 
   if (!autoFillPreviewEntries.length || !selectedWeek) {
-    autoFillSummaryOverview.className = "auto-fill-summary-overview hidden";
+    setClassName(autoFillSummaryOverview, "auto-fill-summary-overview hidden");
     autoFillSummaryOverview.innerHTML = "";
     return;
   }
@@ -9341,7 +9351,7 @@ function renderAutoFillSummaryOverview(selectedWeek) {
     `;
   };
 
-  autoFillSummaryOverview.className = "auto-fill-summary-overview";
+  setClassName(autoFillSummaryOverview, "auto-fill-summary-overview");
   autoFillSummaryOverview.innerHTML = `
     <section class="auto-fill-summary-card is-quality">
       <div class="auto-fill-summary-quality-top">
@@ -9408,7 +9418,7 @@ function renderPlannerContractOverview(selectedWeek, visibleEntries) {
   }
 
   if (!isPlannerRole() || !(activeTab === "week-current" || activeTab === "week-next")) {
-    plannerContractOverview.className = "planner-contract-overview hidden";
+    setClassName(plannerContractOverview, "planner-contract-overview hidden");
     plannerContractOverview.innerHTML = "";
     return;
   }
@@ -9426,12 +9436,12 @@ function renderPlannerContractOverview(selectedWeek, visibleEntries) {
   } = buildPlannerContractOverviewData(selectedWeek, visibleEntries);
 
   if (!contractEmployees.length) {
-    plannerContractOverview.className = "planner-contract-overview hidden";
+    setClassName(plannerContractOverview, "planner-contract-overview hidden");
     plannerContractOverview.innerHTML = "";
     return;
   }
 
-  plannerContractOverview.className = "planner-contract-overview";
+  setClassName(plannerContractOverview, "planner-contract-overview");
   plannerContractOverview.innerHTML = `
     <div class="planner-contract-card">
       <strong>Contracturen medewerkers met vast contract</strong>
@@ -9561,7 +9571,7 @@ function renderDeviationWhyOverview(selectedWeek, visibleEntries) {
   }
 
   if (!isPlannerRole() || !(activeTab === "week-current" || activeTab === "week-next")) {
-    deviationWhyOverview.className = "deviation-why-overview hidden";
+    setClassName(deviationWhyOverview, "deviation-why-overview hidden");
     deviationWhyOverview.innerHTML = "";
     return;
   }
@@ -9582,7 +9592,7 @@ function renderDeviationWhyOverview(selectedWeek, visibleEntries) {
     );
 
   if (!deviationEntries.length) {
-    deviationWhyOverview.className = "deviation-why-overview hidden";
+    setClassName(deviationWhyOverview, "deviation-why-overview hidden");
     deviationWhyOverview.innerHTML = "";
     return;
   }
@@ -9590,7 +9600,7 @@ function renderDeviationWhyOverview(selectedWeek, visibleEntries) {
   const visibleDeviationEntries = deviationEntries.slice(0, 8);
   const extraCount = deviationEntries.length - visibleDeviationEntries.length;
 
-  deviationWhyOverview.className = "deviation-why-overview";
+  setClassName(deviationWhyOverview, "deviation-why-overview");
   deviationWhyOverview.innerHTML = `
     <div class="deviation-why-card">
       <strong>Waarom afwijken?</strong>
@@ -9650,7 +9660,7 @@ function renderPlannerControlPanel(selectedWeek, visibleEntries) {
   }
 
   if (!isPlannerRole() || !(activeTab === "week-current" || activeTab === "week-next")) {
-    plannerControlPanel.className = "planner-control-panel hidden";
+    setClassName(plannerControlPanel, "planner-control-panel hidden");
     plannerControlPanel.innerHTML = "";
     return;
   }
@@ -9776,12 +9786,12 @@ function renderPlannerControlPanel(selectedWeek, visibleEntries) {
   ].filter((section) => section.items.length > 0);
 
   if (!sections.length) {
-    plannerControlPanel.className = "planner-control-panel hidden";
+    setClassName(plannerControlPanel, "planner-control-panel hidden");
     plannerControlPanel.innerHTML = "";
     return;
   }
 
-  plannerControlPanel.className = "planner-control-panel";
+  setClassName(plannerControlPanel, "planner-control-panel");
   plannerControlPanel.innerHTML = `
     <div class="planner-control-card">
       <strong>Controlepaneel</strong>
@@ -9976,10 +9986,10 @@ function renderSchedulePlanningOverview() {
   }
 
   if (!isPlannerRole()) {
-    planningOverviewList.className = "planning-overview-list empty";
+    setClassName(planningOverviewList, "planning-overview-list empty");
     planningOverviewList.innerHTML = "Deze plannerpagina is alleen beschikbaar voor directie of planner.";
     if (planningOverviewSummary) {
-      planningOverviewSummary.className = "planning-overview-summary hidden";
+      setClassName(planningOverviewSummary, "planning-overview-summary hidden");
       planningOverviewSummary.innerHTML = "";
     }
     return;
@@ -10014,7 +10024,7 @@ function renderSchedulePlanningOverview() {
   }
 
   if (planningOverviewSummary) {
-    planningOverviewSummary.className = "planning-overview-summary";
+    setClassName(planningOverviewSummary, "planning-overview-summary");
     planningOverviewSummary.innerHTML = `
       <article class="planning-overview-summary-card">
         <strong>Ingevuld</strong>
@@ -10031,7 +10041,7 @@ function renderSchedulePlanningOverview() {
     `;
   }
 
-  planningOverviewList.className = `planning-overview-list${weekRows.length ? "" : " empty"}`;
+  setClassName(planningOverviewList, `planning-overview-list${weekRows.length ? "" : " empty"}`);
   planningOverviewList.innerHTML = weekRows.length
     ? `
       <div class="planning-overview-header" aria-hidden="true">
@@ -10093,7 +10103,7 @@ function renderWeekReviewStatus(selectedWeek) {
   }
 
   if (!isPlannerRole() || !(activeTab === "week-current" || activeTab === "week-next")) {
-    weekReviewStatusPanel.className = "week-review-status hidden";
+    setClassName(weekReviewStatusPanel, "week-review-status hidden");
     weekReviewStatusPanel.innerHTML = "";
     return;
   }
@@ -10101,7 +10111,7 @@ function renderWeekReviewStatus(selectedWeek) {
   const status = getWeekReviewStatus(selectedWeek);
   const meta = getWeekReviewStatusMeta(status);
 
-  weekReviewStatusPanel.className = "week-review-status";
+  setClassName(weekReviewStatusPanel, "week-review-status");
   weekReviewStatusPanel.innerHTML = `
     <div class="week-review-status-card ${meta.className}">
       <span>Weekstatus ${selectedWeek.replace("-W", " - ")}</span>
@@ -11427,30 +11437,30 @@ function renderSwapTargetOptions() {
     if (swapTargetHint) {
       if (!entryDetails) {
     swapTargetHint.textContent = "Kies eerst een dienst om geschikte collega's te zien.";
-        swapTargetHint.className = "panel-note request-form-full";
+        setClassName(swapTargetHint, "panel-note request-form-full");
       } else if (replacementCandidates.length === 0) {
         swapTargetHint.textContent = "Er is nu geen geschikte collega beschikbaar om mee te ruilen.";
-        swapTargetHint.className = "panel-note request-form-full warning-note";
+        setClassName(swapTargetHint, "panel-note request-form-full warning-note");
       } else if (replacementCandidates.length === 1) {
       swapTargetHint.textContent = "Er is 1 geschikte collega beschikbaar voor deze dienst.";
-      swapTargetHint.className = "panel-note request-form-full";
+      setClassName(swapTargetHint, "panel-note request-form-full");
     } else {
     swapTargetHint.textContent = `Er zijn ${replacementCandidates.length} geschikte collega's beschikbaar voor deze dienst.`;
-      swapTargetHint.className = "panel-note request-form-full";
+      setClassName(swapTargetHint, "panel-note request-form-full");
     }
   }
 
   if (swapSuggestionList) {
     if (!entryDetails) {
-      swapSuggestionList.className = "request-suggestion-list request-form-full empty";
+      setClassName(swapSuggestionList, "request-suggestion-list request-form-full empty");
       swapSuggestionList.textContent = "Nog geen dienst gekozen.";
     } else if (replacementSuggestions.length === 0) {
-      swapSuggestionList.className = "request-suggestion-list request-form-full empty";
+      setClassName(swapSuggestionList, "request-suggestion-list request-form-full empty");
       swapSuggestionList.textContent = "Geen geschikte collega beschikbaar voor deze dienst.";
     } else {
       const visibleSuggestions = replacementSuggestions.slice(0, 5);
       const remainingCount = replacementSuggestions.length - visibleSuggestions.length;
-      swapSuggestionList.className = "request-suggestion-list request-form-full";
+      setClassName(swapSuggestionList, "request-suggestion-list request-form-full");
       swapSuggestionList.innerHTML = `
         <strong>Beste opties</strong>
         ${visibleSuggestions.map((candidate) => `
@@ -11629,12 +11639,12 @@ function renderPlannerRequestCards(target, requests, emptyText, requestType) {
   }
 
   if (requests.length === 0) {
-    target.className = "request-list empty";
+    setClassName(target, "request-list empty");
     target.textContent = emptyText;
     return;
   }
 
-  target.className = "request-list";
+  setClassName(target, "request-list");
   target.innerHTML = requests.map((request) => {
     const requestStatus = getRequestDisplayStatus(request);
     const statusLabel = getRequestDisplayLabel(request);
@@ -12015,7 +12025,7 @@ function activateRequestType(nextType, options = {}) {
 }
 function renderRequestsOpenCards() {
   if (isPlannerRole()) {
-    requestsOpenCards.className = "request-list hidden";
+    setClassName(requestsOpenCards, "request-list hidden");
     requestsOpenCards.innerHTML = "";
     return;
   }
@@ -12048,7 +12058,7 @@ function renderRequestsOpenCards() {
   });
 
   if (!ownCards.length) {
-    requestsOpenCards.className = "request-list request-list-compact empty";
+    setClassName(requestsOpenCards, "request-list request-list-compact empty");
     requestsOpenCards.innerHTML = `
       <div class="request-mini-heading">Mijn aanvragen</div>
       <div class="request-mini-empty">Nog geen aanvragen.</div>
@@ -12056,7 +12066,7 @@ function renderRequestsOpenCards() {
     return;
   }
 
-  requestsOpenCards.className = "request-list request-list-compact";
+  setClassName(requestsOpenCards, "request-list request-list-compact");
   requestsOpenCards.innerHTML = `
     <div class="request-mini-heading">Mijn aanvragen</div>
     ${ownCards.map((card) => `
@@ -12192,7 +12202,7 @@ function renderControlModeOverview(weekDates, visibleEntries) {
   }
 
   if (!isPlannerRole() || !isControlModeActive()) {
-    controlModeOverview.className = "control-mode-overview hidden";
+    setClassName(controlModeOverview, "control-mode-overview hidden");
     controlModeOverview.innerHTML = "";
     return;
   }
@@ -12223,7 +12233,7 @@ function renderControlModeOverview(weekDates, visibleEntries) {
       };
     });
 
-  controlModeOverview.className = "control-mode-overview";
+  setClassName(controlModeOverview, "control-mode-overview");
   controlModeOverview.innerHTML = `
     <div class="control-mode-card">
       <strong>Controlemodus</strong>
@@ -12270,7 +12280,7 @@ function updateWeekViewTitle() {
 
 function clearPlannerWeekInsights() {
   if (weekReviewStatusPanel) {
-    weekReviewStatusPanel.className = "week-review-status hidden";
+    setClassName(weekReviewStatusPanel, "week-review-status hidden");
     weekReviewStatusPanel.innerHTML = "";
   }
   if (completeReviewButton) {
@@ -12278,35 +12288,35 @@ function clearPlannerWeekInsights() {
     completeReviewButton.textContent = "Controle afronden";
   }
   if (plannerControlPanel) {
-    plannerControlPanel.className = "planner-control-panel hidden";
+    setClassName(plannerControlPanel, "planner-control-panel hidden");
     plannerControlPanel.innerHTML = "";
   }
   if (weekStatusOverview) {
-    weekStatusOverview.className = "week-status-overview hidden";
+    setClassName(weekStatusOverview, "week-status-overview hidden");
     weekStatusOverview.innerHTML = "";
   }
   if (autoFillSummaryOverview) {
-    autoFillSummaryOverview.className = "auto-fill-summary-overview hidden";
+    setClassName(autoFillSummaryOverview, "auto-fill-summary-overview hidden");
     autoFillSummaryOverview.innerHTML = "";
   }
   if (plannerContractOverview) {
-    plannerContractOverview.className = "planner-contract-overview hidden";
+    setClassName(plannerContractOverview, "planner-contract-overview hidden");
     plannerContractOverview.innerHTML = "";
   }
   if (deviationWhyOverview) {
-    deviationWhyOverview.className = "deviation-why-overview hidden";
+    setClassName(deviationWhyOverview, "deviation-why-overview hidden");
     deviationWhyOverview.innerHTML = "";
   }
   if (openReplacementOverview) {
-    openReplacementOverview.className = "open-replacement-overview hidden";
+    setClassName(openReplacementOverview, "open-replacement-overview hidden");
     openReplacementOverview.innerHTML = "";
   }
   if (weekReplacementOverview) {
-    weekReplacementOverview.className = "week-replacement-overview hidden";
+    setClassName(weekReplacementOverview, "week-replacement-overview hidden");
     weekReplacementOverview.innerHTML = "";
   }
   if (controlModeOverview) {
-    controlModeOverview.className = "control-mode-overview hidden";
+    setClassName(controlModeOverview, "control-mode-overview hidden");
     controlModeOverview.innerHTML = "";
   }
   rosterLegend?.classList.add("hidden");
@@ -12683,15 +12693,14 @@ function renderOpenReplacementOverview(weekValue) {
   }
 
   if (!isPlannerRole()) {
-    openReplacementOverview.className = "open-replacement-overview hidden";
+    setClassName(openReplacementOverview, "open-replacement-overview hidden");
     openReplacementOverview.innerHTML = "";
     return;
   }
 
   const replacementItems = getOpenReplacementItems(weekValue);
 
-  openReplacementOverview.className = "open-replacement-overview";
-
+  setClassName(openReplacementOverview, "open-replacement-overview");
   if (!replacementItems.length) {
     openReplacementOverview.innerHTML = `
       <div class="open-replacement-card is-complete">
@@ -12737,8 +12746,7 @@ function renderWeekReplacementOverview(weekValue) {
 
   const replacementItems = getWeekReplacementItems(weekValue);
 
-  weekReplacementOverview.className = "week-replacement-overview";
-
+  setClassName(weekReplacementOverview, "week-replacement-overview");
   if (!replacementItems.length) {
     weekReplacementOverview.innerHTML = `
       <div class="week-replacement-card is-empty">
@@ -13077,13 +13085,13 @@ function renderEmployeeSelectors() {
 
 function renderEmployeeList() {
   if (!employees.length) {
-    employeeListCard.className = "simple-list empty";
+    setClassName(employeeListCard, "simple-list empty");
     employeeListCard.textContent = "Nog geen medewerkers toegevoegd.";
     return;
   }
   const selectedEmployee = getSelectedEmployeeAdminName();
 
-  employeeListCard.className = "employee-summary-list";
+  setClassName(employeeListCard, "employee-summary-list");
   employeeListCard.innerHTML = getEmployeesWithFavoritesFirst(employees)
     .map((employee) => {
       const employeeStatus = getEmployeeStatus(employee);
@@ -13110,7 +13118,7 @@ function renderEmployeeStandardShifts() {
   }
 
   if (!employees.length) {
-    employeeStandardShiftList.className = "employee-standard-shift-list empty";
+    setClassName(employeeStandardShiftList, "employee-standard-shift-list empty");
     employeeStandardShiftList.textContent = "Nog geen medewerkers toegevoegd.";
     return;
   }
@@ -13130,7 +13138,7 @@ function renderEmployeeStandardShifts() {
   const employeeName = getSelectedEmployeeAdminName();
 
   if (!employeeName) {
-    employeeStandardShiftList.className = "employee-standard-shift-list empty";
+    setClassName(employeeStandardShiftList, "employee-standard-shift-list empty");
     employeeStandardShiftList.textContent = "Kies eerst links een medewerker.";
     return;
   }
@@ -13147,7 +13155,7 @@ function renderEmployeeStandardShifts() {
   const strongPreferenceNote = getEmployeeStrongPreferenceNote(employeeName, selectedWeek);
   const basePatternDescription = getEmployeeBasePatternCatalogMap()[selectedBasePatternId]?.description || "Geen vaste basisplanning ingesteld.";
 
-  employeeStandardShiftList.className = "employee-standard-shift-list";
+  setClassName(employeeStandardShiftList, "employee-standard-shift-list");
   employeeStandardShiftList.innerHTML = `
     <article class="employee-standard-shift-card">
       <div class="employee-roster-summary-grid">
@@ -13266,7 +13274,7 @@ function renderEmployeePermissions() {
   }
 
   if (!employees.length) {
-    employeePermissionsList.className = "employee-permissions-list empty";
+    setClassName(employeePermissionsList, "employee-permissions-list empty");
     employeePermissionsList.textContent = "Nog geen medewerkers toegevoegd.";
     return;
   }
@@ -13274,14 +13282,14 @@ function renderEmployeePermissions() {
   const employeeName = getSelectedEmployeeAdminName();
 
   if (!employeeName) {
-    employeePermissionsList.className = "employee-permissions-list empty";
+    setClassName(employeePermissionsList, "employee-permissions-list empty");
     employeePermissionsList.textContent = "Kies eerst links een medewerker.";
     return;
   }
 
   const employeeDraft = getEmployeeEditorDraft(employeeName);
   const groupedShifts = getPermissionShiftGroups();
-  employeePermissionsList.className = "employee-permissions-list";
+  setClassName(employeePermissionsList, "employee-permissions-list");
   employeePermissionsList.innerHTML = `
     <article class="employee-permission-card">
       <p class="panel-note">Zet per dienst aan of deze medewerker de dienst mag uitvoeren.</p>
@@ -13315,7 +13323,7 @@ function renderEmployeeContractPanel() {
   }
 
   if (!employees.length) {
-    employeeContractPanel.className = "employee-contract-panel empty";
+    setClassName(employeeContractPanel, "employee-contract-panel empty");
     employeeContractPanel.textContent = "Nog geen medewerkers toegevoegd.";
     return;
   }
@@ -13323,7 +13331,7 @@ function renderEmployeeContractPanel() {
   const employeeName = getSelectedEmployeeAdminName();
 
   if (!employeeName) {
-    employeeContractPanel.className = "employee-contract-panel empty";
+    setClassName(employeeContractPanel, "employee-contract-panel empty");
     employeeContractPanel.textContent = "Kies eerst links een medewerker.";
     return;
   }
@@ -13334,7 +13342,7 @@ function renderEmployeeContractPanel() {
   const plannedWeekHours = getEmployeeWeekHours(employeeName, selectedWeek, entries);
   const contractTypeLabel = contractHours > 0 ? `Vast contract ${formatHours(contractHours)}` : "0-uren contract";
 
-  employeeContractPanel.className = "employee-contract-panel";
+  setClassName(employeeContractPanel, "employee-contract-panel");
   employeeContractPanel.innerHTML = `
     <article class="employee-contract-card">
       <div class="employee-roster-summary-grid">
@@ -13608,12 +13616,12 @@ function renderDayPlannerAbsenceList(selectedDate, plannerShifts) {
   });
 
   if (!absenceRows.length) {
-    dayPlannerAbsenceList.className = "day-planner-absence-list hidden";
+    setClassName(dayPlannerAbsenceList, "day-planner-absence-list hidden");
     dayPlannerAbsenceList.innerHTML = "";
     return;
   }
 
-  dayPlannerAbsenceList.className = "day-planner-absence-list";
+  setClassName(dayPlannerAbsenceList, "day-planner-absence-list");
   dayPlannerAbsenceList.innerHTML = `
     <section class="day-planner-absence-card">
       <div class="day-planner-absence-title">
@@ -13878,20 +13886,20 @@ function renderDayPlanner() {
   const selectedDate = dayPlannerDateInput.value;
 
   if (dayPlannerSummary) {
-    dayPlannerSummary.className = "hidden";
+    setClassName(dayPlannerSummary, "hidden");
     dayPlannerSummary.innerHTML = "";
   }
   if (dayPlannerAbsenceList) {
-    dayPlannerAbsenceList.className = "day-planner-absence-list hidden";
+    setClassName(dayPlannerAbsenceList, "day-planner-absence-list hidden");
     dayPlannerAbsenceList.innerHTML = "";
   }
   if (dayPlannerOpenList) {
-    dayPlannerOpenList.className = "day-planner-open-list hidden";
+    setClassName(dayPlannerOpenList, "day-planner-open-list hidden");
     dayPlannerOpenList.innerHTML = "";
   }
 
   if (!selectedDate) {
-    dayPlannerList.className = "day-planner-list empty";
+    setClassName(dayPlannerList, "day-planner-list empty");
     dayPlannerList.textContent = "Kies een dag om alle diensten te tonen.";
     return;
   }
@@ -13899,7 +13907,7 @@ function renderDayPlanner() {
   const plannerShifts = getDayPlannerShifts(selectedDate);
 
   if (!plannerShifts.length) {
-    dayPlannerList.className = "day-planner-list empty";
+    setClassName(dayPlannerList, "day-planner-list empty");
     dayPlannerList.textContent = "Voor deze dag zijn geen diensten ingesteld.";
     return;
   }
@@ -13910,7 +13918,7 @@ function renderDayPlanner() {
   const openBakeryRows = [];
   const openShopRows = [];
 
-  dayPlannerList.className = "day-planner-list";
+  setClassName(dayPlannerList, "day-planner-list");
   dayPlannerList.innerHTML = plannerShifts.map((shift) => {
     const existingEntry = getEntryForShiftOnDate(selectedDate, shift);
     const authorizedEmployees = getAuthorizedEmployeesForShift(shift.name);
@@ -14009,7 +14017,7 @@ function renderDayPlanner() {
     const hasOpenRows = openBakeryRows.length > 0 || openShopRows.length > 0;
 
     if (hasOpenRows) {
-      dayPlannerOpenList.className = "day-planner-open-list";
+      setClassName(dayPlannerOpenList, "day-planner-open-list");
       dayPlannerOpenList.innerHTML = `
         <section class="day-planner-open-card">
           <div class="day-planner-open-title">
@@ -14034,7 +14042,7 @@ function renderDayPlanner() {
   }
 
   if (dayPlannerSummary && uncoveredShifts.length > 0) {
-    dayPlannerSummary.className = "day-planner-summary";
+    setClassName(dayPlannerSummary, "day-planner-summary");
     dayPlannerSummary.innerHTML = `
       <strong>Let op: deze diensten hebben nog geen geschikte medewerker</strong>
       <div class="day-planner-summary-list">
@@ -14042,7 +14050,7 @@ function renderDayPlanner() {
       </div>
     `;
   } else if (dayPlannerSummary) {
-    dayPlannerSummary.className = "day-planner-summary is-complete";
+    setClassName(dayPlannerSummary, "day-planner-summary is-complete");
     dayPlannerSummary.innerHTML = `
       <strong>${formatWeekday(selectedDate)} ${formatDate(selectedDate)}</strong>
       <div class="day-planner-summary-list">
@@ -14093,12 +14101,12 @@ function renderShiftList() {
     );
 
   if (!shifts.length && !allroundOverview.length) {
-    shiftListCard.className = "shift-list empty";
+    setClassName(shiftListCard, "shift-list empty");
     shiftListCard.textContent = "Nog geen diensten toegevoegd.";
     return;
   }
 
-  shiftListCard.className = "shift-list";
+  setClassName(shiftListCard, "shift-list");
   shiftListCard.innerHTML = `
     ${shifts.map((shift) => `
       <article class="shift-list-item ${shift.color || 'shift-tone-inpak'}">
@@ -14130,7 +14138,7 @@ function renderShiftPreferenceEditor() {
   const selectedShiftName = shiftPreferenceShiftSelect?.value || "";
 
   if (!selectedShiftName) {
-    shiftPreferenceList.className = "shift-preference-list empty";
+    setClassName(shiftPreferenceList, "shift-preference-list empty");
     shiftPreferenceList.textContent = "Kies eerst een dienst om de voorkeursvolgorde te beheren.";
     return;
   }
@@ -14152,12 +14160,12 @@ function renderShiftPreferenceEditor() {
   });
 
   if (!employeesForPreference.length) {
-    shiftPreferenceList.className = "shift-preference-list empty";
+    setClassName(shiftPreferenceList, "shift-preference-list empty");
     shiftPreferenceList.textContent = "Nog geen actieve medewerkers beschikbaar.";
     return;
   }
 
-  shiftPreferenceList.className = "shift-preference-list";
+  setClassName(shiftPreferenceList, "shift-preference-list");
   shiftPreferenceList.innerHTML = `
     <div class="panel-note">Gebruik 0 voor geen vaste voorkeur. Laagste nummer krijgt voorrang bij automatisch plannen.</div>
     ${employeesForPreference.map((employeeName) => {
@@ -14258,12 +14266,12 @@ function renderTimeOffRequests() {
     }
 
     if (requests.length === 0) {
-      target.className = "request-list empty";
+      setClassName(target, "request-list empty");
       target.textContent = emptyText;
       return;
     }
 
-    target.className = "request-list";
+    setClassName(target, "request-list");
     target.innerHTML = requests.map((request) => `
       <article class="request-card is-${getRequestDisplayStatus(request)} absence-${getAbsenceCardClass(request.type)}">
         <div class="request-top">
@@ -14315,8 +14323,8 @@ function renderTimeOffRequests() {
       "Nog geen ziekmeldingen.",
       "timeoff"
     );
-    openTimeOffRequestsContainer.className = "request-list hidden";
-    handledTimeOffRequestsContainer.className = "request-list hidden";
+    setClassName(openTimeOffRequestsContainer, "request-list hidden");
+    setClassName(handledTimeOffRequestsContainer, "request-list hidden");
     openTimeOffRequestsContainer.innerHTML = "";
     handledTimeOffRequestsContainer.innerHTML = "";
     return;
@@ -14355,12 +14363,12 @@ function renderSwapRequests() {
     }
 
     if (requests.length === 0) {
-      target.className = "request-list empty";
+      setClassName(target, "request-list empty");
       target.textContent = emptyText;
       return;
     }
 
-      target.className = "request-list";
+      setClassName(target, "request-list");
       target.innerHTML = requests.map((request) => `
         <article class="request-card is-${getRequestDisplayStatus(request)}">
           <div class="request-top">
@@ -14414,8 +14422,8 @@ function renderSwapRequests() {
       "Nog geen ruilverzoeken.",
       "swap"
     );
-    openSwapRequestsContainer.className = "request-list hidden";
-    handledSwapRequestsContainer.className = "request-list hidden";
+    setClassName(openSwapRequestsContainer, "request-list hidden");
+    setClassName(handledSwapRequestsContainer, "request-list hidden");
     openSwapRequestsContainer.innerHTML = "";
     handledSwapRequestsContainer.innerHTML = "";
     return;
@@ -14450,10 +14458,10 @@ function renderPlanningSettings() {
     .sort(([dateA], [dateB]) => dateA.localeCompare(dateB));
 
   if (overrideEntries.length === 0) {
-    overrideList.className = "request-list empty";
+    setClassName(overrideList, "request-list empty");
     overrideList.textContent = "Nog geen afwijkende bezetting ingesteld.";
   } else {
-    overrideList.className = "request-list";
+    setClassName(overrideList, "request-list");
     overrideList.innerHTML = overrideEntries
       .map(([date, count]) => `
         <article class="request-card">
@@ -14475,12 +14483,12 @@ function renderPlanningSettings() {
     : [];
 
   if (vacationWeeks.length === 0) {
-    vacationWeekList.className = "request-list empty";
+    setClassName(vacationWeekList, "request-list empty");
     vacationWeekList.textContent = "Nog geen vakantieweken ingesteld.";
     return;
   }
 
-  vacationWeekList.className = "request-list";
+  setClassName(vacationWeekList, "request-list");
   vacationWeekList.innerHTML = vacationWeeks
     .map((weekValue) => `
       <article class="request-card">
@@ -14576,7 +14584,7 @@ function renderRequestsOpenSummary() {
 
   if (isPlannerRole()) {
     const summaryCounts = getPlannerRequestSummaryCounts();
-    requestsOpenSummary.className = "planner-request-summary-row";
+    setClassName(requestsOpenSummary, "planner-request-summary-row");
     requestsOpenSummary.innerHTML = `
       <article class="planner-summary-chip">
         <span>Open vrije dagen</span>
@@ -14596,7 +14604,7 @@ function renderRequestsOpenSummary() {
       </article>
     `;
   } else {
-    requestsOpenSummary.className = "dashboard-grid";
+    setClassName(requestsOpenSummary, "dashboard-grid");
     requestsOpenSummary.innerHTML = `
       <article class="dashboard-card compact-status-card ${overdueCount ? "is-danger" : waitingCount ? "is-warning" : openCount ? "is-warning" : "is-complete"}">
         <strong>Open aanvragen</strong>
@@ -14639,7 +14647,7 @@ function renderHomeWeekOverview() {
   const currentWeek = getCurrentWeekValue();
   const weekDates = getWeekDates(currentWeek);
 
-  homeWeekOverview.className = "schedule-board";
+  setClassName(homeWeekOverview, "schedule-board");
   homeWeekOverview.innerHTML = `
     <section class="mini-week-grid">
       ${weekDates.map((date) => {
@@ -14828,7 +14836,7 @@ function renderSchedule() {
       employeeWeekViewButton.setAttribute("aria-pressed", activeEmployeeWeekView === "week" ? "true" : "false");
     }
 
-    scheduleBoard.className = "schedule-board employee-roster-board";
+    setClassName(scheduleBoard, "schedule-board employee-roster-board");
     scheduleBoard.dataset.employeeView = activeEmployeeWeekView;
 
     if (activeEmployeeWeekView === "today") {
@@ -14875,7 +14883,7 @@ function renderSchedule() {
 
   if (employeeNames.length === 0 && !hasWeekPlannerShifts) {
     clearPlannerWeekInsights();
-    scheduleBoard.className = "schedule-board empty";
+    setClassName(scheduleBoard, "schedule-board empty");
     scheduleBoard.textContent = "Geen diensten of afwezigheid gevonden voor deze filters.";
     return;
   }
@@ -14900,7 +14908,7 @@ function renderSchedule() {
 
   if (isMobileView()) {
     const plannerDeviationOnlyActive = isDeviationOnlyModeActive();
-    scheduleBoard.className = "schedule-board";
+    setClassName(scheduleBoard, "schedule-board");
     scheduleBoard.innerHTML = `
       <p class="week-note">Weekrooster week ${selectedWeek.replace("-W", " - ")}</p>
       ${employeeWeekFocusMarkup}
@@ -14967,7 +14975,7 @@ function renderSchedule() {
   const plannerEntriesForBoard = plannerDeviationOnlyActive
     ? getDeviationOnlyEntries(visibleEntries, weekDates)
     : visibleEntries;
-  scheduleBoard.className = "schedule-board";
+  setClassName(scheduleBoard, "schedule-board");
   scheduleBoard.innerHTML = `
     <p class="week-note">Weekrooster week ${selectedWeek.replace("-W", " - ")}</p>
     ${employeeWeekFocusMarkup}
@@ -15045,7 +15053,7 @@ function renderMySchedule() {
   const selectedWeek = myScheduleWeekInput.value || weekFilterInput.value || getCurrentWeekValue();
 
   if (!employeeName) {
-    myScheduleBoard.className = "schedule-board empty";
+    setClassName(myScheduleBoard, "schedule-board empty");
     myScheduleBoard.textContent = isPlannerRole() ? "Kies een medewerker." : "Geen medewerker gekoppeld.";
     return;
   }
@@ -15065,7 +15073,7 @@ function renderMySchedule() {
   if (isEmployeeMobileView) {
     const plannedDays = weekDates.filter((day) => entriesForEmployee.some((entry) => entry.day === day));
 
-    myScheduleBoard.className = "schedule-board";
+    setClassName(myScheduleBoard, "schedule-board");
     myScheduleBoard.innerHTML = plannedDays.length
       ? `
         <section class="mobile-week my-schedule-mobile-week my-schedule-simple-week">
@@ -15095,7 +15103,7 @@ function renderMySchedule() {
       `
       : `<div class="planner-empty">Geen diensten in deze week.</div>`;
   } else if (isMobileView()) {
-    myScheduleBoard.className = "schedule-board";
+    setClassName(myScheduleBoard, "schedule-board");
     myScheduleBoard.innerHTML = `
       <section class="mobile-week my-schedule-mobile-week">
         ${weekDates.map((day) => {
@@ -15139,7 +15147,7 @@ function renderMySchedule() {
       </section>
     `;
   } else {
-    myScheduleBoard.className = "schedule-board";
+    setClassName(myScheduleBoard, "schedule-board");
     myScheduleBoard.innerHTML = `
       ${renderDesktopWeekColumns(weekDates, (day) => {
         const dayEntries = entriesForEmployee
@@ -15194,12 +15202,12 @@ function renderMyHours() {
       submitWeekHoursButton.disabled = true;
       submitWeekHoursButton.classList.toggle("hidden", isPlannerRole());
     }
-    myHoursHighlight.className = "hours-highlight empty";
+    setClassName(myHoursHighlight, "hours-highlight empty");
     myHoursHighlight.textContent = isPlannerRole() ? "Kies een medewerker." : "Geen medewerker gekoppeld.";
-    myHoursSummary.className = "totals empty";
+    setClassName(myHoursSummary, "totals empty");
     myHoursSummary.textContent = isPlannerRole() ? "Nog geen uren beschikbaar." : "Nog geen uren beschikbaar voor jouw account.";
     if (myHoursRegistrations) {
-      myHoursRegistrations.className = "request-list empty";
+      setClassName(myHoursRegistrations, "request-list empty");
       myHoursRegistrations.textContent = isPlannerRole()
         ? "Kies een medewerker om urenregistratie te tonen."
         : "Nog geen medewerker gekoppeld voor urenregistratie.";
@@ -15298,12 +15306,12 @@ function renderMyHours() {
       submitWeekHoursButton.disabled = true;
       submitWeekHoursButton.classList.toggle("hidden", isPlannerRole());
     }
-    myHoursHighlight.className = "hours-highlight empty";
+    setClassName(myHoursHighlight, "hours-highlight empty");
     myHoursHighlight.textContent = "Nog geen uren gevonden voor deze medewerker.";
-    myHoursSummary.className = "totals empty";
+    setClassName(myHoursSummary, "totals empty");
     myHoursSummary.textContent = "Nog geen uren gevonden voor deze medewerker.";
     if (myHoursRegistrations) {
-      myHoursRegistrations.className = "request-list empty";
+      setClassName(myHoursRegistrations, "request-list empty");
       myHoursRegistrations.textContent = "Nog geen ingeplande diensten of urenregistraties voor deze medewerker.";
     }
     return;
@@ -15317,7 +15325,7 @@ function renderMyHours() {
       : (!submittableWeekLogs.length ? "Er zijn geen ingevulde uren om in te dienen." : "");
   }
 
-  myHoursHighlight.className = "hours-highlight";
+  setClassName(myHoursHighlight, "hours-highlight");
   const firstMissingPastDay = missingPastDays[0] || "";
   const selectedDateSectionLabel = effectiveSelectedDate === todayValue ? "Vandaag" : "Afgelopen dag";
   const selectedDateStatus = selectedDateEntries.length
@@ -15366,14 +15374,14 @@ function renderMyHours() {
     });
 
     if (resolvedSection === "missing") {
-      myHoursHighlight.className = "hours-highlight";
+      setClassName(myHoursHighlight, "hours-highlight");
       myHoursHighlight.innerHTML = `
         <span class="hours-section-kicker">Nog in te vullen uren</span>
         <strong>${missingPastDays.length ? `${missingPastDays.length} ${missingPastDays.length === 1 ? "open dag" : "open dagen"}` : "Alles ingevuld"}</strong>
         ${weekOverviewMarkup}
       `;
 
-      myHoursSummary.className = missingPastDays.length ? "totals" : "totals empty";
+      setClassName(myHoursSummary, missingPastDays.length ? "totals" : "totals empty");
       myHoursSummary.innerHTML = missingPastDays.length
         ? `
           <div class="hours-missing-list">
@@ -15386,13 +15394,13 @@ function renderMyHours() {
         `
         : "Geen open uren meer.";
 
-      myHoursRegistrations.className = "hours-registration-list";
+      setClassName(myHoursRegistrations, "hours-registration-list");
       myHoursRegistrations.innerHTML = "";
       return;
     }
 
     if (resolvedSection === "today") {
-      myHoursHighlight.className = "hours-highlight";
+      setClassName(myHoursHighlight, "hours-highlight");
       myHoursHighlight.innerHTML = `
         <span class="hours-section-kicker">Uren doorgeven</span>
         <span class="hours-label">${formatWeekday(todayValue)} ${formatDate(todayValue)}</span>
@@ -15400,9 +15408,9 @@ function renderMyHours() {
         <small>${hasTodayPlannedEntries ? "Bevestig of pas kort aan." : "Geen dienst vandaag. Gebruik Uren invullen voor extra uren."}</small>
         ${weekOverviewMarkup}
       `;
-      myHoursSummary.className = "totals hidden";
+      setClassName(myHoursSummary, "totals hidden");
       myHoursSummary.innerHTML = "";
-      myHoursRegistrations.className = "hours-registration-list is-today-quick";
+      setClassName(myHoursRegistrations, "hours-registration-list is-today-quick");
       myHoursRegistrations.innerHTML = hasTodayPlannedEntries
         ? plannedTodayEntries.map((entry) => renderWorkLogCardMarkup(entry)).join("")
         : `
@@ -15414,7 +15422,7 @@ function renderMyHours() {
       return;
     }
 
-    myHoursHighlight.className = "hours-highlight";
+    setClassName(myHoursHighlight, "hours-highlight");
     myHoursHighlight.innerHTML = `
       <span class="hours-section-kicker">Uren invullen</span>
       <span class="hours-label">${formatWeekday(effectiveSelectedDate)} ${formatDate(effectiveSelectedDate)}</span>
@@ -15425,7 +15433,7 @@ function renderMyHours() {
 
     const availableEntryMode = selectedDateEntries.length ? activeMyHoursEntryMode || "planned" : "extra";
     activeMyHoursEntryMode = availableEntryMode;
-    myHoursSummary.className = "totals";
+    setClassName(myHoursSummary, "totals");
     myHoursSummary.innerHTML = missingPastDays.length
       ? `
         <div class="hours-entry-mode-switch">
@@ -15452,7 +15460,7 @@ function renderMyHours() {
         </div>
       `;
 
-    myHoursRegistrations.className = `hours-registration-list${effectiveSelectedDate === todayValue ? " is-today-quick" : ""}`;
+    setClassName(myHoursRegistrations, `hours-registration-list${effectiveSelectedDate === todayValue ? " is-today-quick" : ""}`);
     myHoursRegistrations.innerHTML = activeMyHoursEntryMode === "planned" && selectedDateEntries.length
       ? selectedDateEntries.map((entry) => renderWorkLogCardMarkup(entry)).join("")
       : `
@@ -15501,10 +15509,10 @@ function renderMyHours() {
   }
 
   if (!isPlannerRole()) {
-    myHoursSummary.className = "totals hidden";
+    setClassName(myHoursSummary, "totals hidden");
     myHoursSummary.innerHTML = "";
   } else if (missingPastDays.length) {
-    myHoursSummary.className = "totals";
+    setClassName(myHoursSummary, "totals");
     myHoursSummary.innerHTML = `
       <div class="hours-week-overview">
         <div class="hours-week-stat is-complete">
@@ -15534,7 +15542,7 @@ function renderMyHours() {
       </div>
     `;
   } else {
-    myHoursSummary.className = "totals";
+    setClassName(myHoursSummary, "totals");
     myHoursSummary.innerHTML = `
       <div class="hours-week-overview">
         <div class="hours-week-stat is-complete">
@@ -15556,7 +15564,7 @@ function renderMyHours() {
   }
 
   if (selectedWeekEntries.length === 0 && !manualWorkLog) {
-    myHoursRegistrations.className = "request-list empty";
+    setClassName(myHoursRegistrations, "request-list empty");
     myHoursRegistrations.textContent = "Nog geen ingeplande diensten in deze week.";
     return;
   }
@@ -15588,7 +15596,7 @@ function renderMyHours() {
       })}
     `);
 
-  myHoursRegistrations.className = `hours-registration-list${isTodaySelection ? " is-today-quick" : ""}`;
+  setClassName(myHoursRegistrations, `hours-registration-list${isTodaySelection ? " is-today-quick" : ""}`);
   myHoursRegistrations.innerHTML = selectedDateMarkup;
 }
 
@@ -15733,7 +15741,7 @@ function renderTotals() {
   const visibleEntries = getFilteredEntries();
 
   if (visibleEntries.length === 0) {
-    totalsContainer.className = "totals empty";
+    setClassName(totalsContainer, "totals empty");
     totalsContainer.textContent = "Nog geen totalen beschikbaar voor deze filters.";
     return;
   }
@@ -15743,7 +15751,7 @@ function renderTotals() {
     return accumulator;
   }, {});
 
-  totalsContainer.className = "totals";
+  setClassName(totalsContainer, "totals");
   totalsContainer.innerHTML = Object.entries(totals)
     .sort(([nameA], [nameB]) => nameA.localeCompare(nameB, "nl"))
     .map(([name, hours]) => `
@@ -16308,7 +16316,7 @@ function renderHoursApproval() {
   }
 
   if (!isPlannerRole()) {
-    hoursApprovalQueue.className = "hidden";
+    setClassName(hoursApprovalQueue, "hidden");
     hoursApprovalQueue.innerHTML = "";
     renderHoursExportControls();
     return;
@@ -16332,14 +16340,14 @@ function renderHoursApproval() {
   }, new Map());
 
   if (!weekLogs.length) {
-    hoursApprovalQueue.className = "request-list empty";
+    setClassName(hoursApprovalQueue, "request-list empty");
     hoursApprovalQueue.textContent = weekReviewState.status === "done"
       ? "Deze week is afgerond. Er staan geen uren meer open voor controle."
       : "Nog geen ingediende uren in deze week.";
     return;
   }
 
-  hoursApprovalQueue.className = "hours-approval-list";
+  setClassName(hoursApprovalQueue, "hours-approval-list");
   hoursApprovalQueue.innerHTML = `
     <article class="hours-approval-card">
       <div class="hours-registration-head">
@@ -20624,6 +20632,7 @@ if (needsLoginSelection()) {
   closeLoginOverlay();
   reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
 }
+
 
 
 

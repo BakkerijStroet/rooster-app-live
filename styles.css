@@ -349,6 +349,10 @@ h3 {
   background: rgba(42, 34, 22, 0.35);
 }
 
+.app-shell.login-required > :not(#loginOverlay) {
+  display: none !important;
+}
+
 .login-card {
   width: min(100%, 420px);
   display: grid;
