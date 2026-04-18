@@ -2754,6 +2754,101 @@ const {
   }
 } = window.StroetBootstrapHelpersFeature || {};
 
+const {
+  createEmployeeEditorDraft: createEmployeeEditorDraftHelper = function fallbackCreateEmployeeEditorDraft(getters, employeeName) {
+    return {
+      email: getters.getEmployeeEmail(employeeName),
+      role: getters.getEmployeeAppRole(employeeName),
+      status: getters.getEmployeeStatus(employeeName),
+      mailTestUser: getters.isEmployeeMailTestEnabled(employeeName),
+      permissions: getters.cloneSerializableValue(getters.employeePermissions?.[employeeName] || {}),
+      standardShift: typeof getters.employeeStandardShifts?.[employeeName] === "string" ? getters.employeeStandardShifts[employeeName] : "",
+      basePatternId: getters.getEmployeeBasePatternId(employeeName),
+      customRoster: getters.cloneSerializableValue(getters.getEmployeeCustomRosterConfig(employeeName)),
+      contractHours: getters.getEmployeeContractHours(employeeName)
+    };
+  },
+  getEmployeeDetailMailStatusViewModel: getEmployeeDetailMailStatusViewModelHelper = function fallbackGetEmployeeDetailMailStatusViewModel({
+    employeeMeta,
+    employeeName,
+    recipientEmail,
+    formatDateTime,
+    fixedTestMailRecipient
+  }) {
+    if (!employeeName || !employeeMeta?.[employeeName]) {
+      return {
+        hidden: true,
+        text: ""
+      };
+    }
+
+    const status = employeeMeta[employeeName].lastTestMailStatus;
+    const message = employeeMeta[employeeName].lastTestMailMessage || "";
+    const sentAt = employeeMeta[employeeName].lastTestMailAt
+      ? ` op ${formatDateTime(employeeMeta[employeeName].lastTestMailAt)}`
+      : "";
+    const testModeText = `Testmodus: mail gaat nu alleen naar ${fixedTestMailRecipient}`;
+    const employeeEmailText = recipientEmail ? `E-mailadres medewerker: ${recipientEmail}` : "Geen e-mailadres ingesteld";
+
+    if (!recipientEmail) {
+      return {
+        hidden: false,
+        text: `${employeeEmailText} · ${testModeText}`
+      };
+    }
+
+    if (!status) {
+      return {
+        hidden: false,
+        text: `${employeeEmailText} · ${testModeText} · klaar om te versturen`
+      };
+    }
+
+    if (status === "sent") {
+      return {
+        hidden: false,
+        text: `${employeeEmailText} · ${testModeText} · verzonden${sentAt}`
+      };
+    }
+
+    return {
+      hidden: false,
+      text: `${employeeEmailText} · ${testModeText} · mislukt${message ? ` · ${message}` : ""}`
+    };
+  },
+  getPermissionShiftGroups: getPermissionShiftGroupsHelper = function fallbackGetPermissionShiftGroups(getPermissionShiftDescriptors, matchers) {
+    const permissionShifts = getPermissionShiftDescriptors();
+    return [
+      {
+        title: "Bakkerijdiensten",
+        shifts: permissionShifts.filter((shift) =>
+          !matchers.isShopShiftName(shift.name) &&
+          !matchers.isAllroundShiftName(shift.name) &&
+          !matchers.isStageShiftName(shift.name)
+        )
+      },
+      {
+        title: "Allround diensten",
+        shifts: permissionShifts.filter((shift) => matchers.isAllroundShiftName(shift.name))
+      },
+      {
+        title: "Winkeldiensten",
+        shifts: permissionShifts.filter((shift) => matchers.isShopShiftName(shift.name))
+      },
+      {
+        title: "Stageplekken",
+        shifts: permissionShifts.filter((shift) => matchers.isStageShiftName(shift.name))
+      }
+    ].filter((group) => group.shifts.length);
+  },
+  getEmployeeContractPanelData: getEmployeeContractPanelDataHelper = function fallbackGetEmployeeContractPanelData({ contractHours, plannedWeekHours, formatHours }) {
+    return {
+      contractTypeLabel: contractHours > 0 ? `Vast contract ${formatHours(contractHours)}` : "0-uren contract",
+      plannedWeekHoursLabel: formatHours(plannedWeekHours)
+    };
+  }
+} = window.StroetEmployeePanelPrepFeature || {};
+
 function getMailSettingsDefaults() {
   return getMailSettingsDefaultsHelper(FIXED_TEST_MAIL_RECIPIENT);
 }
@@ -2956,17 +3051,18 @@ function cloneSerializableValue(value) {
 }
 
 function createEmployeeEditorDraft(employeeName) {
-  return {
-    email: getEmployeeEmail(employeeName),
-    role: getEmployeeAppRole(employeeName),
-    status: getEmployeeStatus(employeeName),
-    mailTestUser: isEmployeeMailTestEnabled(employeeName),
-    permissions: cloneSerializableValue(employeePermissions?.[employeeName] || {}),
-    standardShift: typeof employeeStandardShifts?.[employeeName] === "string" ? employeeStandardShifts[employeeName] : "",
-    basePatternId: getEmployeeBasePatternId(employeeName),
-    customRoster: cloneSerializableValue(getEmployeeCustomRosterConfig(employeeName)),
-    contractHours: getEmployeeContractHours(employeeName)
-  };
+  return createEmployeeEditorDraftHelper({
+    getEmployeeEmail,
+    getEmployeeAppRole,
+    getEmployeeStatus,
+    isEmployeeMailTestEnabled,
+    cloneSerializableValue,
+    employeePermissions,
+    employeeStandardShifts,
+    getEmployeeBasePatternId,
+    getEmployeeCustomRosterConfig,
+    getEmployeeContractHours
+  }, employeeName);
 }
 
 function getEmployeeEditorDraft(employeeName) {
@@ -3036,40 +3132,16 @@ function renderEmployeeDetailMailStatus(employeeName = getSelectedEmployeeAdminN
     return;
   }
 
-  if (!employeeName || !employeeMeta?.[employeeName]) {
-    employeeDetailMailStatus.textContent = "";
-    employeeDetailMailStatus.classList.add("hidden");
-    return;
-  }
+  const statusViewModel = getEmployeeDetailMailStatusViewModelHelper({
+    employeeMeta,
+    employeeName,
+    recipientEmail: getEmployeeEmail(employeeName),
+    formatDateTime,
+    fixedTestMailRecipient: FIXED_TEST_MAIL_RECIPIENT
+  });
 
-  const recipientEmail = getEmployeeEmail(employeeName);
-  const status = employeeMeta[employeeName].lastTestMailStatus;
-  const message = employeeMeta[employeeName].lastTestMailMessage || "";
-  const sentAt = employeeMeta[employeeName].lastTestMailAt
-    ? ` op ${formatDateTime(employeeMeta[employeeName].lastTestMailAt)}`
-    : "";
-  const testModeText = `Testmodus: mail gaat nu alleen naar ${FIXED_TEST_MAIL_RECIPIENT}`;
-  const employeeEmailText = recipientEmail ? `E-mailadres medewerker: ${recipientEmail}` : "Geen e-mailadres ingesteld";
-
-  if (!recipientEmail) {
-    employeeDetailMailStatus.textContent = `${employeeEmailText} · ${testModeText}`;
-    employeeDetailMailStatus.classList.remove("hidden");
-    return;
-  }
-
-  if (!status) {
-    employeeDetailMailStatus.textContent = `${employeeEmailText} · ${testModeText} · klaar om te versturen`;
-    employeeDetailMailStatus.classList.remove("hidden");
-    return;
-  }
-
-  if (status === "sent") {
-    employeeDetailMailStatus.textContent = `${employeeEmailText} · ${testModeText} · verzonden${sentAt}`;
-  } else {
-    employeeDetailMailStatus.textContent = `${employeeEmailText} · ${testModeText} · mislukt${message ? ` · ${message}` : ""}`;
-  }
-
-  employeeDetailMailStatus.classList.remove("hidden");
+  employeeDetailMailStatus.textContent = statusViewModel.text;
+  employeeDetailMailStatus.classList.toggle("hidden", statusViewModel.hidden);
 }
 
 function setEmployeeEmailFieldError(message = "") {
@@ -13881,25 +13953,11 @@ function renderEmployeeStandardShifts() {
 }
 
 function getPermissionShiftGroups() {
-  const permissionShifts = getPermissionShiftDescriptors();
-  return [
-    {
-      title: "Bakkerijdiensten",
-      shifts: permissionShifts.filter((shift) => !isShopShiftName(shift.name) && !isAllroundShiftName(shift.name) && !isStageShiftName(shift.name))
-    },
-    {
-      title: "Allround diensten",
-      shifts: permissionShifts.filter((shift) => isAllroundShiftName(shift.name))
-    },
-    {
-      title: "Winkeldiensten",
-      shifts: permissionShifts.filter((shift) => isShopShiftName(shift.name))
-    },
-    {
-      title: "Stageplekken",
-      shifts: permissionShifts.filter((shift) => isStageShiftName(shift.name))
-    }
-  ].filter((group) => group.shifts.length);
+  return getPermissionShiftGroupsHelper(getPermissionShiftDescriptors, {
+    isShopShiftName,
+    isAllroundShiftName,
+    isStageShiftName
+  });
 }
 
 function renderEmployeePermissions() {
@@ -13974,7 +14032,11 @@ function renderEmployeeContractPanel() {
   const selectedWeek = weekInput?.value || getCurrentWeekValue();
   const contractHours = typeof employeeDraft?.contractHours === "number" ? employeeDraft.contractHours : getEmployeeContractHours(employeeName);
   const plannedWeekHours = getEmployeeWeekHours(employeeName, selectedWeek, entries);
-  const contractTypeLabel = contractHours > 0 ? `Vast contract ${formatHours(contractHours)}` : "0-uren contract";
+  const contractPanelData = getEmployeeContractPanelDataHelper({
+    contractHours,
+    plannedWeekHours,
+    formatHours
+  });
 
   setClassName(employeeContractPanel, "employee-contract-panel");
   employeeContractPanel.innerHTML = `
@@ -13982,11 +14044,11 @@ function renderEmployeeContractPanel() {
       <div class="employee-roster-summary-grid">
         <div class="employee-roster-summary-item">
           <span class="employee-roster-summary-label">Contracttype</span>
-          <strong>${contractTypeLabel}</strong>
+          <strong>${contractPanelData.contractTypeLabel}</strong>
         </div>
         <div class="employee-roster-summary-item">
           <span class="employee-roster-summary-label">Gepland deze week</span>
-          <strong>${formatHours(plannedWeekHours)}</strong>
+          <strong>${contractPanelData.plannedWeekHoursLabel}</strong>
         </div>
       </div>
       <div class="employee-roster-controls">
