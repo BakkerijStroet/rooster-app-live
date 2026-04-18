@@ -1689,6 +1689,108 @@ const {
   }
 } = window.StroetPlanningCoreFeature || {};
 
+const {
+  getDayPlannerShifts: getDayPlannerShiftsHelper = function fallbackGetDayPlannerShifts(dateValue, options = {}) {
+    const isClosed = typeof options.isClosedPlannerDay === "function"
+      ? options.isClosedPlannerDay
+      : (() => false);
+    const shifts = Array.isArray(options.shifts) ? options.shifts : [];
+    const getDateSpecificShifts = typeof options.getDateSpecificShifts === "function"
+      ? options.getDateSpecificShifts
+      : (() => []);
+
+    if (!dateValue) {
+      return [];
+    }
+
+    if (isClosed(dateValue)) {
+      return [];
+    }
+
+    return [
+      ...shifts,
+      ...getDateSpecificShifts(dateValue)
+    ].sort((shiftA, shiftB) => shiftA.startTime.localeCompare(shiftB.startTime) || shiftA.name.localeCompare(shiftB.name, "nl"));
+  },
+  getDayPlanningMessage: getDayPlanningMessageHelper = function fallbackGetDayPlanningMessage(day, options = {}) {
+    const getRecognizedSpecialDayInfo = typeof options.getRecognizedSpecialDayInfo === "function"
+      ? options.getRecognizedSpecialDayInfo
+      : (() => null);
+    const getRequiredDayPlannerShifts = typeof options.getRequiredDayPlannerShifts === "function"
+      ? options.getRequiredDayPlannerShifts
+      : (() => []);
+    const getEntryForShiftOnDate = typeof options.getEntryForShiftOnDate === "function"
+      ? options.getEntryForShiftOnDate
+      : (() => null);
+    const getSuitableEmployeesForShift = typeof options.getSuitableEmployeesForShift === "function"
+      ? options.getSuitableEmployeesForShift
+      : (() => []);
+    const sourceEntries = Array.isArray(options.sourceEntries) ? options.sourceEntries : [];
+
+    const specialDay = getRecognizedSpecialDayInfo(day);
+    const plannerShifts = getRequiredDayPlannerShifts(day);
+
+    if (!plannerShifts.length) {
+      return {
+        text: specialDay?.isClosed ? `Gesloten - ${specialDay.nameLabel}` : "Winkel gesloten",
+        type: "closed"
+      };
+    }
+
+    const openShifts = plannerShifts.filter((shift) => !getEntryForShiftOnDate(day, shift, sourceEntries));
+
+    if (!openShifts.length) {
+      return {
+        text: "Planning compleet",
+        type: "full"
+      };
+    }
+
+    const hasNoSuitableEmployee = openShifts.some((shift) =>
+      getSuitableEmployeesForShift(shift, day, shift.startTime, shift.endTime, null).length === 0
+    );
+
+    if (hasNoSuitableEmployee) {
+      return {
+        text: "Geen geschikte medewerker",
+        type: "warning"
+      };
+    }
+
+    return {
+      text: "Nog niet ingevuld",
+      type: "info"
+    };
+  },
+  getEntryForShiftOnDate: getEntryForShiftOnDateHelper = function fallbackGetEntryForShiftOnDate(dateValue, shift, sourceEntries = [], options = {}) {
+    const getShiftName = typeof options.getShiftName === "function"
+      ? options.getShiftName
+      : ((entry) => entry?.shiftName || "");
+
+    return (Array.isArray(sourceEntries) ? sourceEntries : []).find((entry) =>
+      entry.day === dateValue &&
+      getShiftName(entry).toLowerCase() === String(shift?.name || "").toLowerCase()
+    ) || null;
+  },
+  getRequiredDayPlannerShifts: getRequiredDayPlannerShiftsHelper = function fallbackGetRequiredDayPlannerShifts(dateValue, options = {}) {
+    const getDayPlannerShifts = typeof options.getDayPlannerShifts === "function"
+      ? options.getDayPlannerShifts
+      : (() => []);
+    const isOptionalShift = typeof options.isOptionalShift === "function"
+      ? options.isOptionalShift
+      : (() => false);
+
+    return getDayPlannerShifts(dateValue).filter((shift) => !isOptionalShift(shift));
+  },
+  isClosedPlannerDay: isClosedPlannerDayHelper = function fallbackIsClosedPlannerDay(dateValue, options = {}) {
+    const getRecognizedSpecialDayInfo = typeof options.getRecognizedSpecialDayInfo === "function"
+      ? options.getRecognizedSpecialDayInfo
+      : (() => null);
+
+    return Boolean(getRecognizedSpecialDayInfo(dateValue)?.isClosed);
+  }
+} = window.StroetDayPlannerFeature || {};
+
 function getMailSettingsDefaults() {
   return getMailSettingsDefaultsHelper(FIXED_TEST_MAIL_RECIPIENT);
 }
@@ -4063,7 +4165,9 @@ function getRecognizedSpecialDayInfo(dateValue) {
 }
 
 function isClosedPlannerDay(dateValue) {
-  return Boolean(getRecognizedSpecialDayInfo(dateValue)?.isClosed);
+  return isClosedPlannerDayHelper(dateValue, {
+    getRecognizedSpecialDayInfo
+  });
 }
 
 function renderSpecialDayBadges(dateValue, { compact = false } = {}) {
@@ -7194,40 +7298,13 @@ function renderSuitableEmployeesHelper(day) {
 }
 
 function getDayPlanningMessage(day) {
-  const specialDay = getRecognizedSpecialDayInfo(day);
-  const plannerShifts = getRequiredDayPlannerShifts(day);
-
-  if (!plannerShifts.length) {
-    return {
-      text: specialDay?.isClosed ? `Gesloten - ${specialDay.nameLabel}` : "Winkel gesloten",
-      type: "closed"
-    };
-  }
-
-  const openShifts = plannerShifts.filter((shift) => !getEntryForShiftOnDate(day, shift));
-
-  if (!openShifts.length) {
-    return {
-      text: "Planning compleet",
-      type: "full"
-    };
-  }
-
-  const hasNoSuitableEmployee = openShifts.some((shift) =>
-    getSuitableEmployeesForShift(shift, day, shift.startTime, shift.endTime, null).length === 0
-  );
-
-  if (hasNoSuitableEmployee) {
-    return {
-      text: "Geen geschikte medewerker",
-      type: "warning"
-    };
-  }
-
-  return {
-    text: "Nog niet ingevuld",
-    type: "info"
-  };
+  return getDayPlanningMessageHelper(day, {
+    getRecognizedSpecialDayInfo,
+    getRequiredDayPlannerShifts,
+    getEntryForShiftOnDate,
+    getSuitableEmployeesForShift,
+    sourceEntries: getPlanningEntries()
+  });
 }
 
 function renderDayPlanningMessage(day, isMobile = false) {
@@ -12629,7 +12706,10 @@ function findShiftAssignmentConflict(day, selectedShift, ignoredIndex = editInde
 }
 
 function getRequiredDayPlannerShifts(dateValue) {
-  return getDayPlannerShifts(dateValue).filter((shift) => !isOptionalShift(shift));
+  return getRequiredDayPlannerShiftsHelper(dateValue, {
+    getDayPlannerShifts,
+    isOptionalShift
+  });
 }
 
 function getShiftValidationError(day, selectedShift, ignoredIndex = editIndex) {
@@ -13516,25 +13596,17 @@ function renderMailSettings() {
 }
 
 function getDayPlannerShifts(dateValue) {
-  if (!dateValue) {
-    return [];
-  }
-
-  if (isClosedPlannerDay(dateValue)) {
-    return [];
-  }
-
-  return [
-    ...shifts,
-    ...getDateSpecificShifts(dateValue)
-  ].sort((shiftA, shiftB) => shiftA.startTime.localeCompare(shiftB.startTime) || shiftA.name.localeCompare(shiftB.name, "nl"));
+  return getDayPlannerShiftsHelper(dateValue, {
+    getDateSpecificShifts,
+    isClosedPlannerDay,
+    shifts
+  });
 }
 
 function getEntryForShiftOnDate(dateValue, shift, sourceEntries = getPlanningEntries()) {
-  return sourceEntries.find((entry) =>
-    entry.day === dateValue &&
-    getShiftName(entry).toLowerCase() === shift.name.toLowerCase()
-  ) || null;
+  return getEntryForShiftOnDateHelper(dateValue, shift, sourceEntries, {
+    getShiftName
+  });
 }
 
 function getDayPlannerAssignments(dateValue, plannerShifts) {
