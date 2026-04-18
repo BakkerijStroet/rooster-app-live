@@ -4011,9 +4011,11 @@ function formatHours(hours) {
   return `${hours.toFixed(2).replace(".", ",")} uur`;
 }
 
-function createRequestId(prefix) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-}
+const {
+  createRequestId = function fallbackCreateRequestId(prefix) {
+    return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  }
+} = window.StroetRequestsFeature || {};
 
 function escapeCsvValue(value) {
   const stringValue = String(value ?? "");
@@ -4500,106 +4502,100 @@ function getApprovedTimeOff(employeeName, date) {
   ) || null;
 }
 
-function getAbsenceTypeLabel(type) {
-  if (type === "vakantie") {
-    return "Vakantie";
+const {
+  getAbsenceTypeLabel = function fallbackGetAbsenceTypeLabel(type) {
+    if (type === "vakantie") {
+      return "Vakantie";
+    }
+
+    if (type === "ziek") {
+      return "Ziek";
+    }
+
+    return "Vrij";
+  },
+  getAbsenceCardClass = function fallbackGetAbsenceCardClass(type) {
+    if (type === "vakantie") {
+      return "vacation";
+    }
+
+    if (type === "ziek") {
+      return "sick";
+    }
+
+    return "free";
+  },
+  getApprovedAbsenceLabel = function fallbackGetApprovedAbsenceLabel(request) {
+    if (!request) {
+      return "";
+    }
+
+    return `${getAbsenceTypeLabel(request.type)} goedgekeurd`;
+  },
+  getApprovedAbsenceDetail = function fallbackGetApprovedAbsenceDetail(request) {
+    if (!request) {
+      return "";
+    }
+
+    return `${getAbsenceTypeLabel(request.type).toLowerCase()}${request.reason ? `: ${request.reason}` : ""}`;
+  },
+  getTimeOffStartDate = function fallbackGetTimeOffStartDate(request) {
+    if (!request) {
+      return "";
+    }
+
+    return typeof request.startDate === "string" && request.startDate
+      ? request.startDate
+      : (typeof request.date === "string" ? request.date : "");
+  },
+  getTimeOffEndDate = function fallbackGetTimeOffEndDate(request) {
+    if (!request) {
+      return "";
+    }
+
+    if (request.type === "vakantie") {
+      return typeof request.endDate === "string" && request.endDate
+        ? request.endDate
+        : getTimeOffStartDate(request);
+    }
+
+    return getTimeOffStartDate(request);
+  },
+  requestIncludesDate = function fallbackRequestIncludesDate(request, date) {
+    const startDate = getTimeOffStartDate(request);
+    const endDate = getTimeOffEndDate(request);
+
+    if (!startDate || !endDate || !date) {
+      return false;
+    }
+
+    return date >= startDate && date <= endDate;
+  },
+  requestOverlapsRange = function fallbackRequestOverlapsRange(request, startDate, endDate) {
+    const requestStartDate = getTimeOffStartDate(request);
+    const requestEndDate = getTimeOffEndDate(request);
+
+    if (!requestStartDate || !requestEndDate || !startDate || !endDate) {
+      return false;
+    }
+
+    return requestStartDate <= endDate && requestEndDate >= startDate;
+  },
+  getTimeOffDisplayRange = function fallbackGetTimeOffDisplayRange(request) {
+    const startDate = getTimeOffStartDate(request);
+    const endDate = getTimeOffEndDate(request);
+
+    if (!startDate) {
+      return "";
+    }
+
+    if (request?.type === "vakantie" && endDate && endDate !== startDate) {
+      return `${formatDate(startDate)} t/m ${formatDate(endDate)}`;
+    }
+
+    return formatDate(startDate);
   }
-
-  if (type === "ziek") {
-    return "Ziek";
-  }
-
-  return "Vrij";
-}
-
-function getAbsenceCardClass(type) {
-  if (type === "vakantie") {
-    return "vacation";
-  }
-
-  if (type === "ziek") {
-    return "sick";
-  }
-
-  return "free";
-}
-
-function getApprovedAbsenceLabel(request) {
-  if (!request) {
-    return "";
-  }
-
-  return `${getAbsenceTypeLabel(request.type)} goedgekeurd`;
-}
-
-function getApprovedAbsenceDetail(request) {
-  if (!request) {
-    return "";
-  }
-
-  return `${getAbsenceTypeLabel(request.type).toLowerCase()}${request.reason ? `: ${request.reason}` : ""}`;
-}
-
-function getTimeOffStartDate(request) {
-  if (!request) {
-    return "";
-  }
-
-  return typeof request.startDate === "string" && request.startDate
-    ? request.startDate
-    : (typeof request.date === "string" ? request.date : "");
-}
-
-function getTimeOffEndDate(request) {
-  if (!request) {
-    return "";
-  }
-
-  if (request.type === "vakantie") {
-    return typeof request.endDate === "string" && request.endDate
-      ? request.endDate
-      : getTimeOffStartDate(request);
-  }
-
-  return getTimeOffStartDate(request);
-}
-
-function requestIncludesDate(request, date) {
-  const startDate = getTimeOffStartDate(request);
-  const endDate = getTimeOffEndDate(request);
-
-  if (!startDate || !endDate || !date) {
-    return false;
-  }
-
-  return date >= startDate && date <= endDate;
-}
-
-function requestOverlapsRange(request, startDate, endDate) {
-  const requestStartDate = getTimeOffStartDate(request);
-  const requestEndDate = getTimeOffEndDate(request);
-
-  if (!requestStartDate || !requestEndDate || !startDate || !endDate) {
-    return false;
-  }
-
-  return requestStartDate <= endDate && requestEndDate >= startDate;
-}
-
-function getTimeOffDisplayRange(request) {
-  const startDate = getTimeOffStartDate(request);
-  const endDate = getTimeOffEndDate(request);
-
-  if (!startDate) {
-    return "";
-  }
-
-  if (request?.type === "vakantie" && endDate && endDate !== startDate) {
-    return `${formatDate(startDate)} t/m ${formatDate(endDate)}`;
-  }
-
-  return formatDate(startDate);
-}
+} = window.StroetRequestsFeature || {};
 
 function getEntriesForEmployeeDay(employeeName, date) {
   return entries
@@ -10170,127 +10166,120 @@ function getShiftContextLabel(entry) {
   return "Werkplek: Bakkerij";
 }
 
-function getRequestStatusLabel(status) {
-  if (status === "approved") {
-    return "Goedgekeurd";
-  }
-
-  if (status === "rejected") {
-    return "Afgewezen";
-  }
-
-  if (status === "in-review") {
-    return "In behandeling";
-  }
-
-  if (status === "waiting") {
-    return "Wacht op reactie";
-  }
-
-  if (status === "overdue") {
-    return "Wacht op reactie";
-  }
-
-  return "Open";
-}
-
-function getRequestDisplayLabel(request) {
-  const displayStatus = getRequestDisplayStatus(request);
-
-  if (request?.shiftName) {
-    if (request.status === "approved") {
-      return request.autoApproved ? "Automatisch goedgekeurd" : "Geaccepteerd";
+const {
+  getRequestStatusLabel = function fallbackGetRequestStatusLabel(status) {
+    if (status === "approved") {
+      return "Goedgekeurd";
     }
 
-    if (request.status === "rejected") {
+    if (status === "rejected") {
       return "Afgewezen";
     }
 
-    if (request.status === "open") {
-      return "Wacht op beoordeling";
+    if (status === "in-review") {
+      return "In behandeling";
     }
-  }
 
-  return getRequestStatusLabel(displayStatus);
-}
+    if (status === "waiting" || status === "overdue") {
+      return "Wacht op reactie";
+    }
 
-function getRequestLastChangeIso(request) {
-  if (!request || typeof request !== "object") {
+    return "Open";
+  },
+  getRequestLastChangeIso = function fallbackGetRequestLastChangeIso(request) {
+    if (!request || typeof request !== "object") {
+      return "";
+    }
+
+    if (typeof request.updatedAt === "string" && request.updatedAt) {
+      return request.updatedAt;
+    }
+
+    if (typeof request.createdAt === "string" && request.createdAt) {
+      return request.createdAt;
+    }
+
     return "";
-  }
+  },
+  getRequestAgeHours = function fallbackGetRequestAgeHours(request) {
+    const lastChangeIso = getRequestLastChangeIso(request);
 
-  if (typeof request.updatedAt === "string" && request.updatedAt) {
-    return request.updatedAt;
-  }
+    if (!lastChangeIso) {
+      return 0;
+    }
 
-  if (typeof request.createdAt === "string" && request.createdAt) {
-    return request.createdAt;
-  }
+    const lastChangeTime = Date.parse(lastChangeIso);
 
-  return "";
-}
+    if (!Number.isFinite(lastChangeTime)) {
+      return 0;
+    }
 
-function getRequestAgeHours(request) {
-  const lastChangeIso = getRequestLastChangeIso(request);
+    return Math.max(0, (Date.now() - lastChangeTime) / 3600000);
+  },
+  getRequestDisplayStatus = function fallbackGetRequestDisplayStatus(request) {
+    if (!request) {
+      return "open";
+    }
 
-  if (!lastChangeIso) {
-    return 0;
-  }
+    if (request.status !== "open") {
+      return request.status;
+    }
 
-  const lastChangeTime = Date.parse(lastChangeIso);
+    const ageHours = getRequestAgeHours(request);
 
-  if (!Number.isFinite(lastChangeTime)) {
-    return 0;
-  }
+    if (ageHours >= 48) {
+      return "overdue";
+    }
 
-  return Math.max(0, (Date.now() - lastChangeTime) / 3600000);
-}
+    if (ageHours >= 24) {
+      return "waiting";
+    }
 
-function getRequestDisplayStatus(request) {
-  if (!request) {
     return "open";
-  }
+  },
+  getRequestDisplayLabel = function fallbackGetRequestDisplayLabel(request) {
+    const displayStatus = getRequestDisplayStatus(request);
 
-  if (request.status !== "open") {
-    return request.status;
-  }
+    if (request?.shiftName) {
+      if (request.status === "approved") {
+        return request.autoApproved ? "Automatisch goedgekeurd" : "Geaccepteerd";
+      }
 
-  const ageHours = getRequestAgeHours(request);
+      if (request.status === "rejected") {
+        return "Afgewezen";
+      }
 
-  if (ageHours >= 48) {
-    return "overdue";
-  }
+      if (request.status === "open") {
+        return "Wacht op beoordeling";
+      }
+    }
 
-  if (ageHours >= 24) {
-    return "waiting";
-  }
+    return getRequestStatusLabel(displayStatus);
+  },
+  getRequestAttentionText = function fallbackGetRequestAttentionText(request) {
+    const displayStatus = getRequestDisplayStatus(request);
 
-  return "open";
-}
+    if (request?.shiftName && request.status === "open" && !request.targetEmployeeName) {
+      if (displayStatus === "waiting") {
+        return "Geen reactie op dit open ruilverzoek. Directie kan nu handmatig ingrijpen.";
+      }
 
-function getRequestAttentionText(request) {
-  const displayStatus = getRequestDisplayStatus(request);
+      if (displayStatus === "overdue") {
+        return "Geen reactie op dit ruilverzoek. Kies een vervanger of sluit het verzoek af.";
+      }
+    }
 
-  if (request?.shiftName && request.status === "open" && !request.targetEmployeeName) {
     if (displayStatus === "waiting") {
-      return "Geen reactie op dit open ruilverzoek. Directie kan nu handmatig ingrijpen.";
+      return "Deze aanvraag wacht al langer dan 24 uur op reactie.";
     }
 
     if (displayStatus === "overdue") {
-      return "Geen reactie op dit ruilverzoek. Kies een vervanger of sluit het verzoek af.";
+      return "Deze aanvraag staat al langer dan 48 uur open en vraagt nu extra aandacht.";
     }
-  }
 
-  if (displayStatus === "waiting") {
-    return "Deze aanvraag wacht al langer dan 24 uur op reactie.";
+    return "";
   }
-
-  if (displayStatus === "overdue") {
-    return "Deze aanvraag staat al langer dan 48 uur open en vraagt nu extra aandacht.";
-  }
-
-  return "";
-}
+} = window.StroetRequestsFeature || {};
 
 function getSwapReplacementCandidates(request) {
   if (!request) {
