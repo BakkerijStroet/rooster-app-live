@@ -10550,15 +10550,7 @@ function hasRequestMailNotification(request, type, recipientSignature, periodKey
 }
 
 async function sendEmail(to, subject, message) {
-  console.info("[test-mail] sendEmail:start", {
-    to,
-    subject,
-    hasSender: hasConfiguredMailSender(),
-    protocol: window.location.protocol
-  });
-
   if (!to || (Array.isArray(to) && to.length === 0)) {
-    console.warn("[test-mail] sendEmail:no-recipient");
     return {
       ok: false,
       error: "Geen ontvanger opgegeven."
@@ -10566,7 +10558,6 @@ async function sendEmail(to, subject, message) {
   }
 
   if (window.location.protocol === "file:") {
-    console.warn("[test-mail] sendEmail:file-preview");
     return {
       ok: false,
       error: "Lokale preview zonder serverroute."
@@ -10618,9 +10609,6 @@ async function sendEmail(to, subject, message) {
       };
     }
 
-    console.info("[test-mail] sendEmail:success", {
-      id: typeof payload?.id === "string" ? payload.id : ""
-    });
     return {
       ok: true,
       id: typeof payload?.id === "string" ? payload.id : "",
@@ -10638,10 +10626,6 @@ async function sendEmail(to, subject, message) {
 }
 
 async function sendTestEmailRequest() {
-  console.info("[test-mail] sendTestEmailRequest:start", {
-    protocol: window.location.protocol
-  });
-
   if (window.location.protocol === "file:") {
     return {
       ok: false,
@@ -19570,30 +19554,12 @@ function setTestMailButtonsDisabled(isDisabled) {
 }
 
 async function handleTestMailSend() {
-  console.info("[test-mail] handler:clicked", {
-    activeTab,
-    role: activeRole,
-    buttonVisible: !dashboardTestMailButton?.hidden
-  });
-
   setTestMailButtonsDisabled(true);
 
   try {
     if (!isPlannerRole()) {
-      console.warn("[test-mail] handler:not-planner");
       showMessage("Mail verzenden mislukt", "error");
       return;
-    }
-
-    console.info("[test-mail] handler:recipient", {
-      recipient: FIXED_TEST_MAIL_RECIPIENT,
-      configuredSender: hasConfiguredMailSender()
-    });
-
-    if (!hasConfiguredMailSender()) {
-      console.info("[test-mail] handler:no-local-sender-settings", {
-        willUseServerFallback: true
-      });
     }
 
     if (mailSettings.testRecipientEmail !== FIXED_TEST_MAIL_RECIPIENT) {
@@ -19604,12 +19570,10 @@ async function handleTestMailSend() {
     const result = await sendTestEmailRequest();
 
     if (!result.ok) {
-      console.warn("[test-mail] handler:send-failed", result);
       showMessage(getTestMailErrorMessage(result.error), "error");
       return;
     }
 
-    console.info("[test-mail] handler:done", result);
     showMessage(result.message || "Mail verzonden", "success");
   } catch (error) {
     console.error("[test-mail] handler:exception", error);
@@ -19627,12 +19591,10 @@ dashboardTestMailButton?.addEventListener("click", handleTestMailSend);
 
 if (testMailButton) {
   testMailButton.dataset.mailHandlerBound = "true";
-  console.info("[test-mail] binding:settings-button-ready");
 }
 
 if (dashboardTestMailButton) {
   dashboardTestMailButton.dataset.mailHandlerBound = "true";
-  console.info("[test-mail] binding:dashboard-button-ready");
 }
 
 printButton.addEventListener("click", () => {
