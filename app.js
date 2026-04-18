@@ -377,6 +377,9 @@ function getScopedStorageKeyForMode(baseKey, mode) {
 
 function reportAppError(userMessage, error, context = "") {
   console.error(`[Urenrooster] ${context || "app-fout"}`, error);
+  if (error && error.stack) {
+    console.error("[render-crash][stack]", error.stack);
+  }
 
   if (typeof showMessage === "function" && messageBox) {
     showMessage(userMessage, "error");
@@ -16572,6 +16575,11 @@ function render() {
     maybeShowOpenRequestReminder();
     renderActiveMessage();
   } catch (error) {
+    console.error("[render-crash]", {
+      activeTab,
+      message: error?.message || String(error),
+      stack: error?.stack || null
+    });
     reportAppError("Er ging iets mis bij het verversen van het scherm.", error, "render");
   }
 }
