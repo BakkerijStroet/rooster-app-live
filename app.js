@@ -2586,6 +2586,57 @@ const {
   }
 } = window.StroetPlanningPanelPrepFeature || {};
 
+const {
+  getAllowedTabsForRole: getAllowedTabsForRoleHelper = function fallbackGetAllowedTabsForRole(role, options = {}) {
+    const employeeAllowedTabs = Array.isArray(options.employeeAllowedTabs)
+      ? options.employeeAllowedTabs
+      : [];
+    const normalizedRole = String(role || "").trim().toLowerCase();
+
+    if (normalizedRole === "planner" || normalizedRole === "directie") {
+      return null;
+    }
+
+    return [...employeeAllowedTabs];
+  },
+  getDefaultTabForRole: getDefaultTabForRoleHelper = function fallbackGetDefaultTabForRole(role) {
+    void role;
+    return "week-current";
+  },
+  isControlModeActiveState: isControlModeActiveStateHelper = function fallbackIsControlModeActiveState(activeTabValue, role, nextPreferences = {}) {
+    return Boolean(nextPreferences.plannerControlMode) &&
+      (String(role || "").trim().toLowerCase() === "planner" || String(role || "").trim().toLowerCase() === "directie") &&
+      (activeTabValue === "week-current" || activeTabValue === "week-next");
+  },
+  isDeviationOnlyModeActiveState: isDeviationOnlyModeActiveStateHelper = function fallbackIsDeviationOnlyModeActiveState(activeTabValue, role, nextPreferences = {}) {
+    return Boolean(nextPreferences.plannerDeviationOnly) &&
+      (String(role || "").trim().toLowerCase() === "planner" || String(role || "").trim().toLowerCase() === "directie") &&
+      (activeTabValue === "week-current" || activeTabValue === "week-next");
+  },
+  isFocusModeActiveState: isFocusModeActiveStateHelper = function fallbackIsFocusModeActiveState(activeTabValue, role, nextPreferences = {}) {
+    return Boolean(nextPreferences.plannerFocusMode) &&
+      (String(role || "").trim().toLowerCase() === "planner" || String(role || "").trim().toLowerCase() === "directie") &&
+      (activeTabValue === "week-current" || activeTabValue === "week-next");
+  },
+  isPlannerWeekTabActive: isPlannerWeekTabActiveHelper = function fallbackIsPlannerWeekTabActive(activeTabValue, role) {
+    const normalizedRole = String(role || "").trim().toLowerCase();
+    return (normalizedRole === "planner" || normalizedRole === "directie") &&
+      (activeTabValue === "week-current" || activeTabValue === "week-next");
+  },
+  isTabAllowedForRole: isTabAllowedForRoleHelper = function fallbackIsTabAllowedForRole(role, tabName, options = {}) {
+    const allowedTabs = getAllowedTabsForRoleHelper(role, options);
+
+    if (allowedTabs === null) {
+      return true;
+    }
+
+    return allowedTabs.includes(tabName);
+  },
+  isWeekTabName: isWeekTabNameHelper = function fallbackIsWeekTabName(tabName) {
+    return tabName === "week-current" || tabName === "week-next";
+  }
+} = window.StroetNavigationFeature || {};
+
 function getMailSettingsDefaults() {
   return getMailSettingsDefaultsHelper(FIXED_TEST_MAIL_RECIPIENT);
 }
@@ -6678,15 +6729,13 @@ function getApprovedTimeOffVisibleForCurrentRole(sourceRequests = timeOffRequest
 }
 
 function isTabAllowedForCurrentRole(tabName) {
-  if (isPlannerRole()) {
-    return true;
-  }
-
-  return employeeAllowedTabs.includes(tabName);
+  return isTabAllowedForRoleHelper(activeRole, tabName, {
+    employeeAllowedTabs
+  });
 }
 
 function getDefaultTabForCurrentRole() {
-  return "week-current";
+  return getDefaultTabForRoleHelper(activeRole);
 }
 
 function handleBlockedTabAccess(tabName) {
@@ -12912,15 +12961,15 @@ function clearPlannerWeekInsights() {
 }
 
 function isFocusModeActive() {
-  return Boolean(preferences.plannerFocusMode) && isPlannerRole() && (activeTab === "week-current" || activeTab === "week-next");
+  return isFocusModeActiveStateHelper(activeTab, activeRole, preferences);
 }
 
 function isControlModeActive() {
-  return Boolean(preferences.plannerControlMode) && isPlannerRole() && (activeTab === "week-current" || activeTab === "week-next");
+  return isControlModeActiveStateHelper(activeTab, activeRole, preferences);
 }
 
 function isDeviationOnlyModeActive() {
-  return Boolean(preferences.plannerDeviationOnly) && isPlannerRole() && (activeTab === "week-current" || activeTab === "week-next");
+  return isDeviationOnlyModeActiveStateHelper(activeTab, activeRole, preferences);
 }
 
 function updateFocusModeUI() {
@@ -12953,7 +13002,7 @@ function updateFocusModeUI() {
 }
 
 function isWeekTabName(tabName) {
-  return tabName === "week-current" || tabName === "week-next";
+  return isWeekTabNameHelper(tabName);
 }
 
 function scrollToPlannerEmployee(employeeName) {
