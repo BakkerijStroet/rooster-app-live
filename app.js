@@ -2983,6 +2983,202 @@ const {
   }
 } = window.StroetRequestsPanelPrepFeature || {};
 
+const {
+  getDayWorkLogStatusForEntries: getDayWorkLogStatusForEntriesHelper = function fallbackGetDayWorkLogStatusForEntries(dayEntries, helpers) {
+    if (!Array.isArray(dayEntries) || !dayEntries.length) {
+      return "";
+    }
+
+    const logs = dayEntries.map((entry) => helpers.getWorkLogForEntry(entry));
+
+    if (logs.every((log) => log?.status === "approved")) {
+      return "goedgekeurd";
+    }
+
+    if (logs.every((log) => log && (log.status === "open" || log.status === "approved"))) {
+      return "ingediend";
+    }
+
+    if (logs.every((log) => Boolean(log))) {
+      return "ingevuld";
+    }
+
+    return "";
+  },
+  getWorkLogsForWeek: getWorkLogsForWeekHelper = function fallbackGetWorkLogsForWeek(workLogsValue, weekValue, employeeName = "", helpers) {
+    return workLogsValue
+      .filter((log) => helpers.getWeekValueFromDate(log.day) === weekValue && (!employeeName || log.employeeName === employeeName))
+      .sort((logA, logB) => logA.employeeName.localeCompare(logB.employeeName, "nl") || logA.day.localeCompare(logB.day) || logA.plannedStart.localeCompare(logB.plannedStart));
+  },
+  getHoursWeekReviewState: getHoursWeekReviewStateHelper = function fallbackGetHoursWeekReviewState({ weekValue, employeeName = "", entries: entriesValue, workLogs: workLogsValue, helpers }) {
+    const todayValue = helpers.getTodayLocalDateValue();
+    const weekEntries = entriesValue.filter((entry) =>
+      helpers.getWeekValueFromDate(entry.day) === weekValue &&
+      (!employeeName || entry.name === employeeName)
+    );
+    const plannedDays = [...new Set(weekEntries.map((entry) => entry.day))].sort();
+    const futureDays = plannedDays.filter((day) => day > todayValue);
+    const missingDays = plannedDays.filter((day) => {
+      const dayEntries = weekEntries.filter((entry) => entry.day === day);
+      return dayEntries.some((entry) => !helpers.getWorkLogForEntry(entry));
+    });
+    const weekLogs = getWorkLogsForWeekHelper(workLogsValue, weekValue, employeeName, {
+      getWeekValueFromDate: helpers.getWeekValueFromDate
+    });
+    const draftLogs = weekLogs.filter((log) => log.status === "draft");
+    const revisionLogs = weekLogs.filter((log) => log.status === "revision" || log.status === "rejected");
+    const openLogs = weekLogs.filter((log) => log.status === "open");
+    const approvedLogs = weekLogs.filter((log) => log.status === "approved");
+
+    if (!weekEntries.length && !weekLogs.length) {
+      return {
+        status: "incomplete",
+        label: "Incompleet",
+        note: "Nog geen uren in deze week.",
+        futureDays: [],
+        missingDays: [],
+        draftLogs,
+        revisionLogs,
+        openLogs,
+        approvedLogs
+      };
+    }
+
+    if (futureDays.length) {
+      return {
+        status: "incomplete",
+        label: "Incompleet",
+        note: `Deze week loopt nog. ${futureDays.length} ${futureDays.length === 1 ? "dag staat nog in de toekomst." : "dagen staan nog in de toekomst."}`,
+        futureDays,
+        missingDays,
+        draftLogs,
+        revisionLogs,
+        openLogs,
+        approvedLogs
+      };
+    }
+
+    if (missingDays.length) {
+      const previewDays = missingDays
+        .slice(0, 3)
+        .map((day) => `${helpers.formatWeekday(day)} ${helpers.formatDate(day)}`)
+        .join(", ");
+      const extraText = missingDays.length > 3 ? ` en nog ${missingDays.length - 3}` : "";
+
+      return {
+        status: "incomplete",
+        label: "Incompleet",
+        note: `Er ontbreken nog uren voor: ${previewDays}${extraText}.`,
+        futureDays,
+        missingDays,
+        draftLogs,
+        revisionLogs,
+        openLogs,
+        approvedLogs
+      };
+    }
+
+    if (draftLogs.length || revisionLogs.length) {
+      return {
+        status: "incomplete",
+        label: "Incompleet",
+        note: draftLogs.length
+          ? "Niet alle uren zijn al ingediend."
+          : "Er staan nog uren open met opmerking of afkeuring.",
+        futureDays,
+        missingDays,
+        draftLogs,
+        revisionLogs,
+        openLogs,
+        approvedLogs
+      };
+    }
+
+    if (openLogs.length) {
+      return {
+        status: "ready",
+        label: "Klaar voor goedkeuring",
+        note: `${openLogs.length} ${openLogs.length === 1 ? "registratie staat klaar" : "registraties staan klaar"} voor goedkeuring.`,
+        futureDays,
+        missingDays,
+        draftLogs,
+        revisionLogs,
+        openLogs,
+        approvedLogs
+      };
+    }
+
+    return {
+      status: "done",
+      label: "Afgerond",
+      note: "Alle uren van deze week zijn goedgekeurd.",
+      futureDays,
+      missingDays,
+      draftLogs,
+      revisionLogs,
+      openLogs,
+      approvedLogs
+    };
+  },
+  buildMyHoursWeekSummaryData: buildMyHoursWeekSummaryDataHelper = function fallbackBuildMyHoursWeekSummaryData({ selectedWeekEntries, selectedWeekPastEntries, getWorkLogForEntry, calculateWorkedHours }) {
+    const selectedWeekDays = [...new Set(selectedWeekEntries.map((entry) => entry.day))].sort();
+    const selectedWeekVisibleDays = [...new Set(selectedWeekPastEntries.map((entry) => entry.day))].sort();
+    const filledWeekDays = selectedWeekVisibleDays.filter((day) => {
+      const dayEntries = selectedWeekPastEntries.filter((entry) => entry.day === day);
+      return dayEntries.length > 0 && dayEntries.every((entry) => Boolean(getWorkLogForEntry(entry)));
+    });
+    const openWeekDays = selectedWeekVisibleDays.filter((day) => {
+      const dayEntries = selectedWeekPastEntries.filter((entry) => entry.day === day);
+      return dayEntries.some((entry) => !getWorkLogForEntry(entry));
+    });
+    const missingSubmittableWeekDays = [...new Set(selectedWeekPastEntries
+      .filter((entry) => !getWorkLogForEntry(entry))
+      .map((entry) => entry.day))];
+    const selectedWeekWorkedHours = selectedWeekEntries.reduce((total, entry) => {
+      const workLog = getWorkLogForEntry(entry);
+      const workedHours = workLog ? calculateWorkedHours(workLog.actualStart, workLog.actualEnd, workLog.breakMinutes) : null;
+      return total + (workedHours || 0);
+    }, 0);
+
+    return {
+      selectedWeekDays,
+      selectedWeekVisibleDays,
+      filledWeekDays,
+      openWeekDays,
+      missingSubmittableWeekDays,
+      selectedWeekWorkedHours
+    };
+  },
+  getHoursApprovalEmptyText: getHoursApprovalEmptyTextHelper = function fallbackGetHoursApprovalEmptyText(weekReviewState) {
+    return weekReviewState.status === "done"
+      ? "Deze week is afgerond. Er staan geen uren meer open voor controle."
+      : "Nog geen ingediende uren in deze week.";
+  },
+  buildHoursApprovalGroupViewModels: buildHoursApprovalGroupViewModelsHelper = function fallbackBuildHoursApprovalGroupViewModels(approvalGroups, helpers) {
+    return [...approvalGroups.entries()]
+      .sort(([employeeA], [employeeB]) => employeeA.localeCompare(employeeB, "nl"))
+      .map(([employeeName, employeeLogs]) => {
+        const sortedEmployeeLogs = employeeLogs
+          .slice()
+          .sort((logA, logB) => logA.day.localeCompare(logB.day) || logA.plannedStart.localeCompare(logB.plannedStart));
+        const employeeDeviationCount = sortedEmployeeLogs.filter((log) =>
+          log.actualStart !== log.plannedStart ||
+          log.actualEnd !== log.plannedEnd ||
+          Number(log.breakMinutes) > 0 ||
+          Boolean(log.notes?.trim())
+        ).length;
+
+        return {
+          employeeName,
+          sortedEmployeeLogs,
+          openCount: sortedEmployeeLogs.filter((log) => log.status === "open").length,
+          deviationCount: employeeDeviationCount,
+          dayCount: sortedEmployeeLogs.length
+        };
+      });
+  }
+} = window.StroetHoursPanelPrepFeature || {};
+
 function getMailSettingsDefaults() {
   return getMailSettingsDefaultsHelper(FIXED_TEST_MAIL_RECIPIENT);
 }
@@ -16009,19 +16205,19 @@ function renderMyHours() {
     savePreferences();
   }
 
-  const selectedWeekDays = [...new Set(selectedWeekEntries.map((entry) => entry.day))].sort();
-  const selectedWeekVisibleDays = [...new Set(selectedWeekPastEntries.map((entry) => entry.day))].sort();
-  const filledWeekDays = selectedWeekVisibleDays.filter((day) => {
-    const dayEntries = selectedWeekPastEntries.filter((entry) => entry.day === day);
-    return dayEntries.length > 0 && dayEntries.every((entry) => Boolean(getWorkLogForEntry(entry)));
+  const {
+    selectedWeekDays,
+    selectedWeekVisibleDays,
+    filledWeekDays,
+    openWeekDays,
+    missingSubmittableWeekDays,
+    selectedWeekWorkedHours
+  } = buildMyHoursWeekSummaryDataHelper({
+    selectedWeekEntries,
+    selectedWeekPastEntries,
+    getWorkLogForEntry,
+    calculateWorkedHours
   });
-  const openWeekDays = selectedWeekVisibleDays.filter((day) => {
-    const dayEntries = selectedWeekPastEntries.filter((entry) => entry.day === day);
-    return dayEntries.some((entry) => !getWorkLogForEntry(entry));
-  });
-  const missingSubmittableWeekDays = [...new Set(selectedWeekPastEntries
-    .filter((entry) => !getWorkLogForEntry(entry))
-    .map((entry) => entry.day))];
   const selectedDateEntries = selectedWeekEntries
     .filter((entry) => entry.day === effectiveSelectedDate)
     .sort((entryA, entryB) => entryA.startTime.localeCompare(entryB.startTime));
@@ -16030,11 +16226,6 @@ function renderMyHours() {
     log.day <= todayValue &&
     (log.status === "draft" || log.status === "revision" || log.status === "rejected")
   );
-  const selectedWeekWorkedHours = selectedWeekEntries.reduce((total, entry) => {
-    const workLog = getWorkLogForEntry(entry);
-    const workedHours = workLog ? calculateWorkedHours(workLog.actualStart, workLog.actualEnd, workLog.breakMinutes) : null;
-    return total + (workedHours || 0);
-  }, 0);
   const selectedDateWorkedHours = selectedDateEntries.reduce((total, entry) => {
     const workLog = getWorkLogForEntry(entry);
     const workedHours = workLog ? calculateWorkedHours(workLog.actualStart, workLog.actualEnd, workLog.breakMinutes) : null;
@@ -16375,25 +16566,10 @@ function openHoursForDate(targetDate) {
 }
 
 function getDayWorkLogStatusForEntries(dayEntries) {
-  if (!Array.isArray(dayEntries) || !dayEntries.length) {
-    return "";
-  }
-
-  const logs = dayEntries.map((entry) => getWorkLogForEntry(entry));
-
-  if (logs.every((log) => log?.status === "approved")) {
-    return "goedgekeurd";
-  }
-
-  if (logs.every((log) => log && (log.status === "open" || log.status === "approved"))) {
-    return "ingediend";
-  }
-
-  if (logs.every((log) => Boolean(log))) {
-    return "ingevuld";
-  }
-
-  return "";
+  return getDayWorkLogStatusForEntriesHelper(dayEntries, {
+    getWorkLogForEntry,
+    getWorkLogStatusLabel
+  });
 }
 
 function quickCompleteWorkDay(targetDate) {
@@ -16732,117 +16908,26 @@ function refreshWorkLogValidationForCard(workLogId) {
 }
 
 function getWorkLogsForWeek(weekValue, employeeName = "") {
-  return workLogs
-    .filter((log) => getWeekValueFromDate(log.day) === weekValue && (!employeeName || log.employeeName === employeeName))
-    .sort((logA, logB) => logA.employeeName.localeCompare(logB.employeeName, "nl") || logA.day.localeCompare(logB.day) || logA.plannedStart.localeCompare(logB.plannedStart));
+  return getWorkLogsForWeekHelper(workLogs, weekValue, employeeName, {
+    getWeekValueFromDate
+  });
 }
 
 function getHoursWeekReviewState(weekValue, employeeName = "") {
-  const todayValue = getTodayLocalDateValue();
-  const weekEntries = entries.filter((entry) =>
-    getWeekValueFromDate(entry.day) === weekValue &&
-    (!employeeName || entry.name === employeeName)
-  );
-  const plannedDays = [...new Set(weekEntries.map((entry) => entry.day))].sort();
-  const futureDays = plannedDays.filter((day) => day > todayValue);
-  const missingDays = plannedDays.filter((day) => {
-    const dayEntries = weekEntries.filter((entry) => entry.day === day);
-    return dayEntries.some((entry) => !getWorkLogForEntry(entry));
+  return getHoursWeekReviewStateHelper({
+    weekValue,
+    employeeName,
+    entries,
+    workLogs,
+    helpers: {
+      getTodayLocalDateValue,
+      getWeekValueFromDate,
+      getWorkLogForEntry,
+      getWorkLogsForWeek: getWorkLogsForWeekHelper,
+      formatWeekday,
+      formatDate
+    }
   });
-  const weekLogs = getWorkLogsForWeek(weekValue, employeeName);
-  const draftLogs = weekLogs.filter((log) => log.status === "draft");
-  const revisionLogs = weekLogs.filter((log) => log.status === "revision" || log.status === "rejected");
-  const openLogs = weekLogs.filter((log) => log.status === "open");
-  const approvedLogs = weekLogs.filter((log) => log.status === "approved");
-
-  if (!weekEntries.length && !weekLogs.length) {
-    return {
-      status: "incomplete",
-      label: "Incompleet",
-      note: "Nog geen uren in deze week.",
-      futureDays: [],
-      missingDays: [],
-      draftLogs,
-      revisionLogs,
-      openLogs,
-      approvedLogs
-    };
-  }
-
-  if (futureDays.length) {
-    return {
-      status: "incomplete",
-      label: "Incompleet",
-      note: `Deze week loopt nog. ${futureDays.length} ${futureDays.length === 1 ? "dag staat nog in de toekomst." : "dagen staan nog in de toekomst."}`,
-      futureDays,
-      missingDays,
-      draftLogs,
-      revisionLogs,
-      openLogs,
-      approvedLogs
-    };
-  }
-
-  if (missingDays.length) {
-    const previewDays = missingDays
-      .slice(0, 3)
-      .map((day) => `${formatWeekday(day)} ${formatDate(day)}`)
-      .join(", ");
-    const extraText = missingDays.length > 3 ? ` en nog ${missingDays.length - 3}` : "";
-    return {
-      status: "incomplete",
-      label: "Incompleet",
-      note: `Er ontbreken nog uren voor: ${previewDays}${extraText}.`,
-      futureDays,
-      missingDays,
-      draftLogs,
-      revisionLogs,
-      openLogs,
-      approvedLogs
-    };
-  }
-
-  if (draftLogs.length || revisionLogs.length) {
-    return {
-      status: "incomplete",
-      label: "Incompleet",
-      note: draftLogs.length
-        ? "Niet alle uren zijn al ingediend."
-        : "Er staan nog uren open met opmerking of afkeuring.",
-      futureDays,
-      missingDays,
-      draftLogs,
-      revisionLogs,
-      openLogs,
-      approvedLogs
-    };
-  }
-
-  if (openLogs.length) {
-    return {
-      status: "ready",
-      label: "Klaar voor goedkeuring",
-      note: `${openLogs.length} ${openLogs.length === 1 ? "registratie staat klaar" : "registraties staan klaar"} voor goedkeuring.`,
-      futureDays,
-      missingDays,
-      draftLogs,
-      revisionLogs,
-      openLogs,
-      approvedLogs
-    };
-  }
-
-  return {
-    status: "done",
-    label: "Afgerond",
-    note: "Alle uren van deze week zijn goedgekeurd.",
-    futureDays,
-    missingDays,
-    draftLogs,
-    revisionLogs,
-    openLogs,
-    approvedLogs
-  };
 }
 
 function updateWorkLogStatus(workLogId, nextStatus, managerNote = "") {
@@ -17085,11 +17170,13 @@ function renderHoursApproval() {
 
   if (!weekLogs.length) {
     setClassName(hoursApprovalQueue, "request-list empty");
-    hoursApprovalQueue.textContent = weekReviewState.status === "done"
-      ? "Deze week is afgerond. Er staan geen uren meer open voor controle."
-      : "Nog geen ingediende uren in deze week.";
+    hoursApprovalQueue.textContent = getHoursApprovalEmptyTextHelper(weekReviewState);
     return;
   }
+
+  const approvalGroupViewModels = buildHoursApprovalGroupViewModelsHelper(approvalGroups, {
+    getWorkLogStatusLabel
+  });
 
   setClassName(hoursApprovalQueue, "hours-approval-list");
   hoursApprovalQueue.innerHTML = `
@@ -17110,29 +17197,17 @@ function renderHoursApproval() {
         <button type="button" class="secondary" data-worklog-bulk="full-week" data-worklog-week="${selectedWeek}">Keur hele week goed</button>
       </div>
       <div class="hours-approval-groups">
-        ${[...approvalGroups.entries()]
-          .sort(([employeeA], [employeeB]) => employeeA.localeCompare(employeeB, "nl"))
-          .map(([employeeName, employeeLogs]) => {
-            const sortedEmployeeLogs = employeeLogs
-              .slice()
-              .sort((logA, logB) => logA.day.localeCompare(logB.day) || logA.plannedStart.localeCompare(logB.plannedStart));
-            const employeeDeviationCount = sortedEmployeeLogs.filter((log) =>
-              log.actualStart !== log.plannedStart ||
-              log.actualEnd !== log.plannedEnd ||
-              Number(log.breakMinutes) > 0 ||
-              Boolean(log.notes?.trim())
-            ).length;
-
-            return `
+        ${approvalGroupViewModels
+          .map(({ employeeName, sortedEmployeeLogs, openCount, deviationCount, dayCount }) => `
               <article class="hours-approval-employee-group">
                 <div class="hours-approval-employee-head">
                   <div>
                     <strong>${employeeName}</strong>
-                    <span>${sortedEmployeeLogs.length} ${sortedEmployeeLogs.length === 1 ? "dag" : "dagen"} in deze week</span>
+                    <span>${dayCount} ${dayCount === 1 ? "dag" : "dagen"} in deze week</span>
                   </div>
                   <div class="hours-approval-employee-meta">
-                    <span>Open ${sortedEmployeeLogs.filter((log) => log.status === "open").length}</span>
-                    <span>Afwijking ${employeeDeviationCount}</span>
+                    <span>Open ${openCount}</span>
+                    <span>Afwijking ${deviationCount}</span>
                   </div>
                 </div>
                 <div class="hours-approval-day-list">
@@ -17169,8 +17244,7 @@ function renderHoursApproval() {
                   }).join("")}
                 </div>
               </article>
-            `;
-          }).join("")}
+            `).join("")}
       </div>
     </article>
   `;
