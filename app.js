@@ -377,10 +377,6 @@ function getScopedStorageKeyForMode(baseKey, mode) {
 
 function reportAppError(userMessage, error, context = "") {
   console.error(`[Urenrooster] ${context || "app-fout"}`, error);
-  if (error && error.stack) {
-    console.error("[render-crash][stack]", error.stack);
-  }
-
   if (typeof showMessage === "function" && messageBox) {
     showMessage(userMessage, "error");
   }
@@ -14250,14 +14246,6 @@ function renderSwapEntryOptions() {
 }
 
 function renderTimeOffRequests() {
-  console.debug("[renderTimeOffRequests]", {
-    openTimeOffRequestsContainer: Boolean(openTimeOffRequestsContainer),
-    handledTimeOffRequestsContainer: Boolean(handledTimeOffRequestsContainer),
-    plannerFreeRequestsContainer: Boolean(plannerFreeRequestsContainer),
-    plannerVacationRequestsContainer: Boolean(plannerVacationRequestsContainer),
-    plannerSickRequestsContainer: Boolean(plannerSickRequestsContainer),
-    isPlannerRole: isPlannerRole()
-  });
   const { visibleTimeOffRequests } = getVisibleRequestSources();
   const visibleRequests = visibleTimeOffRequests.filter((request) => matchesRequestStatusFilter(request));
 
@@ -14362,12 +14350,6 @@ function renderTimeOffRequests() {
 }
 
 function renderSwapRequests() {
-  console.debug("[renderSwapRequests]", {
-    openSwapRequestsContainer: Boolean(openSwapRequestsContainer),
-    handledSwapRequestsContainer: Boolean(handledSwapRequestsContainer),
-    plannerSwapRequestsContainer: Boolean(plannerSwapRequestsContainer),
-    isPlannerRole: isPlannerRole()
-  });
   const { visibleSwapRequests } = getVisibleRequestSources();
   syncSwapReminderNotifications(visibleSwapRequests);
   const visibleRequests = visibleSwapRequests.filter((request) => matchesRequestStatusFilter(request));
@@ -16556,15 +16538,6 @@ function renderActiveTabContent() {
 
 function render() {
   try {
-    console.debug("[render]", {
-      activeTab,
-      requestTimeOffPanel: Boolean(requestTimeOffPanel),
-      requestSwapPanel: Boolean(requestSwapPanel),
-      openTimeOffRequestsContainer: Boolean(openTimeOffRequestsContainer),
-      handledTimeOffRequestsContainer: Boolean(handledTimeOffRequestsContainer),
-      openSwapRequestsContainer: Boolean(openSwapRequestsContainer),
-      handledSwapRequestsContainer: Boolean(handledSwapRequestsContainer)
-    });
     ensureEmployeeIdentityForCurrentRole();
     applyRoleUI();
     updateTabVisibility();
@@ -16575,11 +16548,6 @@ function render() {
     maybeShowOpenRequestReminder();
     renderActiveMessage();
   } catch (error) {
-    console.error("[render-crash]", {
-      activeTab,
-      message: error?.message || String(error),
-      stack: error?.stack || null
-    });
     reportAppError("Er ging iets mis bij het verversen van het scherm.", error, "render");
   }
 }
