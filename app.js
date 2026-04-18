@@ -14323,23 +14323,31 @@ function renderTimeOffRequests() {
       "Nog geen ziekmeldingen.",
       "timeoff"
     );
-    setClassName(openTimeOffRequestsContainer, "request-list hidden");
-    setClassName(handledTimeOffRequestsContainer, "request-list hidden");
-    openTimeOffRequestsContainer.innerHTML = "";
-    handledTimeOffRequestsContainer.innerHTML = "";
+    if (openTimeOffRequestsContainer) {
+      setClassName(openTimeOffRequestsContainer, "request-list hidden");
+      openTimeOffRequestsContainer.innerHTML = "";
+    }
+    if (handledTimeOffRequestsContainer) {
+      setClassName(handledTimeOffRequestsContainer, "request-list hidden");
+      handledTimeOffRequestsContainer.innerHTML = "";
+    }
     return;
   }
 
-  renderCards(
-    openTimeOffRequestsContainer,
-    sortedRequests.filter((request) => request.status === "open"),
-    "Nog geen open afwezigheidsaanvragen."
-  );
-  renderCards(
-    handledTimeOffRequestsContainer,
-    sortedRequests.filter((request) => request.status !== "open"),
-    "Nog geen afgehandelde afwezigheidsaanvragen."
-  );
+  if (openTimeOffRequestsContainer) {
+    renderCards(
+      openTimeOffRequestsContainer,
+      sortedRequests.filter((request) => request.status === "open"),
+      "Nog geen open afwezigheidsaanvragen."
+    );
+  }
+  if (handledTimeOffRequestsContainer) {
+    renderCards(
+      handledTimeOffRequestsContainer,
+      sortedRequests.filter((request) => request.status !== "open"),
+      "Nog geen afgehandelde afwezigheidsaanvragen."
+    );
+  }
 }
 
 function renderSwapRequests() {
