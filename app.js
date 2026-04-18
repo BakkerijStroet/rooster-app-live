@@ -2849,6 +2849,140 @@ const {
   }
 } = window.StroetEmployeePanelPrepFeature || {};
 
+const {
+  getVisibleRequestSources: getVisibleRequestSourcesHelper = function fallbackGetVisibleRequestSources(isPlannerRoleValue, currentEmployee, timeOffRequestsValue, swapRequestsValue) {
+    return {
+      visibleTimeOffRequests: isPlannerRoleValue
+        ? timeOffRequestsValue
+        : timeOffRequestsValue.filter((request) => request.employeeName === currentEmployee),
+      visibleSwapRequests: isPlannerRoleValue
+        ? swapRequestsValue
+        : swapRequestsValue.filter((request) => request.employeeName === currentEmployee)
+    };
+  },
+  matchesRequestStatusFilter: matchesRequestStatusFilterHelper = function fallbackMatchesRequestStatusFilter(selectedStatus, request, getRequestDisplayStatus) {
+    const displayStatus = getRequestDisplayStatus(request);
+
+    if (selectedStatus === "") {
+      return true;
+    }
+
+    if (selectedStatus === "waiting") {
+      return displayStatus === "waiting" || displayStatus === "overdue";
+    }
+
+    return displayStatus === selectedStatus;
+  },
+  getRequestRosterEffectText: getRequestRosterEffectTextHelper = function fallbackGetRequestRosterEffectText(request, requestType, entriesValue, helpers) {
+    if (requestType === "timeoff") {
+      const startDate = helpers.getTimeOffStartDate(request);
+      const endDate = helpers.getTimeOffEndDate(request);
+      const affectedEntries = entriesValue.filter((entry) =>
+        entry.name === request.employeeName &&
+        entry.day >= startDate &&
+        entry.day <= endDate
+      );
+
+      if (request.status === "approved") {
+        return affectedEntries.length > 0
+          ? `${affectedEntries.length} dienst(en) in deze periode vragen nu aandacht in het rooster.`
+          : "Goedgekeurd en zichtbaar als afwezig in het rooster.";
+      }
+
+      if (request.status === "open") {
+        return affectedEntries.length > 0
+          ? `Na goedkeuring gekoppeld aan ${affectedEntries.length} roosterdienst(en).`
+          : "Na goedkeuring direct zichtbaar in het rooster.";
+      }
+
+      return "Niet gekoppeld aan het rooster.";
+    }
+
+    if (requestType === "swap") {
+      if (request.status === "approved") {
+        return request.autoApproved
+          ? "Automatisch goedgekeurd en direct verwerkt in het rooster."
+          : "Goedgekeurd en direct verwerkt in het rooster.";
+      }
+
+      if (request.status === "open") {
+        return request.targetEmployeeName
+          ? "Deze ruil wacht nog op beoordeling."
+          : "Na goedkeuring wordt deze dienst open aangeboden.";
+      }
+
+      return "Nog niet verwerkt in het rooster.";
+    }
+
+    return "";
+  },
+  getPlannerRequestSummaryCounts: getPlannerRequestSummaryCountsHelper = function fallbackGetPlannerRequestSummaryCounts(timeOffRequestsValue, swapRequestsValue) {
+    const openTimeOffRequests = timeOffRequestsValue.filter((request) => request.status === "open");
+
+    return {
+      free: openTimeOffRequests.filter((request) => request.type === "vrij").length,
+      vacation: openTimeOffRequests.filter((request) => request.type === "vakantie").length,
+      sick: openTimeOffRequests.filter((request) => request.type === "ziek").length,
+      swaps: swapRequestsValue.filter((request) => request.status === "open").length
+    };
+  },
+  buildEmployeeRequestCards: buildEmployeeRequestCardsHelper = function fallbackBuildEmployeeRequestCards({ visibleTimeOffRequests, visibleSwapRequests, helpers }) {
+    return [
+      ...visibleTimeOffRequests.map((request) => ({
+        type: helpers.getAbsenceTypeLabel(request.type),
+        meta: `${helpers.getTimeOffDisplayRange(request)}${request.reason ? ` - ${request.reason}` : ""}`,
+        status: helpers.getRequestDisplayStatus(request),
+        label: helpers.getRequestDisplayLabel(request),
+        typeClass: `absence-${helpers.getAbsenceCardClass(request.type)}`,
+        sortDate: request.updatedAt || request.createdAt || request.date || ""
+      })),
+      ...visibleSwapRequests.map((request) => ({
+        type: "Dienst ruilen",
+        meta: `${request.shiftName} - ${helpers.formatDate(request.date)} - ${request.startTime} - ${request.endTime}`,
+        status: helpers.getRequestDisplayStatus(request),
+        label: helpers.getRequestDisplayLabel(request),
+        typeClass: "",
+        sortDate: request.updatedAt || request.createdAt || request.date || ""
+      }))
+    ].sort((cardA, cardB) => {
+      const priorityMap = { overdue: 0, waiting: 1, open: 2, approved: 3, rejected: 4 };
+      const priorityDifference = (priorityMap[cardA.status] ?? 9) - (priorityMap[cardB.status] ?? 9);
+      if (priorityDifference !== 0) {
+        return priorityDifference;
+      }
+      return cardB.sortDate.localeCompare(cardA.sortDate, "nl");
+    });
+  },
+  buildPlannerRequestCardViewModel: buildPlannerRequestCardViewModelHelper = function fallbackBuildPlannerRequestCardViewModel({ request, requestType, helpers }) {
+    const requestStatus = helpers.getRequestDisplayStatus(request);
+    const statusLabel = helpers.getRequestDisplayLabel(request);
+    const periodText = requestType === "swap"
+      ? helpers.formatDate(request.date)
+      : helpers.getTimeOffDisplayRange(request);
+    const detailText = requestType === "swap"
+      ? `${request.shiftName} - ${request.startTime} - ${request.endTime}`
+      : `${helpers.getAbsenceTypeLabel(request.type)}${request.reason ? ` - ${request.reason}` : ""}`;
+    const attentionText = request.status === "open" ? helpers.getRequestAttentionText(request) : "";
+    const plannerNoteText = request.managerNote || "";
+    const swapExtraText = requestType === "swap" && request.targetEmployeeName
+      ? `Voorgestelde collega: ${request.targetEmployeeName}`
+      : (requestType === "swap" && request.escalatedToPlanner
+        ? "Directie is gevraagd om mee te kijken."
+        : "");
+
+    return {
+      requestStatus,
+      statusLabel,
+      periodText,
+      detailText,
+      attentionText,
+      plannerNoteText,
+      swapExtraText,
+      rosterEffectText: requestType === "swap" ? helpers.getRequestRosterEffectText(request, "swap") : ""
+    };
+  }
+} = window.StroetRequestsPanelPrepFeature || {};
+
 function getMailSettingsDefaults() {
   return getMailSettingsDefaultsHelper(FIXED_TEST_MAIL_RECIPIENT);
 }
@@ -12247,16 +12381,12 @@ function renderSwapTargetOptions() {
 }
 
 function getVisibleRequestSources() {
-  const currentEmployee = getRoleScopedEmployeeName();
-
-  return {
-    visibleTimeOffRequests: isPlannerRole()
-      ? timeOffRequests
-      : timeOffRequests.filter((request) => request.employeeName === currentEmployee),
-    visibleSwapRequests: isPlannerRole()
-      ? swapRequests
-      : swapRequests.filter((request) => request.employeeName === currentEmployee)
-  };
+  return getVisibleRequestSourcesHelper(
+    isPlannerRole(),
+    getRoleScopedEmployeeName(),
+    timeOffRequests,
+    swapRequests
+  );
 }
 
 function getRequestStatusFilterValue() {
@@ -12264,62 +12394,14 @@ function getRequestStatusFilterValue() {
 }
 
 function matchesRequestStatusFilter(request) {
-  const selectedStatus = getRequestStatusFilterValue();
-  const displayStatus = getRequestDisplayStatus(request);
-
-  if (selectedStatus === "") {
-    return true;
-  }
-
-  if (selectedStatus === "waiting") {
-    return displayStatus === "waiting" || displayStatus === "overdue";
-  }
-
-  return displayStatus === selectedStatus;
+  return matchesRequestStatusFilterHelper(getRequestStatusFilterValue(), request, getRequestDisplayStatus);
 }
 
 function getRequestRosterEffectText(request, requestType) {
-  if (requestType === "timeoff") {
-    const startDate = getTimeOffStartDate(request);
-    const endDate = getTimeOffEndDate(request);
-    const affectedEntries = entries.filter((entry) =>
-      entry.name === request.employeeName &&
-      entry.day >= startDate &&
-      entry.day <= endDate
-    );
-
-    if (request.status === "approved") {
-      return affectedEntries.length > 0
-        ? `${affectedEntries.length} dienst(en) in deze periode vragen nu aandacht in het rooster.`
-        : "Goedgekeurd en zichtbaar als afwezig in het rooster.";
-    }
-
-    if (request.status === "open") {
-      return affectedEntries.length > 0
-        ? `Na goedkeuring gekoppeld aan ${affectedEntries.length} roosterdienst(en).`
-        : "Na goedkeuring direct zichtbaar in het rooster.";
-    }
-
-    return "Niet gekoppeld aan het rooster.";
-  }
-
-  if (requestType === "swap") {
-    if (request.status === "approved") {
-      return request.autoApproved
-        ? "Automatisch goedgekeurd en direct verwerkt in het rooster."
-        : "Goedgekeurd en direct verwerkt in het rooster.";
-    }
-
-    if (request.status === "open") {
-      return request.targetEmployeeName
-        ? "Deze ruil wacht nog op beoordeling."
-        : "Na goedkeuring wordt deze dienst open aangeboden.";
-    }
-
-    return "Nog niet verwerkt in het rooster.";
-  }
-
-  return "";
+  return getRequestRosterEffectTextHelper(request, requestType, entries, {
+    getTimeOffStartDate,
+    getTimeOffEndDate
+  });
 }
 
 function getPlannerRequestNoteFromButton(button) {
@@ -12378,14 +12460,7 @@ function renderRequestsContext() {
 }
 
 function getPlannerRequestSummaryCounts() {
-  const openTimeOffRequests = timeOffRequests.filter((request) => request.status === "open");
-
-  return {
-    free: openTimeOffRequests.filter((request) => request.type === "vrij").length,
-    vacation: openTimeOffRequests.filter((request) => request.type === "vakantie").length,
-    sick: openTimeOffRequests.filter((request) => request.type === "ziek").length,
-    swaps: swapRequests.filter((request) => request.status === "open").length
-  };
+  return getPlannerRequestSummaryCountsHelper(timeOffRequests, swapRequests);
 }
 
 function renderPlannerRequestCards(target, requests, emptyText, requestType) {
@@ -12401,16 +12476,20 @@ function renderPlannerRequestCards(target, requests, emptyText, requestType) {
 
   setClassName(target, "request-list");
   target.innerHTML = requests.map((request) => {
-    const requestStatus = getRequestDisplayStatus(request);
-    const statusLabel = getRequestDisplayLabel(request);
-    const periodText = requestType === "swap"
-      ? formatDate(request.date)
-      : getTimeOffDisplayRange(request);
-    const detailText = requestType === "swap"
-      ? `${request.shiftName} - ${request.startTime} - ${request.endTime}`
-      : `${getAbsenceTypeLabel(request.type)}${request.reason ? ` - ${request.reason}` : ""}`;
-    const attentionText = request.status === "open" ? getRequestAttentionText(request) : "";
-    const plannerNote = request.managerNote ? `<div class="request-impact"><strong>Opmerking:</strong> ${request.managerNote}</div>` : "";
+    const viewModel = buildPlannerRequestCardViewModelHelper({
+      request,
+      requestType,
+      helpers: {
+        getRequestDisplayStatus,
+        getRequestDisplayLabel,
+        formatDate,
+        getTimeOffDisplayRange,
+        getAbsenceTypeLabel,
+        getRequestAttentionText,
+        getRequestRosterEffectText
+      }
+    });
+    const plannerNote = viewModel.plannerNoteText ? `<div class="request-impact"><strong>Opmerking:</strong> ${viewModel.plannerNoteText}</div>` : "";
     const plannerNoteField = request.status === "open"
       ? `
         <label class="request-note-field">
@@ -12429,11 +12508,9 @@ function renderPlannerRequestCards(target, requests, emptyText, requestType) {
         </div>
       `
       : "";
-    const swapExtra = requestType === "swap" && request.targetEmployeeName
-      ? `<div class="request-impact">Voorgestelde collega: ${request.targetEmployeeName}</div>`
-      : (requestType === "swap" && request.escalatedToPlanner
-        ? `<div class="request-impact request-attention-note">Directie is gevraagd om mee te kijken.</div>`
-        : "");
+    const swapExtra = viewModel.swapExtraText
+      ? `<div class="request-impact${request.targetEmployeeName ? "" : " request-attention-note"}">${viewModel.swapExtraText}</div>`
+      : "";
     const replacementField = requestType === "swap" && request.status === "open" && !request.targetEmployeeName
       ? `
         <label class="request-note-field">
@@ -12447,21 +12524,21 @@ function renderPlannerRequestCards(target, requests, emptyText, requestType) {
       : "";
 
     return `
-      <article class="request-card planner-request-card is-${requestStatus}${requestType === "timeoff" ? ` absence-${getAbsenceCardClass(request.type)}` : ""}">
+      <article class="request-card planner-request-card is-${viewModel.requestStatus}${requestType === "timeoff" ? ` absence-${getAbsenceCardClass(request.type)}` : ""}">
         <div class="planner-request-row">
           <strong class="planner-request-name">${request.employeeName}</strong>
-          <div class="planner-request-period" title="${periodText}">${periodText}</div>
-          <span class="status-pill status-${requestStatus}">${statusLabel}</span>
+          <div class="planner-request-period" title="${viewModel.periodText}">${viewModel.periodText}</div>
+          <span class="status-pill status-${viewModel.requestStatus}">${viewModel.statusLabel}</span>
           ${plannerActions}
         </div>
         <div class="planner-request-detail-row">
-          <div class="planner-request-detail" title="${detailText}">${detailText}</div>
+          <div class="planner-request-detail" title="${viewModel.detailText}">${viewModel.detailText}</div>
           ${replacementField}
           ${plannerNoteField}
         </div>
         ${swapExtra}
-        ${requestType === "swap" ? `<div class="request-impact">${getRequestRosterEffectText(request, "swap")}</div>` : ""}
-        ${attentionText ? `<div class="request-impact request-attention-note">${attentionText}</div>` : ""}
+        ${viewModel.rosterEffectText ? `<div class="request-impact">${viewModel.rosterEffectText}</div>` : ""}
+        ${viewModel.attentionText ? `<div class="request-impact request-attention-note">${viewModel.attentionText}</div>` : ""}
         ${plannerNote}
       </article>
     `;
@@ -12786,30 +12863,17 @@ function renderRequestsOpenCards() {
   }
 
   const { visibleTimeOffRequests, visibleSwapRequests } = getVisibleRequestSources();
-  const ownCards = [
-    ...visibleTimeOffRequests.map((request) => ({
-      type: getAbsenceTypeLabel(request.type),
-      meta: `${getTimeOffDisplayRange(request)}${request.reason ? ` - ${request.reason}` : ""}`,
-      status: getRequestDisplayStatus(request),
-      label: getRequestDisplayLabel(request),
-      typeClass: `absence-${getAbsenceCardClass(request.type)}`,
-      sortDate: request.updatedAt || request.createdAt || request.date || ""
-    })),
-    ...visibleSwapRequests.map((request) => ({
-      type: "Dienst ruilen",
-      meta: `${request.shiftName} - ${formatDate(request.date)} - ${request.startTime} - ${request.endTime}`,
-      status: getRequestDisplayStatus(request),
-      label: getRequestDisplayLabel(request),
-      typeClass: "",
-      sortDate: request.updatedAt || request.createdAt || request.date || ""
-    }))
-  ].sort((cardA, cardB) => {
-    const priorityMap = { overdue: 0, waiting: 1, open: 2, approved: 3, rejected: 4 };
-    const priorityDifference = (priorityMap[cardA.status] ?? 9) - (priorityMap[cardB.status] ?? 9);
-    if (priorityDifference !== 0) {
-      return priorityDifference;
+  const ownCards = buildEmployeeRequestCardsHelper({
+    visibleTimeOffRequests,
+    visibleSwapRequests,
+    helpers: {
+      getAbsenceTypeLabel,
+      getTimeOffDisplayRange,
+      getRequestDisplayStatus,
+      getRequestDisplayLabel,
+      getAbsenceCardClass,
+      formatDate
     }
-    return cardB.sortDate.localeCompare(cardA.sortDate, "nl");
   });
 
   if (!ownCards.length) {
