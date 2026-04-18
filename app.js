@@ -4007,10 +4007,6 @@ function timeToMinutes(timeValue) {
   return (hours * 60) + minutes;
 }
 
-function formatHours(hours) {
-  return `${hours.toFixed(2).replace(".", ",")} uur`;
-}
-
 const {
   createRequestId = function fallbackCreateRequestId(prefix) {
     return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
@@ -4085,14 +4081,6 @@ function getHoursExportSelection() {
       periodLabel: `Week ${weekValue.replace("-W", "-")}`,
       fileLabel: weekValue.replace("-W", "-week-")
     };
-}
-
-function getWorkedHoursFromLog(workLog) {
-  if (!workLog?.actualStart || !workLog?.actualEnd) {
-    return null;
-  }
-
-  return calculateWorkedHours(workLog.actualStart, workLog.actualEnd, workLog.breakMinutes);
 }
 
 function exportHoursForAdministration() {
@@ -4597,41 +4585,180 @@ const {
   }
 } = window.StroetRequestsFeature || {};
 
+const {
+  addMinutesToTimeValue = function fallbackAddMinutesToTimeValue(timeValue, minutesToAdd) {
+    if (!timeValue || !Number.isFinite(Number(minutesToAdd))) {
+      return timeValue || "";
+    }
+
+    const [hoursPart, minutesPart] = String(timeValue).split(":").map((value) => Number(value) || 0);
+    const totalMinutes = Math.max(0, (hoursPart * 60) + minutesPart + Number(minutesToAdd));
+    const nextHours = Math.floor(totalMinutes / 60) % 24;
+    const nextMinutes = totalMinutes % 60;
+    return `${String(nextHours).padStart(2, "0")}:${String(nextMinutes).padStart(2, "0")}`;
+  },
+  buildHoursManualEntry = function fallbackBuildHoursManualEntry(employeeName, day, shiftName = "Extra uren") {
+    return {
+      name: employeeName,
+      day,
+      shiftName,
+      startTime: "",
+      endTime: "",
+      hours: 0,
+      isManualHours: true
+    };
+  },
+  buildManualWorkLogId = function fallbackBuildManualWorkLogId(employeeName, day) {
+    return ["manual", employeeName, day].join("|");
+  },
+  buildWorkLogId = function fallbackBuildWorkLogId(employeeName, day, shiftName, plannedStart, plannedEnd) {
+    return [employeeName, day, shiftName, plannedStart, plannedEnd].join("|");
+  },
+  calculateWorkedHours = function fallbackCalculateWorkedHours(actualStart, actualEnd, breakMinutes = 0) {
+    const startMinutes = getTimeValueMinutes(actualStart);
+    const endMinutes = getTimeValueMinutes(actualEnd);
+
+    if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes) {
+      return null;
+    }
+
+    const rawHours = (endMinutes - startMinutes) / 60;
+    const pauseHours = Math.max(0, Number(breakMinutes) || 0) / 60;
+    const workedHours = rawHours - pauseHours;
+
+    return workedHours >= 0 ? workedHours : null;
+  },
+  clampHoursDateValue = function fallbackClampHoursDateValue(dateValue) {
+    const normalizedDate = String(dateValue || "").trim();
+    const todayValue = getTodayLocalDateValue();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
+      return todayValue;
+    }
+
+    return normalizedDate > todayValue ? todayValue : normalizedDate;
+  },
+  formatHours = function fallbackFormatHours(hours) {
+    return `${hours.toFixed(2).replace(".", ",")} uur`;
+  },
+  getDefaultWorkLogValues = function fallbackGetDefaultWorkLogValues(entry) {
+    return {
+      actualStart: entry.startTime || "",
+      actualEnd: entry.endTime || "",
+      breakMinutes: 0,
+      notes: ""
+    };
+  },
+  getTimeValueMinutes = function fallbackGetTimeValueMinutes(timeValue) {
+    if (!/^\d{2}:\d{2}$/.test(String(timeValue || ""))) {
+      return null;
+    }
+
+    const [hoursPart, minutesPart] = String(timeValue).split(":").map((value) => Number(value) || 0);
+    return (hoursPart * 60) + minutesPart;
+  },
+  getWorkedHoursFromLog = function fallbackGetWorkedHoursFromLog(workLog) {
+    if (!workLog?.actualStart || !workLog?.actualEnd) {
+      return null;
+    }
+
+    return calculateWorkedHours(workLog.actualStart, workLog.actualEnd, workLog.breakMinutes);
+  },
+  getWorkLogStatusLabel = function fallbackGetWorkLogStatusLabel(workLog) {
+    if (!workLog) {
+      return "Leeg";
+    }
+
+    if (workLog.status === "approved") {
+      return "Goedgekeurd";
+    }
+
+    if (workLog.status === "rejected") {
+      return "Afgekeurd";
+    }
+
+    if (workLog.status === "revision") {
+      return "Opmerking nodig";
+    }
+
+    if (workLog.status === "open") {
+      return "Ingediend";
+    }
+
+    return "Ingevuld";
+  },
+  getWorkLogValidationState = function fallbackGetWorkLogValidationState(entry, values) {
+    const normalizedValues = {
+      actualStart: values?.actualStart || "",
+      actualEnd: values?.actualEnd || "",
+      breakMinutes: Math.max(0, Number(values?.breakMinutes) || 0)
+    };
+    const validation = {
+      isFuture: isFutureDateValue(entry.day),
+      isInvalidRange: false,
+      isLongShift: false,
+      isLargeEndDeviation: false,
+      workedHours: calculateWorkedHours(normalizedValues.actualStart, normalizedValues.actualEnd, normalizedValues.breakMinutes),
+      messages: []
+    };
+
+    if (validation.isFuture) {
+      validation.messages.push({
+        type: "error",
+        text: "Toekomstige diensten zijn nog niet invulbaar."
+      });
+    }
+
+    if (normalizedValues.actualStart && normalizedValues.actualEnd && validation.workedHours === null) {
+      validation.isInvalidRange = true;
+      validation.messages.push({
+        type: "error",
+        text: "Eindtijd ligt voor begintijd of de pauze is onlogisch."
+      });
+    }
+
+    if (validation.workedHours !== null && validation.workedHours > 12) {
+      validation.isLongShift = true;
+      validation.messages.push({
+        type: "warning",
+        text: `Controleer deze registratie: ${formatHours(validation.workedHours)} is een onlogisch lange dienst.`
+      });
+    }
+
+    const plannedEndMinutes = getTimeValueMinutes(entry.endTime);
+    const actualEndMinutes = getTimeValueMinutes(normalizedValues.actualEnd);
+
+    if (plannedEndMinutes !== null && actualEndMinutes !== null) {
+      const differenceMinutes = Math.abs(actualEndMinutes - plannedEndMinutes);
+
+      if (differenceMinutes >= 60) {
+        validation.isLargeEndDeviation = true;
+        validation.messages.push({
+          type: "warning",
+          text: `De eindtijd wijkt meer dan 1 uur af van planning (${entry.endTime} naar ${normalizedValues.actualEnd}).`
+        });
+      }
+    }
+
+    return validation;
+  },
+  isManualWorkLogId = function fallbackIsManualWorkLogId(workLogId) {
+    return String(workLogId || "").startsWith("manual|");
+  }
+} = window.StroetHoursFeature || {};
+
 function getEntriesForEmployeeDay(employeeName, date) {
   return entries
     .filter((entry) => entry.name === employeeName && entry.day === date)
     .sort((entryA, entryB) => entryA.startTime.localeCompare(entryB.startTime));
 }
 
-function buildWorkLogId(employeeName, day, shiftName, plannedStart, plannedEnd) {
-  return [employeeName, day, shiftName, plannedStart, plannedEnd].join("|");
-}
-
 function getWorkLogIdForEntry(entry) {
   return buildWorkLogId(entry.name, entry.day, getShiftName(entry), entry.startTime, entry.endTime);
 }
 
-function buildManualWorkLogId(employeeName, day) {
-  return ["manual", employeeName, day].join("|");
-}
-
-function isManualWorkLogId(workLogId) {
-  return String(workLogId || "").startsWith("manual|");
-}
-
 function getManualWorkLogForDate(employeeName, day) {
   return workLogs.find((log) => log.id === buildManualWorkLogId(employeeName, day)) || null;
-}
-
-function clampHoursDateValue(dateValue) {
-  const normalizedDate = String(dateValue || "").trim();
-  const todayValue = getTodayLocalDateValue();
-
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
-    return todayValue;
-  }
-
-  return normalizedDate > todayValue ? todayValue : normalizedDate;
 }
 
 function getSelectedHoursDate() {
@@ -4734,53 +4861,6 @@ function moveWorkLogToEntry(previousEntry, nextEntry) {
   return true;
 }
 
-function calculateWorkedHours(actualStart, actualEnd, breakMinutes = 0) {
-  if (!actualStart || !actualEnd) {
-    return null;
-  }
-
-  const rawHours = calculateHours(actualStart, actualEnd);
-
-  if (rawHours === null) {
-    return null;
-  }
-
-  const pauseHours = Math.max(0, Number(breakMinutes) || 0) / 60;
-  const workedHours = rawHours - pauseHours;
-
-  return workedHours >= 0 ? workedHours : null;
-}
-
-function getTimeValueMinutes(timeValue) {
-  if (!/^\d{2}:\d{2}$/.test(String(timeValue || ""))) {
-    return null;
-  }
-
-  const [hoursPart, minutesPart] = String(timeValue).split(":").map((value) => Number(value) || 0);
-  return (hoursPart * 60) + minutesPart;
-}
-
-function addMinutesToTimeValue(timeValue, minutesToAdd) {
-  if (!timeValue || !Number.isFinite(Number(minutesToAdd))) {
-    return timeValue || "";
-  }
-
-  const [hoursPart, minutesPart] = String(timeValue).split(":").map((value) => Number(value) || 0);
-  const totalMinutes = Math.max(0, (hoursPart * 60) + minutesPart + Number(minutesToAdd));
-  const nextHours = Math.floor(totalMinutes / 60) % 24;
-  const nextMinutes = totalMinutes % 60;
-  return `${String(nextHours).padStart(2, "0")}:${String(nextMinutes).padStart(2, "0")}`;
-}
-
-function getDefaultWorkLogValues(entry) {
-  return {
-    actualStart: entry.startTime || "",
-    actualEnd: entry.endTime || "",
-    breakMinutes: 0,
-    notes: ""
-  };
-}
-
 function getEffectiveWorkLogValues(entry, workLog = getWorkLogForEntry(entry)) {
   const defaults = getDefaultWorkLogValues(entry);
 
@@ -4793,74 +4873,6 @@ function getEffectiveWorkLogValues(entry, workLog = getWorkLogForEntry(entry)) {
     actualEnd: workLog.actualEnd || defaults.actualEnd,
     breakMinutes: Number.isFinite(Number(workLog.breakMinutes)) ? Math.max(0, Number(workLog.breakMinutes)) : defaults.breakMinutes,
     notes: workLog.notes || ""
-  };
-}
-
-function getWorkLogValidationState(entry, values) {
-  const normalizedValues = {
-    actualStart: values?.actualStart || "",
-    actualEnd: values?.actualEnd || "",
-    breakMinutes: Math.max(0, Number(values?.breakMinutes) || 0)
-  };
-  const validation = {
-    isFuture: isFutureDateValue(entry.day),
-    isInvalidRange: false,
-    isLongShift: false,
-    isLargeEndDeviation: false,
-    workedHours: calculateWorkedHours(normalizedValues.actualStart, normalizedValues.actualEnd, normalizedValues.breakMinutes),
-    messages: []
-  };
-
-  if (validation.isFuture) {
-    validation.messages.push({
-      type: "error",
-      text: "Toekomstige diensten zijn nog niet invulbaar."
-    });
-  }
-
-  if (normalizedValues.actualStart && normalizedValues.actualEnd && validation.workedHours === null) {
-    validation.isInvalidRange = true;
-    validation.messages.push({
-      type: "error",
-      text: "Eindtijd ligt voor begintijd of de pauze is onlogisch."
-    });
-  }
-
-  if (validation.workedHours !== null && validation.workedHours > 12) {
-    validation.isLongShift = true;
-    validation.messages.push({
-      type: "warning",
-      text: `Controleer deze registratie: ${formatHours(validation.workedHours)} is een onlogisch lange dienst.`
-    });
-  }
-
-  const plannedEndMinutes = getTimeValueMinutes(entry.endTime);
-  const actualEndMinutes = getTimeValueMinutes(normalizedValues.actualEnd);
-
-  if (plannedEndMinutes !== null && actualEndMinutes !== null) {
-    const differenceMinutes = Math.abs(actualEndMinutes - plannedEndMinutes);
-
-    if (differenceMinutes >= 60) {
-      validation.isLargeEndDeviation = true;
-      validation.messages.push({
-        type: "warning",
-        text: `De eindtijd wijkt meer dan 1 uur af van planning (${entry.endTime} naar ${normalizedValues.actualEnd}).`
-      });
-    }
-  }
-
-  return validation;
-}
-
-function buildHoursManualEntry(employeeName, day, shiftName = "Extra uren") {
-  return {
-    name: employeeName,
-    day,
-    shiftName,
-    startTime: "",
-    endTime: "",
-    hours: 0,
-    isManualHours: true
   };
 }
 
@@ -4996,30 +5008,6 @@ function hasWorkLogDeviation(entry, values) {
     values.actualEnd !== entry.endTime ||
     Number(values.breakMinutes) > 0 ||
     Boolean((values.notes || "").trim());
-}
-
-function getWorkLogStatusLabel(workLog) {
-  if (!workLog) {
-    return "Leeg";
-  }
-
-  if (workLog.status === "approved") {
-    return "Goedgekeurd";
-  }
-
-  if (workLog.status === "rejected") {
-    return "Afgekeurd";
-  }
-
-  if (workLog.status === "revision") {
-    return "Opmerking nodig";
-  }
-
-  if (workLog.status === "open") {
-    return "Ingediend";
-  }
-
-  return "Ingevuld";
 }
 
 function createWorkLogAuditEntry(action, summary) {
