@@ -15842,40 +15842,46 @@ function renderDashboard() {
     <section class="panel-section">
       <h3>Acties nodig</h3>
       <div class="dashboard-grid">
-        <button type="button" class="dashboard-item" data-dashboard-go-tab="requests" data-dashboard-action="open-requests">
+        <article class="dashboard-item" data-dashboard-go-tab="requests" data-dashboard-action="open-requests">
           <span>Open aanvragen</span>
           <strong>${totalOpenRequests}</strong>
-        </button>
-        <button type="button" class="dashboard-item" data-dashboard-go-tab="requests" data-dashboard-action="overdue-requests">
+          <button type="button" class="secondary dashboard-item-action" data-dashboard-go-tab="requests" data-dashboard-action="open-requests">Bekijk aanvragen</button>
+        </article>
+        <article class="dashboard-item" data-dashboard-go-tab="requests" data-dashboard-action="overdue-requests">
           <span>Overdue aanvragen</span>
           <strong>${overdueRequests}</strong>
-        </button>
-        <button type="button" class="dashboard-item" data-dashboard-go-tab="hours-approval" data-dashboard-action="hours-approval">
+          <button type="button" class="secondary dashboard-item-action" data-dashboard-go-tab="requests" data-dashboard-action="overdue-requests">Bekijk aanvragen</button>
+        </article>
+        <article class="dashboard-item" data-dashboard-go-tab="hours-approval" data-dashboard-action="hours-approval">
           <span>Uren klaar voor goedkeuring</span>
           <strong>${hoursReadyCount}</strong>
-        </button>
+          <button type="button" class="secondary dashboard-item-action" data-dashboard-go-tab="hours-approval" data-dashboard-action="hours-approval">Accorderen</button>
+        </article>
       </div>
     </section>
     <section class="panel-section">
       <h3>Aandacht nodig</h3>
       <div class="dashboard-grid">
-        <button type="button" class="dashboard-item" data-dashboard-go-tab="week-current">
+        <article class="dashboard-item" data-dashboard-go-tab="week-current">
           <span>Open diensten</span>
           <strong>${planningWeekData.openCount}</strong>
-        </button>
-        <button type="button" class="dashboard-item" data-dashboard-go-tab="week-current">
+          <button type="button" class="secondary dashboard-item-action" data-dashboard-go-tab="week-current">Bekijk rooster</button>
+        </article>
+        <article class="dashboard-item" data-dashboard-go-tab="week-current">
           <span>Vervangingen</span>
           <strong>${planningWeekData.replacementCount}</strong>
-        </button>
+          <button type="button" class="secondary dashboard-item-action" data-dashboard-go-tab="week-current">Bekijk rooster</button>
+        </article>
       </div>
     </section>
     <section class="panel-section">
       <h3>Overzicht</h3>
       <div class="dashboard-grid">
-        <button type="button" class="dashboard-item" data-dashboard-go-tab="week-current">
+        <article class="dashboard-item" data-dashboard-go-tab="week-current">
           <span>Contract-afwijkingen</span>
           <strong>${contractMismatchCount}</strong>
-        </button>
+          <button type="button" class="secondary dashboard-item-action" data-dashboard-go-tab="week-current">Bekijk rooster</button>
+        </article>
         <div class="dashboard-item">
           <span>Weekstatus</span>
           <strong>${planningWeekData.status.label}</strong>
