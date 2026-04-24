@@ -85,6 +85,8 @@ const employeeStatusSelect = document.getElementById("employeeStatusSelect");
 const employeeRoleSelect = document.getElementById("employeeRoleSelect");
 const employeeEmailInput = document.getElementById("employeeEmailInput");
 const employeeEmailError = document.getElementById("employeeEmailError");
+const employeeLoginPinInput = document.getElementById("employeeLoginPinInput");
+const employeeLoginPinError = document.getElementById("employeeLoginPinError");
 const employeeMailTestUserInput = document.getElementById("employeeMailTestUserInput");
 const employeeNameDisplayInput = document.getElementById("employeeNameDisplay");
 const employeeDetailMailStatus = document.getElementById("employeeDetailMailStatus");
@@ -657,6 +659,10 @@ function clearPlannerPinInput() {
 function getEmployeeLoginPin(employeeName) {
   const configuredPin = normalizeEmployeeLoginPin(employeeMeta?.[employeeName]?.loginPin);
   return configuredPin || DEFAULT_EMPLOYEE_LOGIN_PIN;
+}
+
+function getConfiguredEmployeeLoginPin(employeeName) {
+  return normalizeEmployeeLoginPin(employeeMeta?.[employeeName]?.loginPin);
 }
 
 function clearLoginError() {
@@ -1352,8 +1358,8 @@ function saveEmployees() {
   safeSetStorageItem(getScopedStorageKey(employeeStorageKey), JSON.stringify(employees), "medewerkers");
 }
 
-const {
-  formatEmployeeStatusImpact = function fallbackFormatEmployeeStatusImpact(status) {
+  const {
+    formatEmployeeStatusImpact = function fallbackFormatEmployeeStatusImpact(status) {
     if (status === "inactive") {
       return "Inactief: blijft zichtbaar in historische gegevens, maar verdwijnt uit nieuwe planning, standaard keuzelijsten, aanvragen en medewerker-login.";
     }
@@ -1403,7 +1409,7 @@ const {
 
     return "Actief";
   },
-  getEmployeeStatusMetaDefaults = function fallbackGetEmployeeStatusMetaDefaults() {
+    getEmployeeStatusMetaDefaults = function fallbackGetEmployeeStatusMetaDefaults() {
     return {
       status: "active",
       role: "employee",
@@ -1417,13 +1423,17 @@ const {
       updatedByRole: "",
       updatedByName: ""
     };
-  },
-  isValidEmployeeEmail = function fallbackIsValidEmployeeEmail(email) {
-    const normalizedEmail = normalizeEmployeeEmail(email);
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
-  },
-  normalizeContractHours = function fallbackNormalizeContractHours(value) {
-    const numericValue = Number(value);
+    },
+    isValidEmployeeEmail = function fallbackIsValidEmployeeEmail(email) {
+      const normalizedEmail = normalizeEmployeeEmail(email);
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
+    },
+    isValidEmployeeLoginPin = function fallbackIsValidEmployeeLoginPin(value) {
+      const normalizedPin = normalizeEmployeeLoginPin(value);
+      return normalizedPin === "" || /^\d{4,6}$/.test(normalizedPin);
+    },
+    normalizeContractHours = function fallbackNormalizeContractHours(value) {
+      const numericValue = Number(value);
     return Number.isFinite(numericValue) && numericValue >= 0 ? Math.round(numericValue * 10) / 10 : 0;
   },
   normalizeEmployeeAppRole = function fallbackNormalizeEmployeeAppRole(value) {
@@ -3640,6 +3650,7 @@ function cloneSerializableValue(value) {
 function createEmployeeEditorDraft(employeeName) {
   return createEmployeeEditorDraftHelper({
     getEmployeeEmail,
+    getConfiguredEmployeeLoginPin,
     getEmployeeAppRole,
     getEmployeeStatus,
     isEmployeeMailTestEnabled,
@@ -3681,6 +3692,7 @@ function getEmployeeEditorSnapshot(employeeName, draftOverride = null) {
 
   return {
     email: normalizeEmployeeEmail(draft?.email),
+    loginPin: normalizeEmployeeLoginPin(draft?.loginPin),
     role: normalizeEmployeeAppRole(draft?.role),
     status: normalizeEmployeeStatus(draft?.status),
     mailTestUser: Boolean(draft?.mailTestUser),
@@ -3746,6 +3758,23 @@ function setEmployeeEmailFieldError(message = "") {
 
 function clearEmployeeEmailFieldError() {
   setEmployeeEmailFieldError("");
+}
+
+function setEmployeeLoginPinFieldError(message = "") {
+  if (employeeLoginPinInput) {
+    employeeLoginPinInput.classList.toggle("input-error", Boolean(message));
+    employeeLoginPinInput.setAttribute("aria-invalid", message ? "true" : "false");
+    employeeLoginPinInput.setCustomValidity(message || "");
+  }
+
+  if (employeeLoginPinError) {
+    employeeLoginPinError.textContent = message || "";
+    employeeLoginPinError.classList.toggle("hidden", !message);
+  }
+}
+
+function clearEmployeeLoginPinFieldError() {
+  setEmployeeLoginPinFieldError("");
 }
 
 function discardEmployeeEditorChanges(employeeName) {
@@ -14590,6 +14619,9 @@ function renderEmployeeStatusControls() {
     if (employeeEmailInput) {
       employeeEmailInput.value = "";
     }
+    if (employeeLoginPinInput) {
+      employeeLoginPinInput.value = "";
+    }
     if (employeeNameDisplayInput) {
       employeeNameDisplayInput.value = "";
     }
@@ -14600,6 +14632,7 @@ function renderEmployeeStatusControls() {
       employeeDetailTitle.textContent = "Kies links een medewerker";
     }
     employeeStatusImpact.textContent = "Nog geen medewerkers toegevoegd.";
+    clearEmployeeLoginPinFieldError();
     return;
   }
 
@@ -14614,6 +14647,11 @@ function renderEmployeeStatusControls() {
   if (employeeEmailInput) {
     employeeEmailInput.value = employeeDraft?.email || (selectedEmployee ? getEmployeeEmail(selectedEmployee) : "");
   }
+  if (employeeLoginPinInput) {
+    employeeLoginPinInput.value = typeof employeeDraft?.loginPin === "string"
+      ? employeeDraft.loginPin
+      : (selectedEmployee ? getConfiguredEmployeeLoginPin(selectedEmployee) : "");
+  }
   if (employeeMailTestUserInput) {
     employeeMailTestUserInput.checked = EMPLOYEE_MAIL_TEST_MODE_ENABLED
       ? isEmployeeMailTestEnabled(selectedEmployee)
@@ -14624,6 +14662,7 @@ function renderEmployeeStatusControls() {
       : "";
   }
   clearEmployeeEmailFieldError();
+  clearEmployeeLoginPinFieldError();
   if (employeeNameDisplayInput) {
     employeeNameDisplayInput.value = selectedEmployee;
   }
@@ -20284,6 +20323,17 @@ employeeEmailInput?.addEventListener("input", () => {
   }
 });
 
+employeeLoginPinInput?.addEventListener("input", () => {
+  const employeeName = getSelectedEmployeeAdminName();
+  const employeeDraft = getEmployeeEditorDraft(employeeName);
+
+  clearEmployeeLoginPinFieldError();
+
+  if (employeeDraft) {
+    employeeDraft.loginPin = employeeLoginPinInput.value;
+  }
+});
+
 employeeMailTestUserInput?.addEventListener("change", () => {
   if (EMPLOYEE_MAIL_TEST_MODE_ENABLED) {
     renderEmployeeStatusControls();
@@ -20308,6 +20358,7 @@ removeEmployeeSelect?.addEventListener("change", () => {
   renderEmployeePermissions();
   renderEmployeeStandardShifts();
   renderEmployeeContractPanel();
+  clearEmployeeLoginPinFieldError();
 });
 
 function saveSelectedEmployeeDetails(options = {}) {
@@ -20327,6 +20378,7 @@ function saveSelectedEmployeeDetails(options = {}) {
 
   const employeeDraft = getEmployeeEditorDraft(employeeName);
   const normalizedEmail = normalizeEmployeeEmail(employeeEmailInput?.value);
+  const normalizedLoginPin = normalizeEmployeeLoginPin(employeeLoginPinInput?.value);
   const normalizedRole = normalizeEmployeeAppRole(employeeRoleSelect?.value);
   const nextStatus = normalizeEmployeeStatus(employeeStatusSelect?.value);
   const shouldEnableMailTestUser = Boolean(employeeDraft?.mailTestUser);
@@ -20366,6 +20418,15 @@ function saveSelectedEmployeeDetails(options = {}) {
 
   clearEmployeeEmailFieldError();
 
+  if (!isValidEmployeeLoginPin(normalizedLoginPin)) {
+    setEmployeeLoginPinFieldError("Vul 4 tot 6 cijfers in of laat het veld leeg.");
+    employeeLoginPinInput?.reportValidity();
+    showMessage("Vul 4 tot 6 cijfers in of laat het veld leeg.", "error");
+    return false;
+  }
+
+  clearEmployeeLoginPinFieldError();
+
   if (currentStatus !== nextStatus) {
     const linkedEntryCount = entries.filter((entry) => entry.name === employeeName).length;
     const linkedRequestCount = timeOffRequests.filter((request) => request.employeeName === employeeName).length +
@@ -20403,6 +20464,7 @@ Bewaarde historie:
     ...employeeMeta[employeeName],
     role: normalizedRole,
     email: normalizedEmail,
+    loginPin: normalizedLoginPin,
     status: nextStatus,
     mailTestUser: shouldEnableMailTestUser,
     contractHours: normalizedContractHours,

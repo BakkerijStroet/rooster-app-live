@@ -2,6 +2,7 @@
   function createEmployeeEditorDraft(getters, employeeName) {
     return {
       email: getters.getEmployeeEmail(employeeName),
+      loginPin: getters.getConfiguredEmployeeLoginPin(employeeName),
       role: getters.getEmployeeAppRole(employeeName),
       status: getters.getEmployeeStatus(employeeName),
       mailTestUser: getters.isEmployeeMailTestEnabled(employeeName),

@@ -56,6 +56,11 @@
     return typeof value === "string" ? value.trim() : "";
   }
 
+  function isValidEmployeeLoginPin(value) {
+    const normalizedPin = normalizeEmployeeLoginPin(value);
+    return normalizedPin === "" || /^\d{4,6}$/.test(normalizedPin);
+  }
+
   function isValidEmployeeEmail(email) {
     const normalizedEmail = normalizeEmployeeEmail(email);
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
@@ -103,11 +108,12 @@
     getDefaultEmployeeAppRole,
     getEmployeeStatusClass,
     getEmployeeStatusLabel,
-    getEmployeeStatusMetaDefaults,
-    isValidEmployeeEmail,
-    normalizeContractHours,
-    normalizeEmployeeAppRole,
-    normalizeEmployeeEmail,
+      getEmployeeStatusMetaDefaults,
+      isValidEmployeeEmail,
+      isValidEmployeeLoginPin,
+      normalizeContractHours,
+      normalizeEmployeeAppRole,
+      normalizeEmployeeEmail,
     normalizeEmployeeLoginPin,
     normalizeEmployeeStatus
   });

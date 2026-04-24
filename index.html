@@ -163,16 +163,28 @@
               Naam
               <input type="text" id="employeeNameDisplay" readonly>
             </label>
-            <label>
-              E-mailadres
-              <input type="email" id="employeeEmailInput" placeholder="naam@bakkerijstroet.nl" required autocomplete="email">
-              <small id="employeeEmailError" class="field-error-text hidden" aria-live="polite"></small>
-            </label>
-            <label>
-              Rol
-              <select id="employeeRoleSelect">
-                <option value="employee">Medewerker</option>
-                <option value="planner">Directie / Planner</option>
+              <label>
+                E-mailadres
+                <input type="email" id="employeeEmailInput" placeholder="naam@bakkerijstroet.nl" required autocomplete="email">
+                <small id="employeeEmailError" class="field-error-text hidden" aria-live="polite"></small>
+              </label>
+              <label>
+                Login-pincode
+                <input
+                  type="password"
+                  id="employeeLoginPinInput"
+                  placeholder="Leeg = tijdelijke standaardpin"
+                  inputmode="numeric"
+                  autocomplete="new-password"
+                  maxlength="6"
+                >
+                <small id="employeeLoginPinError" class="field-error-text hidden" aria-live="polite"></small>
+              </label>
+              <label>
+                Rol
+                <select id="employeeRoleSelect">
+                  <option value="employee">Medewerker</option>
+                  <option value="planner">Directie / Planner</option>
               </select>
             </label>
             <label>
