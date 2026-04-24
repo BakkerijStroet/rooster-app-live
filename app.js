@@ -15824,22 +15824,67 @@ function renderDashboard() {
     return;
   }
 
+  const currentWeek = getCurrentWeekValue();
   const openCounts = getOpenCounts();
-  const totalOpen = openCounts.timeOff + openCounts.swaps;
-  const dashboardLabel = isPlannerRole() ? "Open" : "Mijn open";
+  const totalOpenRequests = openCounts.timeOff + openCounts.swaps;
+  const overdueRequests = [...timeOffRequests, ...swapRequests].filter((request) =>
+    request.status === "open" && getRequestDisplayStatus(request) === "overdue"
+  ).length;
+  const roleVisibleEntriesAll = getEntriesVisibleForCurrentRole();
+  const visibleEntries = getFilteredEntries(roleVisibleEntriesAll);
+  const planningWeekData = getSchedulePlanningWeekData(currentWeek, visibleEntries);
+  const contractOverviewData = buildPlannerContractOverviewData(currentWeek, visibleEntries);
+  const hoursReviewState = getHoursWeekReviewState(currentWeek);
+  const contractMismatchCount = contractOverviewData.underEmployees.length + contractOverviewData.overEmployees.length;
+  const hoursReadyCount = hoursReviewState.openLogs.length;
 
   plannerDashboard.innerHTML = `
-    <div class="dashboard-grid">
-      <div class="dashboard-item">
-        <span>${dashboardLabel} afwezigheid</span>
-        <strong>${openCounts.timeOff}</strong>
+    <section class="panel-section">
+      <h3>Acties nodig</h3>
+      <div class="dashboard-grid">
+        <div class="dashboard-item">
+          <span>Open aanvragen</span>
+          <strong>${totalOpenRequests}</strong>
+        </div>
+        <div class="dashboard-item">
+          <span>Overdue aanvragen</span>
+          <strong>${overdueRequests}</strong>
+        </div>
+        <div class="dashboard-item">
+          <span>Uren klaar voor goedkeuring</span>
+          <strong>${hoursReadyCount}</strong>
+        </div>
       </div>
-      <div class="dashboard-item">
-        <span>${dashboardLabel} ruilverzoeken</span>
-        <strong>${openCounts.swaps}</strong>
+    </section>
+    <section class="panel-section">
+      <h3>Aandacht nodig</h3>
+      <div class="dashboard-grid">
+        <div class="dashboard-item">
+          <span>Open diensten</span>
+          <strong>${planningWeekData.openCount}</strong>
+        </div>
+        <div class="dashboard-item">
+          <span>Vervangingen</span>
+          <strong>${planningWeekData.replacementCount}</strong>
+        </div>
       </div>
-    </div>
-    ${totalOpen > 0 ? `<div class="dashboard-alert">${isPlannerRole() ? `Er staan ${totalOpen} nieuwe open verzoeken klaar in het planner overzicht.` : `Je hebt ${totalOpen} open verzoeken in aanvragen.`}</div>` : ""}
+    </section>
+    <section class="panel-section">
+      <h3>Overzicht</h3>
+      <div class="dashboard-grid">
+        <div class="dashboard-item">
+          <span>Contract-afwijkingen</span>
+          <strong>${contractMismatchCount}</strong>
+        </div>
+        <div class="dashboard-item">
+          <span>Weekstatus</span>
+          <strong>${planningWeekData.status.label}</strong>
+        </div>
+      </div>
+    </section>
+    ${(totalOpenRequests + overdueRequests + hoursReadyCount + planningWeekData.openCount + planningWeekData.replacementCount + contractMismatchCount) > 0
+      ? `<div class="dashboard-alert">Planner aandacht: ${totalOpenRequests} open aanvragen, ${hoursReadyCount} uren klaar voor goedkeuring en ${planningWeekData.openCount} open diensten in ${currentWeek}.</div>`
+      : `<div class="dashboard-alert">Geen directe acties open voor ${currentWeek}. Alles staat er rustig bij.</div>`}
   `;
 }
 
