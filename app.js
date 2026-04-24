@@ -15842,40 +15842,40 @@ function renderDashboard() {
     <section class="panel-section">
       <h3>Acties nodig</h3>
       <div class="dashboard-grid">
-        <div class="dashboard-item">
+        <button type="button" class="dashboard-item" data-dashboard-go-tab="requests">
           <span>Open aanvragen</span>
           <strong>${totalOpenRequests}</strong>
-        </div>
-        <div class="dashboard-item">
+        </button>
+        <button type="button" class="dashboard-item" data-dashboard-go-tab="requests">
           <span>Overdue aanvragen</span>
           <strong>${overdueRequests}</strong>
-        </div>
-        <div class="dashboard-item">
+        </button>
+        <button type="button" class="dashboard-item" data-dashboard-go-tab="hours-approval">
           <span>Uren klaar voor goedkeuring</span>
           <strong>${hoursReadyCount}</strong>
-        </div>
+        </button>
       </div>
     </section>
     <section class="panel-section">
       <h3>Aandacht nodig</h3>
       <div class="dashboard-grid">
-        <div class="dashboard-item">
+        <button type="button" class="dashboard-item" data-dashboard-go-tab="week-current">
           <span>Open diensten</span>
           <strong>${planningWeekData.openCount}</strong>
-        </div>
-        <div class="dashboard-item">
+        </button>
+        <button type="button" class="dashboard-item" data-dashboard-go-tab="week-current">
           <span>Vervangingen</span>
           <strong>${planningWeekData.replacementCount}</strong>
-        </div>
+        </button>
       </div>
     </section>
     <section class="panel-section">
       <h3>Overzicht</h3>
       <div class="dashboard-grid">
-        <div class="dashboard-item">
+        <button type="button" class="dashboard-item" data-dashboard-go-tab="week-current">
           <span>Contract-afwijkingen</span>
           <strong>${contractMismatchCount}</strong>
-        </div>
+        </button>
         <div class="dashboard-item">
           <span>Weekstatus</span>
           <strong>${planningWeekData.status.label}</strong>
@@ -15887,6 +15887,20 @@ function renderDashboard() {
       : `<div class="dashboard-alert">Geen directe acties open voor ${currentWeek}. Alles staat er rustig bij.</div>`}
   `;
 }
+
+plannerDashboard?.addEventListener("click", (event) => {
+  if (!isPlannerRole()) {
+    return;
+  }
+
+  const button = event.target.closest("[data-dashboard-go-tab]");
+
+  if (!button?.dataset.dashboardGoTab) {
+    return;
+  }
+
+  setActiveTab(button.dataset.dashboardGoTab);
+});
 
 function renderRequestsOpenSummary() {
   const { visibleTimeOffRequests, visibleSwapRequests } = getVisibleRequestSources();
