@@ -17598,6 +17598,34 @@ function renderHoursApproval() {
   );
   const openLogs = weekLogs.filter((log) => log.status === "open");
   const reviewLogs = weekLogs.filter((log) => log.status === "revision" || log.status === "rejected");
+  const approvedLogs = Array.isArray(weekReviewState.approvedLogs) ? weekReviewState.approvedLogs : [];
+  const missingDays = Array.isArray(weekReviewState.missingDays) ? weekReviewState.missingDays : [];
+  const hoursWeekStatusMarkup = `
+    <article class="hours-approval-card">
+      <div class="hours-registration-head">
+        <div>
+          <strong>Weekstatus uren</strong>
+          <span>${selectedEmployee || "Alle medewerkers"} · ${selectedWeek.replace("-W", " week ")}</span>
+        </div>
+        <span class="status-pill status-${weekReviewState.status === "done" ? "approved" : weekReviewState.status === "ready" ? "open" : "rejected"}">${weekReviewState.label}</span>
+      </div>
+      <div class="dashboard-grid">
+        <div class="dashboard-item">
+          <span>Ingediende / open logs</span>
+          <strong>${openLogs.length}</strong>
+        </div>
+        <div class="dashboard-item">
+          <span>Goedgekeurde logs</span>
+          <strong>${approvedLogs.length}</strong>
+        </div>
+        <div class="dashboard-item">
+          <span>Ontbrekende dagen</span>
+          <strong>${missingDays.length}</strong>
+        </div>
+      </div>
+      <div class="panel-note">${weekReviewState.note || "Controleer de ingediende uren van deze week."}</div>
+    </article>
+  `;
   const approvalGroups = weekLogs.reduce((groups, log) => {
     const employeeLogs = groups.get(log.employeeName) || [];
     employeeLogs.push(log);
@@ -17607,7 +17635,10 @@ function renderHoursApproval() {
 
   if (!weekLogs.length) {
     setClassName(hoursApprovalQueue, "request-list empty");
-    hoursApprovalQueue.textContent = getHoursApprovalEmptyTextHelper(weekReviewState);
+    hoursApprovalQueue.innerHTML = `
+      ${hoursWeekStatusMarkup}
+      <div class="panel-note">${getHoursApprovalEmptyTextHelper(weekReviewState)}</div>
+    `;
     return;
   }
 
@@ -17617,6 +17648,7 @@ function renderHoursApproval() {
 
   setClassName(hoursApprovalQueue, "hours-approval-list");
   hoursApprovalQueue.innerHTML = `
+    ${hoursWeekStatusMarkup}
     <article class="hours-approval-card">
       <div class="hours-registration-head">
         <div>
