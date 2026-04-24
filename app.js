@@ -17758,7 +17758,8 @@ function renderHoursApproval() {
                 <div class="hours-approval-day-list">
                   ${sortedEmployeeLogs.map((log) => {
                     const deviation = log.actualStart !== log.plannedStart || log.actualEnd !== log.plannedEnd || Number(log.breakMinutes) > 0 || Boolean(log.notes?.trim());
-                    const statusClass = log.status === "approved"
+                    const isApprovedLog = log.status === "approved";
+                    const statusClass = isApprovedLog
                       ? "approved"
                       : log.status === "rejected" || log.status === "revision"
                         ? "rejected"
@@ -17775,15 +17776,19 @@ function renderHoursApproval() {
                         ${deviation ? `<div class="hours-registration-flag">Afwijking van planning</div>` : `<div class="hours-registration-audit">Volgens planning</div>`}
                         ${log.notes ? `<div class="hours-registration-audit">Opmerking medewerker: ${log.notes}</div>` : ""}
                         ${log.employeeReply ? `<div class="hours-registration-audit">Reactie medewerker: ${log.employeeReply}</div>` : ""}
-                        <label class="hours-registration-notes">
-                          Opmerking directie
-                          <input type="text" maxlength="200" data-worklog-review-note="${log.id}" value="${log.managerNote || ""}" placeholder="Korte toelichting voor medewerker" ${log.status === "approved" ? "disabled" : ""}>
-                        </label>
-                        <div class="actions compact-actions">
-                          <button type="button" data-worklog-review="approved" data-worklog-id="${log.id}" ${log.status === "approved" ? "disabled" : ""}>Goedkeuren</button>
-                          <button type="button" class="secondary" data-worklog-review="revision" data-worklog-id="${log.id}" ${log.status === "approved" ? "disabled" : ""}>Opmerking nodig</button>
-                          <button type="button" class="warning" data-worklog-review="rejected" data-worklog-id="${log.id}" ${log.status === "approved" ? "disabled" : ""}>Afkeuren</button>
-                        </div>
+                        ${isApprovedLog ? `
+                          <div class="hours-registration-audit">Deze urenregistratie is al goedgekeurd.</div>
+                        ` : `
+                          <label class="hours-registration-notes">
+                            Opmerking directie
+                            <input type="text" maxlength="200" data-worklog-review-note="${log.id}" value="${log.managerNote || ""}" placeholder="Korte toelichting voor medewerker">
+                          </label>
+                          <div class="actions compact-actions">
+                            <button type="button" data-worklog-review="approved" data-worklog-id="${log.id}">Goedkeuren</button>
+                            <button type="button" class="secondary" data-worklog-review="revision" data-worklog-id="${log.id}">Opmerking nodig</button>
+                            <button type="button" class="warning" data-worklog-review="rejected" data-worklog-id="${log.id}">Afkeuren</button>
+                          </div>
+                        `}
                       </article>
                     `;
                   }).join("")}
