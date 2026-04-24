@@ -3,29 +3,21 @@ const scheduleBoard = document.getElementById("schedule-board");
 const totalsContainer = document.getElementById("totals");
 const myScheduleBoard = document.getElementById("myScheduleBoard");
 const myHoursSummary = document.getElementById("myHoursSummary");
-const myHoursPanel = document.querySelector('[data-panel="my-hours"]');
 const roleSelect = document.getElementById("roleSelect");
 const currentEmployeeSelect = document.getElementById("currentEmployee");
 const currentEmployeeBadge = document.getElementById("currentEmployeeBadge");
 const roleIndicator = document.getElementById("roleIndicator");
 const brandRoleChip = document.getElementById("brandRoleChip");
 const mailTestModeBadge = document.getElementById("mailTestModeBadge");
-const debugSuccessToastButton = document.getElementById("debugSuccessToastButton");
-const debugErrorToastButton = document.getElementById("debugErrorToastButton");
-const environmentDebugBanner = document.getElementById("environmentDebugBanner");
 const testModeBadge = document.getElementById("testModeBadge");
 const switchUserButton = document.getElementById("switchUserButton");
 const resetTestDataButton = document.getElementById("resetTestDataButton");
 const loginOverlay = document.getElementById("loginOverlay");
-const appNav = document.querySelector(".app-nav");
-const mobileBottomNav = document.querySelector(".mobile-bottom-nav");
-const loginOverlayTitle = document.getElementById("loginOverlayTitle");
-const loginOverlayNote = document.getElementById("loginOverlayNote");
-const clerkAuthStatus = document.getElementById("clerkAuthStatus");
-const clerkSignInMount = document.getElementById("clerkSignInMount");
-const clerkLoginActions = document.getElementById("clerkLoginActions");
-const clerkLoginButton = document.getElementById("clerkLoginButton");
-const clerkLogoutButton = document.getElementById("clerkLogoutButton");
+const loginRoleSelect = document.getElementById("loginRoleSelect");
+const loginEmployeeLabel = document.getElementById("loginEmployeeLabel");
+const loginEmployeeSelect = document.getElementById("loginEmployeeSelect");
+const loginTestModeCheckbox = document.getElementById("loginTestMode");
+const loginConfirmButton = document.getElementById("loginConfirmButton");
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
 const newButton = document.getElementById("newButton");
@@ -91,14 +83,11 @@ const employeeRoleSelect = document.getElementById("employeeRoleSelect");
 const employeeEmailInput = document.getElementById("employeeEmailInput");
 const employeeEmailError = document.getElementById("employeeEmailError");
 const employeeMailTestUserInput = document.getElementById("employeeMailTestUserInput");
-const employeeLoginAllowedInput = document.getElementById("employeeLoginAllowedInput");
 const employeeNameDisplayInput = document.getElementById("employeeNameDisplay");
-const employeeClerkStatus = document.getElementById("employeeClerkStatus");
 const employeeDetailMailStatus = document.getElementById("employeeDetailMailStatus");
 const removeEmployeeButton = document.getElementById("removeEmployeeButton");
 const saveEmployeeEmailButton = document.getElementById("saveEmployeeEmailButton");
 const employeeDetailTestMailButton = document.getElementById("employeeDetailTestMailButton");
-const employeeInviteButton = document.getElementById("employeeInviteButton");
 const employeeStatusImpact = document.getElementById("employeeStatusImpact");
 const employeeDetailTitle = document.getElementById("employeeDetailTitle");
 const createRestorePointButton = document.getElementById("createRestorePointButton");
@@ -111,13 +100,15 @@ const dashboardTestMailButton = document.getElementById("dashboardTestMailButton
 const saveMailSettingsButton = document.getElementById("saveMailSettingsButton");
 const testMailButton = document.getElementById("testMailButton");
 const mailSettingsStatus = document.getElementById("mailSettingsStatus");
+const FIXED_TEST_MAIL_RECIPIENT = "info@bakkerijstroet.nl";
+const APP_MAIL_TEST_MODE_ENABLED = true;
+const EMPLOYEE_MAIL_TEST_MODE_ENABLED = true;
+const EMPLOYEE_MAIL_TEST_EMPLOYEE = "Twan";
 const employeeListCard = document.getElementById("employeeListCard");
 const employeeStandardShiftList = document.getElementById("employeeStandardShiftList");
 const employeePermissionsList = document.getElementById("employeePermissionsList");
 const employeeContractPanel = document.getElementById("employeeContractPanel");
 const planningAuthorizationHint = document.getElementById("planningAuthorizationHint");
-const newEmployeeEmailInput = document.getElementById("newEmployeeEmail");
-const newEmployeeRoleSelect = document.getElementById("newEmployeeRole");
 const freeDayEmployeeSelect = document.getElementById("freeDayEmployee");
 const freeDayDateInput = document.getElementById("freeDayDate");
 const freeDayReasonInput = document.getElementById("freeDayReason");
@@ -148,10 +139,6 @@ const plannerFreeRequestsContainer = document.getElementById("plannerFreeRequest
 const plannerVacationRequestsContainer = document.getElementById("plannerVacationRequests");
 const plannerSickRequestsContainer = document.getElementById("plannerSickRequests");
 const plannerSwapRequestsContainer = document.getElementById("plannerSwapRequests");
-const plannerHandledFreeRequestsContainer = document.getElementById("plannerHandledFreeRequests");
-const plannerHandledVacationRequestsContainer = document.getElementById("plannerHandledVacationRequests");
-const plannerHandledSickRequestsContainer = document.getElementById("plannerHandledSickRequests");
-const plannerHandledSwapRequestsContainer = document.getElementById("plannerHandledSwapRequests");
 const requestsOpenSummary = document.getElementById("requestsOpenSummary");
 const requestsEmployeeBadge = document.getElementById("requestsEmployeeBadge");
 const requestsOpenCards = document.getElementById("requestsOpenCards");
@@ -174,22 +161,15 @@ const requestHandledNote = document.getElementById("requestHandledNote");
 const timeOffRequestsContainer = requestTimeOffPanel;
 const swapRequestsContainer = requestSwapPanel;
 const plannerDashboard = document.getElementById("plannerDashboard");
-const testClickButton = document.getElementById("test-click");
-const testEmployeesTabButton = document.getElementById("tab-medewerkers");
 const navTabs = Array.from(document.querySelectorAll(".nav-tab"));
-const simpleMainTabButtons = Array.from(document.querySelectorAll(".simple-main-tab-button"));
 const plannerOnlyTabs = Array.from(document.querySelectorAll(".planner-only-tab"));
 const mobileNavButtons = Array.from(document.querySelectorAll(".mobile-nav-button"));
 const appPanels = Array.from(document.querySelectorAll(".app-panel"));
-const simpleTabEmergencyPanel = document.getElementById("simpleTabEmergencyPanel");
-const simpleTabEmergencyTitle = document.getElementById("simpleTabEmergencyTitle");
-const simpleTabEmergencyText = document.getElementById("simpleTabEmergencyText");
 const planningEmployeeSearchInput = document.getElementById("planningEmployeeSearch");
 const portalEmployeeSelect = document.getElementById("portalEmployee");
 const portalEmployeeBadge = document.getElementById("portalEmployeeBadge");
 
 const employeeEditorDrafts = {};
-let employeeAdminSelection = "";
 const portalEmployeeSearchInput = document.getElementById("portalEmployeeSearch");
 const myScheduleWeekInput = document.getElementById("myScheduleWeek");
 const mySchedulePreviousWeekButton = document.getElementById("mySchedulePreviousWeekButton");
@@ -221,7 +201,8 @@ const hoursExportMonthInput = document.getElementById("hoursExportMonth");
 const hoursExportButton = document.getElementById("hoursExportButton");
 const myHoursSectionSwitch = document.getElementById("myHoursSectionSwitch");
 const myHoursFillButton = document.getElementById("myHoursFillButton");
-const myHoursHistoryButton = document.getElementById("myHoursHistoryButton");
+const myHoursTodayButton = document.getElementById("myHoursTodayButton");
+const myHoursMissingButton = document.getElementById("myHoursMissingButton");
 const myHoursHighlight = document.getElementById("myHoursHighlight");
 const myHoursRegistrations = document.getElementById("myHoursRegistrations");
 const hoursApprovalQueue = document.getElementById("hoursApprovalQueue");
@@ -273,265 +254,20 @@ const employeeShiftPreferenceStorageKey = "urenrooster-employee-shift-preference
 const employeeBasePatternStorageKey = "urenrooster-employee-base-patterns";
 const employeeCustomRosterStorageKey = "urenrooster-employee-custom-rosters";
 const employeeMetaStorageKey = "urenrooster-employee-meta";
-const employeeEmergencyBackupStorageKey = "urenrooster-employee-emergency-backup";
 const auditLogStorageKey = "urenrooster-audit-log";
 const backupStorageKey = "urenrooster-backups";
 const mailSettingsStorageKey = "urenrooster-mail-settings";
-const emergencyDirectorSetupEmail = "info@bakkerijstroet.nl";
-const emergencyDirectorSetupName = "Bakkerij Stroet / Directie";
 
-const preferences = loadPreferences();
-const clerkAuthState = {
-  enabled: false,
-  ready: false,
-  initializing: false,
-  clerk: null,
-  user: null,
-  email: "",
-  employeeName: "",
-  role: "employee",
-  publishableKey: "",
-  error: "",
-  signInMounted: false,
-  uiLoaded: false
-};
-let currentDataMode = "live";
-if (preferences.lastDataMode !== "live") {
-  preferences.lastDataMode = "live";
-}
-const entries = loadEntries();
-const employees = loadEmployees();
-const shifts = loadShifts();
-const planningSettings = loadPlanningSettings();
-const timeOffRequests = loadTimeOffRequests();
-const swapRequests = loadSwapRequests();
-const workLogs = loadWorkLogs();
-const employeePermissions = loadEmployeePermissions();
-const employeeStandardShifts = loadEmployeeStandardShifts();
-const employeeShiftPreferences = loadEmployeeShiftPreferences();
-const employeeBasePatterns = loadEmployeeBasePatterns();
-const employeeCustomRosters = loadEmployeeCustomRosters();
-const employeeMeta = loadEmployeeMeta();
-const mailSettings = loadMailSettings();
-const auditLog = loadAuditLog();
-const backupHistory = loadBackupHistory();
-const TABS = Object.freeze({
-  DASHBOARD: "dashboard",
-  WEEK_CURRENT: "week-current",
-  WEEK_NEXT: "week-next",
-  SCHEDULE_PLANNING: "schedule-planning",
-  MY_SCHEDULE: "my-schedule",
-  MY_HOURS: "my-hours",
-  HOURS_APPROVAL: "hours-approval",
-  REQUESTS: "requests",
-  EMPLOYEES: "employees",
-  SERVICES: "services",
-  PLANNING: "planning",
-  BACKUP: "backup"
-});
+const { setClassName = function fallbackSetClassName(element, value) {
+  if (!element) {
+    return;
+  }
 
-const SIMPLE_MAIN_TAB_EMERGENCY_MODE = true;
-let simpleDomClickDebugInstalled = false;
-let emergencyMainTabBindingsInstalled = false;
-const TAB_VALUES = new Set(Object.values(TABS));
-const TAB_ALIASES = Object.freeze({
-  rooster: TABS.WEEK_CURRENT,
-  roster: TABS.WEEK_CURRENT,
-  "rooster-deze-week": TABS.WEEK_CURRENT,
-  "rooster deze week": TABS.WEEK_CURRENT,
-  weekoverview: TABS.WEEK_CURRENT,
-  "week-overview": TABS.WEEK_CURRENT,
-  weekcurrent: TABS.WEEK_CURRENT,
-  weeknext: TABS.WEEK_NEXT,
-  roosterinplannen: TABS.SCHEDULE_PLANNING,
-  "schedule-planning": TABS.SCHEDULE_PLANNING,
-  myschedule: TABS.MY_SCHEDULE,
-  myhours: TABS.MY_HOURS,
-  hoursapproval: TABS.HOURS_APPROVAL
-});
-let editIndex = null;
-let editingShiftId = null;
-let emergencyMainTab = "week";
-let currentMainTab = SIMPLE_MAIN_TAB_EMERGENCY_MODE ? emergencyMainTab : TABS.WEEK_CURRENT;
-let hasInitializedDefaultTab = false;
-let activeEmployeeWeekView = "today";
-let activeRole = preferences.lastRole === "employee" ? "employee" : "planner";
-let editingTimeOffId = null;
-let editingSwapId = null;
-let activeRequestComposer = "";
-let activeRequestType = "vrije-dag";
-let vrijeDagForm = {
-  employeeName: "",
-  type: "vrij",
-  date: "",
-  startDate: "",
-  endDate: "",
-  reason: ""
-};
-let vakantieForm = {
-  employeeName: "",
-  type: "vakantie",
-  date: "",
-  startDate: "",
-  endDate: "",
-  reason: ""
-};
-let ziekmeldingForm = {
-  employeeName: "",
-  type: "ziek",
-  date: "",
-  startDate: "",
-  endDate: "",
-  reason: ""
-};
-let ruilForm = {
-  employeeName: "",
-  date: "",
-  entryValue: "",
-  targetEmployeeName: ""
-};
-let showSuitableEmployees = false;
-let autoFillPreviewEntries = [];
-let undoState = null;
-let pendingPlannerFocus = null;
-let planningOverviewExpandedWeek = "";
-const mobileMediaQuery = window.matchMedia("(max-width: 640px)");
-let messageTimeoutId = null;
-let activeMessageState = null;
-let queuedMessageStates = [];
-let tabHitTestDebugInstalled = false;
-let lastTabHitTestSignature = "";
-let forcedClickLayerDebugInstalled = false;
-const employeeAllowedTabs = [TABS.WEEK_CURRENT, TABS.MY_SCHEDULE, TABS.MY_HOURS, TABS.REQUESTS];
-let planningDataRevision = 0;
-let requestDataRevision = 0;
-let previewDataRevision = 0;
-let activeMyHoursSection = "fill";
-let activeMyHoursEntryMode = "planned";
-let lastOpenRequestReminderKey = "";
-let lastEmployeeHoursReminderKey = "";
-const derivedDataCache = {
-  planningEntriesKey: "",
-  planningEntries: [],
-  visibleEntriesKey: "",
-  visibleEntries: [],
-  filteredEntriesKey: "",
-  filteredEntries: [],
-  approvedTimeOffKey: "",
-  approvedTimeOff: []
-};
+  element.className = value;
+} } = window.StroetDomUtils || {};
 
 if (dayPlannerNote) {
   dayPlannerNote.textContent = "Kies een dag en plan alle diensten van die dag in een keer.";
-}
-
-const employeeEmergencyRestoreApplied = restoreEmployeeEmergencyBackupIfNeeded();
-
-mergeEmployeesFromEntries();
-ensureConfiguredBakeryEmployees();
-syncEmployeeMeta();
-syncEmployeePermissions();
-syncEmployeeStandardShifts();
-syncEmployeeShiftPreferences();
-syncEmployeeBasePatterns();
-syncEmployeeCustomRosters();
-ensureEmergencyDirectorAccessRecord();
-
-const twanLoginEmail = "t_stroet@hotmail.com";
-const employeePersistenceState = {
-  source: "default",
-  backupUsed: false,
-  loadedCount: Array.isArray(employees) ? employees.length : 0,
-  savedCount: 0,
-  twanFound: false
-};
-
-function updateEmployeePersistenceState(partial = {}) {
-  if (typeof partial.source === "string" && partial.source) {
-    employeePersistenceState.source = partial.source;
-  }
-
-  if ("backupUsed" in partial) {
-    employeePersistenceState.backupUsed = employeePersistenceState.backupUsed || Boolean(partial.backupUsed);
-  }
-
-  if (Number.isFinite(Number(partial.loadedCount))) {
-    employeePersistenceState.loadedCount = Math.max(0, Math.floor(Number(partial.loadedCount)));
-  }
-
-  if (Number.isFinite(Number(partial.savedCount))) {
-    employeePersistenceState.savedCount = Math.max(0, Math.floor(Number(partial.savedCount)));
-  }
-
-  if ("twanFound" in partial) {
-    employeePersistenceState.twanFound = Boolean(partial.twanFound);
-  }
-}
-
-function getNormalizedEmployeeListCandidate(candidate) {
-  return Array.isArray(candidate) ? sanitizeEmployeesForStorage(candidate) : [];
-}
-
-function getEmployeeListPersistenceCandidates(mode = currentDataMode) {
-  const storageKeyName = getScopedStorageKeyForMode(employeeStorageKey, mode);
-  const primaryRaw = getStoredJsonValue(localStorage, storageKeyName);
-  const sessionRaw = getStoredJsonValue(sessionStorage, storageKeyName);
-  const emergencySnapshot = getEmployeeEmergencyBackupForMode(mode)?.snapshot;
-  const latestSnapshot = getLatestBackupSnapshotForMode(mode);
-
-  return {
-    storageKeyName,
-    hasPrimaryValue: primaryRaw !== null,
-    primaryEmployees: getNormalizedEmployeeListCandidate(primaryRaw),
-    sessionEmployees: getNormalizedEmployeeListCandidate(sessionRaw),
-    emergencyEmployees: getNormalizedEmployeeListCandidate(emergencySnapshot?.employees),
-    latestBackupEmployees: getNormalizedEmployeeListCandidate(latestSnapshot?.employees),
-    recoveredEmployees: getNormalizedEmployeeListCandidate(collectRecoveredEmployeeNamesForMode(mode))
-  };
-}
-
-function getStoredEmployeeListResult(mode = currentDataMode) {
-  const candidates = getEmployeeListPersistenceCandidates(mode);
-  const backupCandidates = [
-    candidates.sessionEmployees,
-    candidates.emergencyEmployees,
-    candidates.latestBackupEmployees,
-    candidates.recoveredEmployees
-  ].filter((candidate) => candidate.length > 0);
-
-  let source = "default";
-  let backupUsed = false;
-  let employeeNames = [];
-
-  if (candidates.primaryEmployees.length > 0 || (candidates.hasPrimaryValue && backupCandidates.length === 0)) {
-    source = "primary";
-    employeeNames = sanitizeEmployeesForStorage([...candidates.primaryEmployees, ...candidates.recoveredEmployees]);
-  } else if (backupCandidates.length > 0) {
-    source = "backup";
-    backupUsed = true;
-    employeeNames = sanitizeEmployeesForStorage([...backupCandidates[0], ...candidates.recoveredEmployees]);
-    safeSetStorageItem(candidates.storageKeyName, JSON.stringify(employeeNames), "medewerkers");
-  } else if (mode === "test") {
-    source = "default";
-    employeeNames = getTestSeedEmployeeNames();
-  }
-
-  updateEmployeePersistenceState({
-    source,
-    backupUsed,
-    loadedCount: employeeNames.length
-  });
-
-  console.info(`[employee-persist] employees loaded from: ${source}`, {
-    count: employeeNames.length,
-    backupUsed: backupUsed ? "ja" : "nee"
-  });
-
-  return {
-    employeeNames,
-    source,
-    backupUsed
-  };
 }
 
 function getScopedStorageKey(baseKey) {
@@ -544,30 +280,14 @@ function getScopedStorageKeyForMode(baseKey, mode) {
 
 function reportAppError(userMessage, error, context = "") {
   console.error(`[Urenrooster] ${context || "app-fout"}`, error);
-
   if (typeof showMessage === "function" && messageBox) {
-    const errorDetail = error instanceof Error
-      ? (error.stack || error.message || String(error))
-      : typeof error === "string"
-        ? error
-        : error && typeof error === "object" && "message" in error && typeof error.message === "string"
-          ? error.message
-          : "";
-    const shortErrorDetail = errorDetail
-      ? errorDetail.split("\n").map((line) => line.trim()).find(Boolean) || errorDetail
-      : "";
-    showError(shortErrorDetail ? `${userMessage} ${shortErrorDetail}` : userMessage);
+    showMessage(userMessage, "error");
   }
 }
 
 function safeSetStorageItem(storageKeyName, serializedValue, label = "gegevens") {
   try {
     localStorage.setItem(storageKeyName, serializedValue);
-    try {
-      sessionStorage.setItem(storageKeyName, serializedValue);
-    } catch {
-      // Session storage is only a secondary safety net.
-    }
     return true;
   } catch (error) {
     reportAppError(`Opslaan mislukt voor ${label}. Probeer het opnieuw of maak eerst een back-up.`, error, `save:${label}`);
@@ -788,12 +508,6 @@ function getConfiguredBakeryEmployeeNames() {
 }
 
 function ensureConfiguredBakeryEmployees() {
-  const shouldSeedConfiguredEmployees = currentDataMode === "live" && employeePersistenceState.source === "default";
-
-  if (!shouldSeedConfiguredEmployees) {
-    return;
-  }
-
   const configuredEmployees = getConfiguredBakeryEmployeeNames();
   const missingEmployees = configuredEmployees.filter((employeeName) => !employees.includes(employeeName));
 
@@ -806,272 +520,34 @@ function ensureConfiguredBakeryEmployees() {
   saveEmployees();
 }
 
-function getStoredJsonValue(storage, storageKeyName) {
-  if (!storage || !storageKeyName) {
-    return null;
+function getEmployeesForMode(mode) {
+  const savedEmployees = localStorage.getItem(getScopedStorageKeyForMode(employeeStorageKey, mode));
+
+  if (!savedEmployees) {
+    return mode === "test" ? getTestSeedEmployeeNames() : [];
   }
 
   try {
-    const rawValue = storage.getItem(storageKeyName);
-    return rawValue ? JSON.parse(rawValue) : null;
+    const parsedEmployees = JSON.parse(savedEmployees);
+
+    if (!Array.isArray(parsedEmployees)) {
+      return mode === "test" ? getTestSeedEmployeeNames() : [];
+    }
+
+    const normalizedEmployees = [...new Set(
+      parsedEmployees
+        .filter((employee) => typeof employee === "string" && employee.trim() !== "")
+        .map((employee) => employee.trim())
+    )].sort((nameA, nameB) => nameA.localeCompare(nameB, "nl"));
+
+    return normalizedEmployees.length ? normalizedEmployees : (mode === "test" ? getTestSeedEmployeeNames() : []);
   } catch {
-    return null;
+    return mode === "test" ? getTestSeedEmployeeNames() : [];
   }
-}
-
-function addRecoveredEmployeeNames(targetSet, values) {
-  if (!values) {
-    return;
-  }
-
-  if (Array.isArray(values)) {
-    values.forEach((value) => {
-      if (typeof value === "string" && value.trim()) {
-        targetSet.add(value.trim());
-      }
-    });
-    return;
-  }
-
-  if (values && typeof values === "object") {
-    Object.keys(values).forEach((key) => {
-      if (typeof key === "string" && key.trim()) {
-        targetSet.add(key.trim());
-      }
-    });
-  }
-}
-
-function addRecoveredEmployeeNamesFromRecords(targetSet, records, fieldNames = ["employeeName"]) {
-  if (!Array.isArray(records)) {
-    return;
-  }
-
-  records.forEach((record) => {
-    if (!record || typeof record !== "object") {
-      return;
-    }
-
-    fieldNames.forEach((fieldName) => {
-      const value = record[fieldName];
-      if (typeof value === "string" && value.trim()) {
-        targetSet.add(value.trim());
-      }
-    });
-  });
-}
-
-function addRecoveredEmployeeNamesFromBackupSnapshot(targetSet, snapshot) {
-  if (!snapshot || typeof snapshot !== "object") {
-    return;
-  }
-
-  addRecoveredEmployeeNames(targetSet, snapshot.employees);
-  addRecoveredEmployeeNames(targetSet, snapshot.employeeMeta);
-  addRecoveredEmployeeNames(targetSet, snapshot.employeePermissions);
-  addRecoveredEmployeeNames(targetSet, snapshot.employeeStandardShifts);
-  addRecoveredEmployeeNames(targetSet, snapshot.employeeShiftPreferences);
-  addRecoveredEmployeeNames(targetSet, snapshot.employeeBasePatterns);
-  addRecoveredEmployeeNames(targetSet, snapshot.employeeCustomRosters);
-  addRecoveredEmployeeNamesFromRecords(targetSet, snapshot.entries, ["name"]);
-  addRecoveredEmployeeNamesFromRecords(targetSet, snapshot.timeOffRequests, ["employeeName", "targetEmployeeName"]);
-  addRecoveredEmployeeNamesFromRecords(targetSet, snapshot.swapRequests, ["employeeName", "offeredBy", "swapWithEmployee", "targetEmployeeName"]);
-  addRecoveredEmployeeNamesFromRecords(targetSet, snapshot.workLogs, ["employeeName"]);
-}
-
-function collectRecoveredEmployeeNamesForMode(mode) {
-  const recoveredNames = new Set();
-  const modeKey = (baseKey) => getScopedStorageKeyForMode(baseKey, mode);
-  const storages = [localStorage, sessionStorage];
-
-  storages.forEach((storage) => {
-    addRecoveredEmployeeNames(recoveredNames, getStoredJsonValue(storage, modeKey(employeeStorageKey)));
-    addRecoveredEmployeeNames(recoveredNames, getStoredJsonValue(storage, modeKey(employeeMetaStorageKey)));
-    addRecoveredEmployeeNames(recoveredNames, getStoredJsonValue(storage, modeKey(employeePermissionsStorageKey)));
-    addRecoveredEmployeeNames(recoveredNames, getStoredJsonValue(storage, modeKey(employeeStandardShiftStorageKey)));
-    addRecoveredEmployeeNames(recoveredNames, getStoredJsonValue(storage, modeKey(employeeShiftPreferenceStorageKey)));
-    addRecoveredEmployeeNames(recoveredNames, getStoredJsonValue(storage, modeKey(employeeBasePatternStorageKey)));
-    addRecoveredEmployeeNames(recoveredNames, getStoredJsonValue(storage, modeKey(employeeCustomRosterStorageKey)));
-    addRecoveredEmployeeNamesFromRecords(recoveredNames, getStoredJsonValue(storage, modeKey(storageKey)), ["name"]);
-    addRecoveredEmployeeNamesFromRecords(recoveredNames, getStoredJsonValue(storage, modeKey(timeOffStorageKey)), ["employeeName", "targetEmployeeName"]);
-    addRecoveredEmployeeNamesFromRecords(recoveredNames, getStoredJsonValue(storage, modeKey(swapStorageKey)), ["employeeName", "offeredBy", "swapWithEmployee", "targetEmployeeName"]);
-    addRecoveredEmployeeNamesFromRecords(recoveredNames, getStoredJsonValue(storage, modeKey(workLogStorageKey)), ["employeeName"]);
-
-    const backups = getStoredJsonValue(storage, modeKey(backupStorageKey));
-    if (Array.isArray(backups)) {
-      backups.forEach((backup) => {
-        addRecoveredEmployeeNamesFromBackupSnapshot(recoveredNames, backup?.snapshot);
-      });
-    }
-  });
-
-  const normalizedRecoveredNames = sanitizeEmployeesForStorage([...recoveredNames]);
-
-  if (mode === "test" && !normalizedRecoveredNames.length) {
-    return getTestSeedEmployeeNames();
-  }
-
-  return normalizedRecoveredNames;
-}
-
-function getStoredJsonValueForMode(baseKey, mode = currentDataMode) {
-  const storageKeyName = getScopedStorageKeyForMode(baseKey, mode);
-  const localValue = getStoredJsonValue(localStorage, storageKeyName);
-
-  if (localValue !== null) {
-    return localValue;
-  }
-
-  const sessionValue = getStoredJsonValue(sessionStorage, storageKeyName);
-  return sessionValue !== null ? sessionValue : null;
-}
-
-function getLatestBackupSnapshotForMode(mode = currentDataMode) {
-  const storageKeyName = getScopedStorageKeyForMode(backupStorageKey, mode);
-  const snapshots = [];
-
-  [localStorage, sessionStorage].forEach((storage) => {
-    const backups = getStoredJsonValue(storage, storageKeyName);
-
-    if (!Array.isArray(backups)) {
-      return;
-    }
-
-    backups.forEach((backup) => {
-      if (
-        backup &&
-        typeof backup === "object" &&
-        typeof backup.createdAt === "string" &&
-        backup.snapshot &&
-        typeof backup.snapshot === "object"
-      ) {
-        snapshots.push(backup);
-      }
-    });
-  });
-
-  if (!snapshots.length) {
-    return null;
-  }
-
-  snapshots.sort((backupA, backupB) => String(backupB.createdAt).localeCompare(String(backupA.createdAt)));
-  return snapshots[0]?.snapshot || null;
-}
-
-function createEmployeeEmergencyBackupSnapshot() {
-  return {
-    createdAt: getNowIsoString(),
-    employees: [...employees],
-    employeeMeta: structuredClone(employeeMeta),
-    employeePermissions: structuredClone(employeePermissions),
-    employeeStandardShifts: structuredClone(employeeStandardShifts),
-    employeeShiftPreferences: structuredClone(employeeShiftPreferences),
-    employeeBasePatterns: structuredClone(employeeBasePatterns),
-    employeeCustomRosters: structuredClone(employeeCustomRosters)
-  };
-}
-
-function getEmployeeEmergencyBackupForMode(mode = currentDataMode) {
-  return getStoredJsonValueForMode(employeeEmergencyBackupStorageKey, mode);
-}
-
-function saveEmployeeEmergencyBackup(reason = "Medewerkergegevens opgeslagen") {
-  const backup = {
-    reason,
-    snapshot: createEmployeeEmergencyBackupSnapshot()
-  };
-  const storageKeyName = getScopedStorageKey(employeeEmergencyBackupStorageKey);
-  safeSetStorageItem(storageKeyName, JSON.stringify(backup), "medewerker noodbackup");
-  return backup;
-}
-
-function restoreEmployeeEmergencyBackupIfNeeded(mode = currentDataMode) {
-  const hasPrimaryEmployeeData = Boolean(employees.length) ||
-    Object.keys(employeeMeta).length > 0 ||
-    Object.keys(employeePermissions).length > 0 ||
-    Object.keys(employeeStandardShifts).length > 0 ||
-    Object.keys(employeeShiftPreferences).length > 0 ||
-    Object.keys(employeeBasePatterns).length > 0 ||
-    Object.keys(employeeCustomRosters).length > 0;
-
-  if (hasPrimaryEmployeeData) {
-    return false;
-  }
-
-  const emergencyBackup = getEmployeeEmergencyBackupForMode(mode);
-  const snapshot = emergencyBackup?.snapshot;
-
-  if (!snapshot || typeof snapshot !== "object") {
-    return false;
-  }
-
-  replaceArrayContents(employees, Array.isArray(snapshot.employees) ? sanitizeEmployeesForStorage(snapshot.employees) : []);
-  replaceObjectContents(employeeMeta, snapshot.employeeMeta && typeof snapshot.employeeMeta === "object" ? structuredClone(snapshot.employeeMeta) : {});
-  replaceObjectContents(employeePermissions, snapshot.employeePermissions && typeof snapshot.employeePermissions === "object" ? structuredClone(snapshot.employeePermissions) : {});
-  replaceObjectContents(employeeStandardShifts, snapshot.employeeStandardShifts && typeof snapshot.employeeStandardShifts === "object" ? structuredClone(snapshot.employeeStandardShifts) : {});
-  replaceObjectContents(employeeShiftPreferences, snapshot.employeeShiftPreferences && typeof snapshot.employeeShiftPreferences === "object" ? structuredClone(snapshot.employeeShiftPreferences) : {});
-  replaceObjectContents(employeeBasePatterns, snapshot.employeeBasePatterns && typeof snapshot.employeeBasePatterns === "object" ? structuredClone(snapshot.employeeBasePatterns) : {});
-  replaceObjectContents(employeeCustomRosters, snapshot.employeeCustomRosters && typeof snapshot.employeeCustomRosters === "object" ? structuredClone(snapshot.employeeCustomRosters) : {});
-
-  saveEmployees();
-  saveEmployeeMeta();
-  saveEmployeePermissions();
-  saveEmployeeStandardShifts();
-  saveEmployeeShiftPreferences();
-  saveEmployeeBasePatterns();
-  saveEmployeeCustomRosters();
-  updateEmployeePersistenceState({
-    source: "backup",
-    backupUsed: true,
-    loadedCount: employees.length,
-    twanFound: Boolean(findEmployeeByEmail(twanLoginEmail))
-  });
-  console.info("[employee-persist] employees loaded from: backup", {
-    count: employees.length,
-    backupUsed: "ja"
-  });
-
-  return true;
-}
-
-function getRecoveredEmployeeDataForMode(baseKey, snapshotField, mode = currentDataMode, label = "gegevens") {
-  const storageKeyName = getScopedStorageKeyForMode(baseKey, mode);
-  const directValue = getStoredJsonValue(localStorage, storageKeyName);
-
-  if (directValue !== null) {
-    return directValue;
-  }
-
-  const sessionValue = getStoredJsonValue(sessionStorage, storageKeyName);
-  if (sessionValue !== null) {
-    safeSetStorageItem(storageKeyName, JSON.stringify(sessionValue), label);
-    return sessionValue;
-  }
-
-  const emergencyBackup = getEmployeeEmergencyBackupForMode(mode);
-  const emergencyValue = emergencyBackup?.snapshot?.[snapshotField];
-  if (emergencyValue && typeof emergencyValue === "object") {
-    safeSetStorageItem(storageKeyName, JSON.stringify(emergencyValue), label);
-    return emergencyValue;
-  }
-
-  const latestSnapshot = getLatestBackupSnapshotForMode(mode);
-  const backupValue = latestSnapshot?.[snapshotField];
-
-  if (backupValue && typeof backupValue === "object") {
-    safeSetStorageItem(storageKeyName, JSON.stringify(backupValue), label);
-    return backupValue;
-  }
-
-  return null;
-}
-
-function getEmployeesForMode(mode) {
-  return getStoredEmployeeListResult(mode).employeeNames;
 }
 
 function getEmployeeMetaForMode(mode, modeEmployees = getEmployeesForMode(mode)) {
-  const savedMeta = getRecoveredEmployeeDataForMode(employeeMetaStorageKey, "employeeMeta", mode, "medewerkergegevens");
+  const savedMeta = localStorage.getItem(getScopedStorageKeyForMode(employeeMetaStorageKey, mode));
   const defaults = Object.fromEntries(modeEmployees.map((employeeName) => [employeeName, getEmployeeStatusMetaDefaults()]));
 
   if (!savedMeta) {
@@ -1079,22 +555,12 @@ function getEmployeeMetaForMode(mode, modeEmployees = getEmployeesForMode(mode))
   }
 
   try {
-    const parsedMeta = savedMeta;
+    const parsedMeta = JSON.parse(savedMeta);
     const normalized = {};
 
     modeEmployees.forEach((employeeName) => {
       normalized[employeeName] = {
-        ...getEmployeeStatusMetaDefaults(),
-        ...(parsedMeta?.[employeeName] && typeof parsedMeta[employeeName] === "object" ? parsedMeta[employeeName] : {}),
         status: normalizeEmployeeStatus(parsedMeta?.[employeeName]?.status),
-        role: normalizeEmployeeAppRole(parsedMeta?.[employeeName]?.role),
-        contractHours: normalizeContractHours(parsedMeta?.[employeeName]?.contractHours ?? 0),
-        email: normalizeEmployeeEmail(parsedMeta?.[employeeName]?.email),
-        loginAllowed: parsedMeta?.[employeeName]?.loginAllowed !== false,
-        mailTestUser: Boolean(parsedMeta?.[employeeName]?.mailTestUser),
-        lastTestMailAt: typeof parsedMeta?.[employeeName]?.lastTestMailAt === "string" ? parsedMeta[employeeName].lastTestMailAt : "",
-        lastTestMailStatus: typeof parsedMeta?.[employeeName]?.lastTestMailStatus === "string" ? parsedMeta[employeeName].lastTestMailStatus : "",
-        lastTestMailMessage: typeof parsedMeta?.[employeeName]?.lastTestMailMessage === "string" ? parsedMeta[employeeName].lastTestMailMessage : "",
         updatedAt: typeof parsedMeta?.[employeeName]?.updatedAt === "string" ? parsedMeta[employeeName].updatedAt : "",
         updatedByRole: parsedMeta?.[employeeName]?.updatedByRole === "planner" ? "planner" : (parsedMeta?.[employeeName]?.updatedByRole === "employee" ? "employee" : ""),
         updatedByName: typeof parsedMeta?.[employeeName]?.updatedByName === "string" ? parsedMeta[employeeName].updatedByName : ""
@@ -1107,571 +573,220 @@ function getEmployeeMetaForMode(mode, modeEmployees = getEmployeesForMode(mode))
   }
 }
 
-function getClerkAuthErrorMessage(error, fallback = "Inloggen mislukt.") {
-  if (!error) {
-    return fallback;
-  }
-
-  if (typeof error === "string") {
-    const normalized = error.trim();
-    return normalized || fallback;
-  }
-
-  if (typeof error?.message === "string" && error.message.trim()) {
-    const normalized = error.message.trim();
-    return normalized || fallback;
-  }
-
-  return fallback;
-}
-
-function getClerkPrimaryEmail(user) {
-  if (!user) {
-    return "";
-  }
-
-  if (Array.isArray(user.emailAddresses) && user.emailAddresses.length) {
-    const primaryId = typeof user.primaryEmailAddressId === "string" ? user.primaryEmailAddressId : "";
-    const primaryAddress = user.emailAddresses.find((entry) => entry?.id === primaryId) || user.emailAddresses[0];
-    return normalizeEmployeeEmail(primaryAddress?.emailAddress);
-  }
-
-  return "";
-}
-
-function hasClerkAuthenticatedSession() {
-  return Boolean(clerkAuthState.enabled && clerkAuthState.ready && clerkAuthState.user && clerkAuthState.employeeName);
-}
-
-function isClerkAuthRequired() {
-  return true;
-}
-
-function isClerkAccessLocked() {
-  if (!isClerkAuthRequired()) {
-    return false;
-  }
-
-  return !hasClerkAuthenticatedSession();
+function getLoginRoleValue() {
+  return loginRoleSelect?.value === "employee" ? "employee" : "planner";
 }
 
 function hasRememberedUserSession() {
-  if (clerkAuthState.enabled) {
-    return hasClerkAuthenticatedSession();
-  }
-
-  return Boolean(preferences.hasUserSession);
+  return hasRememberedUserSessionHelper(preferences);
 }
 
 function needsLoginSelection() {
-  if (clerkAuthState.enabled || clerkAuthState.initializing || !clerkAuthState.ready) {
-    return !hasClerkAuthenticatedSession();
-  }
-
-  return !hasClerkAuthenticatedSession();
+  return needsLoginSelectionHelper(hasRememberedUserSession(), activeRole, getEmployeeIdentity());
 }
 
-function showClerkAuthMessage(message, type = "info") {
-  if (!clerkAuthStatus) {
-    return;
-  }
-
-  const nextMessage = typeof message === "string" ? message.trim() : "";
-  clerkAuthStatus.textContent = nextMessage;
-  clerkAuthStatus.classList.remove("hidden", "is-error", "is-success");
-
-  if (!nextMessage) {
-    clerkAuthStatus.classList.add("hidden");
-    clerkAuthStatus.setAttribute("aria-hidden", "true");
-    return;
-  }
-
-  clerkAuthStatus.setAttribute("aria-hidden", "false");
-
-  if (type === "error") {
-    clerkAuthStatus.classList.add("is-error");
-    return;
-  }
-
-  if (type === "success") {
-    clerkAuthStatus.classList.add("is-success");
-  }
-}
-
-function updateLoginOverlayMode(mode = "clerk") {
-  const useLegacyMode = false;
-
-  if (clerkSignInMount) {
-    clerkSignInMount.classList.remove("hidden");
-    clerkSignInMount.setAttribute("aria-hidden", "false");
-  }
-
-  if (clerkLoginActions) {
-    const hideActions = useLegacyMode || clerkAuthState.signInMounted;
-    clerkLoginActions.classList.toggle("hidden", hideActions);
-    clerkLoginActions.setAttribute("aria-hidden", hideActions ? "true" : "false");
-  }
-
-  if (clerkLogoutButton) {
-    const showLogoutButton = !useLegacyMode && Boolean(clerkAuthState.user);
-    clerkLogoutButton.classList.toggle("hidden", !showLogoutButton);
-    clerkLogoutButton.setAttribute("aria-hidden", showLogoutButton ? "false" : "true");
-  }
-
-  if (loginOverlayTitle) {
-    loginOverlayTitle.textContent = "Inloggen";
-  }
-
-  if (loginOverlayNote) {
-    loginOverlayNote.textContent = "Log in met je e-mailadres en wachtwoord om de roosterapp te openen.";
-  }
-}
-
-async function fetchClerkConfig() {
-  const response = await fetch("/api/clerk-config", {
-    method: "GET",
-    headers: {
-      Accept: "application/json"
+function buildSessionSnapshot(sourcePreferences = preferences) {
+  const requestedRole = sourcePreferences?.lastRole === "employee" ? "employee" : "planner";
+  const validEmployeeIdentity = getEmployeeIdentityHelper(
+    {
+      employeeIdentity: typeof sourcePreferences?.employeeIdentity === "string"
+        ? sourcePreferences.employeeIdentity
+        : ""
     },
-    cache: "no-store"
-  });
-
-  if (!response.ok) {
-    throw new Error("Clerk configuratie is niet bereikbaar.");
-  }
-
-  const payload = await response.json();
-  const hasPublishableKey = Boolean(payload?.hasPublishableKey || (typeof payload?.publishableKey === "string" && payload.publishableKey.trim()));
-
-  console.info("[clerk] frontend publishable key aanwezig:", hasPublishableKey ? "ja" : "nee");
+    employees,
+    isEmployeeActive
+  );
+  const rememberedUserSession = hasRememberedUserSessionHelper(sourcePreferences);
+  const isAuthenticated = !needsLoginSelectionHelper(
+    rememberedUserSession,
+    requestedRole,
+    validEmployeeIdentity
+  );
 
   return {
-    publishableKey: typeof payload?.publishableKey === "string" ? payload.publishableKey.trim() : "",
-    hasPublishableKey
+    isAuthenticated,
+    role: requestedRole,
+    employeeIdentity: requestedRole === "employee" ? validEmployeeIdentity : ""
   };
 }
 
-async function loadClerkConstructor() {
-  const clerkModule = await import("https://esm.sh/@clerk/clerk-js@latest?bundle");
-  return clerkModule?.Clerk || clerkModule?.default?.Clerk || clerkModule?.default || null;
-}
+function applySessionSnapshot(nextSessionState, { persist = false } = {}) {
+  const normalizedRole = nextSessionState?.role === "employee" ? "employee" : "planner";
+  const normalizedEmployeeIdentity = normalizedRole === "employee"
+    ? String(nextSessionState?.employeeIdentity || "")
+    : "";
+  const isAuthenticated = Boolean(nextSessionState?.isAuthenticated) &&
+    (normalizedRole === "planner" || Boolean(normalizedEmployeeIdentity));
 
-function getClerkFrontendApiDomain(publishableKey) {
-  const normalizedKey = typeof publishableKey === "string" ? publishableKey.trim() : "";
-
-  if (!normalizedKey) {
-    return "";
-  }
-
-  try {
-    const encodedDomain = normalizedKey.split("_")[2] || "";
-    return encodedDomain ? atob(encodedDomain).slice(0, -1) : "";
-  } catch {
-    return "";
-  }
-}
-
-async function ensureClerkUiBundleLoaded(publishableKey) {
-  if (window.__internal_ClerkUICtor) {
-    clerkAuthState.uiLoaded = true;
-    console.info("[clerk] ui bundle geladen:", "ja");
-    return;
-  }
-
-  const clerkDomain = getClerkFrontendApiDomain(publishableKey);
-
-  if (!clerkDomain) {
-    throw new Error("Clerk publishable key ontbreekt of is ongeldig.");
-  }
-
-  const existingScript = document.querySelector('script[data-clerk-ui-bundle="true"]');
-
-  if (existingScript) {
-    await new Promise((resolve, reject) => {
-      if (window.__internal_ClerkUICtor) {
-        resolve();
-        return;
-      }
-
-      existingScript.addEventListener("load", () => resolve(), { once: true });
-      existingScript.addEventListener("error", () => reject(new Error("Clerk UI kon niet worden geladen.")), { once: true });
-    });
-    clerkAuthState.uiLoaded = Boolean(window.__internal_ClerkUICtor);
-    if (!clerkAuthState.uiLoaded) {
-      throw new Error("Clerk UI componenten zijn niet beschikbaar.");
-    }
-    return;
-  }
-
-  await new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = `https://${clerkDomain}/npm/@clerk/ui@1/dist/ui.browser.js`;
-    script.async = true;
-    script.crossOrigin = "anonymous";
-    script.dataset.clerkUiBundle = "true";
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Clerk UI kon niet worden geladen."));
-    document.head.appendChild(script);
-  });
-
-  clerkAuthState.uiLoaded = Boolean(window.__internal_ClerkUICtor);
-  console.info("[clerk] ui bundle geladen:", clerkAuthState.uiLoaded ? "ja" : "nee");
-
-  if (!clerkAuthState.uiLoaded) {
-    throw new Error("Clerk UI componenten zijn niet beschikbaar.");
-  }
-}
-
-function normalizeAppRole(role) {
-  const normalizedRole = typeof role === "string" ? role.trim().toLowerCase() : "";
-  return normalizedRole === "directie" || normalizedRole === "planner" ? "planner" : "employee";
-}
-
-function getDefaultTabForRole(role) {
-  const normalizedRole = normalizeAppRole(role);
-
-  if (normalizedRole === "planner") {
-    return TABS.WEEK_CURRENT;
-  }
-
-  return TABS.WEEK_CURRENT;
-}
-
-function clearLegacyAuthenticatedUiState() {
-  activeRole = "employee";
+  sessionState.isAuthenticated = isAuthenticated;
+  sessionState.role = normalizedRole;
+  sessionState.employeeIdentity = isAuthenticated ? normalizedEmployeeIdentity : "";
+  activeRole = normalizedRole;
   currentDataMode = "live";
-  activeEmployeeWeekView = "today";
+  preferences.lastRole = normalizedRole;
+  preferences.lastDataMode = "live";
+  preferences.employeeIdentity = sessionState.employeeIdentity;
+  preferences.hasUserSession = isAuthenticated;
 
-  if (roleSelect) roleSelect.value = "employee";
-  if (currentEmployeeSelect) currentEmployeeSelect.value = "";
-  if (portalEmployeeSelect) portalEmployeeSelect.value = "";
-  if (hoursEmployeeSelect) hoursEmployeeSelect.value = "";
+  if (persist) {
+    savePreferences();
+  }
+}
+
+function getAvailableLoginEmployees() {
+  const modeEmployees = getEmployeesForMode("live");
+  const modeEmployeeMeta = getEmployeeMetaForMode("live", modeEmployees);
+  return modeEmployees.filter((employeeName) =>
+    normalizeEmployeeStatus(modeEmployeeMeta?.[employeeName]?.status) === "active"
+  );
+}
+
+function resetScopedEmployeeSelectors() {
+  const emptyEmployeeName = "";
+  currentEmployeeSelect.value = emptyEmployeeName;
+  portalEmployeeSelect.value = emptyEmployeeName;
+  hoursEmployeeSelect.value = emptyEmployeeName;
   getAllTimeOffEmployeeSelects().forEach((select) => {
-    select.value = "";
+    select.value = emptyEmployeeName;
   });
-  if (swapEmployeeSelect) swapEmployeeSelect.value = "";
+  swapEmployeeSelect.value = emptyEmployeeName;
 }
 
-function applyAuthenticatedEmployeeContext(employeeName, role) {
-  const nextRole = normalizeAppRole(role);
-
-  activeRole = nextRole;
-  clerkAuthState.employeeName = employeeName;
-  clerkAuthState.role = activeRole;
-  currentDataMode = "live";
-  preferences.lastDataMode = "live";
-  preferences.lastRole = activeRole;
-  preferences.hasUserSession = true;
-  preferences.employeeIdentity = nextRole === "employee" ? employeeName : "";
-  preferences.lastEmployee = nextRole === "employee" ? employeeName : "";
-  preferences.lastPortalEmployee = nextRole === "employee" ? employeeName : "";
-  preferences.lastHoursEmployee = nextRole === "employee" ? employeeName : "";
-  savePreferences();
-  if (nextRole === "employee") {
-    syncScopedEmployeeSelectors(employeeName);
-  }
-}
-
-function resetAuthenticatedEmployeeContext() {
-  clerkAuthState.user = null;
-  clerkAuthState.email = "";
-  clerkAuthState.employeeName = "";
-  clerkAuthState.role = "employee";
-  preferences.hasUserSession = false;
-  preferences.employeeIdentity = "";
-  preferences.lastEmployee = "";
-  preferences.lastPortalEmployee = "";
-  preferences.lastHoursEmployee = "";
-  preferences.lastRole = "employee";
-  preferences.lastDataMode = "live";
-  clearLegacyAuthenticatedUiState();
-  savePreferences();
-}
-
-function resolveClerkUserAccess(user) {
-  const email = getClerkPrimaryEmail(user).trim().toLowerCase();
-  const emergencySetupDirectorEmail = emergencyDirectorSetupEmail;
-
-  console.info("[clerk-access] ingelogd e-mailadres:", email || "(leeg)");
-
-  if (!email) {
-    throw new Error("Er is geen e-mailadres gekoppeld aan deze login.");
-  }
-
-  const employeeName = findEmployeeByEmail(email);
-  const matchedEmployeeEmail = employeeName ? getEmployeeEmail(employeeName).trim().toLowerCase() : "";
-
-  console.info("[clerk-access] gekoppelde medewerker:", employeeName || "(geen)");
-  console.info("[clerk-access] gevonden medewerker e-mailadres:", matchedEmployeeEmail || "(geen)");
-  if (email === twanLoginEmail) {
-    console.info("[clerk-access] Twan record gevonden:", employeeName ? "ja" : "nee");
-  }
-
-  if (email === emergencySetupDirectorEmail) {
-    const directieEmployeeName = ensureEmergencyDirectorAccessRecord();
-    console.info("[clerk-access] directe directie-login actief:", "ja");
-    return {
-      employeeName: directieEmployeeName,
-      role: "planner",
-      email
-    };
-  }
-
-  if (!employeeName) {
-    throw new Error("Ingelogd e-mailadres komt niet overeen met medewerkerrecord.");
-  }
-
-  const normalizedStatus = normalizeEmployeeStatus(getEmployeeStatus(employeeName));
-  const loginAllowed = isEmployeeLoginAllowed(employeeName);
-  const configuredRole = getEmployeeAppRole(employeeName);
-  const normalizedRole = "employee";
-
-  console.info("[clerk-access] medewerker status:", normalizedStatus);
-  console.info("[clerk-access] login toegestaan:", loginAllowed ? "ja" : "nee");
-  console.info("[clerk-access] medewerker rol uit record:", configuredRole);
-  console.info("[clerk-access] toegepaste loginrol:", normalizedRole);
-
-  if (normalizedStatus !== "active") {
-    throw new Error("Deze medewerker is niet actief en kan niet inloggen.");
-  }
-
-  if (!loginAllowed) {
-    throw new Error("Inloggen is voor deze medewerker uitgeschakeld.");
-  }
-
-  return {
-    employeeName,
-    role: normalizedRole,
-    email
-  };
-}
-
-function openLoginOverlay() {
+function openSessionLogin({ preferredRole = activeRole, preferredEmployee = "" } = {}) {
   if (!loginOverlay) {
     return;
   }
 
-  updateLoginOverlayMode("clerk");
+  populateLoginEmployeeSelect();
+  loginRoleSelect.value = preferredRole === "employee" ? "employee" : "planner";
+  if (loginTestModeCheckbox) {
+    loginTestModeCheckbox.checked = false;
+  }
+  populateLoginEmployeeSelect();
+  loginEmployeeSelect.value = getAvailableLoginEmployees().includes(preferredEmployee)
+    ? preferredEmployee
+    : "";
+  updateLoginRoleState();
+  appShell?.classList.add("login-required");
   loginOverlay.classList.remove("hidden");
 }
 
-function closeLoginOverlay() {
+function closeSessionLogin() {
+  appShell?.classList.remove("login-required");
   loginOverlay?.classList.add("hidden");
 }
 
-async function mountClerkSignInIfNeeded() {
-  if (!clerkAuthState.enabled || !clerkSignInMount || !clerkAuthState.clerk || clerkAuthState.user) {
-    return;
+function startPlannerSession({ showStartupMessage = false } = {}) {
+  applySessionSnapshot({
+    isAuthenticated: true,
+    role: "planner",
+    employeeIdentity: ""
+  }, { persist: true });
+  reloadScopedData();
+  closeSessionLogin();
+  reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
+
+  if (showStartupMessage) {
+    showMessage("Planner geladen.", "success");
   }
 
-  if (!clerkAuthState.uiLoaded || !window.__internal_ClerkUICtor) {
-    showClerkAuthMessage("Inlogscherm laden...", "info");
-    return;
-  }
+  return true;
+}
 
-  if (typeof clerkAuthState.clerk.mountSignIn !== "function") {
-    showClerkAuthMessage("Clerk login UI is nog niet beschikbaar.", "error");
-    return;
-  }
+function startEmployeeSession(employeeName, { showStartupMessage = false } = {}) {
+  const availableEmployees = getAvailableLoginEmployees();
 
-  if (clerkAuthState.signInMounted) {
-    return;
-  }
-
-  try {
-    clerkSignInMount.innerHTML = "";
-    clerkAuthState.clerk.mountSignIn(clerkSignInMount, {
-      appearance: {
-        variables: {
-          colorPrimary: "#F28C28"
-        }
-      }
+  if (!employeeName || !availableEmployees.includes(employeeName)) {
+    showMessage("Kies eerst een actieve medewerker.", "error");
+    openSessionLogin({
+      preferredRole: "employee",
+      preferredEmployee: ""
     });
-    clerkAuthState.signInMounted = true;
-    updateLoginOverlayMode("clerk");
-    showClerkAuthMessage("Log in met je e-mailadres en wachtwoord.", "info");
-  } catch (error) {
-    clerkAuthState.signInMounted = false;
-    showClerkAuthMessage(getClerkAuthErrorMessage(error), "error");
-  }
-}
-
-function unmountClerkSignInIfNeeded() {
-  if (!clerkSignInMount) {
-    return;
+    return false;
   }
 
-  if (clerkAuthState.clerk && typeof clerkAuthState.clerk.unmountSignIn === "function" && clerkAuthState.signInMounted) {
-    try {
-      clerkAuthState.clerk.unmountSignIn(clerkSignInMount);
-    } catch {
-      // ignore unmount errors and clear the mount manually below
-    }
-  }
+  applySessionSnapshot({
+    isAuthenticated: true,
+    role: "employee",
+    employeeIdentity: employeeName
+  }, { persist: true });
+  reloadScopedData();
 
-  clerkSignInMount.innerHTML = "";
-  clerkAuthState.signInMounted = false;
-}
-
-async function syncClerkAuthenticatedUser(user) {
-  const { employeeName, role, email } = resolveClerkUserAccess(user);
-  const nextRole = normalizeAppRole(role);
-  const sameAuthenticatedContext = Boolean(
-    preferences.hasUserSession &&
-    clerkAuthState.employeeName === employeeName &&
-    clerkAuthState.email === email &&
-    clerkAuthState.role === nextRole
-  );
-
-  clerkAuthState.user = user;
-  clerkAuthState.email = email;
-
-  if (!sameAuthenticatedContext) {
-    clearLegacyAuthenticatedUiState();
-  }
-
-  applyAuthenticatedEmployeeContext(employeeName, role);
-  showClerkAuthMessage("");
-  closeLoginOverlay();
-
-  if (sameAuthenticatedContext) {
-    unmountClerkSignInIfNeeded();
+  if (!getEmployeeIdentity()) {
+    showMessage("De gekozen medewerker is niet meer beschikbaar. Log opnieuw in.", "error");
+    applySessionSnapshot({
+      isAuthenticated: false,
+      role: "employee",
+      employeeIdentity: ""
+    }, { persist: true });
     render();
-    return;
+    openSessionLogin({
+      preferredRole: "employee",
+      preferredEmployee: ""
+    });
+    return false;
   }
 
+  closeSessionLogin();
+  reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
+
+  if (showStartupMessage) {
+    showMessage("Medewerker geladen.", "success");
+  }
+
+  return true;
+}
+
+function restoreSessionState({
+  resetToDefaultTab = true,
+  resetWeekToCurrent = true
+} = {}) {
+  const restoredSession = buildSessionSnapshot();
+  const employeeSessionExpired = hasRememberedUserSession() &&
+    restoredSession.role === "employee" &&
+    !restoredSession.isAuthenticated;
+  applySessionSnapshot(restoredSession, { persist: !restoredSession.isAuthenticated });
+
+  if (!restoredSession.isAuthenticated) {
+    resetScopedEmployeeSelectors();
+    render();
+    openSessionLogin({
+      preferredRole: restoredSession.role,
+      preferredEmployee: restoredSession.employeeIdentity
+    });
+
+    if (employeeSessionExpired) {
+      showMessage("De medewerker is niet meer actief of niet meer beschikbaar. Log opnieuw in.", "warning");
+    }
+
+    return false;
+  }
+
+  closeSessionLogin();
   reloadForLoggedInUser({
-    resetToDefaultTab: true,
-    resetWeekToCurrent: true
+    resetToDefaultTab,
+    resetWeekToCurrent
   });
+  return true;
 }
 
-async function handleClerkUnauthenticatedState() {
-  resetAuthenticatedEmployeeContext();
-  updateLoginOverlayMode("clerk");
+function logoutCurrentSession({ showMessageAfterLogout = false } = {}) {
+  applySessionSnapshot({
+    isAuthenticated: false,
+    role: sessionState.role,
+    employeeIdentity: ""
+  }, { persist: true });
+  resetScopedEmployeeSelectors();
+  activeTab = getDefaultTabForCurrentRole();
+  syncStartWeekToCurrent();
   render();
-  openLoginOverlay();
-  await mountClerkSignInIfNeeded();
-}
+  openSessionLogin({
+    preferredRole: sessionState.role,
+    preferredEmployee: ""
+  });
 
-async function beginClerkSignIn() {
-  if (!clerkAuthState.enabled || !clerkAuthState.clerk) {
-    showClerkAuthMessage("Clerk login is nog niet beschikbaar.", "error");
-    return;
-  }
-
-  try {
-    openLoginOverlay();
-    updateLoginOverlayMode("clerk");
-    showClerkAuthMessage("Log in met je e-mailadres en wachtwoord.", "info");
-    await mountClerkSignInIfNeeded();
-
-    const firstInteractiveField = clerkSignInMount?.querySelector('input, button, [tabindex]:not([tabindex="-1"])');
-    if (firstInteractiveField && typeof firstInteractiveField.focus === "function") {
-      firstInteractiveField.focus();
-    }
-  } catch (error) {
-    showClerkAuthMessage(getClerkAuthErrorMessage(error), "error");
-  }
-}
-
-async function signOutAuthenticatedUser() {
-  if (clerkAuthState.enabled && clerkAuthState.clerk && typeof clerkAuthState.clerk.signOut === "function") {
-    try {
-      await clerkAuthState.clerk.signOut();
-    } catch (error) {
-      showError(getClerkAuthErrorMessage(error, "Uitloggen is niet gelukt."));
-      return;
-    }
-  }
-
-  unmountClerkSignInIfNeeded();
-  await handleClerkUnauthenticatedState();
-}
-
-async function initializeClerkAuthentication() {
-  if (clerkAuthState.initializing) {
-    return;
-  }
-
-  clerkAuthState.initializing = true;
-  render();
-  openLoginOverlay();
-  showClerkAuthMessage("Inloggen laden...");
-
-  try {
-    const { publishableKey, hasPublishableKey } = await fetchClerkConfig();
-
-    if (!publishableKey) {
-      throw new Error("Clerk is nog niet geconfigureerd.");
-    }
-
-    const ClerkConstructor = await loadClerkConstructor();
-
-    if (typeof ClerkConstructor !== "function") {
-      throw new Error("Clerk kon niet worden geladen.");
-    }
-
-    await ensureClerkUiBundleLoaded(publishableKey);
-
-    const clerk = new ClerkConstructor(publishableKey);
-    await clerk.load({
-      ui: { ClerkUI: window.__internal_ClerkUICtor }
-    });
-    console.info("[clerk] runtime geladen:", clerk ? "ja" : "nee");
-    console.info("[clerk] provider geladen:", "n.v.t. (vanilla javascript)");
-    console.info("[clerk] VITE_CLERK_PUBLISHABLE_KEY aanwezig:", hasPublishableKey ? "ja" : "nee");
-    clerkAuthState.enabled = true;
-    clerkAuthState.ready = true;
-    clerkAuthState.clerk = clerk;
-    clerkAuthState.publishableKey = publishableKey;
-
-    if (typeof clerk.addListener === "function") {
-      clerk.addListener(({ user }) => {
-        const resolvedUser = user || clerk.user || null;
-
-        if (resolvedUser) {
-          syncClerkAuthenticatedUser(resolvedUser).catch((error) => {
-            console.error("Clerk synchronisatie mislukt.", error);
-            clerk.signOut?.().catch(() => {});
-            openLoginOverlay();
-            mountClerkSignInIfNeeded().catch(() => {});
-            showClerkAuthMessage(getClerkAuthErrorMessage(error), "error");
-          });
-        } else {
-          handleClerkUnauthenticatedState().catch((error) => {
-            console.error("Clerk uitlogstatus mislukt.", error);
-            showClerkAuthMessage(getClerkAuthErrorMessage(error), "error");
-          });
-        }
-      });
-    }
-
-    if (clerk.user) {
-      try {
-        await syncClerkAuthenticatedUser(clerk.user);
-      } catch (error) {
-        await clerk.signOut?.().catch(() => {});
-        render();
-        openLoginOverlay();
-        await mountClerkSignInIfNeeded();
-        showClerkAuthMessage(getClerkAuthErrorMessage(error), "error");
-      }
-      return;
-    }
-
-    render();
-    openLoginOverlay();
-    await mountClerkSignInIfNeeded();
-  } catch (error) {
-    clerkAuthState.ready = true;
-    clerkAuthState.enabled = false;
-    clerkAuthState.error = getClerkAuthErrorMessage(error);
-    render();
-    openLoginOverlay();
-    showClerkAuthMessage(clerkAuthState.error, "error");
-  } finally {
-    clerkAuthState.initializing = false;
+  if (showMessageAfterLogout) {
+    showMessage("Uitgelogd.", "success");
   }
 }
 
@@ -1798,26 +913,15 @@ function getPlanningEntries() {
 }
 
 function getPlanningEntrySlotKey(entry) {
-  return [
-    entry?.day || "",
-    getShiftName(entry).toLowerCase(),
-    entry?.startTime || "",
-    entry?.endTime || ""
-  ].join("__");
+  return getPlanningEntrySlotKeyHelper(entry, {
+    getShiftName
+  });
 }
 
 function mergePlanningEntries(sourceEntries = entries, fallbackEntries = entries) {
-  const mergedEntries = new Map();
-
-  fallbackEntries.forEach((entry) => {
-    mergedEntries.set(getPlanningEntrySlotKey(entry), entry);
+  return mergePlanningEntriesHelper(sourceEntries, fallbackEntries, {
+    getShiftName
   });
-
-  sourceEntries.forEach((entry) => {
-    mergedEntries.set(getPlanningEntrySlotKey(entry), entry);
-  });
-
-  return [...mergedEntries.values()];
 }
 
 function loadTimeOffRequests() {
@@ -2000,93 +1104,90 @@ function saveWorkLogs() {
   safeSetStorageItem(getScopedStorageKey(workLogStorageKey), JSON.stringify(workLogs), "urenregistratie");
 }
 
-function formatDateTime(value) {
-  return new Intl.DateTimeFormat("nl-NL", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(new Date(value));
-}
-
-function getNowIsoString() {
-  return new Date().toISOString();
-}
-
-function getCurrentRoundedTimeValue(stepMinutes = 5) {
-  const now = new Date();
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
-  const roundedMinutes = Math.floor(minutes / stepMinutes) * stepMinutes;
-  return `${String(hours).padStart(2, "0")}:${String(roundedMinutes).padStart(2, "0")}`;
-}
-
-function getTodayLocalDateValue() {
-  const now = new Date();
-  const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
-  return localDate.toISOString().slice(0, 10);
-}
-
-function isIsoOlderThanHours(value, hours = 48) {
-  if (!value) {
-    return false;
+const {
+  formatDateTime = function fallbackFormatDateTime(value) {
+    return new Intl.DateTimeFormat("nl-NL", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    }).format(new Date(value));
   }
+} = window.StroetFormatUtils || {};
 
-  const parsedDate = new Date(value);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return false;
-  }
-
-  return (Date.now() - parsedDate.getTime()) >= (hours * 60 * 60 * 1000);
-}
-
-function isFutureDateValue(dateValue) {
-  if (!dateValue) {
-    return false;
-  }
-
-  return dateValue > getTodayLocalDateValue();
-}
-
-function getFiveMinuteTimeValues() {
-  const values = [];
-
-  for (let hour = 0; hour < 24; hour += 1) {
-    for (let minute = 0; minute < 60; minute += 5) {
-      values.push(`${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
+const {
+  getNowIsoString = function fallbackGetNowIsoString() {
+    return new Date().toISOString();
+  },
+  getCurrentRoundedTimeValue = function fallbackGetCurrentRoundedTimeValue(stepMinutes = 5) {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const roundedMinutes = Math.floor(minutes / stepMinutes) * stepMinutes;
+    return `${String(hours).padStart(2, "0")}:${String(roundedMinutes).padStart(2, "0")}`;
+  },
+  getTodayLocalDateValue = function fallbackGetTodayLocalDateValue() {
+    const now = new Date();
+    const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
+    return localDate.toISOString().slice(0, 10);
+  },
+  isIsoOlderThanHours = function fallbackIsIsoOlderThanHours(value, hours = 48) {
+    if (!value) {
+      return false;
     }
-  }
 
-  return values;
-}
+    const parsedDate = new Date(value);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return false;
+    }
+
+    return (Date.now() - parsedDate.getTime()) >= (hours * 60 * 60 * 1000);
+  },
+  isFutureDateValue = function fallbackIsFutureDateValue(dateValue) {
+    if (!dateValue) {
+      return false;
+    }
+
+    return dateValue > getTodayLocalDateValue();
+  },
+  getFiveMinuteTimeValues = function fallbackGetFiveMinuteTimeValues() {
+    const values = [];
+
+    for (let hour = 0; hour < 24; hour += 1) {
+      for (let minute = 0; minute < 60; minute += 5) {
+        values.push(`${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
+      }
+    }
+
+    return values;
+  },
+  buildTimeSelectOptions = function fallbackBuildTimeSelectOptions(selectedValue) {
+    const normalizedValue = selectedValue && fiveMinuteTimeValues.includes(selectedValue)
+      ? selectedValue
+      : "";
+
+    const placeholder = `<option value="" ${normalizedValue === "" ? "selected" : ""}>Kies tijd</option>`;
+    const options = fiveMinuteTimeValues
+      .map((value) => `<option value="${value}" ${value === normalizedValue ? "selected" : ""}>${value}</option>`)
+      .join("");
+
+    return `${placeholder}${options}`;
+  },
+  buildBreakSelectOptions = function fallbackBuildBreakSelectOptions(selectedValue = 0) {
+    const normalizedValue = Math.max(0, Number(selectedValue) || 0);
+    const options = [];
+
+    for (let minutes = 0; minutes <= 240; minutes += 5) {
+      options.push(`<option value="${minutes}" ${minutes === normalizedValue ? "selected" : ""}>${minutes} min</option>`);
+    }
+
+    return options.join("");
+  }
+} = window.StroetDateUtils || {};
 
 const fiveMinuteTimeValues = getFiveMinuteTimeValues();
-
-function buildTimeSelectOptions(selectedValue) {
-  const normalizedValue = selectedValue && fiveMinuteTimeValues.includes(selectedValue)
-    ? selectedValue
-    : "";
-
-  const placeholder = `<option value="" ${normalizedValue === "" ? "selected" : ""}>Kies tijd</option>`;
-  const options = fiveMinuteTimeValues
-    .map((value) => `<option value="${value}" ${value === normalizedValue ? "selected" : ""}>${value}</option>`)
-    .join("");
-
-  return `${placeholder}${options}`;
-}
-
-function buildBreakSelectOptions(selectedValue = 0) {
-  const normalizedValue = Math.max(0, Number(selectedValue) || 0);
-  const options = [];
-
-  for (let minutes = 0; minutes <= 240; minutes += 5) {
-    options.push(`<option value="${minutes}" ${minutes === normalizedValue ? "selected" : ""}>${minutes} min</option>`);
-  }
-
-  return options.join("");
-}
 
 function getDefaultLastWorkLogTimes() {
   return {
@@ -2142,7 +1243,7 @@ function getWorkLogQuickPresets(field, currentValue = "") {
 
     if (matchingPreset) {
       matchingPreset.isLastUsed = true;
-    matchingPreset.label = `${matchingPreset.label} Â· laatst`;
+    matchingPreset.label = `${matchingPreset.label} · laatst`;
     } else {
       items.unshift({
         value: lastValue,
@@ -2182,119 +1283,118 @@ function buildWorkLogQuickButtons(workLogId, field, currentValue = "", disabled 
 }
 
 function loadEmployees() {
-  return getEmployeesForMode(currentDataMode);
+  const savedEmployees = localStorage.getItem(getScopedStorageKey(employeeStorageKey));
+
+  if (!savedEmployees) {
+    return [];
+  }
+
+  try {
+    const parsedEmployees = JSON.parse(savedEmployees);
+
+    if (!Array.isArray(parsedEmployees)) {
+      return [];
+    }
+
+    return [...new Set(
+      parsedEmployees
+        .filter((employee) => typeof employee === "string" && employee.trim() !== "")
+        .map((employee) => employee.trim())
+    )].sort((nameA, nameB) => nameA.localeCompare(nameB, "nl"));
+  } catch {
+    return [];
+  }
 }
 
 function saveEmployees() {
-  const normalizedEmployees = sanitizeEmployeesForStorage(employees);
-  const storageKeyName = getScopedStorageKey(employeeStorageKey);
-  const serializedEmployees = JSON.stringify(normalizedEmployees);
+  replaceArrayContents(employees, sanitizeEmployeesForStorage(employees));
+  safeSetStorageItem(getScopedStorageKey(employeeStorageKey), JSON.stringify(employees), "medewerkers");
+}
 
-  replaceArrayContents(employees, normalizedEmployees);
+const {
+  formatEmployeeStatusImpact = function fallbackFormatEmployeeStatusImpact(status) {
+    if (status === "inactive") {
+      return "Inactief: blijft zichtbaar in historische gegevens, maar verdwijnt uit nieuwe planning, standaard keuzelijsten, aanvragen en medewerker-login.";
+    }
 
-  if (!safeSetStorageItem(storageKeyName, serializedEmployees, "medewerkers")) {
-    return false;
+    if (status === "former") {
+      return "Uit dienst: alle oude roosters, uren, aanvragen en goedkeuringen blijven bewaard. De medewerker verdwijnt uit nieuwe planning, standaard keuzelijsten en login.";
+    }
+
+    return "Actief: zichtbaar in standaard keuzelijsten en beschikbaar voor planning, aanvragen en medewerker-login.";
+  },
+  getConfiguredEmployeeContractHours = function fallbackGetConfiguredEmployeeContractHours() {
+    return {
+      "Ronny": 38,
+      "Richard H": 38,
+      "Richard R": 38,
+      "Lindsey": 38,
+      "Marnix": 38,
+      "Luna": 32,
+      "Monique": 30,
+      "Saskia": 28,
+      "Gerry": 16,
+      "Wendy": 28
+    };
+  },
+  getDefaultEmployeeAppRole = function fallbackGetDefaultEmployeeAppRole(employeeName) {
+    return ["Chantal", "Twan"].includes(employeeName) ? "planner" : "employee";
+  },
+  getEmployeeStatusClass = function fallbackGetEmployeeStatusClass(status) {
+    if (status === "inactive") {
+      return "is-inactive";
+    }
+
+    if (status === "former") {
+      return "is-former";
+    }
+
+    return "is-active";
+  },
+  getEmployeeStatusLabel = function fallbackGetEmployeeStatusLabel(status) {
+    if (status === "inactive") {
+      return "Inactief";
+    }
+
+    if (status === "former") {
+      return "Uit dienst";
+    }
+
+    return "Actief";
+  },
+  getEmployeeStatusMetaDefaults = function fallbackGetEmployeeStatusMetaDefaults() {
+    return {
+      status: "active",
+      role: "employee",
+      contractHours: 0,
+      email: "",
+      mailTestUser: false,
+      lastTestMailAt: "",
+      lastTestMailStatus: "",
+      lastTestMailMessage: "",
+      updatedAt: "",
+      updatedByRole: "",
+      updatedByName: ""
+    };
+  },
+  isValidEmployeeEmail = function fallbackIsValidEmployeeEmail(email) {
+    const normalizedEmail = normalizeEmployeeEmail(email);
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
+  },
+  normalizeContractHours = function fallbackNormalizeContractHours(value) {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) && numericValue >= 0 ? Math.round(numericValue * 10) / 10 : 0;
+  },
+  normalizeEmployeeAppRole = function fallbackNormalizeEmployeeAppRole(value) {
+    return value === "planner" ? "planner" : "employee";
+  },
+  normalizeEmployeeEmail = function fallbackNormalizeEmployeeEmail(value) {
+    return typeof value === "string" ? value.trim() : "";
+  },
+  normalizeEmployeeStatus = function fallbackNormalizeEmployeeStatus(value) {
+    return ["active", "inactive", "former"].includes(value) ? value : "active";
   }
-
-  const persistedEmployees = getNormalizedEmployeeListCandidate(
-    getStoredJsonValue(localStorage, storageKeyName) ?? getStoredJsonValue(sessionStorage, storageKeyName)
-  );
-
-  if (JSON.stringify(persistedEmployees) !== JSON.stringify(normalizedEmployees)) {
-    reportAppError("Medewerkergegevens konden niet betrouwbaar worden opgeslagen.", new Error("employees-readback-mismatch"), "save:employees");
-    return false;
-  }
-
-  updateEmployeePersistenceState({
-    source: "primary",
-    loadedCount: persistedEmployees.length,
-    savedCount: persistedEmployees.length,
-    twanFound: Boolean(findEmployeeByEmail(twanLoginEmail))
-  });
-
-  console.info("[employee-persist] employees saved count:", persistedEmployees.length);
-  saveEmployeeEmergencyBackup("Medewerkergegevens opgeslagen");
-  return true;
-}
-
-function getEmployeeStatusMetaDefaults() {
-  return {
-    status: "active",
-    role: "employee",
-    contractHours: 0,
-    email: "",
-    loginAllowed: true,
-    mailTestUser: false,
-    lastTestMailAt: "",
-    lastTestMailStatus: "",
-    lastTestMailMessage: "",
-    updatedAt: "",
-    updatedByRole: "",
-    updatedByName: ""
-  };
-}
-
-function ensureEmergencyDirectorAccessRecord() {
-  const existingEmployeeName = findEmployeeByEmail(emergencyDirectorSetupEmail);
-  const employeeName = existingEmployeeName || emergencyDirectorSetupName;
-  let changed = false;
-
-  if (!employees.includes(employeeName)) {
-    employees.push(employeeName);
-    employees.sort((nameA, nameB) => nameA.localeCompare(nameB, "nl"));
-    changed = true;
-  }
-
-  const nextMeta = {
-    ...getEmployeeStatusMetaDefaults(),
-    ...employeeMeta[employeeName],
-    email: emergencyDirectorSetupEmail,
-    role: "directie",
-    status: "active",
-    loginAllowed: true,
-    updatedAt: employeeMeta?.[employeeName]?.updatedAt || getNowIsoString(),
-    updatedByRole: employeeMeta?.[employeeName]?.updatedByRole || "planner",
-    updatedByName: employeeMeta?.[employeeName]?.updatedByName || "Setup"
-  };
-
-  const previousMeta = employeeMeta[employeeName];
-  if (JSON.stringify(previousMeta || {}) !== JSON.stringify(nextMeta)) {
-    employeeMeta[employeeName] = nextMeta;
-    changed = true;
-  }
-
-  if (changed) {
-    saveEmployees();
-    saveEmployeeMeta();
-    saveEmployeeEmergencyBackup("Directie-account hersteld");
-    refreshEmployeePersistenceDebugState();
-  }
-
-  return employeeName;
-}
-
-function normalizeEmployeeAppRole(value) {
-  return value === "planner" || value === "directie" ? "planner" : "employee";
-}
-
-function getDefaultEmployeeAppRole(employeeName) {
-  return ["Chantal", "Twan"].includes(employeeName) ? "planner" : "employee";
-}
-
-function getConfiguredEmployeeContractHours() {
-  return {
-    "Ronny": 38,
-    "Richard H": 38,
-    "Richard R": 38,
-    "Lindsey": 38,
-    "Marnix": 38,
-    "Luna": 32,
-    "Monique": 30,
-    "Saskia": 28,
-    "Gerry": 16,
-    "Wendy": 28
-  };
-}
+} = window.StroetEmployeesFeature || {};
 
 function getBakeryContractEmployeeNames() {
   return ["Ronny", "Richard H", "Richard R", "Lindsey", "Marnix"]
@@ -2306,29 +1406,7 @@ function hasFixedContractHours(employeeName) {
 }
 
 function getEmployeeContractTypeLabel(employeeName) {
-  const contractHours = getEmployeeContractHours(employeeName);
-  return contractHours > 0
-    ? `Vast contract ${formatHours(contractHours)}`
-    : "0-uren contract";
-}
-
-function normalizeContractHours(value) {
-  const numericValue = Number(value);
-  return Number.isFinite(numericValue) && numericValue >= 0 ? Math.round(numericValue * 10) / 10 : 0;
-}
-
-function normalizeEmployeeStatus(value) {
-  return ["active", "inactive", "former"].includes(value) ? value : "active";
-}
-
-function normalizeEmployeeEmail(value) {
-  const emailValue = typeof value === "string" ? value.trim() : "";
-  return emailValue;
-}
-
-function isValidEmployeeEmail(email) {
-  const normalizedEmail = normalizeEmployeeEmail(email);
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
+  return getEmployeeContractTypeLabelHelper(getEmployeeContractHours, formatHours, employeeName);
 }
 
 function findEmployeeByEmail(email, excludedEmployeeName = "") {
@@ -2347,15 +1425,145 @@ function findEmployeeByEmail(email, excludedEmployeeName = "") {
   }) || "";
 }
 
-function normalizeMailSenderName(value) {
-  return typeof value === "string" ? value.trim() : "";
-}
+const {
+  buildEmailTemplate = function fallbackBuildEmailTemplate() {
+    return {
+      subject: "Update",
+      message: "Er is een update."
+    };
+  },
+  getAppMailQueuedMessage: getAppMailQueuedMessageHelper = function fallbackGetAppMailQueuedMessage(options = {}) {
+    const {
+      appMailTestModeEnabled = false,
+      fixedTestRecipient = "",
+      isReminder = false
+    } = options;
 
-function sanitizeRequestMailLog(mailLog = []) {
-  return Array.isArray(mailLog)
-    ? mailLog
-      .filter((item) => item && typeof item.type === "string" && typeof item.at === "string")
-      .map((item) => ({
+    if (appMailTestModeEnabled) {
+      return isReminder
+        ? `Herinnering wordt verzonden naar ${fixedTestRecipient} (testmodus)`
+        : `Mail wordt verzonden naar ${fixedTestRecipient} (testmodus)`;
+    }
+
+    return isReminder ? "Herinnering wordt verzonden." : "Mail wordt verzonden.";
+  },
+  getAppMailSentMessage: getAppMailSentMessageHelper = function fallbackGetAppMailSentMessage(options = {}) {
+    const { appMailTestModeEnabled = false, fixedTestRecipient = "" } = options;
+    return appMailTestModeEnabled
+      ? `Mail verzonden naar ${fixedTestRecipient} (testmodus)`
+      : "Mail verzonden";
+  },
+  getDefaultMailDigestState = function fallbackGetDefaultMailDigestState() {
+    return {
+      plannerSummary: "",
+      plannerOpenRequestsEmail: "",
+      plannerOverdueRequestsEmail: "",
+      plannerPendingHoursEmail: "",
+      plannerOverdueHoursEmail: "",
+      employeeMissingHours: {},
+      employeeMissingHoursEmail: {}
+    };
+  },
+  getMailDeliveryPrefix: getMailDeliveryPrefixHelper = function fallbackGetMailDeliveryPrefix(type, status, options = {}) {
+    const isReminder = type === "reminder";
+
+    if (status === "queued") {
+      return getAppMailQueuedMessageHelper({
+        ...options,
+        isReminder
+      });
+    }
+
+    if (status === "sent") {
+      return isReminder
+        ? `Herinnering verzonden naar ${options.fixedTestRecipient || ""} (testmodus)`
+        : getAppMailSentMessageHelper(options);
+    }
+
+    return isReminder
+      ? `Herinnering verzonden naar ${options.fixedTestRecipient || ""} (testmodus)`
+      : getAppMailSentMessageHelper(options);
+  },
+  getMailSettingsDefaults: getMailSettingsDefaultsHelper = function fallbackGetMailSettingsDefaults(testRecipientEmail = "") {
+    return {
+      senderName: "Bakkerij Stroet",
+      senderEmail: "",
+      testRecipientEmail,
+      updatedAt: "",
+      updatedByRole: "",
+      updatedByName: ""
+    };
+  },
+  getSwapMailSubject = function fallbackGetSwapMailSubject(type) {
+    return buildEmailTemplate(getSwapMailTemplateKey(type)).subject;
+  },
+  getSwapMailTemplateKey = function fallbackGetSwapMailTemplateKey(type) {
+    const templateMap = {
+      submitted: "swapSubmitted",
+      "request-created": "swapRequestCreated",
+      "auto-approved": "swapAutoApproved",
+      approved: "swapApproved",
+      rejected: "swapRejected",
+      "planner-help": "swapPlannerHelp",
+      reminder: "swapReminder"
+    };
+
+    return templateMap[type] || "swapSubmitted";
+  },
+  getSwapMailTemplateText = function fallbackGetSwapMailTemplateText(type) {
+    return buildEmailTemplate(getSwapMailTemplateKey(type)).message;
+  },
+  getTestMailErrorMessage = function fallbackGetTestMailErrorMessage(errorText) {
+    const normalized = typeof errorText === "string" ? errorText.trim() : "";
+
+    if (!normalized) {
+      return "Mail verzenden mislukt.";
+    }
+
+    return normalized;
+  },
+  getTimeOffMailSubject = function fallbackGetTimeOffMailSubject(request, type) {
+    return buildEmailTemplate(getTimeOffMailTemplateKey(request, type)).subject;
+  },
+  getTimeOffMailTemplateKey = function fallbackGetTimeOffMailTemplateKey(request, type) {
+    const templateMap = {
+      submitted: "timeoffSubmitted",
+      approved: "timeoffApproved",
+      rejected: "timeoffRejected"
+    };
+
+    return templateMap[type] || "timeoffSubmitted";
+  },
+  getTimeOffMailTemplateText = function fallbackGetTimeOffMailTemplateText(request, type) {
+    return buildEmailTemplate(getTimeOffMailTemplateKey(request, type)).message;
+  },
+  getWorkLogMailTemplateKey = function fallbackGetWorkLogMailTemplateKey(type) {
+    const templateMap = {
+      approved: "worklogApproved",
+      rejected: "worklogRejected",
+      revision: "worklogRevision"
+    };
+
+    return templateMap[type] || "";
+  },
+  hasConfiguredMailSender: hasConfiguredMailSenderHelper = function fallbackHasConfiguredMailSender(mailSettingsValue, options = {}) {
+    const normalizeEmail = typeof options.normalizeEmployeeEmail === "function"
+      ? options.normalizeEmployeeEmail
+      : normalizeEmployeeEmail;
+    const normalizeSender = typeof options.normalizeMailSenderName === "function"
+      ? options.normalizeMailSenderName
+      : ((value) => typeof value === "string" ? value.trim() : "");
+
+    return Boolean(normalizeSender(mailSettingsValue?.senderName)) && Boolean(normalizeEmail(mailSettingsValue?.senderEmail));
+  },
+  normalizeMailSenderName = function fallbackNormalizeMailSenderName(value) {
+    return typeof value === "string" ? value.trim() : "";
+  },
+  sanitizeRequestMailLog = function fallbackSanitizeRequestMailLog(mailLog = []) {
+    return Array.isArray(mailLog)
+      ? mailLog
+        .filter((item) => item && typeof item.type === "string" && typeof item.at === "string")
+        .map((item) => ({
           type: item.type,
           at: item.at,
           periodKey: typeof item.periodKey === "string" ? item.periodKey : "",
@@ -2369,34 +1577,1821 @@ function sanitizeRequestMailLog(mailLog = []) {
               .filter((recipient) => recipient && typeof recipient.employeeName === "string")
               .map((recipient) => ({
                 employeeName: recipient.employeeName.trim(),
-              email: normalizeEmployeeEmail(recipient.email)
-            }))
-          : []
+                email: normalizeEmployeeEmail(recipient.email)
+              }))
+            : []
+        }))
+      : [];
+  }
+} = window.StroetMailFeature || {};
+
+const {
+  createAuditActorMeta = function fallbackCreateAuditActorMeta(options = {}) {
+    const {
+      isPlanner = false,
+      employeeName = "",
+      plannerName = "Planner / Directie",
+      employeeFallback = "Medewerker"
+    } = options;
+
+    return {
+      actorRole: isPlanner ? "planner" : "employee",
+      actorName: isPlanner
+        ? plannerName
+        : (typeof employeeName === "string" && employeeName ? employeeName : employeeFallback)
+    };
+  },
+  createBackupEntryId = function fallbackCreateBackupEntryId() {
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  },
+  getBackupEmptySummaryText = function fallbackGetBackupEmptySummaryText() {
+    return "Nog geen back-up beschikbaar.";
+  },
+  getBackupOptionLabel = function fallbackGetBackupOptionLabel(backup, options = {}) {
+    const formatDateTime = typeof options.formatDateTime === "function"
+      ? options.formatDateTime
+      : ((value) => String(value || ""));
+    return `${formatDateTime(backup.createdAt)} - ${backup.reason}`;
+  },
+  getBackupRestoreEmptyLabel = function fallbackGetBackupRestoreEmptyLabel() {
+    return "Kies herstelpunt";
+  },
+  getBackupSummaryText = function fallbackGetBackupSummaryText(history = [], options = {}) {
+    const formatDateTime = typeof options.formatDateTime === "function"
+      ? options.formatDateTime
+      : ((value) => String(value || ""));
+
+    if (!Array.isArray(history) || !history.length) {
+      return getBackupEmptySummaryText();
+    }
+
+    return `Laatste back-up: ${formatDateTime(history[0].createdAt)}. Totaal ${history.length} lokaal opgeslagen herstelpunt(en).`;
+  },
+  sanitizeAuditLog = function fallbackSanitizeAuditLog(log = []) {
+    return Array.isArray(log)
+      ? log
+        .filter((item) =>
+          item &&
+          typeof item.at === "string" &&
+          typeof item.scope === "string" &&
+          typeof item.action === "string"
+        )
+        .map((item) => ({
+          at: item.at,
+          scope: item.scope,
+          action: item.action,
+          actorRole: item.actorRole === "employee" ? "employee" : "planner",
+          actorName: typeof item.actorName === "string" ? item.actorName : "",
+          message: typeof item.message === "string" ? item.message : "",
+          details: item.details && typeof item.details === "object" ? item.details : {}
+        }))
+      : [];
+  },
+  sanitizeBackupHistory = function fallbackSanitizeBackupHistory(history = []) {
+    return Array.isArray(history)
+      ? history.filter((backup) =>
+        backup &&
+        typeof backup.id === "string" &&
+        typeof backup.createdAt === "string" &&
+        typeof backup.reason === "string" &&
+        backup.snapshot &&
+        typeof backup.snapshot === "object"
+      )
+      : [];
+  }
+} = window.StroetBackupFeature || {};
+
+const {
+  collectWeekValuesFromDetails: collectWeekValuesFromDetailsHelper = function fallbackCollectWeekValuesFromDetails(details = {}, options = {}) {
+    const getWeekValueFromDate = typeof options.getWeekValueFromDate === "function"
+      ? options.getWeekValueFromDate
+      : ((dateValue) => String(dateValue || ""));
+    const weekValues = new Set();
+
+    if (details.weekValue && /^\d{4}-W\d{2}$/.test(String(details.weekValue))) {
+      weekValues.add(String(details.weekValue));
+    }
+
+    if (details.targetWeek && /^\d{4}-W\d{2}$/.test(String(details.targetWeek))) {
+      weekValues.add(String(details.targetWeek));
+    }
+
+    if (details.sourceWeek && /^\d{4}-W\d{2}$/.test(String(details.sourceWeek))) {
+      weekValues.add(String(details.sourceWeek));
+    }
+
+    [details.day, details.date].forEach((dateValue) => {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(String(dateValue || ""))) {
+        weekValues.add(getWeekValueFromDate(String(dateValue)));
+      }
+    });
+
+    if (Array.isArray(details.dates)) {
+      details.dates.forEach((dateValue) => {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(String(dateValue || ""))) {
+          weekValues.add(getWeekValueFromDate(String(dateValue)));
+        }
+      });
+    }
+
+    return [...weekValues].filter(Boolean);
+  },
+  formatWeekLabel: formatWeekLabelHelper = function fallbackFormatWeekLabel(weekValue) {
+    return String(weekValue || "").replace("-W", " week ");
+  },
+  getIsoWeekCountForYear: getIsoWeekCountForYearHelper = function fallbackGetIsoWeekCountForYear(year, options = {}) {
+    const getWeekValueFromDate = typeof options.getWeekValueFromDate === "function"
+      ? options.getWeekValueFromDate
+      : ((dateValue) => String(dateValue || ""));
+    const referenceDate = `${year}-12-28`;
+    return Number(getWeekValueFromDate(referenceDate).split("-W")[1]) || 52;
+  },
+  getPlanningEntrySlotKey: getPlanningEntrySlotKeyHelper = function fallbackGetPlanningEntrySlotKey(entry, options = {}) {
+    const getShiftName = typeof options.getShiftName === "function"
+      ? options.getShiftName
+      : ((value) => value?.shiftName || value?.entryType || "");
+
+    return [
+      entry?.day || "",
+      String(getShiftName(entry) || "").toLowerCase(),
+      entry?.startTime || "",
+      entry?.endTime || ""
+    ].join("__");
+  },
+  getWeekDistanceFromReference: getWeekDistanceFromReferenceHelper = function fallbackGetWeekDistanceFromReference(entryWeekValue, referenceWeekValue, options = {}) {
+    const getDateFromWeekValue = typeof options.getDateFromWeekValue === "function"
+      ? options.getDateFromWeekValue
+      : (() => new Date(NaN));
+
+    if (!entryWeekValue || !referenceWeekValue) {
+      return Number.MAX_SAFE_INTEGER;
+    }
+
+    const entryDate = getDateFromWeekValue(entryWeekValue);
+    const referenceDate = getDateFromWeekValue(referenceWeekValue);
+    return Math.round((referenceDate - entryDate) / (7 * 24 * 60 * 60 * 1000));
+  },
+  getWeekReviewStatusMeta: getWeekReviewStatusMetaHelper = function fallbackGetWeekReviewStatusMeta(status) {
+    const normalizedStatus = status === "reviewed"
+      ? "locked"
+      : (["open", "in-review", "locked"].includes(String(status || "")) ? String(status) : "open");
+
+    switch (normalizedStatus) {
+      case "locked":
+        return {
+          key: "locked",
+          label: "Vastgezet",
+          className: "is-locked"
+        };
+      case "in-review":
+        return {
+          key: "in-review",
+          label: "In controle",
+          className: "is-review"
+        };
+      default:
+        return {
+          key: "open",
+          label: "Open",
+          className: "is-open"
+        };
+    }
+  },
+  getWeekYear: getWeekYearHelper = function fallbackGetWeekYear(weekValue) {
+    return Number(String(weekValue || "").split("-W")[0]) || new Date().getFullYear();
+  },
+  mergePlanningEntries: mergePlanningEntriesHelper = function fallbackMergePlanningEntries(sourceEntries = [], fallbackEntries = [], options = {}) {
+    const mergedEntries = new Map();
+    (Array.isArray(fallbackEntries) ? fallbackEntries : []).forEach((entry) => {
+      mergedEntries.set(getPlanningEntrySlotKeyHelper(entry, options), entry);
+    });
+    (Array.isArray(sourceEntries) ? sourceEntries : []).forEach((entry) => {
+      mergedEntries.set(getPlanningEntrySlotKeyHelper(entry, options), entry);
+    });
+    return [...mergedEntries.values()];
+  },
+  normalizeWeekPlanningStatus: normalizeWeekPlanningStatusHelper = function fallbackNormalizeWeekPlanningStatus(status) {
+    return ["open", "planned"].includes(String(status || ""))
+      ? String(status)
+      : "open";
+  },
+  normalizeWeekReviewStatus: normalizeWeekReviewStatusHelper = function fallbackNormalizeWeekReviewStatus(status) {
+    if (status === "reviewed") {
+      return "locked";
+    }
+
+    return ["open", "in-review", "locked"].includes(String(status || ""))
+      ? String(status)
+      : "open";
+  }
+} = window.StroetPlanningCoreFeature || {};
+
+const {
+  getDayPlannerShifts: getDayPlannerShiftsHelper = function fallbackGetDayPlannerShifts(dateValue, options = {}) {
+    const isClosed = typeof options.isClosedPlannerDay === "function"
+      ? options.isClosedPlannerDay
+      : (() => false);
+    const shifts = Array.isArray(options.shifts) ? options.shifts : [];
+    const getDateSpecificShifts = typeof options.getDateSpecificShifts === "function"
+      ? options.getDateSpecificShifts
+      : (() => []);
+
+    if (!dateValue) {
+      return [];
+    }
+
+    if (isClosed(dateValue)) {
+      return [];
+    }
+
+    return [
+      ...shifts,
+      ...getDateSpecificShifts(dateValue)
+    ].sort((shiftA, shiftB) => shiftA.startTime.localeCompare(shiftB.startTime) || shiftA.name.localeCompare(shiftB.name, "nl"));
+  },
+  getDayPlanningMessage: getDayPlanningMessageHelper = function fallbackGetDayPlanningMessage(day, options = {}) {
+    const getRecognizedSpecialDayInfo = typeof options.getRecognizedSpecialDayInfo === "function"
+      ? options.getRecognizedSpecialDayInfo
+      : (() => null);
+    const getRequiredDayPlannerShifts = typeof options.getRequiredDayPlannerShifts === "function"
+      ? options.getRequiredDayPlannerShifts
+      : (() => []);
+    const getEntryForShiftOnDate = typeof options.getEntryForShiftOnDate === "function"
+      ? options.getEntryForShiftOnDate
+      : (() => null);
+    const getSuitableEmployeesForShift = typeof options.getSuitableEmployeesForShift === "function"
+      ? options.getSuitableEmployeesForShift
+      : (() => []);
+    const sourceEntries = Array.isArray(options.sourceEntries) ? options.sourceEntries : [];
+
+    const specialDay = getRecognizedSpecialDayInfo(day);
+    const plannerShifts = getRequiredDayPlannerShifts(day);
+
+    if (!plannerShifts.length) {
+      return {
+        text: specialDay?.isClosed ? `Gesloten - ${specialDay.nameLabel}` : "Winkel gesloten",
+        type: "closed"
+      };
+    }
+
+    const openShifts = plannerShifts.filter((shift) => !getEntryForShiftOnDate(day, shift, sourceEntries));
+
+    if (!openShifts.length) {
+      return {
+        text: "Planning compleet",
+        type: "full"
+      };
+    }
+
+    const hasNoSuitableEmployee = openShifts.some((shift) =>
+      getSuitableEmployeesForShift(shift, day, shift.startTime, shift.endTime, null).length === 0
+    );
+
+    if (hasNoSuitableEmployee) {
+      return {
+        text: "Geen geschikte medewerker",
+        type: "warning"
+      };
+    }
+
+    return {
+      text: "Nog niet ingevuld",
+      type: "info"
+    };
+  },
+  getEntryForShiftOnDate: getEntryForShiftOnDateHelper = function fallbackGetEntryForShiftOnDate(dateValue, shift, sourceEntries = [], options = {}) {
+    const getShiftName = typeof options.getShiftName === "function"
+      ? options.getShiftName
+      : ((entry) => entry?.shiftName || "");
+
+    return (Array.isArray(sourceEntries) ? sourceEntries : []).find((entry) =>
+      entry.day === dateValue &&
+      getShiftName(entry).toLowerCase() === String(shift?.name || "").toLowerCase()
+    ) || null;
+  },
+  getRequiredDayPlannerShifts: getRequiredDayPlannerShiftsHelper = function fallbackGetRequiredDayPlannerShifts(dateValue, options = {}) {
+    const getDayPlannerShifts = typeof options.getDayPlannerShifts === "function"
+      ? options.getDayPlannerShifts
+      : (() => []);
+    const isOptionalShift = typeof options.isOptionalShift === "function"
+      ? options.isOptionalShift
+      : (() => false);
+
+    return getDayPlannerShifts(dateValue).filter((shift) => !isOptionalShift(shift));
+  },
+  isClosedPlannerDay: isClosedPlannerDayHelper = function fallbackIsClosedPlannerDay(dateValue, options = {}) {
+    const getRecognizedSpecialDayInfo = typeof options.getRecognizedSpecialDayInfo === "function"
+      ? options.getRecognizedSpecialDayInfo
+      : (() => null);
+
+    return Boolean(getRecognizedSpecialDayInfo(dateValue)?.isClosed);
+  }
+} = window.StroetDayPlannerFeature || {};
+
+const {
+  formatEmployeeWeekLabel: formatEmployeeWeekLabelHelper = function fallbackFormatEmployeeWeekLabel(weekValue, options = {}) {
+    const getWeekDates = typeof options.getWeekDates === "function"
+      ? options.getWeekDates
+      : (() => []);
+    const formatDate = typeof options.formatDate === "function"
+      ? options.formatDate
+      : ((value) => String(value || ""));
+    const weekDates = getWeekDates(weekValue);
+
+    if (!weekDates.length) {
+      return "";
+    }
+
+    return `Week ${String(weekValue || "").replace("-W", " - ")} · ${formatDate(weekDates[0])} - ${formatDate(weekDates[weekDates.length - 1])}`;
+  },
+  formatPlanningWeekPeriod: formatPlanningWeekPeriodHelper = function fallbackFormatPlanningWeekPeriod(weekValue, options = {}) {
+    const getWeekDates = typeof options.getWeekDates === "function"
+      ? options.getWeekDates
+      : (() => []);
+    const weekDates = getWeekDates(weekValue);
+    const startDate = weekDates[0];
+    const endDate = weekDates[6];
+
+    if (!startDate || !endDate) {
+      return "";
+    }
+
+    const formatter = new Intl.DateTimeFormat("nl-NL", {
+      day: "2-digit",
+      month: "2-digit"
+    });
+
+    return `${formatter.format(new Date(startDate))} t/m ${formatter.format(new Date(endDate))}`;
+  },
+  getDeviationOnlyEntries: getDeviationOnlyEntriesHelper = function fallbackGetDeviationOnlyEntries(visibleEntries, weekDates, options = {}) {
+    const hasMeaningfulPlannerDeviation = typeof options.hasMeaningfulPlannerDeviation === "function"
+      ? options.hasMeaningfulPlannerDeviation
+      : (() => false);
+
+    return visibleEntries.filter((entry) =>
+      weekDates.includes(entry.day) && hasMeaningfulPlannerDeviation(entry)
+    );
+  },
+  getDeviationReasonSummary: getDeviationReasonSummaryHelper = function fallbackGetDeviationReasonSummary(entry, options = {}) {
+    const getShiftForEntry = typeof options.getShiftForEntry === "function"
+      ? options.getShiftForEntry
+      : (() => null);
+    const getShiftName = typeof options.getShiftName === "function"
+      ? options.getShiftName
+      : ((value) => value?.shiftName || "");
+    const getWeekValueFromDate = typeof options.getWeekValueFromDate === "function"
+      ? options.getWeekValueFromDate
+      : (() => "");
+    const getEmployeePlanningPatternMatch = typeof options.getEmployeePlanningPatternMatch === "function"
+      ? options.getEmployeePlanningPatternMatch
+      : (() => ({ score: 0 }));
+    const reasons = [];
+    const shift = getShiftForEntry(entry) || {
+      id: entry.shiftId || entry.shiftName || "",
+      name: getShiftName(entry),
+      startTime: entry.startTime,
+      endTime: entry.endTime
+    };
+    const weekValue = getWeekValueFromDate(entry.day);
+    const patternMatch = getEmployeePlanningPatternMatch(entry.name, shift, entry.day, weekValue);
+    const autoReason = String(entry.autoFillReason || "");
+
+    if (entry.replacementFor) {
+      reasons.push("Vervanging nodig");
+    }
+
+    if (autoReason === "Afwijking voor contracturen" || autoReason === "Maandbalans contracturen" || autoReason === "Richting contracturen") {
+      reasons.push("Contracturen halen");
+    }
+
+    if (autoReason === "Feestdagplanning") {
+      reasons.push("Feestdagplanning");
+    }
+
+    if (autoReason === "Maandbalans zaterdag" || autoReason === "Eerlijke zaterdagverdeling") {
+      reasons.push("Zaterdagverdeling eerlijk houden");
+    }
+
+    if (autoReason === "Geen betere optie beschikbaar") {
+      reasons.push("Geen betere optie");
+    }
+
+    if (patternMatch.score >= 55) {
+      reasons.push("Afwijking van vast patroon");
+    }
+
+    return [...new Set(reasons)];
+  },
+  getPlanningOverviewStatus: getPlanningOverviewStatusHelper = function fallbackGetPlanningOverviewStatus(weekValue, weekEntries, openCount, options = {}) {
+    const getWeekReviewStatus = typeof options.getWeekReviewStatus === "function"
+      ? options.getWeekReviewStatus
+      : (() => "open");
+    const getWeekPlanningStatus = typeof options.getWeekPlanningStatus === "function"
+      ? options.getWeekPlanningStatus
+      : (() => "open");
+    const reviewStatus = getWeekReviewStatus(weekValue);
+    const planningStatus = getWeekPlanningStatus(weekValue);
+
+    if (reviewStatus === "locked") {
+      return {
+        key: "locked",
+        label: "Vastgezet",
+        className: "is-locked"
+      };
+    }
+
+    if (reviewStatus === "in-review") {
+      return {
+        key: "reviewed",
+        label: "Gecontroleerd",
+        className: "is-reviewed"
+      };
+    }
+
+    if (planningStatus === "planned" || weekEntries.length > 0 || openCount === 0) {
+      return {
+        key: "planned",
+        label: "Ingepland",
+        className: "is-planned"
+      };
+    }
+
+    return {
+      key: "open",
+      label: "Open",
+      className: "is-open"
+    };
+  },
+  hasMeaningfulPlannerDeviation: hasMeaningfulPlannerDeviationHelper = function fallbackHasMeaningfulPlannerDeviation(entry, options = {}) {
+    return getDeviationReasonSummaryHelper(entry, options).length > 0;
+  }
+} = window.StroetPlanningStatusFeature || {};
+
+const {
+  canEmployeeBeAutoAssigned: canEmployeeBeAutoAssignedHelper = function fallbackCanEmployeeBeAutoAssigned(employeeName, shift, day, sourceEntries, options = {}) {
+    const {
+      enforceSingleShiftPerDay = true,
+      isEmployeeAuthorizedForShift = () => true,
+      getApprovedTimeOff = () => null,
+      hasEmployeeAssignmentOnDay = () => false,
+      findConflictInSource = () => null
+    } = options;
+
+    if (!isEmployeeAuthorizedForShift(employeeName, shift.name)) {
+      return false;
+    }
+
+    if (getApprovedTimeOff(employeeName, day)) {
+      return false;
+    }
+
+    if (enforceSingleShiftPerDay && hasEmployeeAssignmentOnDay(employeeName, day, sourceEntries, shift.name)) {
+      return false;
+    }
+
+    return !findConflictInSource(sourceEntries, employeeName, day, shift.startTime, shift.endTime);
+  },
+  findConflictInSource: findConflictInSourceHelper = function fallbackFindConflictInSource(sourceEntries, name, day, startTime, endTime, options = {}) {
+    const timeToMinutes = typeof options.timeToMinutes === "function"
+      ? options.timeToMinutes
+      : (() => 0);
+    const newStart = timeToMinutes(startTime);
+    const newEnd = timeToMinutes(endTime);
+
+    return sourceEntries.find((entry) => {
+      if (entry.name !== name || entry.day !== day) {
+        return false;
+      }
+
+      const existingStart = timeToMinutes(entry.startTime);
+      const existingEnd = timeToMinutes(entry.endTime);
+      return newStart < existingEnd && newEnd > existingStart;
+    }) || null;
+  },
+  getCandidateMinPositivePreference: getCandidateMinPositivePreferenceHelper = function fallbackGetCandidateMinPositivePreference(candidates, shiftName, options = {}) {
+    const getEmployeeShiftPreference = typeof options.getEmployeeShiftPreference === "function"
+      ? options.getEmployeeShiftPreference
+      : (() => 0);
+    const positivePreferences = candidates
+      .map((employeeName) => getEmployeeShiftPreference(employeeName, shiftName))
+      .filter((value) => value > 0);
+
+    return positivePreferences.length ? Math.min(...positivePreferences) : 0;
+  },
+  getOpenReplacementItems: getOpenReplacementItemsHelper = function fallbackGetOpenReplacementItems(weekValue, options = {}) {
+    const getWeekDates = typeof options.getWeekDates === "function"
+      ? options.getWeekDates
+      : (() => []);
+    const getRequiredDayPlannerShifts = typeof options.getRequiredDayPlannerShifts === "function"
+      ? options.getRequiredDayPlannerShifts
+      : (() => []);
+    const isBakeryCoreShift = typeof options.isBakeryCoreShift === "function"
+      ? options.isBakeryCoreShift
+      : (() => false);
+    const getStandardShiftCoverageInfo = typeof options.getStandardShiftCoverageInfo === "function"
+      ? options.getStandardShiftCoverageInfo
+      : (() => ({ standardEmployee: "", isAbsent: false, reason: "" }));
+    const getEntryForShiftOnDate = typeof options.getEntryForShiftOnDate === "function"
+      ? options.getEntryForShiftOnDate
+      : (() => null);
+    const getSuitableEmployeesForShift = typeof options.getSuitableEmployeesForShift === "function"
+      ? options.getSuitableEmployeesForShift
+      : (() => []);
+
+    if (!weekValue) {
+      return [];
+    }
+
+    return getWeekDates(weekValue).flatMap((day) =>
+      getRequiredDayPlannerShifts(day)
+        .filter((shift) => isBakeryCoreShift(shift))
+        .map((shift) => {
+          const standardCoverage = getStandardShiftCoverageInfo(shift, day);
+
+          if (!standardCoverage.standardEmployee || !standardCoverage.isAbsent || getEntryForShiftOnDate(day, shift)) {
+            return null;
+          }
+
+          return {
+            day,
+            shift,
+            normalEmployee: standardCoverage.standardEmployee,
+            reason: standardCoverage.reason,
+            suitableEmployees: getSuitableEmployeesForShift(shift, day, shift.startTime, shift.endTime, null)
+          };
+        })
+        .filter(Boolean)
+    );
+  },
+  getStandardShiftCoverageInfo: getStandardShiftCoverageInfoHelper = function fallbackGetStandardShiftCoverageInfo(shift, day, sourceEntries = [], options = {}) {
+    const isBakeryCoreShift = typeof options.isBakeryCoreShift === "function"
+      ? options.isBakeryCoreShift
+      : (() => false);
+    const getPrimaryStandardEmployeeForShift = typeof options.getPrimaryStandardEmployeeForShift === "function"
+      ? options.getPrimaryStandardEmployeeForShift
+      : (() => "");
+    const getApprovedTimeOff = typeof options.getApprovedTimeOff === "function"
+      ? options.getApprovedTimeOff
+      : (() => null);
+    const getAbsenceTypeLabel = typeof options.getAbsenceTypeLabel === "function"
+      ? options.getAbsenceTypeLabel
+      : (() => "Afwezig");
+    const hasEmployeeAssignmentOnDay = typeof options.hasEmployeeAssignmentOnDay === "function"
+      ? options.hasEmployeeAssignmentOnDay
+      : (() => false);
+    const findConflictInSource = typeof options.findConflictInSource === "function"
+      ? options.findConflictInSource
+      : (() => null);
+    const standardEmployee = isBakeryCoreShift(shift) ? getPrimaryStandardEmployeeForShift(shift.name) : "";
+
+    if (!standardEmployee) {
+      return {
+        standardEmployee: "",
+        isAbsent: false,
+        reason: ""
+      };
+    }
+
+    if (getApprovedTimeOff(standardEmployee, day)) {
+      const absence = getApprovedTimeOff(standardEmployee, day);
+      return {
+        standardEmployee,
+        isAbsent: true,
+        reason: absence ? getAbsenceTypeLabel(absence.type).toLowerCase() : "afwezig"
+      };
+    }
+
+    if (hasEmployeeAssignmentOnDay(standardEmployee, day, sourceEntries, shift.name)) {
+      return {
+        standardEmployee,
+        isAbsent: true,
+        reason: "al elders ingepland"
+      };
+    }
+
+    if (findConflictInSource(sourceEntries, standardEmployee, day, shift.startTime, shift.endTime)) {
+      return {
+        standardEmployee,
+        isAbsent: true,
+        reason: "niet beschikbaar"
+      };
+    }
+
+    return {
+      standardEmployee,
+      isAbsent: false,
+      reason: ""
+    };
+  },
+  getSuitableEmployeesForShift: getSuitableEmployeesForShiftHelper = function fallbackGetSuitableEmployeesForShift(shift, day, startTime, endTime, ignoredIndex = null, options = {}) {
+    const getActiveEmployees = typeof options.getActiveEmployees === "function"
+      ? options.getActiveEmployees
+      : (() => []);
+    const isEmployeeAuthorizedForShift = typeof options.isEmployeeAuthorizedForShift === "function"
+      ? options.isEmployeeAuthorizedForShift
+      : (() => true);
+    const isEmployeeAvailableForShift = typeof options.isEmployeeAvailableForShift === "function"
+      ? options.isEmployeeAvailableForShift
+      : (() => true);
+
+    if (!shift) {
+      return getActiveEmployees();
+    }
+
+    return getActiveEmployees().filter((employeeName) =>
+      isEmployeeAuthorizedForShift(employeeName, shift.name) &&
+      isEmployeeAvailableForShift(
+        employeeName,
+        day,
+        shift.startTime || startTime,
+        shift.endTime || endTime,
+        ignoredIndex
+      )
+    );
+  },
+  getWeekReplacementItems: getWeekReplacementItemsHelper = function fallbackGetWeekReplacementItems(weekValue, options = {}) {
+    const getOpenReplacementItems = typeof options.getOpenReplacementItems === "function"
+      ? options.getOpenReplacementItems
+      : (() => []);
+    const entries = Array.isArray(options.entries) ? options.entries : [];
+    const getWeekValueFromDate = typeof options.getWeekValueFromDate === "function"
+      ? options.getWeekValueFromDate
+      : (() => "");
+    const getShiftName = typeof options.getShiftName === "function"
+      ? options.getShiftName
+      : ((entry) => entry?.shiftName || "");
+    const getShiftForEntry = typeof options.getShiftForEntry === "function"
+      ? options.getShiftForEntry
+      : (() => null);
+    const getSuitableEmployeesForShift = typeof options.getSuitableEmployeesForShift === "function"
+      ? options.getSuitableEmployeesForShift
+      : (() => []);
+
+    if (!weekValue) {
+      return [];
+    }
+
+    const openItems = getOpenReplacementItems(weekValue).map((item) => ({
+      day: item.day,
+      shiftId: item.shift.id,
+      shiftName: item.shift.name,
+      normalEmployee: item.normalEmployee,
+      replacementEmployee: "",
+      isOpen: true,
+      suitableEmployees: item.suitableEmployees
+    }));
+
+    const filledItems = entries
+      .filter((entry) =>
+        getWeekValueFromDate(entry.day) === weekValue &&
+        Boolean(entry.replacementFor)
+      )
+      .sort((entryA, entryB) =>
+        entryA.day.localeCompare(entryB.day) ||
+        entryA.startTime.localeCompare(entryB.startTime) ||
+        getShiftName(entryA).localeCompare(getShiftName(entryB), "nl")
+      )
+      .map((entry) => ({
+        day: entry.day,
+        shiftId: entry.shiftId || getShiftForEntry(entry)?.id || "",
+        shiftName: getShiftName(entry),
+        normalEmployee: entry.replacementFor,
+        replacementEmployee: entry.name,
+        isOpen: false,
+        suitableEmployees: getSuitableEmployeesForShift(
+          getShiftForEntry(entry),
+          entry.day,
+          entry.startTime,
+          entry.endTime,
+          entries.indexOf(entry)
+        )
+      }));
+
+    return [...openItems, ...filledItems].sort((itemA, itemB) =>
+      itemA.day.localeCompare(itemB.day) ||
+      itemA.shiftName.localeCompare(itemB.shiftName, "nl") ||
+      itemA.normalEmployee.localeCompare(itemB.normalEmployee, "nl")
+    );
+  }
+} = window.StroetPlanningAssignmentsFeature || {};
+
+const {
+  buildPlannerContractOverviewData: buildPlannerContractOverviewDataHelper = function fallbackBuildPlannerContractOverviewData(selectedWeek, visibleEntries, options = {}) {
+    const getWeekDates = typeof options.getWeekDates === "function"
+      ? options.getWeekDates
+      : (() => []);
+    const getTodayDateValue = typeof options.getTodayDateValue === "function"
+      ? options.getTodayDateValue
+      : (() => "");
+    const getMonthKeyFromDate = typeof options.getMonthKeyFromDate === "function"
+      ? options.getMonthKeyFromDate
+      : (() => "");
+    const getMonthlyRosterWorkdayCount = typeof options.getMonthlyRosterWorkdayCount === "function"
+      ? options.getMonthlyRosterWorkdayCount
+      : (() => 0);
+    const mergePlanningEntries = typeof options.mergePlanningEntries === "function"
+      ? options.mergePlanningEntries
+      : ((sourceEntries = [], fallbackEntries = []) => [...fallbackEntries, ...sourceEntries]);
+    const entries = Array.isArray(options.entries) ? options.entries : [];
+    const getEmployeesWithFavoritesFirst = typeof options.getEmployeesWithFavoritesFirst === "function"
+      ? options.getEmployeesWithFavoritesFirst
+      : ((employees) => employees);
+    const getActiveEmployees = typeof options.getActiveEmployees === "function"
+      ? options.getActiveEmployees
+      : (() => []);
+    const getEmployeeContractHours = typeof options.getEmployeeContractHours === "function"
+      ? options.getEmployeeContractHours
+      : (() => 0);
+    const getEmployeeWeekHours = typeof options.getEmployeeWeekHours === "function"
+      ? options.getEmployeeWeekHours
+      : (() => 0);
+    const getEmployeeMonthHours = typeof options.getEmployeeMonthHours === "function"
+      ? options.getEmployeeMonthHours
+      : (() => 0);
+    const employees = Array.isArray(options.employees) ? options.employees : [];
+    const getWeekdayNumberFromDate = typeof options.getWeekdayNumberFromDate === "function"
+      ? options.getWeekdayNumberFromDate
+      : (() => 0);
+    const getMonthlyWeekdayOccurrenceCount = typeof options.getMonthlyWeekdayOccurrenceCount === "function"
+      ? options.getMonthlyWeekdayOccurrenceCount
+      : (() => 0);
+    const formatHours = typeof options.formatHours === "function"
+      ? options.formatHours
+      : ((value) => String(value || 0));
+
+    const weekDates = getWeekDates(selectedWeek);
+    const monthReferenceDate = weekDates[5] || weekDates[0] || getTodayDateValue();
+    const monthKey = getMonthKeyFromDate(monthReferenceDate);
+    const monthlyRosterWorkdays = getMonthlyRosterWorkdayCount(monthReferenceDate);
+    const monthSourceEntries = mergePlanningEntries(visibleEntries, entries);
+    const contractEmployees = getEmployeesWithFavoritesFirst(getActiveEmployees())
+      .filter((employeeName) => getEmployeeContractHours(employeeName) > 0)
+      .map((employeeName) => {
+        const contractHours = getEmployeeContractHours(employeeName);
+        const plannedHours = getEmployeeWeekHours(employeeName, selectedWeek, visibleEntries);
+        const difference = Math.round((plannedHours - contractHours) * 10) / 10;
+        const remainingHours = Math.round((contractHours - plannedHours) * 10) / 10;
+        const monthlyTargetHours = Math.round(((contractHours / 5) * monthlyRosterWorkdays) * 10) / 10;
+        const plannedMonthHours = Math.round(getEmployeeMonthHours(employeeName, monthReferenceDate, monthSourceEntries) * 10) / 10;
+        const monthlyDifference = Math.round((plannedMonthHours - monthlyTargetHours) * 10) / 10;
+        const stateClass = difference > 1
+          ? "is-over"
+          : difference < -1
+            ? "is-under"
+            : "is-match";
+
+        return {
+          employeeName,
+          contractHours,
+          plannedHours,
+          remainingHours,
+          difference,
+          stateClass,
+          monthlyTargetHours,
+          plannedMonthHours,
+          monthlyDifference
+        };
+      });
+    const saturdayCheckEmployees = ["Luna", "Monique", "Gerry", "Saskia", "Wendy"]
+      .filter((employeeName) => employees.includes(employeeName))
+      .map((employeeName) => {
+        const monthlyEntries = monthSourceEntries.filter((entry) =>
+          entry.name === employeeName &&
+          getMonthKeyFromDate(entry.day) === monthKey &&
+          getWeekdayNumberFromDate(entry.day) === 6
+        );
+        const workedSaturdayDates = [...new Set(monthlyEntries.map((entry) => entry.day))];
+        const totalSaturdays = getMonthlyWeekdayOccurrenceCount(monthReferenceDate, 6);
+        const freeSaturdays = Math.max(0, totalSaturdays - workedSaturdayDates.length);
+        let stateClass = "is-match";
+
+        if ((employeeName === "Luna" || employeeName === "Monique") && freeSaturdays < 1) {
+          stateClass = "is-over";
+        } else if (employeeName === "Gerry" && workedSaturdayDates.length > 0) {
+          stateClass = "is-under";
+        }
+
+        return {
+          employeeName,
+          monthKey,
+          workedSaturdays: workedSaturdayDates.length,
+          freeSaturdays,
+          totalSaturdays,
+          stateClass
+        };
+      });
+    const underEmployees = contractEmployees.filter((employee) => employee.stateClass === "is-under");
+    const onTrackEmployees = contractEmployees.filter((employee) => employee.stateClass === "is-match");
+    const overEmployees = contractEmployees.filter((employee) => employee.stateClass === "is-over");
+    const balanceTips = [
+      ...underEmployees
+        .sort((employeeA, employeeB) => employeeB.remainingHours - employeeA.remainingHours)
+        .slice(0, 3)
+        .map((employee) => `${employee.employeeName} nog ${formatHours(employee.remainingHours)} te weinig`),
+      ...overEmployees
+        .sort((employeeA, employeeB) => employeeB.difference - employeeA.difference)
+        .slice(0, 3)
+        .map((employee) => `${employee.employeeName} ${formatHours(employee.difference)} teveel ingepland`)
+    ].slice(0, 4);
+    const monthlyWarnings = [
+      ...saturdayCheckEmployees
+        .filter((employee) => (employee.employeeName === "Luna" || employee.employeeName === "Monique") && employee.freeSaturdays < 1)
+        .map((employee) => ({
+          stateClass: "is-over",
+          text: `${employee.employeeName} heeft deze maand geen zaterdag vrij.`
+        })),
+      ...saturdayCheckEmployees
+        .filter((employee) => employee.employeeName === "Gerry" && employee.workedSaturdays > 0)
+        .map((employee) => ({
+          stateClass: "is-under",
+          text: `Gerry is deze maand ${employee.workedSaturdays}x op zaterdag ingepland.`
+        })),
+      ...contractEmployees
+        .filter((employee) => employee.monthlyDifference <= -4)
+        .sort((employeeA, employeeB) => employeeA.monthlyDifference - employeeB.monthlyDifference)
+        .slice(0, 3)
+        .map((employee) => ({
+          stateClass: "is-under",
+          text: `${employee.employeeName} nog ${formatHours(Math.abs(employee.monthlyDifference))} te weinig in ${monthKey}.`
+        })),
+      ...contractEmployees
+        .filter((employee) => employee.monthlyDifference >= 4)
+        .sort((employeeA, employeeB) => employeeB.monthlyDifference - employeeA.monthlyDifference)
+        .slice(0, 3)
+        .map((employee) => ({
+          stateClass: "is-over",
+          text: `${employee.employeeName} ${formatHours(employee.monthlyDifference)} te veel in ${monthKey}.`
+        }))
+    ].slice(0, 6);
+    const monthlyOverviewEmployees = ["Luna", "Monique", "Saskia", "Gerry", "Wendy"]
+      .map((employeeName) => {
+        const contractEmployee = contractEmployees.find((employee) => employee.employeeName === employeeName);
+        const saturdayEmployee = saturdayCheckEmployees.find((employee) => employee.employeeName === employeeName);
+
+        if (!contractEmployee && !saturdayEmployee) {
+          return null;
+        }
+
+        let stateClass = "is-match";
+
+        if (contractEmployee?.monthlyDifference <= -4) {
+          stateClass = "is-under";
+        } else if (contractEmployee?.monthlyDifference >= 4) {
+          stateClass = "is-over";
+        }
+
+        if ((employeeName === "Luna" || employeeName === "Monique") && saturdayEmployee && saturdayEmployee.freeSaturdays < 1) {
+          stateClass = "is-over";
+        }
+
+        if (employeeName === "Gerry" && saturdayEmployee && saturdayEmployee.workedSaturdays > 0) {
+          stateClass = "is-over";
+        }
+
+        return {
+          employeeName,
+          contractHours: contractEmployee?.monthlyTargetHours || 0,
+          plannedHours: contractEmployee?.plannedMonthHours || 0,
+          difference: contractEmployee?.monthlyDifference || 0,
+          workedSaturdays: saturdayEmployee?.workedSaturdays || 0,
+          freeSaturdays: saturdayEmployee?.freeSaturdays || 0,
+          stateClass
+        };
+      })
+      .filter(Boolean);
+
+    return {
+      monthKey,
+      contractEmployees,
+      saturdayCheckEmployees,
+      underEmployees,
+      onTrackEmployees,
+      overEmployees,
+      balanceTips,
+      monthlyWarnings,
+      monthlyOverviewEmployees
+    };
+  },
+  getCoverageStatusName: getCoverageStatusNameHelper = function fallbackGetCoverageStatusName(className) {
+    if (className.includes("full")) {
+      return "full";
+    }
+
+    if (className.includes("under")) {
+      return "under";
+    }
+
+    if (className.includes("closed")) {
+      return "closed";
+    }
+
+    return "over";
+  },
+  getSchedulePlanningWeekData: getSchedulePlanningWeekDataHelper = function fallbackGetSchedulePlanningWeekData(weekValue, options = {}) {
+    const entries = Array.isArray(options.entries) ? options.entries : [];
+    const getWeekDates = typeof options.getWeekDates === "function"
+      ? options.getWeekDates
+      : (() => []);
+    const getWeekValueFromDate = typeof options.getWeekValueFromDate === "function"
+      ? options.getWeekValueFromDate
+      : (() => "");
+    const getShiftName = typeof options.getShiftName === "function"
+      ? options.getShiftName
+      : ((entry) => entry?.shiftName || "");
+    const getShopCoverageForDate = typeof options.getShopCoverageForDate === "function"
+      ? options.getShopCoverageForDate
+      : (() => ({ status: "closed" }));
+    const getRequiredDayPlannerShifts = typeof options.getRequiredDayPlannerShifts === "function"
+      ? options.getRequiredDayPlannerShifts
+      : (() => []);
+    const getEntryForShiftOnDate = typeof options.getEntryForShiftOnDate === "function"
+      ? options.getEntryForShiftOnDate
+      : (() => null);
+    const getDeviationOnlyEntries = typeof options.getDeviationOnlyEntries === "function"
+      ? options.getDeviationOnlyEntries
+      : (() => []);
+    const getRecognizedSpecialDayInfo = typeof options.getRecognizedSpecialDayInfo === "function"
+      ? options.getRecognizedSpecialDayInfo
+      : (() => null);
+    const getEmployeesWithFavoritesFirst = typeof options.getEmployeesWithFavoritesFirst === "function"
+      ? options.getEmployeesWithFavoritesFirst
+      : ((employees) => employees);
+    const getActiveEmployees = typeof options.getActiveEmployees === "function"
+      ? options.getActiveEmployees
+      : (() => []);
+    const getEmployeeContractHours = typeof options.getEmployeeContractHours === "function"
+      ? options.getEmployeeContractHours
+      : (() => 0);
+    const getEmployeeWeekHours = typeof options.getEmployeeWeekHours === "function"
+      ? options.getEmployeeWeekHours
+      : (() => 0);
+    const getPlanningOverviewStatus = typeof options.getPlanningOverviewStatus === "function"
+      ? options.getPlanningOverviewStatus
+      : (() => ({ key: "open", label: "Open", className: "is-open" }));
+    const formatPlanningWeekPeriod = typeof options.formatPlanningWeekPeriod === "function"
+      ? options.formatPlanningWeekPeriod
+      : ((value) => String(value || ""));
+    const formatWeekday = typeof options.formatWeekday === "function"
+      ? options.formatWeekday
+      : ((value) => String(value || ""));
+    const getDeviationReasonSummary = typeof options.getDeviationReasonSummary === "function"
+      ? options.getDeviationReasonSummary
+      : (() => []);
+    const formatHours = typeof options.formatHours === "function"
+      ? options.formatHours
+      : ((value) => String(value || 0));
+    const sourceEntries = Array.isArray(options.sourceEntries) ? options.sourceEntries : entries;
+    const weekDates = getWeekDates(weekValue);
+    const weekEntries = sourceEntries
+      .filter((entry) => getWeekValueFromDate(entry.day) === weekValue)
+      .sort((entryA, entryB) =>
+        entryA.day.localeCompare(entryB.day) ||
+        entryA.startTime.localeCompare(entryB.startTime) ||
+        getShiftName(entryA).localeCompare(getShiftName(entryB), "nl")
+      );
+    const openItems = weekDates
+      .filter((day) => getShopCoverageForDate(day).status !== "closed")
+      .flatMap((day) =>
+        getRequiredDayPlannerShifts(day)
+          .filter((shift) => !getEntryForShiftOnDate(day, shift, sourceEntries))
+          .map((shift) => ({
+            day,
+            shift
+          }))
+      );
+    const replacementItems = weekEntries
+      .filter((entry) => entry.replacementFor)
+      .map((entry) => ({
+        day: entry.day,
+        entry
+      }));
+    const deviationItems = getDeviationOnlyEntries(weekEntries, weekDates).map((entry) => ({
+      day: entry.day,
+      entry
+    }));
+    const specialDayItems = weekDates
+      .map((day) => {
+        const info = getRecognizedSpecialDayInfo(day);
+        return info ? { day, info } : null;
+      })
+      .filter(Boolean);
+    const contractImbalanceEmployees = getEmployeesWithFavoritesFirst(getActiveEmployees())
+      .filter((employeeName) => getEmployeeContractHours(employeeName) > 0)
+      .map((employeeName) => {
+        const contractHours = getEmployeeContractHours(employeeName);
+        const plannedHours = getEmployeeWeekHours(employeeName, weekValue, sourceEntries);
+        const difference = Math.round((plannedHours - contractHours) * 10) / 10;
+
+        if (Math.abs(difference) < 1) {
+          return null;
+        }
+
+        return {
+          employeeName,
+          difference,
+          plannedHours,
+          contractHours,
+          stateClass: difference > 0 ? "is-over" : "is-under"
+        };
+      })
+      .filter(Boolean)
+      .sort((employeeA, employeeB) => Math.abs(employeeB.difference) - Math.abs(employeeA.difference));
+    const status = getPlanningOverviewStatus(weekValue, weekEntries, openItems.length);
+
+    return {
+      weekValue,
+      weekDates,
+      periodLabel: formatPlanningWeekPeriod(weekValue),
+      weekEntries,
+      openItems,
+      replacementItems,
+      deviationItems,
+      specialDayItems,
+      contractImbalanceEmployees,
+      openCount: openItems.length,
+      replacementCount: replacementItems.length,
+      deviationCount: deviationItems.length,
+      specialDayCount: specialDayItems.length,
+      contractImbalanceCount: contractImbalanceEmployees.length,
+      status,
+      details: {
+        openPreview: openItems.slice(0, 4).map((item) => `${formatWeekday(item.day)}: ${item.shift.name}`),
+        replacementPreview: replacementItems.slice(0, 3).map((item) => `${formatWeekday(item.day)}: ${item.entry.replacementFor} -> ${item.entry.name}`),
+        deviationPreview: deviationItems.slice(0, 3).map((item) => `${formatWeekday(item.day)}: ${getShiftName(item.entry)} · ${getDeviationReasonSummary(item.entry).join(" · ")}`),
+        specialDayPreview: specialDayItems.slice(0, 4).map((item) => `${formatWeekday(item.day)}: ${item.info.nameLabel}`),
+        contractPreview: contractImbalanceEmployees.slice(0, 3).map((employee) => `${employee.employeeName}: ${employee.difference > 0 ? "+" : "-"}${formatHours(Math.abs(employee.difference))}`),
+        plannedCount: weekEntries.length
+      }
+    };
+  },
+  getShopCoverageForDate: getShopCoverageForDateHelper = function fallbackGetShopCoverageForDate(dateValue, options = {}) {
+    const getRecognizedSpecialDayInfo = typeof options.getRecognizedSpecialDayInfo === "function"
+      ? options.getRecognizedSpecialDayInfo
+      : (() => null);
+    const getShopSlotsForDate = typeof options.getShopSlotsForDate === "function"
+      ? options.getShopSlotsForDate
+      : (() => []);
+    const entries = Array.isArray(options.entries) ? options.entries : [];
+    const isShopShiftName = typeof options.isShopShiftName === "function"
+      ? options.isShopShiftName
+      : (() => false);
+    const getShiftName = typeof options.getShiftName === "function"
+      ? options.getShiftName
+      : ((entry) => entry?.shiftName || "");
+    const specialDay = getRecognizedSpecialDayInfo(dateValue);
+    const needed = getShopSlotsForDate(dateValue).length;
+    const planned = entries.filter((entry) => entry.day === dateValue && isShopShiftName(getShiftName(entry))).length;
+
+    return {
+      needed,
+      planned,
+      status: needed === 0 ? "closed" : planned < needed ? "under" : planned === needed ? "full" : "over",
+      closedReason: specialDay?.isClosed ? specialDay.nameLabel : ""
+    };
+  },
+  getShopCoverageLabel: getShopCoverageLabelHelper = function fallbackGetShopCoverageLabel(dateValue, options = {}) {
+    const getShopCoverageForDate = typeof options.getShopCoverageForDate === "function"
+      ? options.getShopCoverageForDate
+      : (() => ({ status: "closed", planned: 0, needed: 0, closedReason: "" }));
+    const coverage = getShopCoverageForDate(dateValue);
+
+    if (coverage.status === "closed") {
+      return {
+        text: coverage.closedReason ? `Gesloten - ${coverage.closedReason}` : "Winkel gesloten",
+        className: "planner-status closed"
+      };
+    }
+
+    if (coverage.status === "full") {
+      return {
+        text: `Winkel volledig gevuld (${coverage.planned}/${coverage.needed})`,
+        className: "planner-status full"
+      };
+    }
+
+    if (coverage.status === "under") {
+      return {
+        text: `Onderbezet winkel (${coverage.planned}/${coverage.needed})`,
+        className: "planner-status under"
+      };
+    }
+
+    return {
+      text: `Winkel ${coverage.planned}/${coverage.needed}`,
+      className: "planner-status over"
+    };
+  }
+} = window.StroetPlanningPanelPrepFeature || {};
+
+const {
+  getAllowedTabsForRole: getAllowedTabsForRoleHelper = function fallbackGetAllowedTabsForRole(role, options = {}) {
+    const employeeAllowedTabs = Array.isArray(options.employeeAllowedTabs)
+      ? options.employeeAllowedTabs
+      : [];
+    const normalizedRole = String(role || "").trim().toLowerCase();
+
+    if (normalizedRole === "planner" || normalizedRole === "directie") {
+      return null;
+    }
+
+    return [...employeeAllowedTabs];
+  },
+  getDefaultTabForRole: getDefaultTabForRoleHelper = function fallbackGetDefaultTabForRole(role) {
+    void role;
+    return "week-current";
+  },
+  isControlModeActiveState: isControlModeActiveStateHelper = function fallbackIsControlModeActiveState(activeTabValue, role, nextPreferences = {}) {
+    return Boolean(nextPreferences.plannerControlMode) &&
+      (String(role || "").trim().toLowerCase() === "planner" || String(role || "").trim().toLowerCase() === "directie") &&
+      (activeTabValue === "week-current" || activeTabValue === "week-next");
+  },
+  isDeviationOnlyModeActiveState: isDeviationOnlyModeActiveStateHelper = function fallbackIsDeviationOnlyModeActiveState(activeTabValue, role, nextPreferences = {}) {
+    return Boolean(nextPreferences.plannerDeviationOnly) &&
+      (String(role || "").trim().toLowerCase() === "planner" || String(role || "").trim().toLowerCase() === "directie") &&
+      (activeTabValue === "week-current" || activeTabValue === "week-next");
+  },
+  isFocusModeActiveState: isFocusModeActiveStateHelper = function fallbackIsFocusModeActiveState(activeTabValue, role, nextPreferences = {}) {
+    return Boolean(nextPreferences.plannerFocusMode) &&
+      (String(role || "").trim().toLowerCase() === "planner" || String(role || "").trim().toLowerCase() === "directie") &&
+      (activeTabValue === "week-current" || activeTabValue === "week-next");
+  },
+  isPlannerWeekTabActive: isPlannerWeekTabActiveHelper = function fallbackIsPlannerWeekTabActive(activeTabValue, role) {
+    const normalizedRole = String(role || "").trim().toLowerCase();
+    return (normalizedRole === "planner" || normalizedRole === "directie") &&
+      (activeTabValue === "week-current" || activeTabValue === "week-next");
+  },
+  isTabAllowedForRole: isTabAllowedForRoleHelper = function fallbackIsTabAllowedForRole(role, tabName, options = {}) {
+    const allowedTabs = getAllowedTabsForRoleHelper(role, options);
+
+    if (allowedTabs === null) {
+      return true;
+    }
+
+    return allowedTabs.includes(tabName);
+  },
+  isWeekTabName: isWeekTabNameHelper = function fallbackIsWeekTabName(tabName) {
+    return tabName === "week-current" || tabName === "week-next";
+  }
+} = window.StroetNavigationFeature || {};
+
+const {
+  getEmployeeContractTypeLabel: getEmployeeContractTypeLabelHelper = function fallbackGetEmployeeContractTypeLabel(getEmployeeContractHours, formatHours, employeeName) {
+    const contractHours = getEmployeeContractHours(employeeName);
+    return contractHours > 0
+      ? `Vast contract ${formatHours(contractHours)}`
+      : "0-uren contract";
+  },
+  getPlannerSectionLabel: getPlannerSectionLabelHelper = function fallbackGetPlannerSectionLabel(sectionKey) {
+    if (sectionKey === "allround") {
+      return "Allround";
+    }
+
+    if (sectionKey === "shop") {
+      return "Winkel";
+    }
+
+    if (sectionKey === "optional") {
+      return "Stage";
+    }
+
+    return "Bakkerij";
+  },
+  getMonthLabel: getMonthLabelHelper = function fallbackGetMonthLabel(monthValue) {
+    const [year, month] = String(monthValue || "").split("-");
+
+    if (!year || !month) {
+      return "";
+    }
+
+    const date = new Date(Number(year), Number(month) - 1, 1);
+    return date.toLocaleDateString("nl-NL", {
+      month: "long",
+      year: "numeric"
+    });
+  },
+  getRosterDaypartLabel: getRosterDaypartLabelHelper = function fallbackGetRosterDaypartLabel(daypart) {
+    const labels = {
+      morning: "ochtend",
+      afternoon: "middag",
+      full: "hele dag"
+    };
+
+    return labels[daypart] || "vrij";
+  },
+  getShiftSummaryLabel: getShiftSummaryLabelHelper = function fallbackGetShiftSummaryLabel(formatWeekday, shiftName, dateValue, startTime, endTime, employeeName = "") {
+    const employeePart = employeeName ? ` - ${employeeName}` : "";
+    return `${formatWeekday(dateValue)}: ${shiftName}${employeePart} (${startTime} - ${endTime})`;
+  },
+  getShiftContextLabel: getShiftContextLabelHelper = function fallbackGetShiftContextLabel(getShiftName, entry) {
+    const shiftName = getShiftName(entry).toLowerCase();
+
+    if (shiftName.includes("winkel")) {
+      return "Werkplek: Winkel";
+    }
+
+    if (shiftName.includes("bezorg")) {
+      return "Werkplek: Bezorging";
+    }
+
+    if (shiftName.includes("banket")) {
+      return "Soort: Banket";
+    }
+
+    if (shiftName.includes("oven")) {
+      return "Soort: Ovendienst";
+    }
+
+    if (shiftName.includes("draai")) {
+      return "Soort: Draaidienst";
+    }
+
+    if (shiftName.includes("brood")) {
+      return "Soort: Brooddienst";
+    }
+
+    if (shiftName.includes("productie")) {
+      return "Soort: Productiedienst";
+    }
+
+    if (shiftName.includes("allround")) {
+      return "Soort: Allrounddienst";
+    }
+
+    if (shiftName.includes("inpak")) {
+      return "Soort: Inpakdienst";
+    }
+
+    return "Werkplek: Bakkerij";
+  }
+} = window.StroetRenderHelpersFeature || {};
+
+const {
+  isPlannerRole: isPlannerRoleHelper = function fallbackIsPlannerRole(activeRoleValue) {
+    return activeRoleValue === "planner";
+  },
+  hasRememberedUserSession: hasRememberedUserSessionHelper = function fallbackHasRememberedUserSession(preferencesValue) {
+    return Boolean(preferencesValue?.hasUserSession);
+  },
+  getEmployeeIdentity: getEmployeeIdentityHelper = function fallbackGetEmployeeIdentity(preferencesValue, employeesValue, isEmployeeActive) {
+    return preferencesValue?.employeeIdentity &&
+      employeesValue.includes(preferencesValue.employeeIdentity) &&
+      isEmployeeActive(preferencesValue.employeeIdentity)
+      ? preferencesValue.employeeIdentity
+      : "";
+  },
+  needsLoginSelection: needsLoginSelectionHelper = function fallbackNeedsLoginSelection(hasUserSession, activeRoleValue, employeeIdentity) {
+    if (!hasUserSession) {
+      return true;
+    }
+
+    if (activeRoleValue !== "employee") {
+      return false;
+    }
+
+    return !employeeIdentity;
+  },
+  getRoleScopedEmployeeName: getRoleScopedEmployeeNameHelper = function fallbackGetRoleScopedEmployeeName(isPlannerRoleValue, employeeIdentity, currentEmployeeName, fallbackName = "") {
+    if (isPlannerRoleValue) {
+      return fallbackName;
+    }
+
+    return employeeIdentity || currentEmployeeName || fallbackName;
+  },
+  getPreferredEmployeeIdentityCandidate: getPreferredEmployeeIdentityCandidateHelper = function fallbackGetPreferredEmployeeIdentityCandidate(candidates, employeesValue) {
+    return candidates.find((employeeName) => employeeName && employeesValue.includes(employeeName)) || "";
+  }
+} = window.StroetBootstrapHelpersFeature || {};
+
+const {
+  createEmployeeEditorDraft: createEmployeeEditorDraftHelper = function fallbackCreateEmployeeEditorDraft(getters, employeeName) {
+    return {
+      email: getters.getEmployeeEmail(employeeName),
+      role: getters.getEmployeeAppRole(employeeName),
+      status: getters.getEmployeeStatus(employeeName),
+      mailTestUser: getters.isEmployeeMailTestEnabled(employeeName),
+      permissions: getters.cloneSerializableValue(getters.employeePermissions?.[employeeName] || {}),
+      standardShift: typeof getters.employeeStandardShifts?.[employeeName] === "string" ? getters.employeeStandardShifts[employeeName] : "",
+      basePatternId: getters.getEmployeeBasePatternId(employeeName),
+      customRoster: getters.cloneSerializableValue(getters.getEmployeeCustomRosterConfig(employeeName)),
+      contractHours: getters.getEmployeeContractHours(employeeName)
+    };
+  },
+  getEmployeeDetailMailStatusViewModel: getEmployeeDetailMailStatusViewModelHelper = function fallbackGetEmployeeDetailMailStatusViewModel({
+    employeeMeta,
+    employeeName,
+    recipientEmail,
+    formatDateTime,
+    fixedTestMailRecipient
+  }) {
+    if (!employeeName || !employeeMeta?.[employeeName]) {
+      return {
+        hidden: true,
+        text: ""
+      };
+    }
+
+    const status = employeeMeta[employeeName].lastTestMailStatus;
+    const message = employeeMeta[employeeName].lastTestMailMessage || "";
+    const sentAt = employeeMeta[employeeName].lastTestMailAt
+      ? ` op ${formatDateTime(employeeMeta[employeeName].lastTestMailAt)}`
+      : "";
+    const testModeText = `Testmodus: mail gaat nu alleen naar ${fixedTestMailRecipient}`;
+    const employeeEmailText = recipientEmail ? `E-mailadres medewerker: ${recipientEmail}` : "Geen e-mailadres ingesteld";
+
+    if (!recipientEmail) {
+      return {
+        hidden: false,
+        text: `${employeeEmailText} · ${testModeText}`
+      };
+    }
+
+    if (!status) {
+      return {
+        hidden: false,
+        text: `${employeeEmailText} · ${testModeText} · klaar om te versturen`
+      };
+    }
+
+    if (status === "sent") {
+      return {
+        hidden: false,
+        text: `${employeeEmailText} · ${testModeText} · verzonden${sentAt}`
+      };
+    }
+
+    return {
+      hidden: false,
+      text: `${employeeEmailText} · ${testModeText} · mislukt${message ? ` · ${message}` : ""}`
+    };
+  },
+  getPermissionShiftGroups: getPermissionShiftGroupsHelper = function fallbackGetPermissionShiftGroups(getPermissionShiftDescriptors, matchers) {
+    const permissionShifts = getPermissionShiftDescriptors();
+    return [
+      {
+        title: "Bakkerijdiensten",
+        shifts: permissionShifts.filter((shift) =>
+          !matchers.isShopShiftName(shift.name) &&
+          !matchers.isAllroundShiftName(shift.name) &&
+          !matchers.isStageShiftName(shift.name)
+        )
+      },
+      {
+        title: "Allround diensten",
+        shifts: permissionShifts.filter((shift) => matchers.isAllroundShiftName(shift.name))
+      },
+      {
+        title: "Winkeldiensten",
+        shifts: permissionShifts.filter((shift) => matchers.isShopShiftName(shift.name))
+      },
+      {
+        title: "Stageplekken",
+        shifts: permissionShifts.filter((shift) => matchers.isStageShiftName(shift.name))
+      }
+    ].filter((group) => group.shifts.length);
+  },
+  getEmployeeContractPanelData: getEmployeeContractPanelDataHelper = function fallbackGetEmployeeContractPanelData({ contractHours, plannedWeekHours, formatHours }) {
+    return {
+      contractTypeLabel: contractHours > 0 ? `Vast contract ${formatHours(contractHours)}` : "0-uren contract",
+      plannedWeekHoursLabel: formatHours(plannedWeekHours)
+    };
+  }
+} = window.StroetEmployeePanelPrepFeature || {};
+
+const {
+  getVisibleRequestSources: getVisibleRequestSourcesHelper = function fallbackGetVisibleRequestSources(isPlannerRoleValue, currentEmployee, timeOffRequestsValue, swapRequestsValue) {
+    return {
+      visibleTimeOffRequests: isPlannerRoleValue
+        ? timeOffRequestsValue
+        : timeOffRequestsValue.filter((request) => request.employeeName === currentEmployee),
+      visibleSwapRequests: isPlannerRoleValue
+        ? swapRequestsValue
+        : swapRequestsValue.filter((request) => request.employeeName === currentEmployee)
+    };
+  },
+  matchesRequestStatusFilter: matchesRequestStatusFilterHelper = function fallbackMatchesRequestStatusFilter(selectedStatus, request, getRequestDisplayStatus) {
+    const displayStatus = getRequestDisplayStatus(request);
+
+    if (selectedStatus === "") {
+      return true;
+    }
+
+    if (selectedStatus === "waiting") {
+      return displayStatus === "waiting" || displayStatus === "overdue";
+    }
+
+    return displayStatus === selectedStatus;
+  },
+  getRequestRosterEffectText: getRequestRosterEffectTextHelper = function fallbackGetRequestRosterEffectText(request, requestType, entriesValue, helpers) {
+    if (requestType === "timeoff") {
+      const startDate = helpers.getTimeOffStartDate(request);
+      const endDate = helpers.getTimeOffEndDate(request);
+      const affectedEntries = entriesValue.filter((entry) =>
+        entry.name === request.employeeName &&
+        entry.day >= startDate &&
+        entry.day <= endDate
+      );
+
+      if (request.status === "approved") {
+        return affectedEntries.length > 0
+          ? `${affectedEntries.length} dienst(en) in deze periode vragen nu aandacht in het rooster.`
+          : "Goedgekeurd en zichtbaar als afwezig in het rooster.";
+      }
+
+      if (request.status === "open") {
+        return affectedEntries.length > 0
+          ? `Na goedkeuring gekoppeld aan ${affectedEntries.length} roosterdienst(en).`
+          : "Na goedkeuring direct zichtbaar in het rooster.";
+      }
+
+      return "Niet gekoppeld aan het rooster.";
+    }
+
+    if (requestType === "swap") {
+      if (request.status === "approved") {
+        return request.autoApproved
+          ? "Automatisch goedgekeurd en direct verwerkt in het rooster."
+          : "Goedgekeurd en direct verwerkt in het rooster.";
+      }
+
+      if (request.status === "open") {
+        return request.targetEmployeeName
+          ? "Deze ruil wacht nog op beoordeling."
+          : "Na goedkeuring wordt deze dienst open aangeboden.";
+      }
+
+      return "Nog niet verwerkt in het rooster.";
+    }
+
+    return "";
+  },
+  getPlannerRequestSummaryCounts: getPlannerRequestSummaryCountsHelper = function fallbackGetPlannerRequestSummaryCounts(timeOffRequestsValue, swapRequestsValue) {
+    const openTimeOffRequests = timeOffRequestsValue.filter((request) => request.status === "open");
+
+    return {
+      free: openTimeOffRequests.filter((request) => request.type === "vrij").length,
+      vacation: openTimeOffRequests.filter((request) => request.type === "vakantie").length,
+      sick: openTimeOffRequests.filter((request) => request.type === "ziek").length,
+      swaps: swapRequestsValue.filter((request) => request.status === "open").length
+    };
+  },
+  buildEmployeeRequestCards: buildEmployeeRequestCardsHelper = function fallbackBuildEmployeeRequestCards({ visibleTimeOffRequests, visibleSwapRequests, helpers }) {
+    return [
+      ...visibleTimeOffRequests.map((request) => ({
+        type: helpers.getAbsenceTypeLabel(request.type),
+        meta: `${helpers.getTimeOffDisplayRange(request)}${request.reason ? ` - ${request.reason}` : ""}`,
+        status: helpers.getRequestDisplayStatus(request),
+        label: helpers.getRequestDisplayLabel(request),
+        typeClass: `absence-${helpers.getAbsenceCardClass(request.type)}`,
+        sortDate: request.updatedAt || request.createdAt || request.date || ""
+      })),
+      ...visibleSwapRequests.map((request) => ({
+        type: "Dienst ruilen",
+        meta: `${request.shiftName} - ${helpers.formatDate(request.date)} - ${request.startTime} - ${request.endTime}`,
+        status: helpers.getRequestDisplayStatus(request),
+        label: helpers.getRequestDisplayLabel(request),
+        typeClass: "",
+        sortDate: request.updatedAt || request.createdAt || request.date || ""
       }))
-    : [];
+    ].sort((cardA, cardB) => {
+      const priorityMap = { overdue: 0, waiting: 1, open: 2, approved: 3, rejected: 4 };
+      const priorityDifference = (priorityMap[cardA.status] ?? 9) - (priorityMap[cardB.status] ?? 9);
+      if (priorityDifference !== 0) {
+        return priorityDifference;
+      }
+      return cardB.sortDate.localeCompare(cardA.sortDate, "nl");
+    });
+  },
+  buildPlannerRequestCardViewModel: buildPlannerRequestCardViewModelHelper = function fallbackBuildPlannerRequestCardViewModel({ request, requestType, helpers }) {
+    const requestStatus = helpers.getRequestDisplayStatus(request);
+    const statusLabel = helpers.getRequestDisplayLabel(request);
+    const periodText = requestType === "swap"
+      ? helpers.formatDate(request.date)
+      : helpers.getTimeOffDisplayRange(request);
+    const detailText = requestType === "swap"
+      ? `${request.shiftName} - ${request.startTime} - ${request.endTime}`
+      : `${helpers.getAbsenceTypeLabel(request.type)}${request.reason ? ` - ${request.reason}` : ""}`;
+    const attentionText = request.status === "open" ? helpers.getRequestAttentionText(request) : "";
+    const plannerNoteText = request.managerNote || "";
+    const swapExtraText = requestType === "swap" && request.targetEmployeeName
+      ? `Voorgestelde collega: ${request.targetEmployeeName}`
+      : (requestType === "swap" && request.escalatedToPlanner
+        ? "Directie is gevraagd om mee te kijken."
+        : "");
+
+    return {
+      requestStatus,
+      statusLabel,
+      periodText,
+      detailText,
+      attentionText,
+      plannerNoteText,
+      swapExtraText,
+      rosterEffectText: requestType === "swap" ? helpers.getRequestRosterEffectText(request, "swap") : ""
+    };
+  }
+} = window.StroetRequestsPanelPrepFeature || {};
+
+const {
+  getDayWorkLogStatusForEntries: getDayWorkLogStatusForEntriesHelper = function fallbackGetDayWorkLogStatusForEntries(dayEntries, helpers) {
+    if (!Array.isArray(dayEntries) || !dayEntries.length) {
+      return "";
+    }
+
+    const logs = dayEntries.map((entry) => helpers.getWorkLogForEntry(entry));
+
+    if (logs.every((log) => log?.status === "approved")) {
+      return "goedgekeurd";
+    }
+
+    if (logs.every((log) => log && (log.status === "open" || log.status === "approved"))) {
+      return "ingediend";
+    }
+
+    if (logs.every((log) => Boolean(log))) {
+      return "ingevuld";
+    }
+
+    return "";
+  },
+  getWorkLogsForWeek: getWorkLogsForWeekHelper = function fallbackGetWorkLogsForWeek(workLogsValue, weekValue, employeeName = "", helpers) {
+    return workLogsValue
+      .filter((log) => helpers.getWeekValueFromDate(log.day) === weekValue && (!employeeName || log.employeeName === employeeName))
+      .sort((logA, logB) => logA.employeeName.localeCompare(logB.employeeName, "nl") || logA.day.localeCompare(logB.day) || logA.plannedStart.localeCompare(logB.plannedStart));
+  },
+  getHoursWeekReviewState: getHoursWeekReviewStateHelper = function fallbackGetHoursWeekReviewState({ weekValue, employeeName = "", entries: entriesValue, workLogs: workLogsValue, helpers }) {
+    const todayValue = helpers.getTodayLocalDateValue();
+    const weekEntries = entriesValue.filter((entry) =>
+      helpers.getWeekValueFromDate(entry.day) === weekValue &&
+      (!employeeName || entry.name === employeeName)
+    );
+    const plannedDays = [...new Set(weekEntries.map((entry) => entry.day))].sort();
+    const futureDays = plannedDays.filter((day) => day > todayValue);
+    const missingDays = plannedDays.filter((day) => {
+      const dayEntries = weekEntries.filter((entry) => entry.day === day);
+      return dayEntries.some((entry) => !helpers.getWorkLogForEntry(entry));
+    });
+    const weekLogs = getWorkLogsForWeekHelper(workLogsValue, weekValue, employeeName, {
+      getWeekValueFromDate: helpers.getWeekValueFromDate
+    });
+    const draftLogs = weekLogs.filter((log) => log.status === "draft");
+    const revisionLogs = weekLogs.filter((log) => log.status === "revision" || log.status === "rejected");
+    const openLogs = weekLogs.filter((log) => log.status === "open");
+    const approvedLogs = weekLogs.filter((log) => log.status === "approved");
+
+    if (!weekEntries.length && !weekLogs.length) {
+      return {
+        status: "incomplete",
+        label: "Incompleet",
+        note: "Nog geen uren in deze week.",
+        futureDays: [],
+        missingDays: [],
+        draftLogs,
+        revisionLogs,
+        openLogs,
+        approvedLogs
+      };
+    }
+
+    if (futureDays.length) {
+      return {
+        status: "incomplete",
+        label: "Incompleet",
+        note: `Deze week loopt nog. ${futureDays.length} ${futureDays.length === 1 ? "dag staat nog in de toekomst." : "dagen staan nog in de toekomst."}`,
+        futureDays,
+        missingDays,
+        draftLogs,
+        revisionLogs,
+        openLogs,
+        approvedLogs
+      };
+    }
+
+    if (missingDays.length) {
+      const previewDays = missingDays
+        .slice(0, 3)
+        .map((day) => `${helpers.formatWeekday(day)} ${helpers.formatDate(day)}`)
+        .join(", ");
+      const extraText = missingDays.length > 3 ? ` en nog ${missingDays.length - 3}` : "";
+
+      return {
+        status: "incomplete",
+        label: "Incompleet",
+        note: `Er ontbreken nog uren voor: ${previewDays}${extraText}.`,
+        futureDays,
+        missingDays,
+        draftLogs,
+        revisionLogs,
+        openLogs,
+        approvedLogs
+      };
+    }
+
+    if (draftLogs.length || revisionLogs.length) {
+      return {
+        status: "incomplete",
+        label: "Incompleet",
+        note: draftLogs.length
+          ? "Niet alle uren zijn al ingediend."
+          : "Er staan nog uren open met opmerking of afkeuring.",
+        futureDays,
+        missingDays,
+        draftLogs,
+        revisionLogs,
+        openLogs,
+        approvedLogs
+      };
+    }
+
+    if (openLogs.length) {
+      return {
+        status: "ready",
+        label: "Klaar voor goedkeuring",
+        note: `${openLogs.length} ${openLogs.length === 1 ? "registratie staat klaar" : "registraties staan klaar"} voor goedkeuring.`,
+        futureDays,
+        missingDays,
+        draftLogs,
+        revisionLogs,
+        openLogs,
+        approvedLogs
+      };
+    }
+
+    return {
+      status: "done",
+      label: "Afgerond",
+      note: "Alle uren van deze week zijn goedgekeurd.",
+      futureDays,
+      missingDays,
+      draftLogs,
+      revisionLogs,
+      openLogs,
+      approvedLogs
+    };
+  },
+  buildMyHoursWeekSummaryData: buildMyHoursWeekSummaryDataHelper = function fallbackBuildMyHoursWeekSummaryData({ selectedWeekEntries, selectedWeekPastEntries, getWorkLogForEntry, calculateWorkedHours }) {
+    const selectedWeekDays = [...new Set(selectedWeekEntries.map((entry) => entry.day))].sort();
+    const selectedWeekVisibleDays = [...new Set(selectedWeekPastEntries.map((entry) => entry.day))].sort();
+    const filledWeekDays = selectedWeekVisibleDays.filter((day) => {
+      const dayEntries = selectedWeekPastEntries.filter((entry) => entry.day === day);
+      return dayEntries.length > 0 && dayEntries.every((entry) => Boolean(getWorkLogForEntry(entry)));
+    });
+    const openWeekDays = selectedWeekVisibleDays.filter((day) => {
+      const dayEntries = selectedWeekPastEntries.filter((entry) => entry.day === day);
+      return dayEntries.some((entry) => !getWorkLogForEntry(entry));
+    });
+    const missingSubmittableWeekDays = [...new Set(selectedWeekPastEntries
+      .filter((entry) => !getWorkLogForEntry(entry))
+      .map((entry) => entry.day))];
+    const selectedWeekWorkedHours = selectedWeekEntries.reduce((total, entry) => {
+      const workLog = getWorkLogForEntry(entry);
+      const workedHours = workLog ? calculateWorkedHours(workLog.actualStart, workLog.actualEnd, workLog.breakMinutes) : null;
+      return total + (workedHours || 0);
+    }, 0);
+
+    return {
+      selectedWeekDays,
+      selectedWeekVisibleDays,
+      filledWeekDays,
+      openWeekDays,
+      missingSubmittableWeekDays,
+      selectedWeekWorkedHours
+    };
+  },
+  getHoursApprovalEmptyText: getHoursApprovalEmptyTextHelper = function fallbackGetHoursApprovalEmptyText(weekReviewState) {
+    return weekReviewState.status === "done"
+      ? "Deze week is afgerond. Er staan geen uren meer open voor controle."
+      : "Nog geen ingediende uren in deze week.";
+  },
+  buildHoursApprovalGroupViewModels: buildHoursApprovalGroupViewModelsHelper = function fallbackBuildHoursApprovalGroupViewModels(approvalGroups, helpers) {
+    return [...approvalGroups.entries()]
+      .sort(([employeeA], [employeeB]) => employeeA.localeCompare(employeeB, "nl"))
+      .map(([employeeName, employeeLogs]) => {
+        const sortedEmployeeLogs = employeeLogs
+          .slice()
+          .sort((logA, logB) => logA.day.localeCompare(logB.day) || logA.plannedStart.localeCompare(logB.plannedStart));
+        const employeeDeviationCount = sortedEmployeeLogs.filter((log) =>
+          log.actualStart !== log.plannedStart ||
+          log.actualEnd !== log.plannedEnd ||
+          Number(log.breakMinutes) > 0 ||
+          Boolean(log.notes?.trim())
+        ).length;
+
+        return {
+          employeeName,
+          sortedEmployeeLogs,
+          openCount: sortedEmployeeLogs.filter((log) => log.status === "open").length,
+          deviationCount: employeeDeviationCount,
+          dayCount: sortedEmployeeLogs.length
+        };
+      });
+  }
+} = window.StroetHoursPanelPrepFeature || {};
+
+const preferences = loadPreferences();
+let currentDataMode = "live";
+if (preferences.lastDataMode !== "live") {
+  preferences.lastDataMode = "live";
 }
+const entries = loadEntries();
+const employees = loadEmployees();
+let shifts = [];
+shifts = loadShifts();
+const planningSettings = loadPlanningSettings();
+const timeOffRequests = loadTimeOffRequests();
+const swapRequests = loadSwapRequests();
+const workLogs = loadWorkLogs();
+const employeePermissions = loadEmployeePermissions();
+const employeeStandardShifts = loadEmployeeStandardShifts();
+const employeeShiftPreferences = loadEmployeeShiftPreferences();
+const employeeBasePatterns = loadEmployeeBasePatterns();
+const employeeCustomRosters = loadEmployeeCustomRosters();
+const employeeMeta = loadEmployeeMeta();
+const mailSettings = loadMailSettings();
+const auditLog = loadAuditLog();
+const backupHistory = loadBackupHistory();
+let editIndex = null;
+let editingShiftId = null;
+let activeTab = "week-current";
+let activeEmployeeWeekView = "today";
+let activeRole = preferences.lastRole === "employee" ? "employee" : "planner";
+const sessionState = {
+  isAuthenticated: false,
+  role: activeRole,
+  employeeIdentity: ""
+};
+let editingTimeOffId = null;
+let editingSwapId = null;
+let activeRequestComposer = "";
+let activeRequestType = "vrije-dag";
+let vrijeDagForm = {
+  employeeName: "",
+  type: "vrij",
+  date: "",
+  startDate: "",
+  endDate: "",
+  reason: ""
+};
+let vakantieForm = {
+  employeeName: "",
+  type: "vakantie",
+  date: "",
+  startDate: "",
+  endDate: "",
+  reason: ""
+};
+let ziekmeldingForm = {
+  employeeName: "",
+  type: "ziek",
+  date: "",
+  startDate: "",
+  endDate: "",
+  reason: ""
+};
+let ruilForm = {
+  employeeName: "",
+  date: "",
+  entryValue: "",
+  targetEmployeeName: ""
+};
+let showSuitableEmployees = false;
+let autoFillPreviewEntries = [];
+let undoState = null;
+let pendingPlannerFocus = null;
+let planningOverviewExpandedWeek = "";
+const mobileMediaQuery = window.matchMedia("(max-width: 640px)");
+let messageTimeoutId = null;
+let activeMessageState = null;
+let queuedMessageStates = [];
+const employeeAllowedTabs = ["week-current", "my-schedule", "my-hours", "requests"];
+let planningDataRevision = 0;
+let requestDataRevision = 0;
+let previewDataRevision = 0;
+let activeMyHoursSection = "";
+let activeMyHoursEntryMode = "planned";
+let lastOpenRequestReminderKey = "";
+let lastEmployeeHoursReminderKey = "";
+const derivedDataCache = {
+  planningEntriesKey: "",
+  planningEntries: [],
+  visibleEntriesKey: "",
+  visibleEntries: [],
+  filteredEntriesKey: "",
+  filteredEntries: [],
+  approvedTimeOffKey: "",
+  approvedTimeOff: []
+};
+
+mergeEmployeesFromEntries();
+ensureConfiguredBakeryEmployees();
+syncEmployeeMeta();
+syncEmployeePermissions();
+syncEmployeeStandardShifts();
+syncEmployeeShiftPreferences();
+syncEmployeeBasePatterns();
+syncEmployeeCustomRosters();
 
 function getMailSettingsDefaults() {
-  return {
-    senderName: "Bakkerij Stroet",
-    senderEmail: "info@bakkerijstroet.nl",
-    testRecipientEmail: "",
-    updatedAt: "",
-    updatedByRole: "",
-    updatedByName: ""
-  };
-}
-
-function getDefaultMailDigestState() {
-  return {
-    plannerSummary: "",
-    plannerOpenRequestsEmail: "",
-    plannerOverdueRequestsEmail: "",
-    plannerPendingHoursEmail: "",
-    plannerOverdueHoursEmail: "",
-    employeeMissingHours: {},
-    employeeMissingHoursEmail: {}
-  };
+  return getMailSettingsDefaultsHelper(FIXED_TEST_MAIL_RECIPIENT);
 }
 
 function loadMailSettings() {
@@ -2427,17 +3422,20 @@ function saveMailSettings() {
 }
 
 function hasConfiguredMailSender() {
-  return Boolean(normalizeMailSenderName(mailSettings?.senderName)) && Boolean(normalizeEmployeeEmail(mailSettings?.senderEmail));
+  return hasConfiguredMailSenderHelper(mailSettings, {
+    normalizeEmployeeEmail,
+    normalizeMailSenderName
+  });
 }
 
 function loadEmployeeMeta() {
-  const savedMeta = getRecoveredEmployeeDataForMode(employeeMetaStorageKey, "employeeMeta", currentDataMode, "medewerkerstatus");
+  const savedMeta = localStorage.getItem(getScopedStorageKey(employeeMetaStorageKey));
   const defaults = Object.fromEntries(
     employees.map((employeeName) => [
       employeeName,
       {
         ...getEmployeeStatusMetaDefaults(),
-        mailTestUser: false
+        mailTestUser: employeeName === "Twan"
       }
     ])
   );
@@ -2447,8 +3445,11 @@ function loadEmployeeMeta() {
   }
 
   try {
-    const parsedMeta = savedMeta;
+    const parsedMeta = JSON.parse(savedMeta);
     const normalized = {};
+    const hasExplicitMailTestUser = employees.some((employeeName) =>
+      Object.prototype.hasOwnProperty.call(parsedMeta?.[employeeName] || {}, "mailTestUser")
+    );
 
     employees.forEach((employeeName) => {
       const currentMeta = parsedMeta?.[employeeName];
@@ -2457,8 +3458,7 @@ function loadEmployeeMeta() {
         role: normalizeEmployeeAppRole(currentMeta?.role || getDefaultEmployeeAppRole(employeeName)),
         contractHours: normalizeContractHours(currentMeta?.contractHours ?? getConfiguredEmployeeContractHours()[employeeName] ?? 0),
         email: normalizeEmployeeEmail(currentMeta?.email),
-        loginAllowed: currentMeta?.loginAllowed !== false,
-        mailTestUser: false,
+        mailTestUser: hasExplicitMailTestUser ? Boolean(currentMeta?.mailTestUser) : employeeName === "Twan",
         lastTestMailAt: typeof currentMeta?.lastTestMailAt === "string" ? currentMeta.lastTestMailAt : "",
         lastTestMailStatus: typeof currentMeta?.lastTestMailStatus === "string" ? currentMeta.lastTestMailStatus : "",
         lastTestMailMessage: typeof currentMeta?.lastTestMailMessage === "string" ? currentMeta.lastTestMailMessage : "",
@@ -2475,10 +3475,7 @@ function loadEmployeeMeta() {
 }
 
 function saveEmployeeMeta() {
-  if (safeSetStorageItem(getScopedStorageKey(employeeMetaStorageKey), JSON.stringify(employeeMeta), "medewerkerstatus")) {
-    saveEmployeeEmergencyBackup("Medewerkerstatus opgeslagen");
-    refreshEmployeePersistenceDebugState();
-  }
+  safeSetStorageItem(getScopedStorageKey(employeeMetaStorageKey), JSON.stringify(employeeMeta), "medewerkerstatus");
 }
 
 function loadAuditLog() {
@@ -2490,25 +3487,7 @@ function loadAuditLog() {
 
   try {
     const parsedAuditLog = JSON.parse(savedAuditLog);
-
-    if (!Array.isArray(parsedAuditLog)) {
-      return [];
-    }
-
-    return parsedAuditLog.filter((item) =>
-      item &&
-      typeof item.at === "string" &&
-      typeof item.scope === "string" &&
-      typeof item.action === "string"
-    ).map((item) => ({
-      at: item.at,
-      scope: item.scope,
-      action: item.action,
-      actorRole: item.actorRole === "employee" ? "employee" : "planner",
-      actorName: typeof item.actorName === "string" ? item.actorName : "",
-      message: typeof item.message === "string" ? item.message : "",
-      details: item.details && typeof item.details === "object" ? item.details : {}
-    }));
+    return sanitizeAuditLog(parsedAuditLog);
   } catch {
     return [];
   }
@@ -2527,19 +3506,7 @@ function loadBackupHistory() {
 
   try {
     const parsedBackups = JSON.parse(savedBackups);
-
-    if (!Array.isArray(parsedBackups)) {
-      return [];
-    }
-
-    return parsedBackups.filter((backup) =>
-      backup &&
-      typeof backup.id === "string" &&
-      typeof backup.createdAt === "string" &&
-      typeof backup.reason === "string" &&
-      backup.snapshot &&
-      typeof backup.snapshot === "object"
-    );
+    return sanitizeBackupHistory(parsedBackups);
   } catch {
     return [];
   }
@@ -2565,74 +3532,55 @@ function getEmployeeEmail(employeeName) {
   return normalizeEmployeeEmail(employeeMeta?.[employeeName]?.email);
 }
 
-function isEmployeeLoginAllowed(employeeName) {
-  return employeeMeta?.[employeeName]?.loginAllowed !== false;
-}
-
-function canEmployeeAccessApp(employeeName) {
-  if (!employeeName || !employees.includes(employeeName)) {
-    return false;
-  }
-
-  return normalizeEmployeeStatus(getEmployeeStatus(employeeName)) === "active" && isEmployeeLoginAllowed(employeeName);
-}
-
 function getAppMailSentMessage() {
-  return "Mail verzonden";
+  return getAppMailSentMessageHelper({
+    appMailTestModeEnabled: APP_MAIL_TEST_MODE_ENABLED,
+    fixedTestRecipient: FIXED_TEST_MAIL_RECIPIENT
+  });
 }
 
 function getAppMailQueuedMessage(isReminder = false) {
-  return isReminder ? "Herinnering wordt verzonden." : "Mail wordt verzonden.";
+  return getAppMailQueuedMessageHelper({
+    appMailTestModeEnabled: APP_MAIL_TEST_MODE_ENABLED,
+    fixedTestRecipient: FIXED_TEST_MAIL_RECIPIENT,
+    isReminder
+  });
 }
 
 function isEmployeeMailTestEnabled(employeeName) {
-  return false;
+  if (EMPLOYEE_MAIL_TEST_MODE_ENABLED) {
+    return String(employeeName || "").trim().toLowerCase() === EMPLOYEE_MAIL_TEST_EMPLOYEE.toLowerCase();
+  }
+
+  return Boolean(employeeMeta?.[employeeName]?.mailTestUser);
 }
 
 function isEmployeeMailBlockedByTestPhase(employeeName) {
-  return false;
+  return Boolean(getEmployeeEmail(employeeName)) && !isEmployeeMailTestEnabled(employeeName);
 }
 
 function getMailEligibleEmployeeEmail(employeeName) {
+  if (!isEmployeeMailTestEnabled(employeeName)) {
+    return "";
+  }
+
   return getEmployeeEmail(employeeName);
 }
 
 function getPlannerSummaryEmailRecipients() {
   const plannerEmail = normalizeEmployeeEmail(
-    mailSettings?.senderEmail || mailSettings?.testRecipientEmail || ""
+    mailSettings?.senderEmail || mailSettings?.testRecipientEmail || FIXED_TEST_MAIL_RECIPIENT
   );
   return plannerEmail ? [plannerEmail] : [];
 }
 
 function getSelectedEmployeeAdminName() {
   if (!employees.length) {
-    employeeAdminSelection = "";
     return "";
   }
 
-  const selectedName = employeeAdminSelection || removeEmployeeSelect?.value || "";
-  const resolvedName = employees.includes(selectedName) ? selectedName : employees[0];
-  employeeAdminSelection = resolvedName;
-  return resolvedName;
-}
-
-function selectEmployeeForAdmin(employeeName) {
-  if (!isPlannerRole() || !removeEmployeeSelect) {
-    return;
-  }
-
-  if (!employeeName || !employees.includes(employeeName)) {
-    return;
-  }
-
-  employeeAdminSelection = employeeName;
-  removeEmployeeSelect.value = employeeName;
-  renderEmployeeList();
-  renderEmployeeEditorDetails();
-  renderEmployeePermissions();
-  renderEmployeeStandardShifts();
-  renderEmployeeContractPanel();
-  renderEmployeeDetailMailStatus(employeeName);
+  const selectedName = removeEmployeeSelect?.value || "";
+  return employees.includes(selectedName) ? selectedName : employees[0];
 }
 
 function cloneSerializableValue(value) {
@@ -2644,18 +3592,18 @@ function cloneSerializableValue(value) {
 }
 
 function createEmployeeEditorDraft(employeeName) {
-  return {
-    email: getEmployeeEmail(employeeName),
-    role: getEmployeeAppRole(employeeName),
-    status: getEmployeeStatus(employeeName),
-    loginAllowed: isEmployeeLoginAllowed(employeeName),
-    mailTestUser: isEmployeeMailTestEnabled(employeeName),
-    permissions: cloneSerializableValue(employeePermissions?.[employeeName] || {}),
-    standardShift: typeof employeeStandardShifts?.[employeeName] === "string" ? employeeStandardShifts[employeeName] : "",
-    basePatternId: getEmployeeBasePatternId(employeeName),
-    customRoster: cloneSerializableValue(getEmployeeCustomRosterConfig(employeeName)),
-    contractHours: getEmployeeContractHours(employeeName)
-  };
+  return createEmployeeEditorDraftHelper({
+    getEmployeeEmail,
+    getEmployeeAppRole,
+    getEmployeeStatus,
+    isEmployeeMailTestEnabled,
+    cloneSerializableValue,
+    employeePermissions,
+    employeeStandardShifts,
+    getEmployeeBasePatternId,
+    getEmployeeCustomRosterConfig,
+    getEmployeeContractHours
+  }, employeeName);
 }
 
 function getEmployeeEditorDraft(employeeName) {
@@ -2689,7 +3637,6 @@ function getEmployeeEditorSnapshot(employeeName, draftOverride = null) {
     email: normalizeEmployeeEmail(draft?.email),
     role: normalizeEmployeeAppRole(draft?.role),
     status: normalizeEmployeeStatus(draft?.status),
-    loginAllowed: draft?.loginAllowed !== false,
     mailTestUser: Boolean(draft?.mailTestUser),
     permissions: Object.fromEntries(
       getPermissionShiftDescriptors().map((shift) => [
@@ -2726,49 +3673,16 @@ function renderEmployeeDetailMailStatus(employeeName = getSelectedEmployeeAdminN
     return;
   }
 
-  if (!employeeName || !employeeMeta?.[employeeName]) {
-    employeeDetailMailStatus.textContent = "";
-    employeeDetailMailStatus.classList.add("hidden");
-    return;
-  }
+  const statusViewModel = getEmployeeDetailMailStatusViewModelHelper({
+    employeeMeta,
+    employeeName,
+    recipientEmail: getEmployeeEmail(employeeName),
+    formatDateTime,
+    fixedTestMailRecipient: FIXED_TEST_MAIL_RECIPIENT
+  });
 
-  const recipientEmail = getEmployeeEmail(employeeName);
-  const status = employeeMeta[employeeName].lastTestMailStatus;
-  const message = employeeMeta[employeeName].lastTestMailMessage || "";
-  const sentAt = employeeMeta[employeeName].lastTestMailAt
-    ? ` op ${formatDateTime(employeeMeta[employeeName].lastTestMailAt)}`
-    : "";
-  const employeeEmailText = recipientEmail ? `E-mailadres medewerker: ${recipientEmail}` : "Geen e-mailadres ingesteld";
-
-  if (!recipientEmail) {
-    employeeDetailMailStatus.textContent = employeeEmailText;
-    employeeDetailMailStatus.classList.remove("hidden");
-    return;
-  }
-
-  if (!status) {
-    employeeDetailMailStatus.textContent = `${employeeEmailText} Â· klaar om te versturen`;
-    employeeDetailMailStatus.classList.remove("hidden");
-    return;
-  }
-
-  if (status === "sent") {
-    employeeDetailMailStatus.textContent = `${employeeEmailText} Â· verzonden${sentAt}`;
-  } else {
-    employeeDetailMailStatus.textContent = `${employeeEmailText} Â· mislukt${message ? ` Â· ${message}` : ""}`;
-  }
-
-  employeeDetailMailStatus.classList.remove("hidden");
-}
-
-function setEmployeeClerkStatus(message = "", type = "") {
-  if (!employeeClerkStatus) {
-    return;
-  }
-
-  employeeClerkStatus.textContent = message || "";
-  employeeClerkStatus.dataset.state = type || "";
-  employeeClerkStatus.classList.toggle("hidden", !message);
+  employeeDetailMailStatus.textContent = statusViewModel.text;
+  employeeDetailMailStatus.classList.toggle("hidden", statusViewModel.hidden);
 }
 
 function setEmployeeEmailFieldError(message = "") {
@@ -2795,30 +3709,6 @@ function discardEmployeeEditorChanges(employeeName) {
 
   clearEmployeeEditorDraft(employeeName);
   renderEmployeeEditorDetails();
-}
-
-function getEmployeeStatusLabel(status) {
-  if (status === "inactive") {
-    return "Inactief";
-  }
-
-  if (status === "former") {
-    return "Uit dienst";
-  }
-
-  return "Actief";
-}
-
-function getEmployeeStatusClass(status) {
-  if (status === "inactive") {
-    return "is-inactive";
-  }
-
-  if (status === "former") {
-    return "is-former";
-  }
-
-  return "is-active";
 }
 
 function isEmployeeActive(employeeName) {
@@ -3164,7 +4054,6 @@ function syncEmployeeMeta() {
         employeeMeta[employeeName].contractHours ?? configuredContractHours[employeeName] ?? 0
       );
       const normalizedEmail = normalizeEmployeeEmail(employeeMeta[employeeName].email);
-      const normalizedLoginAllowed = employeeMeta[employeeName].loginAllowed !== false;
       const normalizedMailTestUser = Boolean(employeeMeta[employeeName].mailTestUser);
       const normalizedLastTestMailAt = typeof employeeMeta[employeeName].lastTestMailAt === "string" ? employeeMeta[employeeName].lastTestMailAt : "";
       const normalizedLastTestMailStatus = typeof employeeMeta[employeeName].lastTestMailStatus === "string" ? employeeMeta[employeeName].lastTestMailStatus : "";
@@ -3182,11 +4071,6 @@ function syncEmployeeMeta() {
 
       if (employeeMeta[employeeName].email !== normalizedEmail) {
         employeeMeta[employeeName].email = normalizedEmail;
-        changed = true;
-      }
-
-      if (employeeMeta[employeeName].loginAllowed !== normalizedLoginAllowed) {
-        employeeMeta[employeeName].loginAllowed = normalizedLoginAllowed;
         changed = true;
       }
 
@@ -3225,12 +4109,17 @@ function syncEmployeeMeta() {
 }
 
 function recordAuditEvent(scope, action, message, details = {}) {
+  const actorMeta = createAuditActorMeta({
+    isPlanner: isPlannerRole(),
+    employeeName: getRoleScopedEmployeeName() || "Medewerker"
+  });
+
   auditLog.unshift({
     at: getNowIsoString(),
     scope,
     action,
-    actorRole: isPlannerRole() ? "planner" : "employee",
-    actorName: isPlannerRole() ? "Planner / Directie" : (getRoleScopedEmployeeName() || "Medewerker"),
+    actorRole: actorMeta.actorRole,
+    actorName: actorMeta.actorName,
     message,
     details
   });
@@ -3239,6 +4128,11 @@ function recordAuditEvent(scope, action, message, details = {}) {
 }
 
 function createBackupSnapshot(reason, metadata = {}) {
+  const actorMeta = createAuditActorMeta({
+    isPlanner: isPlannerRole(),
+    employeeName: getRoleScopedEmployeeName() || "Medewerker"
+  });
+
   const snapshot = {
     entries: cloneEntriesState(entries),
     employees: [...employees],
@@ -3257,11 +4151,11 @@ function createBackupSnapshot(reason, metadata = {}) {
   };
 
   backupHistory.unshift({
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: createBackupEntryId(),
     createdAt: getNowIsoString(),
     reason,
-    actorRole: isPlannerRole() ? "planner" : "employee",
-    actorName: isPlannerRole() ? "Planner / Directie" : (getRoleScopedEmployeeName() || "Medewerker"),
+    actorRole: actorMeta.actorRole,
+    actorName: actorMeta.actorName,
     metadata,
     snapshot
   });
@@ -3278,9 +4172,6 @@ function persistProtectedChange({
 }) {
   if (scope === "roster") {
     markWeeksAsInReview(collectWeekValuesFromDetails(details));
-  }
-  if (scope === "employee") {
-    saveEmployeeEmergencyBackup(reason);
   }
   createBackupSnapshot(reason, details);
   recordAuditEvent(scope, action, message, details);
@@ -3322,7 +4213,6 @@ function restoreBackupById(backupId) {
   saveEmployeeShiftPreferences();
   saveEmployeeBasePatterns();
   saveEmployeeCustomRosters();
-  saveEmployeeEmergencyBackup(`Noodbackup hersteld via herstelpunt: ${backup.reason}`);
   savePlanningSettings();
   syncEmployeeMeta();
   syncEmployeePermissions();
@@ -3338,19 +4228,14 @@ function restoreBackupById(backupId) {
   return true;
 }
 
-function formatEmployeeStatusImpact(status) {
-  if (status === "inactive") {
-    return "Inactief: blijft zichtbaar in historische gegevens, maar verdwijnt uit nieuwe planning, standaard keuzelijsten, aanvragen en medewerker-login.";
-  }
-
-  if (status === "former") {
-    return "Uit dienst: alle oude roosters, uren, aanvragen en goedkeuringen blijven bewaard. De medewerker verdwijnt uit nieuwe planning, standaard keuzelijsten en login.";
-  }
-
-  return "Actief: zichtbaar in standaard keuzelijsten en beschikbaar voor planning, aanvragen en medewerker-login.";
-}
-
 function getPermissionShiftDescriptors() {
+  const activeShifts = (() => {
+    try {
+      return Array.isArray(shifts) ? shifts : [];
+    } catch {
+      return [];
+    }
+  })();
   const shopNumbers = new Set(getHolidayShopTemplates().map((template) => template.number));
   const allroundNames = new Set();
 
@@ -3381,7 +4266,7 @@ function getPermissionShiftDescriptors() {
     }));
 
   const descriptors = [
-    ...shifts.map((shift) => ({
+    ...activeShifts.map((shift) => ({
       name: shift.name,
       color: shift.color || "shift-tone-inpak"
     })),
@@ -3396,7 +4281,7 @@ function getPermissionShiftDescriptors() {
 
 function loadEmployeePermissions() {
   const allShiftNames = getPermissionShiftDescriptors().map((shift) => shift.name);
-  const savedPermissions = getRecoveredEmployeeDataForMode(employeePermissionsStorageKey, "employeePermissions", currentDataMode, "bevoegdheden");
+  const savedPermissions = localStorage.getItem(getScopedStorageKey(employeePermissionsStorageKey));
   const defaultPermissions = {};
 
   employees.forEach((employee) => {
@@ -3408,7 +4293,7 @@ function loadEmployeePermissions() {
   }
 
   try {
-    const parsedPermissions = savedPermissions;
+    const parsedPermissions = JSON.parse(savedPermissions);
     const normalizedPermissions = {};
 
     employees.forEach((employee) => {
@@ -3426,10 +4311,7 @@ function loadEmployeePermissions() {
 }
 
 function saveEmployeePermissions() {
-  if (safeSetStorageItem(getScopedStorageKey(employeePermissionsStorageKey), JSON.stringify(employeePermissions), "bevoegdheden")) {
-    saveEmployeeEmergencyBackup("Medewerkerbevoegdheden opgeslagen");
-    refreshEmployeePersistenceDebugState();
-  }
+  safeSetStorageItem(getScopedStorageKey(employeePermissionsStorageKey), JSON.stringify(employeePermissions), "bevoegdheden");
 }
 
 function getBakeryCoreShifts() {
@@ -3441,7 +4323,7 @@ function isBakeryCoreShift(shift) {
 }
 
 function loadEmployeeStandardShifts() {
-  const savedStandardShifts = getRecoveredEmployeeDataForMode(employeeStandardShiftStorageKey, "employeeStandardShifts", currentDataMode, "vaste diensten");
+  const savedStandardShifts = localStorage.getItem(getScopedStorageKey(employeeStandardShiftStorageKey));
   const validShiftNames = new Set(getBakeryCoreShifts().map((shift) => shift.name));
   const defaults = Object.fromEntries(employees.map((employeeName) => [employeeName, ""]));
 
@@ -3450,7 +4332,7 @@ function loadEmployeeStandardShifts() {
   }
 
   try {
-    const parsedStandardShifts = savedStandardShifts;
+    const parsedStandardShifts = JSON.parse(savedStandardShifts);
     const normalized = {};
 
     employees.forEach((employeeName) => {
@@ -3465,15 +4347,12 @@ function loadEmployeeStandardShifts() {
 }
 
 function saveEmployeeStandardShifts() {
-  if (safeSetStorageItem(getScopedStorageKey(employeeStandardShiftStorageKey), JSON.stringify(employeeStandardShifts), "vaste diensten")) {
-    saveEmployeeEmergencyBackup("Vaste diensten opgeslagen");
-    refreshEmployeePersistenceDebugState();
-  }
+  safeSetStorageItem(getScopedStorageKey(employeeStandardShiftStorageKey), JSON.stringify(employeeStandardShifts), "vaste diensten");
 }
 
 function loadEmployeeShiftPreferences() {
   const allShiftNames = getPermissionShiftDescriptors().map((shift) => shift.name);
-  const savedPreferences = getRecoveredEmployeeDataForMode(employeeShiftPreferenceStorageKey, "employeeShiftPreferences", currentDataMode, "dienstvoorkeuren");
+  const savedPreferences = localStorage.getItem(getScopedStorageKey(employeeShiftPreferenceStorageKey));
   const defaults = {};
 
   employees.forEach((employeeName) => {
@@ -3485,7 +4364,7 @@ function loadEmployeeShiftPreferences() {
   }
 
   try {
-    const parsedPreferences = savedPreferences;
+    const parsedPreferences = JSON.parse(savedPreferences);
     const normalizedPreferences = {};
 
     employees.forEach((employeeName) => {
@@ -3503,10 +4382,7 @@ function loadEmployeeShiftPreferences() {
 }
 
 function saveEmployeeShiftPreferences() {
-  if (safeSetStorageItem(getScopedStorageKey(employeeShiftPreferenceStorageKey), JSON.stringify(employeeShiftPreferences), "dienstvoorkeuren")) {
-    saveEmployeeEmergencyBackup("Dienstvoorkeuren opgeslagen");
-    refreshEmployeePersistenceDebugState();
-  }
+  safeSetStorageItem(getScopedStorageKey(employeeShiftPreferenceStorageKey), JSON.stringify(employeeShiftPreferences), "dienstvoorkeuren");
 }
 
 function getEmployeeBasePatternCatalog() {
@@ -3629,7 +4505,7 @@ function getDefaultEmployeeBasePatternId(employeeName) {
 }
 
 function loadEmployeeBasePatterns() {
-  const savedPatterns = getRecoveredEmployeeDataForMode(employeeBasePatternStorageKey, "employeeBasePatterns", currentDataMode, "basisroosters");
+  const savedPatterns = localStorage.getItem(getScopedStorageKey(employeeBasePatternStorageKey));
   const validPatternIds = new Set(getEmployeeBasePatternCatalog().map((pattern) => pattern.id));
   const defaults = Object.fromEntries(employees.map((employeeName) => [employeeName, getDefaultEmployeeBasePatternId(employeeName)]));
 
@@ -3638,7 +4514,7 @@ function loadEmployeeBasePatterns() {
   }
 
   try {
-    const parsedPatterns = savedPatterns;
+    const parsedPatterns = JSON.parse(savedPatterns);
     const normalized = {};
 
     employees.forEach((employeeName) => {
@@ -3653,14 +4529,11 @@ function loadEmployeeBasePatterns() {
 }
 
 function saveEmployeeBasePatterns() {
-  if (safeSetStorageItem(getScopedStorageKey(employeeBasePatternStorageKey), JSON.stringify(employeeBasePatterns), "basisroosters")) {
-    saveEmployeeEmergencyBackup("Basisroosters opgeslagen");
-    refreshEmployeePersistenceDebugState();
-  }
+  safeSetStorageItem(getScopedStorageKey(employeeBasePatternStorageKey), JSON.stringify(employeeBasePatterns), "basisroosters");
 }
 
 function loadEmployeeCustomRosters() {
-  const savedRosters = getRecoveredEmployeeDataForMode(employeeCustomRosterStorageKey, "employeeCustomRosters", currentDataMode, "vaste roosterpatronen");
+  const savedRosters = localStorage.getItem(getScopedStorageKey(employeeCustomRosterStorageKey));
   const defaults = Object.fromEntries(employees.map((employeeName) => [employeeName, createDefaultEmployeeCustomRoster(employeeName)]));
 
   if (!savedRosters) {
@@ -3668,7 +4541,7 @@ function loadEmployeeCustomRosters() {
   }
 
   try {
-    const parsedRosters = savedRosters;
+    const parsedRosters = JSON.parse(savedRosters);
     const normalized = {};
 
     employees.forEach((employeeName) => {
@@ -3682,10 +4555,7 @@ function loadEmployeeCustomRosters() {
 }
 
 function saveEmployeeCustomRosters() {
-  if (safeSetStorageItem(getScopedStorageKey(employeeCustomRosterStorageKey), JSON.stringify(employeeCustomRosters), "vaste roosterpatronen")) {
-    saveEmployeeEmergencyBackup("Vaste roosterpatronen opgeslagen");
-    refreshEmployeePersistenceDebugState();
-  }
+  safeSetStorageItem(getScopedStorageKey(employeeCustomRosterStorageKey), JSON.stringify(employeeCustomRosters), "vaste roosterpatronen");
 }
 
 function syncEmployeePermissions() {
@@ -3883,20 +4753,11 @@ function isEmployeeAvailableForShift(employeeName, day, startTime, endTime, igno
 }
 
 function getSuitableEmployeesForShift(shift, day, startTime, endTime, ignoredIndex = editIndex) {
-  if (!shift) {
-    return getActiveEmployees();
-  }
-
-  return getActiveEmployees().filter((employeeName) =>
-    isEmployeeAuthorizedForShift(employeeName, shift.name) &&
-    isEmployeeAvailableForShift(
-      employeeName,
-      day,
-      shift.startTime || startTime,
-      shift.endTime || endTime,
-      ignoredIndex
-    )
-  );
+  return getSuitableEmployeesForShiftHelper(shift, day, startTime, endTime, ignoredIndex, {
+    getActiveEmployees,
+    isEmployeeAuthorizedForShift,
+    isEmployeeAvailableForShift
+  });
 }
 
 function getAuthorizationError(employeeName, shift) {
@@ -4065,19 +4926,11 @@ function savePlanningSettings() {
 }
 
 function normalizeWeekReviewStatus(status) {
-  if (status === "reviewed") {
-    return "locked";
-  }
-
-  return ["open", "in-review", "locked"].includes(String(status || ""))
-    ? String(status)
-    : "open";
+  return normalizeWeekReviewStatusHelper(status);
 }
 
 function normalizeWeekPlanningStatus(status) {
-  return ["open", "planned"].includes(String(status || ""))
-    ? String(status)
-    : "open";
+  return normalizeWeekPlanningStatusHelper(status);
 }
 
 function getWeekPlanningStatus(weekValue) {
@@ -4133,35 +4986,9 @@ function setWeekReviewStatus(weekValue, status, { save = true } = {}) {
 }
 
 function collectWeekValuesFromDetails(details = {}) {
-  const weekValues = new Set();
-
-  if (details.weekValue && /^\d{4}-W\d{2}$/.test(String(details.weekValue))) {
-    weekValues.add(String(details.weekValue));
-  }
-
-  if (details.targetWeek && /^\d{4}-W\d{2}$/.test(String(details.targetWeek))) {
-    weekValues.add(String(details.targetWeek));
-  }
-
-  if (details.sourceWeek && /^\d{4}-W\d{2}$/.test(String(details.sourceWeek))) {
-    weekValues.add(String(details.sourceWeek));
-  }
-
-  [details.day, details.date].forEach((dateValue) => {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(String(dateValue || ""))) {
-      weekValues.add(getWeekValueFromDate(String(dateValue)));
-    }
+  return collectWeekValuesFromDetailsHelper(details, {
+    getWeekValueFromDate
   });
-
-  if (Array.isArray(details.dates)) {
-    details.dates.forEach((dateValue) => {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(String(dateValue || ""))) {
-        weekValues.add(getWeekValueFromDate(String(dateValue)));
-      }
-    });
-  }
-
-  return [...weekValues].filter(Boolean);
 }
 
 function markWeeksAsInReview(weekValues) {
@@ -4482,7 +5309,6 @@ function reloadScopedData() {
   syncEmployeeShiftPreferences();
   syncEmployeeBasePatterns();
   syncEmployeeCustomRosters();
-  refreshEmployeePersistenceDebugState();
 }
 
 function resetTestPlanningData() {
@@ -4539,19 +5365,20 @@ function mergeEmployeesFromEntries() {
   }
 }
 
-function formatDate(value) {
-  return new Intl.DateTimeFormat("nl-NL", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric"
-  }).format(new Date(value));
-}
-
-function formatWeekday(value) {
-  return new Intl.DateTimeFormat("nl-NL", {
-    weekday: "long"
-  }).format(new Date(value));
-}
+const {
+  formatDate = function fallbackFormatDate(value) {
+    return new Intl.DateTimeFormat("nl-NL", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric"
+    }).format(new Date(value));
+  },
+  formatWeekday = function fallbackFormatWeekday(value) {
+    return new Intl.DateTimeFormat("nl-NL", {
+      weekday: "long"
+    }).format(new Date(value));
+  }
+} = window.StroetFormatUtils || {};
 
 function getCurrentWeekValue() {
   const today = new Date();
@@ -4639,10 +5466,6 @@ function getTodayDateValue() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return formatLocalDateValue(today);
-}
-
-function getTodayString() {
-  return getTodayDateValue();
 }
 
 function getTomorrowDateValue() {
@@ -4916,7 +5739,9 @@ function getRecognizedSpecialDayInfo(dateValue) {
 }
 
 function isClosedPlannerDay(dateValue) {
-  return Boolean(getRecognizedSpecialDayInfo(dateValue)?.isClosed);
+  return isClosedPlannerDayHelper(dateValue, {
+    getRecognizedSpecialDayInfo
+  });
 }
 
 function renderSpecialDayBadges(dateValue, { compact = false } = {}) {
@@ -5067,16 +5892,13 @@ function getShopSlotsForDate(dateValue) {
 }
 
 function getShopCoverageForDate(dateValue) {
-  const specialDay = getRecognizedSpecialDayInfo(dateValue);
-  const needed = getShopSlotsForDate(dateValue).length;
-  const planned = entries.filter((entry) => entry.day === dateValue && isShopShiftName(getShiftName(entry))).length;
-
-  return {
-    needed,
-    planned,
-    status: needed === 0 ? "closed" : planned < needed ? "under" : planned === needed ? "full" : "over",
-    closedReason: specialDay?.isClosed ? specialDay.nameLabel : ""
-  };
+  return getShopCoverageForDateHelper(dateValue, {
+    getRecognizedSpecialDayInfo,
+    getShopSlotsForDate,
+    entries,
+    isShopShiftName,
+    getShiftName
+  });
 }
 
 function isNonRequiredFilledShift(entry) {
@@ -5101,13 +5923,11 @@ function timeToMinutes(timeValue) {
   return (hours * 60) + minutes;
 }
 
-function formatHours(hours) {
-  return `${hours.toFixed(2).replace(".", ",")} uur`;
-}
-
-function createRequestId(prefix) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-}
+const {
+  createRequestId = function fallbackCreateRequestId(prefix) {
+    return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  }
+} = window.StroetRequestsFeature || {};
 
 function escapeCsvValue(value) {
   const stringValue = String(value ?? "");
@@ -5179,14 +5999,6 @@ function getHoursExportSelection() {
     };
 }
 
-function getWorkedHoursFromLog(workLog) {
-  if (!workLog?.actualStart || !workLog?.actualEnd) {
-    return null;
-  }
-
-  return calculateWorkedHours(workLog.actualStart, workLog.actualEnd, workLog.breakMinutes);
-}
-
 function exportHoursForAdministration() {
   if (!isPlannerRole()) {
     showMessage("Alleen directie of planner kan uren exporteren.", "error");
@@ -5253,42 +6065,28 @@ function exportHoursForAdministration() {
 }
 
 function getMessageAutoHideMs(type) {
-  return 3000;
-}
-
-function ensureGlobalMessageContainer() {
-  if (!messageBox) {
-    return null;
-  }
-
-  if (messageBox.parentElement !== document.body) {
-    document.body.appendChild(messageBox);
-  }
-
-  return messageBox;
+  return type === "error" ? 4200 : type === "warning" ? 3400 : 2200;
 }
 
 function renderActiveMessage() {
-  const toastBox = ensureGlobalMessageContainer();
-
-  if (!toastBox) {
+  if (!messageBox) {
     return;
   }
 
   if (!activeMessageState) {
-    toastBox.textContent = "";
-    toastBox.hidden = true;
-    toastBox.className = "message hidden compact-message";
-    toastBox.removeAttribute("role");
-    toastBox.removeAttribute("aria-live");
+    messageBox.textContent = "";
+    messageBox.hidden = true;
+    setClassName(messageBox, "message hidden compact-message");
+    messageBox.removeAttribute("role");
+    messageBox.removeAttribute("aria-live");
     return;
   }
 
-  toastBox.textContent = activeMessageState.text;
-  toastBox.hidden = false;
-  toastBox.className = `message compact-message ${activeMessageState.type}`;
-  toastBox.setAttribute("role", activeMessageState.type === "error" ? "alert" : "status");
-  toastBox.setAttribute("aria-live", activeMessageState.type === "error" ? "assertive" : "polite");
+  messageBox.textContent = activeMessageState.text;
+  messageBox.hidden = false;
+  setClassName(messageBox, `message compact-message ${activeMessageState.type}`);
+  messageBox.setAttribute("role", activeMessageState.type === "error" ? "alert" : "status");
+  messageBox.setAttribute("aria-live", activeMessageState.type === "error" ? "assertive" : "polite");
 }
 
 function scheduleActiveMessageHide() {
@@ -5366,24 +6164,16 @@ function showMessage(text, type) {
   enqueueMessage(text, type);
 }
 
-function showSuccess(text) {
-  enqueueMessage(text, "success", 3000);
-}
-
-function showError(text) {
-  enqueueMessage(text, "error", 3000);
-}
-
 function showSuccessNotice(text, options = {}) {
   const { deferred = false } = options;
   if (deferred) {
     window.setTimeout(() => {
-      showSuccess(text);
+      showMessage(text, "success");
     }, 0);
     return;
   }
 
-  showSuccess(text);
+  showMessage(text, "success");
 }
 
 function triggerSuccess(text, options = {}) {
@@ -5392,21 +6182,11 @@ function triggerSuccess(text, options = {}) {
 
 function showToast(text, options = {}) {
   const { type = "success" } = options;
-  if (type === "error") {
-    showError(text);
-    return;
-  }
-
-  if (type === "warning") {
-    enqueueMessage(text, "warning", 3000);
-    return;
-  }
-
-  showSuccess(text);
+  showMessage(text, type);
 }
 
 function showSavedMessage() {
-  showSuccessNotice("Opgeslagen");
+  showSuccessNotice("Opgeslagen.");
 }
 
 function showDeletedMessage(text = "Verwijderd.") {
@@ -5626,117 +6406,262 @@ function getApprovedTimeOff(employeeName, date) {
   ) || null;
 }
 
-function getAbsenceTypeLabel(type) {
-  if (type === "vakantie") {
-    return "Vakantie";
+const {
+  getAbsenceTypeLabel = function fallbackGetAbsenceTypeLabel(type) {
+    if (type === "vakantie") {
+      return "Vakantie";
+    }
+
+    if (type === "ziek") {
+      return "Ziek";
+    }
+
+    return "Vrij";
+  },
+  getAbsenceCardClass = function fallbackGetAbsenceCardClass(type) {
+    if (type === "vakantie") {
+      return "vacation";
+    }
+
+    if (type === "ziek") {
+      return "sick";
+    }
+
+    return "free";
+  },
+  getApprovedAbsenceLabel = function fallbackGetApprovedAbsenceLabel(request) {
+    if (!request) {
+      return "";
+    }
+
+    return `${getAbsenceTypeLabel(request.type)} goedgekeurd`;
+  },
+  getApprovedAbsenceDetail = function fallbackGetApprovedAbsenceDetail(request) {
+    if (!request) {
+      return "";
+    }
+
+    return `${getAbsenceTypeLabel(request.type).toLowerCase()}${request.reason ? `: ${request.reason}` : ""}`;
+  },
+  getTimeOffStartDate = function fallbackGetTimeOffStartDate(request) {
+    if (!request) {
+      return "";
+    }
+
+    return typeof request.startDate === "string" && request.startDate
+      ? request.startDate
+      : (typeof request.date === "string" ? request.date : "");
+  },
+  getTimeOffEndDate = function fallbackGetTimeOffEndDate(request) {
+    if (!request) {
+      return "";
+    }
+
+    if (request.type === "vakantie") {
+      return typeof request.endDate === "string" && request.endDate
+        ? request.endDate
+        : getTimeOffStartDate(request);
+    }
+
+    return getTimeOffStartDate(request);
+  },
+  requestIncludesDate = function fallbackRequestIncludesDate(request, date) {
+    const startDate = getTimeOffStartDate(request);
+    const endDate = getTimeOffEndDate(request);
+
+    if (!startDate || !endDate || !date) {
+      return false;
+    }
+
+    return date >= startDate && date <= endDate;
+  },
+  requestOverlapsRange = function fallbackRequestOverlapsRange(request, startDate, endDate) {
+    const requestStartDate = getTimeOffStartDate(request);
+    const requestEndDate = getTimeOffEndDate(request);
+
+    if (!requestStartDate || !requestEndDate || !startDate || !endDate) {
+      return false;
+    }
+
+    return requestStartDate <= endDate && requestEndDate >= startDate;
+  },
+  getTimeOffDisplayRange = function fallbackGetTimeOffDisplayRange(request) {
+    const startDate = getTimeOffStartDate(request);
+    const endDate = getTimeOffEndDate(request);
+
+    if (!startDate) {
+      return "";
+    }
+
+    if (request?.type === "vakantie" && endDate && endDate !== startDate) {
+      return `${formatDate(startDate)} t/m ${formatDate(endDate)}`;
+    }
+
+    return formatDate(startDate);
   }
+} = window.StroetRequestsFeature || {};
 
-  if (type === "ziek") {
-    return "Ziek";
+const {
+  addMinutesToTimeValue = function fallbackAddMinutesToTimeValue(timeValue, minutesToAdd) {
+    if (!timeValue || !Number.isFinite(Number(minutesToAdd))) {
+      return timeValue || "";
+    }
+
+    const [hoursPart, minutesPart] = String(timeValue).split(":").map((value) => Number(value) || 0);
+    const totalMinutes = Math.max(0, (hoursPart * 60) + minutesPart + Number(minutesToAdd));
+    const nextHours = Math.floor(totalMinutes / 60) % 24;
+    const nextMinutes = totalMinutes % 60;
+    return `${String(nextHours).padStart(2, "0")}:${String(nextMinutes).padStart(2, "0")}`;
+  },
+  buildHoursManualEntry = function fallbackBuildHoursManualEntry(employeeName, day, shiftName = "Extra uren") {
+    return {
+      name: employeeName,
+      day,
+      shiftName,
+      startTime: "",
+      endTime: "",
+      hours: 0,
+      isManualHours: true
+    };
+  },
+  buildManualWorkLogId = function fallbackBuildManualWorkLogId(employeeName, day) {
+    return ["manual", employeeName, day].join("|");
+  },
+  buildWorkLogId = function fallbackBuildWorkLogId(employeeName, day, shiftName, plannedStart, plannedEnd) {
+    return [employeeName, day, shiftName, plannedStart, plannedEnd].join("|");
+  },
+  calculateWorkedHours = function fallbackCalculateWorkedHours(actualStart, actualEnd, breakMinutes = 0) {
+    const startMinutes = getTimeValueMinutes(actualStart);
+    const endMinutes = getTimeValueMinutes(actualEnd);
+
+    if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes) {
+      return null;
+    }
+
+    const rawHours = (endMinutes - startMinutes) / 60;
+    const pauseHours = Math.max(0, Number(breakMinutes) || 0) / 60;
+    const workedHours = rawHours - pauseHours;
+
+    return workedHours >= 0 ? workedHours : null;
+  },
+  clampHoursDateValue = function fallbackClampHoursDateValue(dateValue) {
+    const normalizedDate = String(dateValue || "").trim();
+    const todayValue = getTodayLocalDateValue();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
+      return todayValue;
+    }
+
+    return normalizedDate > todayValue ? todayValue : normalizedDate;
+  },
+  formatHours = function fallbackFormatHours(hours) {
+    return `${hours.toFixed(2).replace(".", ",")} uur`;
+  },
+  getDefaultWorkLogValues = function fallbackGetDefaultWorkLogValues(entry) {
+    return {
+      actualStart: entry.startTime || "",
+      actualEnd: entry.endTime || "",
+      breakMinutes: 0,
+      notes: ""
+    };
+  },
+  getTimeValueMinutes = function fallbackGetTimeValueMinutes(timeValue) {
+    if (!/^\d{2}:\d{2}$/.test(String(timeValue || ""))) {
+      return null;
+    }
+
+    const [hoursPart, minutesPart] = String(timeValue).split(":").map((value) => Number(value) || 0);
+    return (hoursPart * 60) + minutesPart;
+  },
+  getWorkedHoursFromLog = function fallbackGetWorkedHoursFromLog(workLog) {
+    if (!workLog?.actualStart || !workLog?.actualEnd) {
+      return null;
+    }
+
+    return calculateWorkedHours(workLog.actualStart, workLog.actualEnd, workLog.breakMinutes);
+  },
+  getWorkLogStatusLabel = function fallbackGetWorkLogStatusLabel(workLog) {
+    if (!workLog) {
+      return "Leeg";
+    }
+
+    if (workLog.status === "approved") {
+      return "Goedgekeurd";
+    }
+
+    if (workLog.status === "rejected") {
+      return "Afgekeurd";
+    }
+
+    if (workLog.status === "revision") {
+      return "Opmerking nodig";
+    }
+
+    if (workLog.status === "open") {
+      return "Ingediend";
+    }
+
+    return "Ingevuld";
+  },
+  getWorkLogValidationState = function fallbackGetWorkLogValidationState(entry, values) {
+    const normalizedValues = {
+      actualStart: values?.actualStart || "",
+      actualEnd: values?.actualEnd || "",
+      breakMinutes: Math.max(0, Number(values?.breakMinutes) || 0)
+    };
+    const validation = {
+      isFuture: isFutureDateValue(entry.day),
+      isInvalidRange: false,
+      isLongShift: false,
+      isLargeEndDeviation: false,
+      workedHours: calculateWorkedHours(normalizedValues.actualStart, normalizedValues.actualEnd, normalizedValues.breakMinutes),
+      messages: []
+    };
+
+    if (validation.isFuture) {
+      validation.messages.push({
+        type: "error",
+        text: "Toekomstige diensten zijn nog niet invulbaar."
+      });
+    }
+
+    if (normalizedValues.actualStart && normalizedValues.actualEnd && validation.workedHours === null) {
+      validation.isInvalidRange = true;
+      validation.messages.push({
+        type: "error",
+        text: "Eindtijd ligt voor begintijd of de pauze is onlogisch."
+      });
+    }
+
+    if (validation.workedHours !== null && validation.workedHours > 12) {
+      validation.isLongShift = true;
+      validation.messages.push({
+        type: "warning",
+        text: `Controleer deze registratie: ${formatHours(validation.workedHours)} is een onlogisch lange dienst.`
+      });
+    }
+
+    const plannedEndMinutes = getTimeValueMinutes(entry.endTime);
+    const actualEndMinutes = getTimeValueMinutes(normalizedValues.actualEnd);
+
+    if (plannedEndMinutes !== null && actualEndMinutes !== null) {
+      const differenceMinutes = Math.abs(actualEndMinutes - plannedEndMinutes);
+
+      if (differenceMinutes >= 60) {
+        validation.isLargeEndDeviation = true;
+        validation.messages.push({
+          type: "warning",
+          text: `De eindtijd wijkt meer dan 1 uur af van planning (${entry.endTime} naar ${normalizedValues.actualEnd}).`
+        });
+      }
+    }
+
+    return validation;
+  },
+  isManualWorkLogId = function fallbackIsManualWorkLogId(workLogId) {
+    return String(workLogId || "").startsWith("manual|");
   }
-
-  return "Vrij";
-}
-
-function getAbsenceCardClass(type) {
-  if (type === "vakantie") {
-    return "vacation";
-  }
-
-  if (type === "ziek") {
-    return "sick";
-  }
-
-  return "free";
-}
-
-function getApprovedAbsenceLabel(request) {
-  if (!request) {
-    return "";
-  }
-
-  return `${getAbsenceTypeLabel(request.type)} goedgekeurd`;
-}
-
-function getApprovedAbsenceDetail(request) {
-  if (!request) {
-    return "";
-  }
-
-  return `${getAbsenceTypeLabel(request.type).toLowerCase()}${request.reason ? `: ${request.reason}` : ""}`;
-}
-
-function getTimeOffStartDate(request) {
-  if (!request) {
-    return "";
-  }
-
-  return typeof request.startDate === "string" && request.startDate
-    ? request.startDate
-    : (typeof request.date === "string" ? request.date : "");
-}
-
-function getTimeOffEndDate(request) {
-  if (!request) {
-    return "";
-  }
-
-  if (request.type === "vakantie") {
-    return typeof request.endDate === "string" && request.endDate
-      ? request.endDate
-      : getTimeOffStartDate(request);
-  }
-
-  return getTimeOffStartDate(request);
-}
-
-function requestIncludesDate(request, date) {
-  const startDate = getTimeOffStartDate(request);
-  const endDate = getTimeOffEndDate(request);
-
-  if (!startDate || !endDate || !date) {
-    return false;
-  }
-
-  return date >= startDate && date <= endDate;
-}
-
-function requestOverlapsRange(request, startDate, endDate) {
-  const requestStartDate = getTimeOffStartDate(request);
-  const requestEndDate = getTimeOffEndDate(request);
-
-  if (!requestStartDate || !requestEndDate || !startDate || !endDate) {
-    return false;
-  }
-
-  return requestStartDate <= endDate && requestEndDate >= startDate;
-}
-
-function requestMatchesExactRange(request, startDate, endDate) {
-  const requestStartDate = getTimeOffStartDate(request);
-  const requestEndDate = getTimeOffEndDate(request);
-
-  if (!requestStartDate || !requestEndDate || !startDate || !endDate) {
-    return false;
-  }
-
-  return requestStartDate === startDate && requestEndDate === endDate;
-}
-
-function getTimeOffDisplayRange(request) {
-  const startDate = getTimeOffStartDate(request);
-  const endDate = getTimeOffEndDate(request);
-
-  if (!startDate) {
-    return "";
-  }
-
-  if (request?.type === "vakantie" && endDate && endDate !== startDate) {
-    return `${formatDate(startDate)} t/m ${formatDate(endDate)}`;
-  }
-
-  return formatDate(startDate);
-}
+} = window.StroetHoursFeature || {};
 
 function getEntriesForEmployeeDay(employeeName, date) {
   return entries
@@ -5744,35 +6669,12 @@ function getEntriesForEmployeeDay(employeeName, date) {
     .sort((entryA, entryB) => entryA.startTime.localeCompare(entryB.startTime));
 }
 
-function buildWorkLogId(employeeName, day, shiftName, plannedStart, plannedEnd) {
-  return [employeeName, day, shiftName, plannedStart, plannedEnd].join("|");
-}
-
 function getWorkLogIdForEntry(entry) {
   return buildWorkLogId(entry.name, entry.day, getShiftName(entry), entry.startTime, entry.endTime);
 }
 
-function buildManualWorkLogId(employeeName, day) {
-  return ["manual", employeeName, day].join("|");
-}
-
-function isManualWorkLogId(workLogId) {
-  return String(workLogId || "").startsWith("manual|");
-}
-
 function getManualWorkLogForDate(employeeName, day) {
   return workLogs.find((log) => log.id === buildManualWorkLogId(employeeName, day)) || null;
-}
-
-function clampHoursDateValue(dateValue) {
-  const normalizedDate = String(dateValue || "").trim();
-  const todayValue = getTodayLocalDateValue();
-
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
-    return todayValue;
-  }
-
-  return normalizedDate > todayValue ? todayValue : normalizedDate;
 }
 
 function getSelectedHoursDate() {
@@ -5875,53 +6777,6 @@ function moveWorkLogToEntry(previousEntry, nextEntry) {
   return true;
 }
 
-function calculateWorkedHours(actualStart, actualEnd, breakMinutes = 0) {
-  if (!actualStart || !actualEnd) {
-    return null;
-  }
-
-  const rawHours = calculateHours(actualStart, actualEnd);
-
-  if (rawHours === null) {
-    return null;
-  }
-
-  const pauseHours = Math.max(0, Number(breakMinutes) || 0) / 60;
-  const workedHours = rawHours - pauseHours;
-
-  return workedHours >= 0 ? workedHours : null;
-}
-
-function getTimeValueMinutes(timeValue) {
-  if (!/^\d{2}:\d{2}$/.test(String(timeValue || ""))) {
-    return null;
-  }
-
-  const [hoursPart, minutesPart] = String(timeValue).split(":").map((value) => Number(value) || 0);
-  return (hoursPart * 60) + minutesPart;
-}
-
-function addMinutesToTimeValue(timeValue, minutesToAdd) {
-  if (!timeValue || !Number.isFinite(Number(minutesToAdd))) {
-    return timeValue || "";
-  }
-
-  const [hoursPart, minutesPart] = String(timeValue).split(":").map((value) => Number(value) || 0);
-  const totalMinutes = Math.max(0, (hoursPart * 60) + minutesPart + Number(minutesToAdd));
-  const nextHours = Math.floor(totalMinutes / 60) % 24;
-  const nextMinutes = totalMinutes % 60;
-  return `${String(nextHours).padStart(2, "0")}:${String(nextMinutes).padStart(2, "0")}`;
-}
-
-function getDefaultWorkLogValues(entry) {
-  return {
-    actualStart: entry.startTime || "",
-    actualEnd: entry.endTime || "",
-    breakMinutes: 0,
-    notes: ""
-  };
-}
-
 function getEffectiveWorkLogValues(entry, workLog = getWorkLogForEntry(entry)) {
   const defaults = getDefaultWorkLogValues(entry);
 
@@ -5934,74 +6789,6 @@ function getEffectiveWorkLogValues(entry, workLog = getWorkLogForEntry(entry)) {
     actualEnd: workLog.actualEnd || defaults.actualEnd,
     breakMinutes: Number.isFinite(Number(workLog.breakMinutes)) ? Math.max(0, Number(workLog.breakMinutes)) : defaults.breakMinutes,
     notes: workLog.notes || ""
-  };
-}
-
-function getWorkLogValidationState(entry, values) {
-  const normalizedValues = {
-    actualStart: values?.actualStart || "",
-    actualEnd: values?.actualEnd || "",
-    breakMinutes: Math.max(0, Number(values?.breakMinutes) || 0)
-  };
-  const validation = {
-    isFuture: isFutureDateValue(entry.day),
-    isInvalidRange: false,
-    isLongShift: false,
-    isLargeEndDeviation: false,
-    workedHours: calculateWorkedHours(normalizedValues.actualStart, normalizedValues.actualEnd, normalizedValues.breakMinutes),
-    messages: []
-  };
-
-  if (validation.isFuture) {
-    validation.messages.push({
-      type: "error",
-      text: "Toekomstige diensten zijn nog niet invulbaar."
-    });
-  }
-
-  if (normalizedValues.actualStart && normalizedValues.actualEnd && validation.workedHours === null) {
-    validation.isInvalidRange = true;
-    validation.messages.push({
-      type: "error",
-      text: "Eindtijd ligt voor begintijd of de pauze is onlogisch."
-    });
-  }
-
-  if (validation.workedHours !== null && validation.workedHours > 12) {
-    validation.isLongShift = true;
-    validation.messages.push({
-      type: "warning",
-      text: `Controleer deze registratie: ${formatHours(validation.workedHours)} is een onlogisch lange dienst.`
-    });
-  }
-
-  const plannedEndMinutes = getTimeValueMinutes(entry.endTime);
-  const actualEndMinutes = getTimeValueMinutes(normalizedValues.actualEnd);
-
-  if (plannedEndMinutes !== null && actualEndMinutes !== null) {
-    const differenceMinutes = Math.abs(actualEndMinutes - plannedEndMinutes);
-
-    if (differenceMinutes >= 60) {
-      validation.isLargeEndDeviation = true;
-      validation.messages.push({
-        type: "warning",
-        text: `De eindtijd wijkt meer dan 1 uur af van planning (${entry.endTime} naar ${normalizedValues.actualEnd}).`
-      });
-    }
-  }
-
-  return validation;
-}
-
-function buildHoursManualEntry(employeeName, day, shiftName = "Extra uren") {
-  return {
-    name: employeeName,
-    day,
-    shiftName,
-    startTime: "",
-    endTime: "",
-    hours: 0,
-    isManualHours: true
   };
 }
 
@@ -6113,7 +6900,7 @@ function renderWorkLogCardMarkup(entry, workLog = getWorkLogForEntry(entry), opt
         </div>
       ` : ""}
       ${workLog?.employeeReply ? `<div class="hours-registration-audit">Reactie medewerker: ${workLog.employeeReply}</div>` : ""}
-        ${latestAudit ? `<div class="hours-registration-audit">Laatste wijziging: ${formatDateTime(latestAudit.at)} Â· ${latestAudit.actorName}${latestAudit.summary ? ` Â· ${latestAudit.summary}` : ""}</div>` : ""}
+        ${latestAudit ? `<div class="hours-registration-audit">Laatste wijziging: ${formatDateTime(latestAudit.at)} · ${latestAudit.actorName}${latestAudit.summary ? ` · ${latestAudit.summary}` : ""}</div>` : ""}
       ${workLog && (workLog.status === "open" || workLog.status === "approved")
         ? `<div class="hours-registration-lock">${workLog.status === "approved"
           ? (isPlannerRole()
@@ -6137,296 +6924,6 @@ function hasWorkLogDeviation(entry, values) {
     values.actualEnd !== entry.endTime ||
     Number(values.breakMinutes) > 0 ||
     Boolean((values.notes || "").trim());
-}
-
-function getWorkLogStatusLabel(workLog) {
-  if (!workLog) {
-    return "Leeg";
-  }
-
-  if (workLog.status === "approved") {
-    return "Goedgekeurd";
-  }
-
-  if (workLog.status === "rejected") {
-    return "Afgekeurd";
-  }
-
-  if (workLog.status === "revision") {
-    return "Opmerking nodig";
-  }
-
-  if (workLog.status === "open") {
-    return "Ingediend";
-  }
-
-  return "Ingevuld";
-}
-
-function getDailyWorkLogStatus(logs = []) {
-  if (!Array.isArray(logs) || !logs.length) {
-    return {
-      label: "Leeg",
-      className: "empty"
-    };
-  }
-
-  if (logs.some((log) => log?.status === "rejected")) {
-    return {
-      label: "Afgekeurd",
-      className: "rejected"
-    };
-  }
-
-  if (logs.some((log) => log?.status === "revision")) {
-    return {
-      label: "Opmerking nodig",
-      className: "open"
-    };
-  }
-
-  if (logs.every((log) => log?.status === "approved")) {
-    return {
-      label: "Goedgekeurd",
-      className: "approved"
-    };
-  }
-
-  if (logs.some((log) => log?.status === "open")) {
-    return {
-      label: "Ingediend",
-      className: "open"
-    };
-  }
-
-  return {
-    label: "Ingevuld",
-    className: "empty"
-  };
-}
-
-function getSimpleHoursTargetEntry(employeeName, day, dayEntries = []) {
-  if (dayEntries.length === 1) {
-    return dayEntries[0];
-  }
-
-  return buildHoursManualEntry(employeeName, day, "Gewerkte uren");
-}
-
-function getSimpleHoursWorkedValue(entry, workLog) {
-  const workedHours = workLog
-    ? calculateWorkedHours(workLog.actualStart, workLog.actualEnd, workLog.breakMinutes)
-    : null;
-
-  if (workedHours !== null) {
-    return Number(workedHours.toFixed(2));
-  }
-
-  if (entry?.hours && Number.isFinite(Number(entry.hours)) && Number(entry.hours) > 0) {
-    return Number(Number(entry.hours).toFixed(2));
-  }
-
-  return "";
-}
-
-function renderSimpleEmployeeHoursFormMarkup(employeeName, day, dayEntries = []) {
-  const targetEntry = getSimpleHoursTargetEntry(employeeName, day, dayEntries);
-  const workLogId = targetEntry.isManualHours
-    ? buildManualWorkLogId(employeeName, day)
-    : getWorkLogIdForEntry(targetEntry);
-  const existingLog = targetEntry.isManualHours
-    ? getManualWorkLogForDate(employeeName, day)
-    : getWorkLogForEntry(targetEntry);
-  const workedValue = getSimpleHoursWorkedValue(targetEntry, existingLog);
-  const noteValue = existingLog?.notes || "";
-  const statusLabel = getWorkLogStatusLabel(existingLog);
-  const statusClass = existingLog?.status === "approved"
-    ? "approved"
-    : existingLog?.status === "rejected"
-      ? "rejected"
-      : existingLog?.status === "open"
-        ? "open"
-        : "empty";
-  const plannedSummary = dayEntries.length
-    ? dayEntries.map((entry) => `${getShiftName(entry)} Â· ${entry.startTime} - ${entry.endTime}`).join("<br>")
-    : "Geen dienst gepland";
-  const quickHoursChoices = [2, 4, 6, 8];
-
-  return `
-    <article class="hours-simple-card" data-simple-hours-card="${workLogId}">
-      <div class="hours-simple-head">
-        <div>
-          <strong>${dayEntries.length ? "Uren invullen" : "Extra uren invullen"}</strong>
-          <span>${plannedSummary}</span>
-        </div>
-        <span class="status-pill status-${statusClass}">${statusLabel}</span>
-      </div>
-      <div class="hours-simple-grid">
-        <label>
-          <span>Aantal uren</span>
-          <input type="number" min="0" max="24" step="0.25" value="${workedValue}" data-simple-hours="value" data-worklog-id="${workLogId}">
-        </label>
-        <div class="hours-simple-quick">
-          <span>Snelle keuze</span>
-          <div class="hours-simple-quick-buttons">
-              ${quickHoursChoices.map((hours) => `
-                <button type="button" class="secondary" data-simple-hours-quick="${hours}" data-worklog-id="${workLogId}">${hours} uur</button>
-              `).join("")}
-            </div>
-          </div>
-          <label class="hours-simple-notes">
-          <span>Korte toelichting</span>
-          <input type="text" value="${escapeHtml(noteValue)}" placeholder="Optioneel" data-simple-hours="notes" data-worklog-id="${workLogId}">
-        </label>
-      </div>
-      <div class="form-actions compact-actions">
-        <button type="button" data-simple-hours-save="${workLogId}">Opslaan</button>
-      </div>
-    </article>
-  `;
-}
-
-function saveSimpleHoursForm(workLogId) {
-  const entry = getWorkLogContextById(workLogId);
-
-  if (!entry) {
-    showError("De urenregistratie kan niet worden geladen.");
-    return;
-  }
-
-  if (!ensureOwnEmployeeAccess(entry.name, "Je kunt alleen je eigen uren invullen.")) {
-    return;
-  }
-
-  if (isFutureDateValue(entry.day)) {
-    showError("Uren voor toekomstige dagen kun je nog niet invullen.");
-    return;
-  }
-
-  if (!ensureEmployeeWeekEditable(entry.day, "uren in te vullen")) {
-    renderMyHours();
-    return;
-  }
-
-  const hoursInput = myHoursRegistrations?.querySelector(`[data-simple-hours="value"][data-worklog-id="${workLogId}"]`);
-  const notesInput = myHoursRegistrations?.querySelector(`[data-simple-hours="notes"][data-worklog-id="${workLogId}"]`);
-  const existingLog = workLogs.find((log) => log.id === workLogId) || null;
-
-  if (!hoursInput || !notesInput) {
-    showError("De ureninvoer kan niet worden geladen.");
-    return;
-  }
-
-  if (!isPlannerRole() && existingLog && (existingLog.status === "open" || existingLog.status === "approved")) {
-    showError(
-      existingLog.status === "approved"
-        ? "Goedgekeurde uren zijn geblokkeerd voor verdere wijziging."
-        : "Deze urenregistratie is al ingediend en kan niet meer door de medewerker worden gewijzigd."
-    );
-    renderMyHours();
-    return;
-  }
-
-  if (
-    !isPlannerRole() &&
-    existingLog &&
-    (existingLog.status === "draft" || existingLog.status === "rejected" || existingLog.status === "revision")
-  ) {
-    const wantsOverwrite = confirmAction(
-      `Er zijn al uren ingevuld voor ${formatDate(entry.day)}. Wil je deze invoer aanpassen?`
-    );
-
-    if (!wantsOverwrite) {
-      return;
-    }
-  }
-
-  const workedHours = Number(hoursInput.value);
-
-  if (!Number.isFinite(workedHours) || workedHours <= 0) {
-    showError("Vul een geldig aantal uren in.");
-    return;
-  }
-
-  const roundedHours = Math.round(workedHours * 4) / 4;
-  const actualStart = entry.startTime || existingLog?.plannedStart || "09:00";
-  const actualEnd = addMinutesToTimeValue(actualStart, roundedHours * 60);
-  const notes = notesInput.value.trim();
-  const submittedAt = getNowIsoString();
-  const nextStatus = isPlannerRole()
-    ? (existingLog?.status === "approved" ? "approved" : (existingLog?.status || "draft"))
-    : "open";
-  const auditEntry = createWorkLogAuditEntry(
-    nextStatus === "open" ? "submit" : "save",
-    `eenvoudige ureninvoer: ${formatHours(roundedHours)}`
-  );
-
-  const nextLog = {
-    id: workLogId,
-    employeeName: entry.name,
-    day: entry.day,
-    shiftName: entry.isManualHours ? "Gewerkte uren" : getShiftName(entry),
-    plannedStart: entry.startTime,
-    plannedEnd: entry.endTime,
-    actualStart,
-    actualEnd,
-    breakMinutes: 0,
-    notes,
-    employeeReply: existingLog?.employeeReply || "",
-    mailLog: sanitizeRequestMailLog(existingLog?.mailLog),
-    status: nextStatus,
-    managerNote: existingLog?.managerNote || "",
-    submittedAt: nextStatus === "open" ? submittedAt : (existingLog?.submittedAt || ""),
-    updatedAt: auditEntry.at,
-    auditTrail: [...(existingLog?.auditTrail || []), auditEntry]
-  };
-
-  const existingIndex = workLogs.findIndex((log) => log.id === workLogId);
-
-  if (existingIndex >= 0) {
-    workLogs[existingIndex] = nextLog;
-  } else {
-    workLogs.push(nextLog);
-  }
-
-  saveWorkLogs();
-  persistProtectedChange({
-    reason: nextStatus === "open"
-      ? `Uren ingediend: ${entry.name} ${entry.day}`
-      : `Uren opgeslagen: ${entry.name} ${entry.day}`,
-    scope: "worklog",
-    action: nextStatus === "open" ? "worklog-submitted" : "worklog-saved",
-    message: nextStatus === "open"
-      ? `Urenregistratie ingediend voor ${entry.name} op ${formatDate(entry.day)}.`
-      : `Urenregistratie bijgewerkt voor ${entry.name} op ${formatDate(entry.day)}.`,
-    details: {
-      workLogId,
-      employeeName: entry.name,
-      day: entry.day,
-      shiftName: entry.isManualHours ? "Gewerkte uren" : getShiftName(entry),
-      status: nextLog.status,
-      workedHours: roundedHours
-    }
-  });
-  const nextOpenDate = entries
-    .filter((candidate) =>
-      candidate.name === entry.name &&
-      candidate.day < getTodayLocalDateValue() &&
-      candidate.day !== entry.day &&
-      !getWorkLogForEntry(candidate)
-    )
-    .sort((entryA, entryB) => entryB.day.localeCompare(entryA.day) || entryA.startTime.localeCompare(entryB.startTime))[0]?.day || "";
-
-  if (!isPlannerRole() && hoursDateInput) {
-    const nextDate = nextOpenDate || getTodayLocalDateValue();
-    hoursDateInput.value = clampHoursDateValue(nextDate);
-    preferences.lastHoursDate = hoursDateInput.value;
-    preferences.lastHoursWeek = getWeekValueFromDate(hoursDateInput.value) || getCurrentWeekValue();
-    savePreferences();
-  }
-
-  renderMyHours();
-  showSuccess("Uren opgeslagen");
 }
 
 function createWorkLogAuditEntry(action, summary) {
@@ -6466,7 +6963,7 @@ function maybeShowOpenRequestReminder() {
   }
 
   if (isPlannerRole()) {
-    if (currentMainTab !== TABS.WEEK_CURRENT) {
+    if (activeTab !== "week-current") {
       return;
     }
 
@@ -6576,7 +7073,7 @@ function maybeShowOpenRequestReminder() {
     return;
   }
 
-  if (currentMainTab !== TABS.MY_HOURS && currentMainTab !== TABS.WEEK_CURRENT) {
+  if (activeTab !== "my-hours" && activeTab !== "week-current") {
     return;
   }
 
@@ -6643,31 +7140,26 @@ function getCurrentEmployeeName() {
 }
 
 function isPlannerRole() {
-  return normalizeAppRole(activeRole) === "planner";
+  return isPlannerRoleHelper(activeRole);
 }
 
 function getEmployeeIdentity() {
-  if (!isPlannerRole() && hasClerkAuthenticatedSession() && clerkAuthState.employeeName) {
-    return clerkAuthState.employeeName;
-  }
-
-  return preferences.employeeIdentity &&
-    employees.includes(preferences.employeeIdentity) &&
-    isEmployeeActive(preferences.employeeIdentity)
-    ? preferences.employeeIdentity
-    : "";
+  return getEmployeeIdentityHelper(
+    {
+      employeeIdentity: sessionState.employeeIdentity || preferences.employeeIdentity
+    },
+    employees,
+    isEmployeeActive
+  );
 }
 
 function getRoleScopedEmployeeName(fallbackName = "") {
-  if (isPlannerRole()) {
-    return fallbackName;
-  }
-
-  if (hasClerkAuthenticatedSession() && clerkAuthState.employeeName) {
-    return clerkAuthState.employeeName;
-  }
-
-  return getEmployeeIdentity() || getCurrentEmployeeName() || fallbackName;
+  return getRoleScopedEmployeeNameHelper(
+    isPlannerRole(),
+    getEmployeeIdentity(),
+    getCurrentEmployeeName(),
+    fallbackName
+  );
 }
 
 function syncScopedEmployeeSelectors(employeeName = getRoleScopedEmployeeName()) {
@@ -6689,11 +7181,6 @@ function ensureEmployeeIdentityForCurrentRole() {
     return "";
   }
 
-  if (hasClerkAuthenticatedSession() && clerkAuthState.employeeName) {
-    syncScopedEmployeeSelectors(clerkAuthState.employeeName);
-    return clerkAuthState.employeeName;
-  }
-
   const currentIdentity = getEmployeeIdentity();
 
   if (currentIdentity) {
@@ -6701,28 +7188,17 @@ function ensureEmployeeIdentityForCurrentRole() {
     return currentIdentity;
   }
 
-  const preferredEmployee = getPreferredEmployeeIdentityCandidate();
-
-  if (!preferredEmployee) {
-    return "";
-  }
-
-  preferences.employeeIdentity = preferredEmployee;
-  preferences.hasUserSession = true;
-  savePreferences();
-  syncScopedEmployeeSelectors(preferredEmployee);
-  return preferredEmployee;
+  syncScopedEmployeeSelectors("");
+  return "";
 }
 
 function getPreferredEmployeeIdentityCandidate() {
-  const candidates = [
+  return getPreferredEmployeeIdentityCandidateHelper([
     getCurrentEmployeeName(),
     preferences.lastPortalEmployee,
     preferences.lastHoursEmployee,
     preferences.lastEmployee
-  ];
-
-  return candidates.find((employeeName) => employeeName && employees.includes(employeeName)) || "";
+  ], employees);
 }
 
 function getOwnEmployeeNameOrWarn() {
@@ -6733,7 +7209,7 @@ function getOwnEmployeeNameOrWarn() {
   const ownEmployeeName = getRoleScopedEmployeeName();
 
   if (!ownEmployeeName) {
-    showMessage("Je account is nog niet gekoppeld aan een medewerker.", "error");
+    showMessage("Kies eerst je eigen naam bovenaan de app.", "error");
     return "";
   }
 
@@ -6767,68 +7243,30 @@ function ensureOwnRequestAction(targetEmployeeName, actionLabel = "deze actie") 
 }
 
 function formatWeekLabel(weekValue) {
-  return String(weekValue || "").replace("-W", " week ");
+  return formatWeekLabelHelper(weekValue);
 }
 
 function getWeekYear(weekValue) {
-  return Number(String(weekValue || "").split("-W")[0]) || new Date().getFullYear();
+  return getWeekYearHelper(weekValue);
 }
 
 function getIsoWeekCountForYear(year) {
-  const referenceDate = `${year}-12-28`;
-  return Number(getWeekValueFromDate(referenceDate).split("-W")[1]) || 52;
+  return getIsoWeekCountForYearHelper(year, {
+    getWeekValueFromDate
+  });
 }
 
 function formatPlanningWeekPeriod(weekValue) {
-  const weekDates = getWeekDates(weekValue);
-  const startDate = weekDates[0];
-  const endDate = weekDates[6];
-
-  if (!startDate || !endDate) {
-    return "";
-  }
-
-  const formatter = new Intl.DateTimeFormat("nl-NL", {
-    day: "2-digit",
-    month: "2-digit"
+  return formatPlanningWeekPeriodHelper(weekValue, {
+    getWeekDates
   });
-
-  return `${formatter.format(new Date(startDate))} t/m ${formatter.format(new Date(endDate))}`;
 }
 
 function getPlanningOverviewStatus(weekValue, weekEntries, openCount) {
-  const reviewStatus = getWeekReviewStatus(weekValue);
-  const planningStatus = getWeekPlanningStatus(weekValue);
-
-  if (reviewStatus === "locked") {
-    return {
-      key: "locked",
-      label: "Vastgezet",
-      className: "is-locked"
-    };
-  }
-
-  if (reviewStatus === "in-review") {
-    return {
-      key: "reviewed",
-      label: "Gecontroleerd",
-      className: "is-reviewed"
-    };
-  }
-
-  if (planningStatus === "planned" || weekEntries.length > 0 || openCount === 0) {
-    return {
-      key: "planned",
-      label: "Ingepland",
-      className: "is-planned"
-    };
-  }
-
-  return {
-    key: "open",
-    label: "Open",
-    className: "is-open"
-  };
+  return getPlanningOverviewStatusHelper(weekValue, weekEntries, openCount, {
+    getWeekPlanningStatus,
+    getWeekReviewStatus
+  });
 }
 
 function ensureWeekActionAllowed(weekValue, {
@@ -7020,25 +7458,13 @@ function getApprovedTimeOffVisibleForCurrentRole(sourceRequests = timeOffRequest
 }
 
 function isTabAllowedForCurrentRole(tabName) {
-  if (isPlannerRole()) {
-    return true;
-  }
-
-  return employeeAllowedTabs.includes(tabName);
-}
-
-function getSafeTabForCurrentRole(tabName) {
-  return isTabAllowedForCurrentRole(tabName) ? tabName : getDefaultTabForCurrentRole();
+  return isTabAllowedForRoleHelper(activeRole, tabName, {
+    employeeAllowedTabs
+  });
 }
 
 function getDefaultTabForCurrentRole() {
-  return getDefaultTabForRole(activeRole);
-}
-
-function initializeDefaultTabIfNeeded(force = false) {
-  if (force || !hasInitializedDefaultTab) {
-    hasInitializedDefaultTab = true;
-  }
+  return getDefaultTabForRoleHelper(activeRole);
 }
 
 function handleBlockedTabAccess(tabName) {
@@ -7051,6 +7477,7 @@ function handleBlockedTabAccess(tabName) {
   }
 
   showMessage("Deze beheerpagina is alleen beschikbaar voor planner of directie.", "error");
+  activeTab = getDefaultTabForCurrentRole();
   return true;
 }
 
@@ -7103,19 +7530,72 @@ function updateTestModeBadge() {
   testModeBadge.classList.add("hidden");
 }
 
-function reloadForLoggedInUser(options = {}) {
-  const { resetToDefaultTab = false, resetWeekToCurrent = false } = options;
-
-  if (needsLoginSelection()) {
-    render();
-    openLoginOverlay();
+function updateLoginRoleState() {
+  if (!loginEmployeeLabel) {
     return;
   }
 
-  if (resetToDefaultTab && !hasInitializedDefaultTab) {
-    initializeDefaultTabIfNeeded(true);
+  const isEmployeeLogin = getLoginRoleValue() === "employee";
+  loginEmployeeLabel.classList.toggle("hidden", !isEmployeeLogin);
+}
+
+function populateLoginEmployeeSelect() {
+  if (!loginEmployeeSelect) {
+    return;
+  }
+
+  const selectedValue = loginEmployeeSelect.value;
+  const previewMode = "live";
+  const modeEmployees = getEmployeesForMode(previewMode);
+  const modeEmployeeMeta = getEmployeeMetaForMode(previewMode, modeEmployees);
+  const availableEmployees = modeEmployees.filter((employeeName) => normalizeEmployeeStatus(modeEmployeeMeta?.[employeeName]?.status) === "active");
+  const options = buildEmployeeOptions(getEmployeesWithFavoritesFirst(availableEmployees));
+  loginEmployeeSelect.innerHTML = `<option value="">Kies medewerker</option>${options}`;
+  if (availableEmployees.includes(selectedValue)) {
+    loginEmployeeSelect.value = selectedValue;
   } else {
-    initializeDefaultTabIfNeeded(false);
+    loginEmployeeSelect.value = "";
+  }
+}
+
+function openLoginOverlay() {
+  openSessionLogin({
+    preferredRole: sessionState.role || activeRole,
+    preferredEmployee: getEmployeeIdentity() || preferences.lastPortalEmployee || preferences.lastEmployee || ""
+  });
+}
+
+function closeLoginOverlay() {
+  closeSessionLogin();
+}
+
+function applyLoggedInUserSelection({ showStartupMessage = false } = {}) {
+  const selectedRole = getLoginRoleValue();
+
+  if (selectedRole === "employee") {
+    return startEmployeeSession(loginEmployeeSelect?.value || "", { showStartupMessage });
+  }
+
+  return startPlannerSession({ showStartupMessage });
+}
+
+function reloadForLoggedInUser(options = {}) {
+  const { resetToDefaultTab = false, resetWeekToCurrent = false } = options;
+
+  const nextSession = buildSessionSnapshot();
+  applySessionSnapshot(nextSession, { persist: !nextSession.isAuthenticated });
+
+  if (!nextSession.isAuthenticated) {
+    render();
+    openSessionLogin({
+      preferredRole: nextSession.role,
+      preferredEmployee: nextSession.employeeIdentity
+    });
+    return;
+  }
+
+  if (resetToDefaultTab || !isTabAllowedForCurrentRole(activeTab)) {
+    activeTab = getDefaultTabForCurrentRole();
   }
 
   if (!isPlannerRole()) {
@@ -7126,13 +7606,12 @@ function reloadForLoggedInUser(options = {}) {
     syncStartWeekToCurrent();
   }
 
-  closeLoginOverlay();
-  unmountClerkSignInIfNeeded();
+  closeSessionLogin();
   render();
 }
 
 function isMobileView() {
-  return !isPlannerRole();
+  return !isPlannerRole() || mobileMediaQuery.matches;
 }
 
 function formatShortWeekday(value) {
@@ -7142,19 +7621,7 @@ function formatShortWeekday(value) {
 }
 
 function getCoverageStatusName(className) {
-  if (className.includes("full")) {
-    return "full";
-  }
-
-  if (className.includes("under")) {
-    return "under";
-  }
-
-  if (className.includes("closed")) {
-    return "closed";
-  }
-
-  return "over";
+  return getCoverageStatusNameHelper(className);
 }
 
 function renderShiftCard(entry, {
@@ -7254,7 +7721,7 @@ function renderShiftCard(entry, {
     ? `
         <div class="planner-audit">
           <div class="planner-audit-flags">${plannerAuditFlags.join("")}</div>
-          ${uniquePlannerAuditReasons.length ? `<div class="planner-audit-line">${uniquePlannerAuditReasons.join(" â€¢ ")}</div>` : ""}
+          ${uniquePlannerAuditReasons.length ? `<div class="planner-audit-line">${uniquePlannerAuditReasons.join(" • ")}</div>` : ""}
         </div>
       `
     : "";
@@ -7324,157 +7791,23 @@ function renderApprovedTimeOffList(requests) {
 }
 
 function buildPlannerContractOverviewData(selectedWeek, visibleEntries) {
-  const monthReferenceDate = getWeekDates(selectedWeek)[5] || getWeekDates(selectedWeek)[0] || getTodayDateValue();
-  const monthKey = getMonthKeyFromDate(monthReferenceDate);
-  const monthlyRosterWorkdays = getMonthlyRosterWorkdayCount(monthReferenceDate);
-  const monthSourceEntries = mergePlanningEntries(visibleEntries, entries);
-  const contractEmployees = getEmployeesWithFavoritesFirst(getActiveEmployees())
-    .filter((employeeName) => getEmployeeContractHours(employeeName) > 0)
-    .map((employeeName) => {
-      const contractHours = getEmployeeContractHours(employeeName);
-      const plannedHours = getEmployeeWeekHours(employeeName, selectedWeek, visibleEntries);
-      const difference = Math.round((plannedHours - contractHours) * 10) / 10;
-      const remainingHours = Math.round((contractHours - plannedHours) * 10) / 10;
-      const monthlyTargetHours = Math.round(((contractHours / 5) * monthlyRosterWorkdays) * 10) / 10;
-      const plannedMonthHours = Math.round(getEmployeeMonthHours(employeeName, monthReferenceDate, monthSourceEntries) * 10) / 10;
-      const monthlyDifference = Math.round((plannedMonthHours - monthlyTargetHours) * 10) / 10;
-      const stateClass = difference > 1
-        ? "is-over"
-        : difference < -1
-          ? "is-under"
-          : "is-match";
-
-      return {
-        employeeName,
-        contractHours,
-        plannedHours,
-        remainingHours,
-        difference,
-        stateClass,
-        monthlyTargetHours,
-        plannedMonthHours,
-        monthlyDifference
-      };
-    });
-  const saturdayCheckEmployees = ["Luna", "Monique", "Gerry", "Saskia", "Wendy"]
-    .filter((employeeName) => employees.includes(employeeName))
-    .map((employeeName) => {
-      const monthlyEntries = monthSourceEntries.filter((entry) =>
-        entry.name === employeeName &&
-        getMonthKeyFromDate(entry.day) === monthKey &&
-        getWeekdayNumberFromDate(entry.day) === 6
-      );
-      const workedSaturdayDates = [...new Set(monthlyEntries.map((entry) => entry.day))];
-      const totalSaturdays = getMonthlyWeekdayOccurrenceCount(monthReferenceDate, 6);
-      const freeSaturdays = Math.max(0, totalSaturdays - workedSaturdayDates.length);
-      let stateClass = "is-match";
-
-      if ((employeeName === "Luna" || employeeName === "Monique") && freeSaturdays < 1) {
-        stateClass = "is-over";
-      } else if (employeeName === "Gerry" && workedSaturdayDates.length > 0) {
-        stateClass = "is-under";
-      }
-
-      return {
-        employeeName,
-        monthKey,
-        workedSaturdays: workedSaturdayDates.length,
-        freeSaturdays,
-        totalSaturdays,
-        stateClass
-      };
-    });
-  const underEmployees = contractEmployees.filter((employee) => employee.stateClass === "is-under");
-  const onTrackEmployees = contractEmployees.filter((employee) => employee.stateClass === "is-match");
-  const overEmployees = contractEmployees.filter((employee) => employee.stateClass === "is-over");
-  const balanceTips = [
-    ...underEmployees
-      .sort((employeeA, employeeB) => employeeB.remainingHours - employeeA.remainingHours)
-      .slice(0, 3)
-      .map((employee) => `${employee.employeeName} nog ${formatHours(employee.remainingHours)} te weinig`),
-    ...overEmployees
-      .sort((employeeA, employeeB) => employeeB.difference - employeeA.difference)
-      .slice(0, 3)
-      .map((employee) => `${employee.employeeName} ${formatHours(employee.difference)} teveel ingepland`)
-  ].slice(0, 4);
-  const monthlyWarnings = [
-    ...saturdayCheckEmployees
-      .filter((employee) => (employee.employeeName === "Luna" || employee.employeeName === "Monique") && employee.freeSaturdays < 1)
-      .map((employee) => ({
-        stateClass: "is-over",
-        text: `${employee.employeeName} heeft deze maand geen zaterdag vrij.`
-      })),
-    ...saturdayCheckEmployees
-      .filter((employee) => employee.employeeName === "Gerry" && employee.workedSaturdays > 0)
-      .map((employee) => ({
-        stateClass: "is-under",
-        text: `Gerry is deze maand ${employee.workedSaturdays}x op zaterdag ingepland.`
-      })),
-    ...contractEmployees
-      .filter((employee) => employee.monthlyDifference <= -4)
-      .sort((employeeA, employeeB) => employeeA.monthlyDifference - employeeB.monthlyDifference)
-      .slice(0, 3)
-      .map((employee) => ({
-        stateClass: "is-under",
-        text: `${employee.employeeName} nog ${formatHours(Math.abs(employee.monthlyDifference))} te weinig in ${monthKey}.`
-      })),
-    ...contractEmployees
-      .filter((employee) => employee.monthlyDifference >= 4)
-      .sort((employeeA, employeeB) => employeeB.monthlyDifference - employeeA.monthlyDifference)
-      .slice(0, 3)
-      .map((employee) => ({
-        stateClass: "is-over",
-        text: `${employee.employeeName} ${formatHours(employee.monthlyDifference)} te veel in ${monthKey}.`
-      }))
-  ].slice(0, 6);
-  const monthlyOverviewEmployees = ["Luna", "Monique", "Saskia", "Gerry", "Wendy"]
-    .map((employeeName) => {
-      const contractEmployee = contractEmployees.find((employee) => employee.employeeName === employeeName);
-      const saturdayEmployee = saturdayCheckEmployees.find((employee) => employee.employeeName === employeeName);
-
-      if (!contractEmployee && !saturdayEmployee) {
-        return null;
-      }
-
-      let stateClass = "is-match";
-
-      if (contractEmployee?.monthlyDifference <= -4) {
-        stateClass = "is-under";
-      } else if (contractEmployee?.monthlyDifference >= 4) {
-        stateClass = "is-over";
-      }
-
-      if ((employeeName === "Luna" || employeeName === "Monique") && saturdayEmployee && saturdayEmployee.freeSaturdays < 1) {
-        stateClass = "is-over";
-      }
-
-      if (employeeName === "Gerry" && saturdayEmployee && saturdayEmployee.workedSaturdays > 0) {
-        stateClass = "is-over";
-      }
-
-      return {
-        employeeName,
-        contractHours: contractEmployee?.monthlyTargetHours || 0,
-        plannedHours: contractEmployee?.plannedMonthHours || 0,
-        difference: contractEmployee?.monthlyDifference || 0,
-        workedSaturdays: saturdayEmployee?.workedSaturdays || 0,
-        freeSaturdays: saturdayEmployee?.freeSaturdays || 0,
-        stateClass
-      };
-    })
-    .filter(Boolean);
-
-  return {
-    monthKey,
-    contractEmployees,
-    saturdayCheckEmployees,
-    underEmployees,
-    onTrackEmployees,
-    overEmployees,
-    balanceTips,
-    monthlyWarnings,
-    monthlyOverviewEmployees
-  };
+  return buildPlannerContractOverviewDataHelper(selectedWeek, visibleEntries, {
+    getWeekDates,
+    getTodayDateValue,
+    getMonthKeyFromDate,
+    getMonthlyRosterWorkdayCount,
+    mergePlanningEntries,
+    entries,
+    getEmployeesWithFavoritesFirst,
+    getActiveEmployees,
+    getEmployeeContractHours,
+    getEmployeeWeekHours,
+    getEmployeeMonthHours,
+    employees,
+    getWeekdayNumberFromDate,
+    getMonthlyWeekdayOccurrenceCount,
+    formatHours
+  });
 }
 
 function renderEmployeeFocusSummaryCard(day, entriesForDay, approvedRequestsForDay, title) {
@@ -7501,7 +7834,7 @@ function renderEmployeeFocusSummaryCard(day, entriesForDay, approvedRequestsForD
       <div class="employee-focus-head">
         <div>
           <strong>${title}</strong>
-          <span>${formatWeekday(day)} Â· ${formatDate(day)}</span>
+          <span>${formatWeekday(day)} · ${formatDate(day)}</span>
         </div>
       </div>
       <div class="employee-focus-body">
@@ -7550,13 +7883,10 @@ function renderEmployeeWeekFocusSummary(weekDates, visibleEntries, approvedTimeO
 }
 
 function formatEmployeeWeekLabel(weekValue) {
-  const weekDates = getWeekDates(weekValue);
-
-  if (!weekDates.length) {
-    return "";
-  }
-
-  return `Week ${weekValue.replace("-W", " - ")} Â· ${formatDate(weekDates[0])} - ${formatDate(weekDates[weekDates.length - 1])}`;
+  return formatEmployeeWeekLabelHelper(weekValue, {
+    formatDate,
+    getWeekDates
+  });
 }
 
 function renderEmployeeRosterDayCard(day, entriesForDay, approvedRequestsForDay, title, options = {}) {
@@ -7579,7 +7909,7 @@ function renderEmployeeRosterDayCard(day, entriesForDay, approvedRequestsForDay,
   const statusMarkup = dayStatus
     ? `<span class="status-pill status-${dayStatus === "goedgekeurd" ? "approved" : dayStatus === "ingediend" ? "open" : "empty"}">${dayStatus === "goedgekeurd" ? "Goedgekeurd" : dayStatus === "ingediend" ? "Ingediend" : "Ingevuld"}</span>`
     : "";
-  const metaLine = subtitle || `${formatWeekday(day)} Â· ${formatDate(day)}`;
+  const metaLine = subtitle || `${formatWeekday(day)} · ${formatDate(day)}`;
 
   return `
     <article class="employee-roster-day-card ${getRelativeDayState(day) ? `is-${getRelativeDayState(day)}` : ""}">
@@ -7665,19 +7995,7 @@ function getPlannerSectionKey(shiftLike) {
 }
 
 function getPlannerSectionLabel(sectionKey) {
-  if (sectionKey === "allround") {
-    return "Allround";
-  }
-
-  if (sectionKey === "shop") {
-    return "Winkel";
-  }
-
-  if (sectionKey === "optional") {
-    return "Stage";
-  }
-
-  return "Bakkerij";
+  return getPlannerSectionLabelHelper(sectionKey);
 }
 
 function renderOpenShiftCard(shift, day, { inlinePlanner = false } = {}) {
@@ -8303,40 +8621,13 @@ function renderSuitableEmployeesHelper(day) {
 }
 
 function getDayPlanningMessage(day) {
-  const specialDay = getRecognizedSpecialDayInfo(day);
-  const plannerShifts = getRequiredDayPlannerShifts(day);
-
-  if (!plannerShifts.length) {
-    return {
-      text: specialDay?.isClosed ? `Gesloten - ${specialDay.nameLabel}` : "Winkel gesloten",
-      type: "closed"
-    };
-  }
-
-  const openShifts = plannerShifts.filter((shift) => !getEntryForShiftOnDate(day, shift));
-
-  if (!openShifts.length) {
-    return {
-      text: "Planning compleet",
-      type: "full"
-    };
-  }
-
-  const hasNoSuitableEmployee = openShifts.some((shift) =>
-    getSuitableEmployeesForShift(shift, day, shift.startTime, shift.endTime, null).length === 0
-  );
-
-  if (hasNoSuitableEmployee) {
-    return {
-      text: "Geen geschikte medewerker",
-      type: "warning"
-    };
-  }
-
-  return {
-    text: "Nog niet ingevuld",
-    type: "info"
-  };
+  return getDayPlanningMessageHelper(day, {
+    getRecognizedSpecialDayInfo,
+    getRequiredDayPlannerShifts,
+    getEntryForShiftOnDate,
+    getSuitableEmployeesForShift,
+    sourceEntries: getPlanningEntries()
+  });
 }
 
 function renderDayPlanningMessage(day, isMobile = false) {
@@ -8574,13 +8865,9 @@ function getEmployeeShiftCategoryWeekCount(employeeName, categoryKey, weekValue,
 }
 
 function getWeekDistanceFromReference(entryWeekValue, referenceWeekValue) {
-  if (!entryWeekValue || !referenceWeekValue) {
-    return Number.MAX_SAFE_INTEGER;
-  }
-
-  const entryDate = getDateFromWeekValue(entryWeekValue);
-  const referenceDate = getDateFromWeekValue(referenceWeekValue);
-  return Math.round((referenceDate - entryDate) / (7 * 24 * 60 * 60 * 1000));
+  return getWeekDistanceFromReferenceHelper(entryWeekValue, referenceWeekValue, {
+    getDateFromWeekValue
+  });
 }
 
 function getHistoricalAssignments(employeeName, weekValue, sourceEntries = entries, lookbackWeeks = 6) {
@@ -8700,17 +8987,7 @@ function getCurrentMonthValue() {
 }
 
 function getMonthLabel(monthValue) {
-  const [year, month] = String(monthValue || "").split("-");
-
-  if (!year || !month) {
-    return "";
-  }
-
-  const date = new Date(Number(year), Number(month) - 1, 1);
-  return date.toLocaleDateString("nl-NL", {
-    month: "long",
-    year: "numeric"
-  });
+  return getMonthLabelHelper(monthValue);
 }
 
 function getWeeksForMonth(monthValue) {
@@ -9037,13 +9314,7 @@ function isAfternoonShift(shift) {
 }
 
 function getRosterDaypartLabel(daypart) {
-  const labels = {
-    morning: "ochtend",
-    afternoon: "middag",
-    full: "hele dag"
-  };
-
-  return labels[daypart] || "vrij";
+  return getRosterDaypartLabelHelper(daypart);
 }
 
 function getShiftRosterDaypart(shift) {
@@ -9369,21 +9640,13 @@ function getAutoPlanningPatternTier(employeeName, shift, day, weekValue, sourceE
 }
 
 function canEmployeeBeAutoAssigned(employeeName, shift, day, sourceEntries, options = {}) {
-  const { enforceSingleShiftPerDay = true } = options;
-
-  if (!isEmployeeAuthorizedForShift(employeeName, shift.name)) {
-    return false;
-  }
-
-  if (getApprovedTimeOff(employeeName, day)) {
-    return false;
-  }
-
-  if (enforceSingleShiftPerDay && hasEmployeeAssignmentOnDay(employeeName, day, sourceEntries, shift.name)) {
-    return false;
-  }
-
-  return !findConflictInSource(sourceEntries, employeeName, day, shift.startTime, shift.endTime);
+  return canEmployeeBeAutoAssignedHelper(employeeName, shift, day, sourceEntries, {
+    ...options,
+    isEmployeeAuthorizedForShift,
+    getApprovedTimeOff,
+    hasEmployeeAssignmentOnDay,
+    findConflictInSource
+  });
 }
 
 function getEmployeesForStandardShift(shiftName) {
@@ -9395,61 +9658,20 @@ function getPrimaryStandardEmployeeForShift(shiftName) {
 }
 
 function getStandardShiftCoverageInfo(shift, day, sourceEntries = getPlanningEntries()) {
-  const standardEmployee = isBakeryCoreShift(shift) ? getPrimaryStandardEmployeeForShift(shift.name) : "";
-
-  if (!standardEmployee) {
-    return {
-      standardEmployee: "",
-      isAbsent: false,
-      reason: ""
-    };
-  }
-
-  if (getApprovedTimeOff(standardEmployee, day)) {
-    const absence = getApprovedTimeOff(standardEmployee, day);
-    return {
-      standardEmployee,
-      isAbsent: true,
-      reason: absence ? getAbsenceTypeLabel(absence.type).toLowerCase() : "afwezig"
-    };
-  }
-
-  if (hasEmployeeAssignmentOnDay(standardEmployee, day, sourceEntries, shift.name)) {
-    return {
-      standardEmployee,
-      isAbsent: true,
-      reason: "al elders ingepland"
-    };
-  }
-
-  if (findConflictInSource(sourceEntries, standardEmployee, day, shift.startTime, shift.endTime)) {
-    return {
-      standardEmployee,
-      isAbsent: true,
-      reason: "niet beschikbaar"
-    };
-  }
-
-  return {
-    standardEmployee,
-    isAbsent: false,
-    reason: ""
-  };
+  return getStandardShiftCoverageInfoHelper(shift, day, sourceEntries, {
+    isBakeryCoreShift,
+    getPrimaryStandardEmployeeForShift,
+    getApprovedTimeOff,
+    getAbsenceTypeLabel,
+    hasEmployeeAssignmentOnDay,
+    findConflictInSource
+  });
 }
 
 function findConflictInSource(sourceEntries, name, day, startTime, endTime) {
-  const newStart = timeToMinutes(startTime);
-  const newEnd = timeToMinutes(endTime);
-
-  return sourceEntries.find((entry) => {
-    if (entry.name !== name || entry.day !== day) {
-      return false;
-    }
-
-    const existingStart = timeToMinutes(entry.startTime);
-    const existingEnd = timeToMinutes(entry.endTime);
-    return newStart < existingEnd && newEnd > existingStart;
-  }) || null;
+  return findConflictInSourceHelper(sourceEntries, name, day, startTime, endTime, {
+    timeToMinutes
+  });
 }
 
 function getAutoFillCandidateEmployees(shift, day, sourceEntries, weekValue, options = {}) {
@@ -9657,11 +9879,9 @@ function getAutoFillCandidateEmployees(shift, day, sourceEntries, weekValue, opt
 }
 
 function getCandidateMinPositivePreference(candidates, shiftName) {
-  const positivePreferences = candidates
-    .map((employeeName) => getEmployeeShiftPreference(employeeName, shiftName))
-    .filter((value) => value > 0);
-
-  return positivePreferences.length ? Math.min(...positivePreferences) : 0;
+  return getCandidateMinPositivePreferenceHelper(candidates, shiftName, {
+    getEmployeeShiftPreference
+  });
 }
 
 function getAutoFillReasonForCandidate(employeeName, shift, day, sourceEntries, weekValue, options = {}) {
@@ -10067,8 +10287,8 @@ function autoFillWeekSchedule(selectedWeekOverride = "") {
   render();
   showMessage(
     remainingOpenCount > 0
-    ? `Automatisch voorstel klaar Â· ${proposedEntries.length} ingevuld Â· ${remainingOpenCount} open`
-    : `Automatisch voorstel klaar Â· ${proposedEntries.length} ingevuld Â· 0 open`,
+    ? `Automatisch voorstel klaar · ${proposedEntries.length} ingevuld · ${remainingOpenCount} open`
+    : `Automatisch voorstel klaar · ${proposedEntries.length} ingevuld · 0 open`,
     "success"
   );
 }
@@ -10511,7 +10731,7 @@ function renderWeekStatusOverview(weekDates) {
     return;
   }
 
-  weekStatusOverview.className = "week-status-overview";
+  setClassName(weekStatusOverview, "week-status-overview");
   weekStatusOverview.innerHTML = weekDates.map((day) => {
     const message = getDayPlanningMessage(day);
     const cardClass = message.type === "full"
@@ -10530,8 +10750,7 @@ function renderWeekStatusOverview(weekDates) {
 }
 
 function getShiftSummaryLabel(shiftName, dateValue, startTime, endTime, employeeName = "") {
-  const employeePart = employeeName ? ` - ${employeeName}` : "";
-  return `${formatWeekday(dateValue)}: ${shiftName}${employeePart} (${startTime} - ${endTime})`;
+  return getShiftSummaryLabelHelper(formatWeekday, shiftName, dateValue, startTime, endTime, employeeName);
 }
 
 function getPreviewShiftForEntry(entry) {
@@ -10645,7 +10864,7 @@ function renderAutoFillSummaryOverview(selectedWeek) {
   }
 
   if (!autoFillPreviewEntries.length || !selectedWeek) {
-    autoFillSummaryOverview.className = "auto-fill-summary-overview hidden";
+    setClassName(autoFillSummaryOverview, "auto-fill-summary-overview hidden");
     autoFillSummaryOverview.innerHTML = "";
     return;
   }
@@ -10683,7 +10902,7 @@ function renderAutoFillSummaryOverview(selectedWeek) {
     `;
   };
 
-  autoFillSummaryOverview.className = "auto-fill-summary-overview";
+  setClassName(autoFillSummaryOverview, "auto-fill-summary-overview");
   autoFillSummaryOverview.innerHTML = `
     <section class="auto-fill-summary-card is-quality">
       <div class="auto-fill-summary-quality-top">
@@ -10749,8 +10968,8 @@ function renderPlannerContractOverview(selectedWeek, visibleEntries) {
     return;
   }
 
-  if (!isPlannerRole() || !(currentMainTab === TABS.WEEK_CURRENT || currentMainTab === TABS.WEEK_NEXT)) {
-    plannerContractOverview.className = "planner-contract-overview hidden";
+  if (!isPlannerRole() || !(activeTab === "week-current" || activeTab === "week-next")) {
+    setClassName(plannerContractOverview, "planner-contract-overview hidden");
     plannerContractOverview.innerHTML = "";
     return;
   }
@@ -10768,12 +10987,12 @@ function renderPlannerContractOverview(selectedWeek, visibleEntries) {
   } = buildPlannerContractOverviewData(selectedWeek, visibleEntries);
 
   if (!contractEmployees.length) {
-    plannerContractOverview.className = "planner-contract-overview hidden";
+    setClassName(plannerContractOverview, "planner-contract-overview hidden");
     plannerContractOverview.innerHTML = "";
     return;
   }
 
-  plannerContractOverview.className = "planner-contract-overview";
+  setClassName(plannerContractOverview, "planner-contract-overview");
   plannerContractOverview.innerHTML = `
     <div class="planner-contract-card">
       <strong>Contracturen medewerkers met vast contract</strong>
@@ -10849,52 +11068,27 @@ function renderPlannerContractOverview(selectedWeek, visibleEntries) {
 }
 
 function getDeviationReasonSummary(entry) {
-  const reasons = [];
-  const shift = getShiftForEntry(entry) || {
-    id: entry.shiftId || entry.shiftName || "",
-    name: getShiftName(entry),
-    startTime: entry.startTime,
-    endTime: entry.endTime
-  };
-  const weekValue = getWeekValueFromDate(entry.day);
-  const patternMatch = getEmployeePlanningPatternMatch(entry.name, shift, entry.day, weekValue);
-  const autoReason = String(entry.autoFillReason || "");
-
-  if (entry.replacementFor) {
-    reasons.push("Vervanging nodig");
-  }
-
-  if (autoReason === "Afwijking voor contracturen" || autoReason === "Maandbalans contracturen" || autoReason === "Richting contracturen") {
-    reasons.push("Contracturen halen");
-  }
-
-  if (autoReason === "Feestdagplanning") {
-    reasons.push("Feestdagplanning");
-  }
-
-  if (autoReason === "Maandbalans zaterdag" || autoReason === "Eerlijke zaterdagverdeling") {
-    reasons.push("Zaterdagverdeling eerlijk houden");
-  }
-
-  if (autoReason === "Geen betere optie beschikbaar") {
-    reasons.push("Geen andere bevoegde medewerker beschikbaar");
-  }
-
-  if (patternMatch.score >= 55 && !reasons.includes("Vervanging nodig")) {
-    reasons.push("Afwijking van vast patroon");
-  }
-
-  return [...new Set(reasons)];
+  return getDeviationReasonSummaryHelper(entry, {
+    getEmployeePlanningPatternMatch,
+    getShiftForEntry,
+    getShiftName,
+    getWeekValueFromDate
+  });
 }
 
 function hasMeaningfulPlannerDeviation(entry) {
-  return getDeviationReasonSummary(entry).length > 0;
+  return hasMeaningfulPlannerDeviationHelper(entry, {
+    getEmployeePlanningPatternMatch,
+    getShiftForEntry,
+    getShiftName,
+    getWeekValueFromDate
+  });
 }
 
 function getDeviationOnlyEntries(visibleEntries, weekDates) {
-  return visibleEntries.filter((entry) =>
-    weekDates.includes(entry.day) && hasMeaningfulPlannerDeviation(entry)
-  );
+  return getDeviationOnlyEntriesHelper(visibleEntries, weekDates, {
+    hasMeaningfulPlannerDeviation
+  });
 }
 
 function renderDeviationWhyOverview(selectedWeek, visibleEntries) {
@@ -10902,8 +11096,8 @@ function renderDeviationWhyOverview(selectedWeek, visibleEntries) {
     return;
   }
 
-  if (!isPlannerRole() || !(currentMainTab === TABS.WEEK_CURRENT || currentMainTab === TABS.WEEK_NEXT)) {
-    deviationWhyOverview.className = "deviation-why-overview hidden";
+  if (!isPlannerRole() || !(activeTab === "week-current" || activeTab === "week-next")) {
+    setClassName(deviationWhyOverview, "deviation-why-overview hidden");
     deviationWhyOverview.innerHTML = "";
     return;
   }
@@ -10924,7 +11118,7 @@ function renderDeviationWhyOverview(selectedWeek, visibleEntries) {
     );
 
   if (!deviationEntries.length) {
-    deviationWhyOverview.className = "deviation-why-overview hidden";
+    setClassName(deviationWhyOverview, "deviation-why-overview hidden");
     deviationWhyOverview.innerHTML = "";
     return;
   }
@@ -10932,7 +11126,7 @@ function renderDeviationWhyOverview(selectedWeek, visibleEntries) {
   const visibleDeviationEntries = deviationEntries.slice(0, 8);
   const extraCount = deviationEntries.length - visibleDeviationEntries.length;
 
-  deviationWhyOverview.className = "deviation-why-overview";
+  setClassName(deviationWhyOverview, "deviation-why-overview");
   deviationWhyOverview.innerHTML = `
     <div class="deviation-why-card">
       <strong>Waarom afwijken?</strong>
@@ -10941,7 +11135,7 @@ function renderDeviationWhyOverview(selectedWeek, visibleEntries) {
           <div class="deviation-why-item">
             <span class="deviation-why-shift">${formatWeekday(entry.day)} - ${getShiftName(entry)}</span>
             <span class="deviation-why-employee">${entry.name}</span>
-                      <span class="deviation-why-reason">${reasons.join(" Â· ")}</span>
+                      <span class="deviation-why-reason">${reasons.join(" · ")}</span>
           </div>
         `).join("")}
       </div>
@@ -10991,8 +11185,8 @@ function renderPlannerControlPanel(selectedWeek, visibleEntries) {
     return;
   }
 
-  if (!isPlannerRole() || !(currentMainTab === TABS.WEEK_CURRENT || currentMainTab === TABS.WEEK_NEXT)) {
-    plannerControlPanel.className = "planner-control-panel hidden";
+  if (!isPlannerRole() || !(activeTab === "week-current" || activeTab === "week-next")) {
+    setClassName(plannerControlPanel, "planner-control-panel hidden");
     plannerControlPanel.innerHTML = "";
     return;
   }
@@ -11039,7 +11233,7 @@ function renderPlannerControlPanel(selectedWeek, visibleEntries) {
     .slice(0, 6)
     .map((entry) => ({
       title: `${formatWeekday(entry.day)} - ${getShiftName(entry)}`,
-      detail: getDeviationReasonSummary(entry).join(" Â· "),
+      detail: getDeviationReasonSummary(entry).join(" · "),
       day: entry.day,
       entry,
       stateClass: "is-deviation"
@@ -11069,7 +11263,7 @@ function renderPlannerControlPanel(selectedWeek, visibleEntries) {
     .filter(Boolean)
     .map((employee) => ({
       title: employee.employeeName,
-      detail: `Contract ${formatHours(employee.contractHours)} Â· Gepland ${formatHours(employee.plannedHours)} Â· ${employee.difference === 0 ? "Op schema" : `${employee.difference > 0 ? "+" : "-"}${formatHours(Math.abs(employee.difference))}`}`,
+      detail: `Contract ${formatHours(employee.contractHours)} · Gepland ${formatHours(employee.plannedHours)} · ${employee.difference === 0 ? "Op schema" : `${employee.difference > 0 ? "+" : "-"}${formatHours(Math.abs(employee.difference))}`}`,
       employeeName: employee.employeeName,
       targetKind: "employee",
       stateClass: employee.stateClass
@@ -11118,12 +11312,12 @@ function renderPlannerControlPanel(selectedWeek, visibleEntries) {
   ].filter((section) => section.items.length > 0);
 
   if (!sections.length) {
-    plannerControlPanel.className = "planner-control-panel hidden";
+    setClassName(plannerControlPanel, "planner-control-panel hidden");
     plannerControlPanel.innerHTML = "";
     return;
   }
 
-  plannerControlPanel.className = "planner-control-panel";
+  setClassName(plannerControlPanel, "planner-control-panel");
   plannerControlPanel.innerHTML = `
     <div class="planner-control-card">
       <strong>Controlepaneel</strong>
@@ -11143,91 +11337,31 @@ function renderPlannerControlPanel(selectedWeek, visibleEntries) {
 }
 
 function getSchedulePlanningWeekData(weekValue, sourceEntries = entries) {
-  const weekDates = getWeekDates(weekValue);
-  const weekEntries = sourceEntries
-    .filter((entry) => getWeekValueFromDate(entry.day) === weekValue)
-    .sort((entryA, entryB) =>
-      entryA.day.localeCompare(entryB.day) ||
-      entryA.startTime.localeCompare(entryB.startTime) ||
-      getShiftName(entryA).localeCompare(getShiftName(entryB), "nl")
-    );
-  const openItems = weekDates
-    .filter((day) => getShopCoverageForDate(day).status !== "closed")
-    .flatMap((day) =>
-      getRequiredDayPlannerShifts(day)
-        .filter((shift) => !getEntryForShiftOnDate(day, shift, sourceEntries))
-        .map((shift) => ({
-          day,
-          shift
-        }))
-    );
-  const replacementItems = weekEntries
-    .filter((entry) => entry.replacementFor)
-    .map((entry) => ({
-      day: entry.day,
-      entry
-    }));
-  const deviationItems = getDeviationOnlyEntries(weekEntries, weekDates).map((entry) => ({
-    day: entry.day,
-    entry
-  }));
-  const specialDayItems = weekDates
-    .map((day) => {
-      const info = getRecognizedSpecialDayInfo(day);
-      return info ? { day, info } : null;
-    })
-    .filter(Boolean);
-  const contractImbalanceEmployees = getEmployeesWithFavoritesFirst(getActiveEmployees())
-    .filter((employeeName) => getEmployeeContractHours(employeeName) > 0)
-    .map((employeeName) => {
-      const contractHours = getEmployeeContractHours(employeeName);
-      const plannedHours = getEmployeeWeekHours(employeeName, weekValue, sourceEntries);
-      const difference = Math.round((plannedHours - contractHours) * 10) / 10;
-
-      if (Math.abs(difference) < 1) {
-        return null;
-      }
-
-      return {
-        employeeName,
-        difference,
-        plannedHours,
-        contractHours,
-        stateClass: difference > 0 ? "is-over" : "is-under"
-      };
-    })
-    .filter(Boolean)
-    .sort((employeeA, employeeB) => Math.abs(employeeB.difference) - Math.abs(employeeA.difference));
-  const status = getPlanningOverviewStatus(weekValue, weekEntries, openItems.length);
-
-  return {
-    weekValue,
-    weekDates,
-    periodLabel: formatPlanningWeekPeriod(weekValue),
-    weekEntries,
-    openItems,
-    replacementItems,
-    deviationItems,
-    specialDayItems,
-    contractImbalanceEmployees,
-    openCount: openItems.length,
-    replacementCount: replacementItems.length,
-    deviationCount: deviationItems.length,
-    specialDayCount: specialDayItems.length,
-    contractImbalanceCount: contractImbalanceEmployees.length,
-    status,
-    details: {
-      openPreview: openItems.slice(0, 4).map((item) => `${formatWeekday(item.day)}: ${item.shift.name}`),
-      replacementPreview: replacementItems.slice(0, 3).map((item) => `${formatWeekday(item.day)}: ${item.entry.replacementFor} -> ${item.entry.name}`),
-    deviationPreview: deviationItems.slice(0, 3).map((item) => `${formatWeekday(item.day)}: ${getShiftName(item.entry)} Â· ${getDeviationReasonSummary(item.entry).join(" Â· ")}`),
-      specialDayPreview: specialDayItems.slice(0, 4).map((item) => `${formatWeekday(item.day)}: ${item.info.nameLabel}`),
-      contractPreview: contractImbalanceEmployees.slice(0, 3).map((employee) => `${employee.employeeName}: ${employee.difference > 0 ? "+" : "-"}${formatHours(Math.abs(employee.difference))}`),
-      plannedCount: weekEntries.length
-    }
-  };
+  return getSchedulePlanningWeekDataHelper(weekValue, {
+    sourceEntries,
+    entries,
+    getWeekDates,
+    getWeekValueFromDate,
+    getShiftName,
+    getShopCoverageForDate,
+    getRequiredDayPlannerShifts,
+    getEntryForShiftOnDate,
+    getDeviationOnlyEntries,
+    getRecognizedSpecialDayInfo,
+    getEmployeesWithFavoritesFirst,
+    getActiveEmployees,
+    getEmployeeContractHours,
+    getEmployeeWeekHours,
+    getPlanningOverviewStatus,
+    formatPlanningWeekPeriod,
+    formatWeekday,
+    getDeviationReasonSummary,
+    formatHours
+  });
 }
 
 function openSpecificWeekInRoster(weekValue) {
+  activeTab = "week-current";
   weekFilterInput.value = weekValue;
   weekInput.value = weekValue;
   hoursWeekInput.value = weekValue;
@@ -11317,10 +11451,10 @@ function renderSchedulePlanningOverview() {
   }
 
   if (!isPlannerRole()) {
-    planningOverviewList.className = "planning-overview-list empty";
+    setClassName(planningOverviewList, "planning-overview-list empty");
     planningOverviewList.innerHTML = "Deze plannerpagina is alleen beschikbaar voor directie of planner.";
     if (planningOverviewSummary) {
-      planningOverviewSummary.className = "planning-overview-summary hidden";
+      setClassName(planningOverviewSummary, "planning-overview-summary hidden");
       planningOverviewSummary.innerHTML = "";
     }
     return;
@@ -11355,7 +11489,7 @@ function renderSchedulePlanningOverview() {
   }
 
   if (planningOverviewSummary) {
-    planningOverviewSummary.className = "planning-overview-summary";
+    setClassName(planningOverviewSummary, "planning-overview-summary");
     planningOverviewSummary.innerHTML = `
       <article class="planning-overview-summary-card">
         <strong>Ingevuld</strong>
@@ -11372,7 +11506,7 @@ function renderSchedulePlanningOverview() {
     `;
   }
 
-  planningOverviewList.className = `planning-overview-list${weekRows.length ? "" : " empty"}`;
+  setClassName(planningOverviewList, `planning-overview-list${weekRows.length ? "" : " empty"}`);
   planningOverviewList.innerHTML = weekRows.length
     ? `
       <div class="planning-overview-header" aria-hidden="true">
@@ -11405,27 +11539,7 @@ function renderSchedulePlanningOverview() {
 }
 
 function getWeekReviewStatusMeta(status) {
-  if (status === "locked") {
-    return {
-      label: "Vastgezet",
-      detail: "Deze week is gecontroleerd en vastgezet.",
-      className: "is-locked"
-    };
-  }
-
-  if (status === "in-review") {
-    return {
-      label: "In controle",
-      detail: "Deze week heeft recente plannerwijzigingen.",
-      className: "is-in-review"
-    };
-  }
-
-  return {
-    label: "Open",
-    detail: "Deze week is nog niet afgerond.",
-    className: "is-open"
-  };
+  return getWeekReviewStatusMetaHelper(status);
 }
 
 function renderWeekReviewStatus(selectedWeek) {
@@ -11433,8 +11547,8 @@ function renderWeekReviewStatus(selectedWeek) {
     return;
   }
 
-  if (!isPlannerRole() || !(currentMainTab === TABS.WEEK_CURRENT || currentMainTab === TABS.WEEK_NEXT)) {
-    weekReviewStatusPanel.className = "week-review-status hidden";
+  if (!isPlannerRole() || !(activeTab === "week-current" || activeTab === "week-next")) {
+    setClassName(weekReviewStatusPanel, "week-review-status hidden");
     weekReviewStatusPanel.innerHTML = "";
     return;
   }
@@ -11442,7 +11556,7 @@ function renderWeekReviewStatus(selectedWeek) {
   const status = getWeekReviewStatus(selectedWeek);
   const meta = getWeekReviewStatusMeta(status);
 
-  weekReviewStatusPanel.className = "week-review-status";
+  setClassName(weekReviewStatusPanel, "week-review-status");
   weekReviewStatusPanel.innerHTML = `
     <div class="week-review-status-card ${meta.className}">
       <span>Weekstatus ${selectedWeek.replace("-W", " - ")}</span>
@@ -11463,168 +11577,123 @@ function renderWeekReviewStatus(selectedWeek) {
 }
 
 function getShiftContextLabel(entry) {
-  const shiftName = getShiftName(entry).toLowerCase();
-
-  if (shiftName.includes("winkel")) {
-    return "Werkplek: Winkel";
-  }
-
-  if (shiftName.includes("bezorg")) {
-    return "Werkplek: Bezorging";
-  }
-
-  if (shiftName.includes("banket")) {
-    return "Soort: Banket";
-  }
-
-  if (shiftName.includes("oven")) {
-    return "Soort: Ovendienst";
-  }
-
-  if (shiftName.includes("draai")) {
-    return "Soort: Draaidienst";
-  }
-
-  if (shiftName.includes("brood")) {
-    return "Soort: Brooddienst";
-  }
-
-  if (shiftName.includes("productie")) {
-    return "Soort: Productiedienst";
-  }
-
-  if (shiftName.includes("allround")) {
-    return "Soort: Allrounddienst";
-  }
-
-  if (shiftName.includes("inpak")) {
-    return "Soort: Inpakdienst";
-  }
-
-  return "Werkplek: Bakkerij";
+  return getShiftContextLabelHelper(getShiftName, entry);
 }
 
-function getRequestStatusLabel(status) {
-  if (status === "approved") {
-    return "Goedgekeurd";
-  }
-
-  if (status === "rejected") {
-    return "Afgekeurd";
-  }
-
-  if (status === "in-review") {
-    return "In behandeling";
-  }
-
-  if (status === "waiting") {
-    return "Wacht op reactie";
-  }
-
-  if (status === "overdue") {
-    return "Wacht op reactie";
-  }
-
-  return "Open";
-}
-
-function getRequestDisplayLabel(request) {
-  const displayStatus = getRequestDisplayStatus(request);
-
-  if (request?.shiftName) {
-    if (request.status === "approved") {
-      return request.autoApproved ? "Automatisch goedgekeurd" : "Goedgekeurd";
+const {
+  getRequestStatusLabel = function fallbackGetRequestStatusLabel(status) {
+    if (status === "approved") {
+      return "Goedgekeurd";
     }
 
-    if (request.status === "rejected") {
-      return "Afgekeurd";
+    if (status === "rejected") {
+      return "Afgewezen";
     }
 
-    if (request.status === "open") {
-      return "Wacht op beoordeling";
+    if (status === "in-review") {
+      return "In behandeling";
     }
-  }
 
-  return getRequestStatusLabel(displayStatus);
-}
+    if (status === "waiting" || status === "overdue") {
+      return "Wacht op reactie";
+    }
 
-function getRequestLastChangeIso(request) {
-  if (!request || typeof request !== "object") {
+    return "Open";
+  },
+  getRequestLastChangeIso = function fallbackGetRequestLastChangeIso(request) {
+    if (!request || typeof request !== "object") {
+      return "";
+    }
+
+    if (typeof request.updatedAt === "string" && request.updatedAt) {
+      return request.updatedAt;
+    }
+
+    if (typeof request.createdAt === "string" && request.createdAt) {
+      return request.createdAt;
+    }
+
     return "";
-  }
+  },
+  getRequestAgeHours = function fallbackGetRequestAgeHours(request) {
+    const lastChangeIso = getRequestLastChangeIso(request);
 
-  if (typeof request.updatedAt === "string" && request.updatedAt) {
-    return request.updatedAt;
-  }
+    if (!lastChangeIso) {
+      return 0;
+    }
 
-  if (typeof request.createdAt === "string" && request.createdAt) {
-    return request.createdAt;
-  }
+    const lastChangeTime = Date.parse(lastChangeIso);
 
-  return "";
-}
+    if (!Number.isFinite(lastChangeTime)) {
+      return 0;
+    }
 
-function getRequestAgeHours(request) {
-  const lastChangeIso = getRequestLastChangeIso(request);
+    return Math.max(0, (Date.now() - lastChangeTime) / 3600000);
+  },
+  getRequestDisplayStatus = function fallbackGetRequestDisplayStatus(request) {
+    if (!request) {
+      return "open";
+    }
 
-  if (!lastChangeIso) {
-    return 0;
-  }
+    if (request.status !== "open") {
+      return request.status;
+    }
 
-  const lastChangeTime = Date.parse(lastChangeIso);
+    const ageHours = getRequestAgeHours(request);
 
-  if (!Number.isFinite(lastChangeTime)) {
-    return 0;
-  }
+    if (ageHours >= 48) {
+      return "overdue";
+    }
 
-  return Math.max(0, (Date.now() - lastChangeTime) / 3600000);
-}
+    if (ageHours >= 24) {
+      return "waiting";
+    }
 
-function getRequestDisplayStatus(request) {
-  if (!request) {
     return "open";
-  }
+  },
+  getRequestDisplayLabel = function fallbackGetRequestDisplayLabel(request) {
+    const displayStatus = getRequestDisplayStatus(request);
 
-  if (request.status !== "open") {
-    return request.status;
-  }
+    if (request?.shiftName) {
+      if (request.status === "approved") {
+        return request.autoApproved ? "Automatisch goedgekeurd" : "Geaccepteerd";
+      }
 
-  const ageHours = getRequestAgeHours(request);
+      if (request.status === "rejected") {
+        return "Afgewezen";
+      }
 
-  if (ageHours >= 48) {
-    return "overdue";
-  }
+      if (request.status === "open") {
+        return "Wacht op beoordeling";
+      }
+    }
 
-  if (ageHours >= 24) {
-    return "waiting";
-  }
+    return getRequestStatusLabel(displayStatus);
+  },
+  getRequestAttentionText = function fallbackGetRequestAttentionText(request) {
+    const displayStatus = getRequestDisplayStatus(request);
 
-  return "open";
-}
+    if (request?.shiftName && request.status === "open" && !request.targetEmployeeName) {
+      if (displayStatus === "waiting") {
+        return "Geen reactie op dit open ruilverzoek. Directie kan nu handmatig ingrijpen.";
+      }
 
-function getRequestAttentionText(request) {
-  const displayStatus = getRequestDisplayStatus(request);
+      if (displayStatus === "overdue") {
+        return "Geen reactie op dit ruilverzoek. Kies een vervanger of sluit het verzoek af.";
+      }
+    }
 
-  if (request?.shiftName && request.status === "open" && !request.targetEmployeeName) {
     if (displayStatus === "waiting") {
-      return "Geen reactie op dit open ruilverzoek. Directie kan nu handmatig ingrijpen.";
+      return "Deze aanvraag wacht al langer dan 24 uur op reactie.";
     }
 
     if (displayStatus === "overdue") {
-      return "Geen reactie op dit ruilverzoek. Kies een vervanger of sluit het verzoek af.";
+      return "Deze aanvraag staat al langer dan 48 uur open en vraagt nu extra aandacht.";
     }
-  }
 
-  if (displayStatus === "waiting") {
-    return "Deze aanvraag wacht al langer dan 24 uur op reactie.";
+    return "";
   }
-
-  if (displayStatus === "overdue") {
-    return "Deze aanvraag staat al langer dan 48 uur open en vraagt nu extra aandacht.";
-  }
-
-  return "";
-}
+} = window.StroetRequestsFeature || {};
 
 function getSwapReplacementCandidates(request) {
   if (!request) {
@@ -11915,6 +11984,7 @@ async function sendEmail(to, subject, message) {
         to: Array.isArray(to) ? to : [to],
         subject,
         message,
+        forceTestRecipient: APP_MAIL_TEST_MODE_ENABLED,
         fromName: normalizeMailSenderName(mailSettings?.senderName || ""),
         fromEmail: normalizeEmployeeEmail(mailSettings?.senderEmail || "")
       })
@@ -11948,6 +12018,7 @@ async function sendEmail(to, subject, message) {
         error: payloadMessage || "Verzenden mislukt."
       };
     }
+
     return {
       ok: true,
       id: typeof payload?.id === "string" ? payload.id : "",
@@ -11964,18 +12035,11 @@ async function sendEmail(to, subject, message) {
   }
 }
 
-async function sendTestEmailRequest(recipient) {
+async function sendTestEmailRequest() {
   if (window.location.protocol === "file:") {
     return {
       ok: false,
       error: "Lokale preview zonder serverroute."
-    };
-  }
-
-  if (!recipient) {
-    return {
-      ok: false,
-      error: "Geen e-mailadres ingesteld"
     };
   }
 
@@ -11986,11 +12050,7 @@ async function sendTestEmailRequest(recipient) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        to: [recipient],
-        subject: "Test mail Roosterapp",
-        message: "Dit is een testmail vanuit de Roosterapp",
-        fromName: normalizeMailSenderName(mailSettings?.senderName || ""),
-        fromEmail: normalizeEmployeeEmail(mailSettings?.senderEmail || "")
+        testMode: true
       })
     });
 
@@ -12003,6 +12063,7 @@ async function sendTestEmailRequest(recipient) {
       : typeof payload?.error === "string"
         ? payload.error
         : "";
+
     if (!response.ok || payload?.success === false) {
       console.error("[test-mail] sendTestEmailRequest:response-error", {
         status: response.status,
@@ -12024,7 +12085,7 @@ async function sendTestEmailRequest(recipient) {
 
     return {
       ok: true,
-      message: payloadMessage || "Mail verzonden"
+      message: payloadMessage || `Mail verzonden naar ${FIXED_TEST_MAIL_RECIPIENT} (testmodus)`
     };
   } catch (error) {
     console.error("[test-mail] sendTestEmailRequest:exception", error);
@@ -12035,174 +12096,6 @@ async function sendTestEmailRequest(recipient) {
         : "Backend route niet bereikbaar."
     };
   }
-}
-
-async function sendClerkInvitationRequest({ email, employeeName, role }) {
-  if (window.location.protocol === "file:") {
-    return {
-      ok: false,
-      error: "Lokale preview zonder serverroute."
-    };
-  }
-
-  if (!email) {
-    return {
-      ok: false,
-      error: "Geen e-mailadres ingesteld"
-    };
-  }
-
-  try {
-    const response = await fetch("/api/clerk-user-action", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        action: "invite",
-        email,
-        employeeName,
-        role
-      })
-    });
-
-    const contentType = response.headers.get("content-type") || "";
-    const payload = contentType.includes("application/json")
-      ? await response.json().catch(() => ({}))
-      : {};
-    const payloadMessage = typeof payload?.message === "string"
-      ? payload.message
-      : "Uitnodigen mislukt.";
-
-    if (!response.ok || payload?.success === false) {
-      return {
-        ok: false,
-        error: payloadMessage || "Uitnodigen mislukt."
-      };
-    }
-
-    return {
-      ok: true,
-      message: payloadMessage || "Uitnodiging verzonden"
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error && error.message
-        ? `Backend route niet bereikbaar: ${error.message}`
-        : "Backend route niet bereikbaar."
-    };
-  }
-}
-
-function getTestMailErrorMessage(errorText) {
-  const normalized = typeof errorText === "string" ? errorText.trim() : "";
-
-  if (!normalized) {
-    return "Mail verzenden mislukt.";
-  }
-  return normalized;
-}
-
-function formatProfessionalEmailBody(message) {
-  const normalizedMessage = typeof message === "string" ? message.trim() : "";
-  return `Bakkerij Stroet\n\n${normalizedMessage}`.trim();
-}
-
-const EMAIL_TEMPLATES = {
-  test: () => ({
-    subject: "Test mail Roosterapp",
-    message: "Dit is een testmail vanuit de Roosterapp"
-  }),
-  timeoffSubmitted: () => ({
-    subject: "Uw aanvraag is ontvangen",
-    message: "Uw aanvraag is ontvangen en staat in behandeling."
-  }),
-  timeoffApproved: () => ({
-    subject: "Uw aanvraag is goedgekeurd",
-    message: "Uw aanvraag is goedgekeurd."
-  }),
-  timeoffRejected: () => ({
-    subject: "Uw aanvraag is afgekeurd",
-    message: "Uw aanvraag is afgekeurd."
-  }),
-  swapSubmitted: () => ({
-    subject: "Uw ruilverzoek is ontvangen",
-    message: "Uw ruilverzoek is ontvangen."
-  }),
-  swapRequestCreated: () => ({
-    subject: "Nieuw ruilverzoek",
-    message: "Je hebt een ruilverzoek ontvangen."
-  }),
-  swapAutoApproved: () => ({
-    subject: "Uw ruilverzoek is goedgekeurd",
-    message: "Uw ruilverzoek is goedgekeurd."
-  }),
-  swapApproved: () => ({
-    subject: "Uw ruilverzoek is goedgekeurd",
-    message: "Uw ruilverzoek is goedgekeurd."
-  }),
-  swapRejected: () => ({
-    subject: "Uw ruilverzoek is afgekeurd",
-    message: "Uw ruilverzoek is afgekeurd."
-  }),
-  swapPlannerHelp: () => ({
-    subject: "Directie ingeschakeld",
-    message: "Directie is ingeschakeld."
-  }),
-  swapReminder: () => ({
-    subject: "Herinnering ruilverzoek",
-    message: "Herinnering: reageer op ruilverzoek."
-  }),
-  employeeHoursReminder: () => ({
-    subject: "Uren vorige week nog open",
-    message: "U heeft uw gewerkte uren van vorige week nog niet ingevuld."
-  }),
-  worklogApproved: () => ({
-    subject: "Uw uren zijn goedgekeurd",
-    message: "Uw uren zijn goedgekeurd."
-  }),
-  worklogRejected: (context = {}) => ({
-    subject: "Uw uren zijn afgekeurd",
-    message: `Uw uren zijn afgekeurd.${context?.request?.managerNote ? `\n\nOpmerking: ${context.request.managerNote}` : ""}`
-  }),
-  worklogRevision: (context = {}) => ({
-    subject: "Uw uren hebben een opmerking",
-    message: `Uw uren zijn teruggestuurd met een opmerking.${context?.request?.managerNote ? `\n\nOpmerking: ${context.request.managerNote}` : ""}`
-  }),
-  plannerOpenRequestsSummary: () => ({
-    subject: "Open aanvragen in de Roosterapp",
-    message: "Er staan open aanvragen in de Roosterapp."
-  }),
-  plannerOpenRequestsReminder: () => ({
-    subject: "Open acties vragen aandacht",
-    message: "Er staan nog open acties die aandacht nodig hebben."
-  }),
-  plannerHoursApprovalSummary: () => ({
-    subject: "Uren klaar voor goedkeuring",
-    message: "Er staan uren klaar om goed te keuren in de Roosterapp."
-  }),
-  plannerHoursApprovalReminder: () => ({
-    subject: "Open acties vragen aandacht",
-    message: "Er staan nog open acties die aandacht nodig hebben."
-  })
-};
-
-function buildEmailTemplate(templateKey, context = {}) {
-  const templateBuilder = EMAIL_TEMPLATES[templateKey];
-
-  if (typeof templateBuilder !== "function") {
-    return {
-      subject: "Update",
-      message: formatProfessionalEmailBody("Er is een update.")
-    };
-  }
-
-  const template = templateBuilder(context) || {};
-  return {
-    subject: typeof template.subject === "string" ? template.subject : "Update",
-    message: formatProfessionalEmailBody(typeof template.message === "string" ? template.message : "Er is een update.")
-  };
 }
 
 async function sendTemplatedEmail(to, templateKey, context = {}) {
@@ -12247,14 +12140,6 @@ function updateMailLogEntry(request, mailEntry, patch = {}, persist = null) {
   }
 }
 
-function getSwapMailSubject(type) {
-  return buildEmailTemplate(getSwapMailTemplateKey(type)).subject;
-}
-
-function getTimeOffMailSubject(request, type) {
-  return buildEmailTemplate(getTimeOffMailTemplateKey(request, type)).subject;
-}
-
 function queueRequestMailDelivery(request, mailEntry, options = {}) {
   if (!request || !mailEntry) {
     return;
@@ -12285,7 +12170,7 @@ function queueRequestMailDelivery(request, mailEntry, options = {}) {
       onStatusChange(request, mailEntry);
     }
     if (notifyUser) {
-      showMessage(notifyErrorMessage || "Geen e-mailadres ingesteld", "error");
+      showMessage(notifyErrorMessage || "Mail verzenden mislukt: Geen e-mailadres ingesteld", "error");
     }
     return;
   }
@@ -12326,33 +12211,9 @@ function queueRequestMailDelivery(request, mailEntry, options = {}) {
       onStatusChange(request, mailEntry);
     }
     if (notifyUser) {
-      showMessage(notifyErrorMessage || "Mail kon niet worden verzonden", "error");
+      showMessage(notifyErrorMessage || `Mail verzenden mislukt: ${result.error || "onbekende fout"}`, "error");
     }
   });
-}
-
-function getSwapMailTemplateKey(type) {
-  const templateMap = {
-    submitted: "swapSubmitted",
-    "request-created": "swapRequestCreated",
-    "auto-approved": "swapAutoApproved",
-    approved: "swapApproved",
-    rejected: "swapRejected",
-    "planner-help": "swapPlannerHelp",
-    reminder: "swapReminder"
-  };
-
-  return templateMap[type] || "swapSubmitted";
-}
-
-function getTimeOffMailTemplateKey(request, type) {
-  const templateMap = {
-    submitted: "timeoffSubmitted",
-    approved: "timeoffApproved",
-    rejected: "timeoffRejected"
-  };
-
-  return templateMap[type] || "timeoffSubmitted";
 }
 
 function registerRequestMailNotification(request, type, employeeNames = [], options = {}) {
@@ -12419,7 +12280,7 @@ function registerSwapMailNotification(request, type, employeeNames = [], options
     ...options,
     templateKeyBuilder: (_, currentType) => getSwapMailTemplateKey(currentType),
     subjectBuilder: getSwapMailSubject,
-    messageBuilder: (currentRequest, currentType) => getSwapMailTemplateText(currentRequest, currentType),
+    messageBuilder: (_, currentType) => getSwapMailTemplateText(currentType),
     persist: saveSwapRequests,
     onStatusChange: () => render()
   });
@@ -12462,42 +12323,11 @@ function getLatestSwapMailNotification(request) {
   return getLatestRequestMailNotification(request);
 }
 
-function appendManagerNoteToMailMessage(message, managerNote = "") {
-  const note = typeof managerNote === "string" ? managerNote.trim() : "";
-
-  if (!note) {
-    return message;
-  }
-
-  return `${message}\n\nOpmerking: ${note}`;
-}
-
-function getSwapMailTemplateText(request, type) {
-  return appendManagerNoteToMailMessage(
-    buildEmailTemplate(getSwapMailTemplateKey(type)).message,
-    type === "rejected" ? request?.managerNote : ""
-  );
-}
-
-function getTimeOffMailTemplateText(request, type) {
-  return appendManagerNoteToMailMessage(
-    buildEmailTemplate(getTimeOffMailTemplateKey(request, type)).message,
-    type === "rejected" ? request?.managerNote : ""
-  );
-}
-
 function getMailDeliveryPrefix(type, status) {
-  const isReminder = type === "reminder";
-
-  if (status === "queued") {
-    return getAppMailQueuedMessage(isReminder);
-  }
-
-  if (status === "sent") {
-    return getAppMailSentMessage();
-  }
-
-  return getAppMailSentMessage();
+  return getMailDeliveryPrefixHelper(type, status, {
+    appMailTestModeEnabled: APP_MAIL_TEST_MODE_ENABLED,
+    fixedTestRecipient: FIXED_TEST_MAIL_RECIPIENT
+  });
 }
 
 function getRequestMailStatusText(request, options = {}) {
@@ -12521,6 +12351,14 @@ function getRequestMailStatusText(request, options = {}) {
   }
 
   if (latestMail.status === "missing-email") {
+    const recipientNames = Array.isArray(latestMail.recipients)
+      ? latestMail.recipients.map((recipient) => recipient.employeeName).filter(Boolean)
+      : [];
+
+    if (recipientNames.some((employeeName) => isEmployeeMailBlockedByTestPhase(employeeName))) {
+      return "Mail uitgeschakeld tijdens testfase";
+    }
+
     return latestMail.error || "Geen e-mailadres ingesteld";
   }
 
@@ -12579,7 +12417,7 @@ function syncSwapReminderNotifications(requests = swapRequests) {
 function getSwapMailStatusText(request) {
   const currentEmployee = getRoleScopedEmployeeName();
   return getRequestMailStatusText(request, {
-    templateTextGetter: (currentRequest, type) => getSwapMailTemplateText(currentRequest, type),
+    templateTextGetter: (_, type) => getSwapMailTemplateText(type),
     labelMap: {
       submitted: "Mail verzonden.",
       "request-created": "Mail verzonden.",
@@ -12605,16 +12443,6 @@ function registerTimeOffMailNotification(request, type, employeeNames = [], opti
   });
 }
 
-function getWorkLogMailTemplateKey(type) {
-  const templateMap = {
-    approved: "worklogApproved",
-    rejected: "worklogRejected",
-    revision: "worklogRevision"
-  };
-
-  return templateMap[type] || "";
-}
-
 function registerWorkLogMailNotification(workLog, type, employeeNames = [], options = {}) {
   if (!workLog || !type) {
     return;
@@ -12622,10 +12450,6 @@ function registerWorkLogMailNotification(workLog, type, employeeNames = [], opti
 
   registerRequestMailNotification(workLog, type, employeeNames, {
     ...options,
-    notifyUser: options.notifyUser !== false,
-    notifySuccessMessage: typeof options.notifySuccessMessage === "string"
-      ? options.notifySuccessMessage
-      : "Mail verzonden",
     templateKeyBuilder: (_, currentType) => getWorkLogMailTemplateKey(currentType),
     persist: saveWorkLogs,
     onStatusChange: () => render()
@@ -12649,7 +12473,7 @@ function finalizeApprovedSwapRequest(request, options = {}) {
   const {
     managerNote = "",
     autoApproved = false,
-    successMessage = "Aanvraag goedgekeurd",
+    successMessage = "Rooster bijgewerkt.",
     persistMessage = `Ruilverzoek goedgekeurd voor ${request.employeeName}.`,
     action = "swap-approved"
   } = options;
@@ -12701,7 +12525,7 @@ function finalizeApprovedSwapRequest(request, options = {}) {
     }
   });
   render();
-  showSuccess(successMessage);
+  showMessage(successMessage, "success");
   return true;
 }
 
@@ -12851,30 +12675,30 @@ function renderSwapTargetOptions() {
     if (swapTargetHint) {
       if (!entryDetails) {
     swapTargetHint.textContent = "Kies eerst een dienst om geschikte collega's te zien.";
-        swapTargetHint.className = "panel-note request-form-full";
+        setClassName(swapTargetHint, "panel-note request-form-full");
       } else if (replacementCandidates.length === 0) {
         swapTargetHint.textContent = "Er is nu geen geschikte collega beschikbaar om mee te ruilen.";
-        swapTargetHint.className = "panel-note request-form-full warning-note";
+        setClassName(swapTargetHint, "panel-note request-form-full warning-note");
       } else if (replacementCandidates.length === 1) {
       swapTargetHint.textContent = "Er is 1 geschikte collega beschikbaar voor deze dienst.";
-      swapTargetHint.className = "panel-note request-form-full";
+      setClassName(swapTargetHint, "panel-note request-form-full");
     } else {
     swapTargetHint.textContent = `Er zijn ${replacementCandidates.length} geschikte collega's beschikbaar voor deze dienst.`;
-      swapTargetHint.className = "panel-note request-form-full";
+      setClassName(swapTargetHint, "panel-note request-form-full");
     }
   }
 
   if (swapSuggestionList) {
     if (!entryDetails) {
-      swapSuggestionList.className = "request-suggestion-list request-form-full empty";
+      setClassName(swapSuggestionList, "request-suggestion-list request-form-full empty");
       swapSuggestionList.textContent = "Nog geen dienst gekozen.";
     } else if (replacementSuggestions.length === 0) {
-      swapSuggestionList.className = "request-suggestion-list request-form-full empty";
+      setClassName(swapSuggestionList, "request-suggestion-list request-form-full empty");
       swapSuggestionList.textContent = "Geen geschikte collega beschikbaar voor deze dienst.";
     } else {
       const visibleSuggestions = replacementSuggestions.slice(0, 5);
       const remainingCount = replacementSuggestions.length - visibleSuggestions.length;
-      swapSuggestionList.className = "request-suggestion-list request-form-full";
+      setClassName(swapSuggestionList, "request-suggestion-list request-form-full");
       swapSuggestionList.innerHTML = `
         <strong>Beste opties</strong>
         ${visibleSuggestions.map((candidate) => `
@@ -12906,16 +12730,12 @@ function renderSwapTargetOptions() {
 }
 
 function getVisibleRequestSources() {
-  const currentEmployee = getRoleScopedEmployeeName();
-
-  return {
-    visibleTimeOffRequests: isPlannerRole()
-      ? timeOffRequests
-      : timeOffRequests.filter((request) => request.employeeName === currentEmployee),
-    visibleSwapRequests: isPlannerRole()
-      ? swapRequests
-      : swapRequests.filter((request) => request.employeeName === currentEmployee)
-  };
+  return getVisibleRequestSourcesHelper(
+    isPlannerRole(),
+    getRoleScopedEmployeeName(),
+    timeOffRequests,
+    swapRequests
+  );
 }
 
 function getRequestStatusFilterValue() {
@@ -12923,58 +12743,14 @@ function getRequestStatusFilterValue() {
 }
 
 function matchesRequestStatusFilter(request) {
-  const selectedStatus = getRequestStatusFilterValue();
-  const displayStatus = getRequestDisplayStatus(request);
-
-  if (selectedStatus === "") {
-    return true;
-  }
-
-  return displayStatus === selectedStatus;
+  return matchesRequestStatusFilterHelper(getRequestStatusFilterValue(), request, getRequestDisplayStatus);
 }
 
 function getRequestRosterEffectText(request, requestType) {
-  if (requestType === "timeoff") {
-    const startDate = getTimeOffStartDate(request);
-    const endDate = getTimeOffEndDate(request);
-    const affectedEntries = entries.filter((entry) =>
-      entry.name === request.employeeName &&
-      entry.day >= startDate &&
-      entry.day <= endDate
-    );
-
-    if (request.status === "approved") {
-      return affectedEntries.length > 0
-        ? `${affectedEntries.length} dienst(en) in deze periode vragen nu aandacht in het rooster.`
-        : "Goedgekeurd en zichtbaar als afwezig in het rooster.";
-    }
-
-    if (request.status === "open") {
-      return affectedEntries.length > 0
-        ? `Na goedkeuring gekoppeld aan ${affectedEntries.length} roosterdienst(en).`
-        : "Na goedkeuring direct zichtbaar in het rooster.";
-    }
-
-    return "Niet gekoppeld aan het rooster.";
-  }
-
-  if (requestType === "swap") {
-    if (request.status === "approved") {
-      return request.autoApproved
-        ? "Automatisch goedgekeurd en direct verwerkt in het rooster."
-        : "Goedgekeurd en direct verwerkt in het rooster.";
-    }
-
-    if (request.status === "open") {
-      return request.targetEmployeeName
-        ? "Deze ruil wacht nog op beoordeling."
-        : "Na goedkeuring wordt deze dienst open aangeboden.";
-    }
-
-    return "Nog niet verwerkt in het rooster.";
-  }
-
-  return "";
+  return getRequestRosterEffectTextHelper(request, requestType, entries, {
+    getTimeOffStartDate,
+    getTimeOffEndDate
+  });
 }
 
 function getPlannerRequestNoteFromButton(button) {
@@ -13033,14 +12809,7 @@ function renderRequestsContext() {
 }
 
 function getPlannerRequestSummaryCounts() {
-  const openTimeOffRequests = timeOffRequests.filter((request) => request.status === "open");
-
-  return {
-    free: openTimeOffRequests.filter((request) => request.type === "vrij").length,
-    vacation: openTimeOffRequests.filter((request) => request.type === "vakantie").length,
-    sick: openTimeOffRequests.filter((request) => request.type === "ziek").length,
-    swaps: swapRequests.filter((request) => request.status === "open").length
-  };
+  return getPlannerRequestSummaryCountsHelper(timeOffRequests, swapRequests);
 }
 
 function renderPlannerRequestCards(target, requests, emptyText, requestType) {
@@ -13049,23 +12818,27 @@ function renderPlannerRequestCards(target, requests, emptyText, requestType) {
   }
 
   if (requests.length === 0) {
-    target.className = "request-list empty";
+    setClassName(target, "request-list empty");
     target.textContent = emptyText;
     return;
   }
 
-  target.className = "request-list";
+  setClassName(target, "request-list");
   target.innerHTML = requests.map((request) => {
-    const requestStatus = getRequestDisplayStatus(request);
-    const statusLabel = getRequestDisplayLabel(request);
-    const periodText = requestType === "swap"
-      ? formatDate(request.date)
-      : getTimeOffDisplayRange(request);
-    const detailText = requestType === "swap"
-      ? `${request.shiftName} - ${request.startTime} - ${request.endTime}`
-      : `${getAbsenceTypeLabel(request.type)}${request.reason ? ` - ${request.reason}` : ""}`;
-    const attentionText = request.status === "open" ? getRequestAttentionText(request) : "";
-    const plannerNote = request.managerNote ? `<div class="request-impact"><strong>Opmerking:</strong> ${request.managerNote}</div>` : "";
+    const viewModel = buildPlannerRequestCardViewModelHelper({
+      request,
+      requestType,
+      helpers: {
+        getRequestDisplayStatus,
+        getRequestDisplayLabel,
+        formatDate,
+        getTimeOffDisplayRange,
+        getAbsenceTypeLabel,
+        getRequestAttentionText,
+        getRequestRosterEffectText
+      }
+    });
+    const plannerNote = viewModel.plannerNoteText ? `<div class="request-impact"><strong>Opmerking:</strong> ${viewModel.plannerNoteText}</div>` : "";
     const plannerNoteField = request.status === "open"
       ? `
         <label class="request-note-field">
@@ -13084,11 +12857,9 @@ function renderPlannerRequestCards(target, requests, emptyText, requestType) {
         </div>
       `
       : "";
-    const swapExtra = requestType === "swap" && request.targetEmployeeName
-      ? `<div class="request-impact">Voorgestelde collega: ${request.targetEmployeeName}</div>`
-      : (requestType === "swap" && request.escalatedToPlanner
-        ? `<div class="request-impact request-attention-note">Directie is gevraagd om mee te kijken.</div>`
-        : "");
+    const swapExtra = viewModel.swapExtraText
+      ? `<div class="request-impact${request.targetEmployeeName ? "" : " request-attention-note"}">${viewModel.swapExtraText}</div>`
+      : "";
     const replacementField = requestType === "swap" && request.status === "open" && !request.targetEmployeeName
       ? `
         <label class="request-note-field">
@@ -13102,21 +12873,21 @@ function renderPlannerRequestCards(target, requests, emptyText, requestType) {
       : "";
 
     return `
-      <article class="request-card compact-request-card planner-request-card is-${requestStatus}${requestType === "timeoff" ? ` absence-${getAbsenceCardClass(request.type)}` : ""}">
+      <article class="request-card planner-request-card is-${viewModel.requestStatus}${requestType === "timeoff" ? ` absence-${getAbsenceCardClass(request.type)}` : ""}">
         <div class="planner-request-row">
           <strong class="planner-request-name">${request.employeeName}</strong>
-          <div class="planner-request-period" title="${periodText}">${periodText}</div>
-          <span class="status-pill status-${requestStatus}">${statusLabel}</span>
+          <div class="planner-request-period" title="${viewModel.periodText}">${viewModel.periodText}</div>
+          <span class="status-pill status-${viewModel.requestStatus}">${viewModel.statusLabel}</span>
           ${plannerActions}
         </div>
         <div class="planner-request-detail-row">
-          <div class="planner-request-detail" title="${detailText}">${detailText}</div>
+          <div class="planner-request-detail" title="${viewModel.detailText}">${viewModel.detailText}</div>
           ${replacementField}
           ${plannerNoteField}
         </div>
         ${swapExtra}
-        ${requestType === "swap" ? `<div class="request-impact">${getRequestRosterEffectText(request, "swap")}</div>` : ""}
-        ${attentionText ? `<div class="request-impact request-attention-note">${attentionText}</div>` : ""}
+        ${viewModel.rosterEffectText ? `<div class="request-impact">${viewModel.rosterEffectText}</div>` : ""}
+        ${viewModel.attentionText ? `<div class="request-impact request-attention-note">${viewModel.attentionText}</div>` : ""}
         ${plannerNote}
       </article>
     `;
@@ -13435,40 +13206,27 @@ function activateRequestType(nextType, options = {}) {
 }
 function renderRequestsOpenCards() {
   if (isPlannerRole()) {
-    requestsOpenCards.className = "request-list hidden";
+    setClassName(requestsOpenCards, "request-list hidden");
     requestsOpenCards.innerHTML = "";
     return;
   }
 
   const { visibleTimeOffRequests, visibleSwapRequests } = getVisibleRequestSources();
-  const ownCards = [
-    ...visibleTimeOffRequests.map((request) => ({
-      type: getAbsenceTypeLabel(request.type),
-      meta: `${getTimeOffDisplayRange(request)}${request.reason ? ` - ${request.reason}` : ""}`,
-      status: getRequestDisplayStatus(request),
-      label: getRequestDisplayLabel(request),
-      typeClass: `absence-${getAbsenceCardClass(request.type)}`,
-      sortDate: request.updatedAt || request.createdAt || request.date || ""
-    })),
-    ...visibleSwapRequests.map((request) => ({
-      type: "Dienst ruilen",
-      meta: `${request.shiftName} - ${formatDate(request.date)} - ${request.startTime} - ${request.endTime}`,
-      status: getRequestDisplayStatus(request),
-      label: getRequestDisplayLabel(request),
-      typeClass: "",
-      sortDate: request.updatedAt || request.createdAt || request.date || ""
-    }))
-  ].sort((cardA, cardB) => {
-    const priorityMap = { overdue: 0, waiting: 1, open: 2, approved: 3, rejected: 4 };
-    const priorityDifference = (priorityMap[cardA.status] ?? 9) - (priorityMap[cardB.status] ?? 9);
-    if (priorityDifference !== 0) {
-      return priorityDifference;
+  const ownCards = buildEmployeeRequestCardsHelper({
+    visibleTimeOffRequests,
+    visibleSwapRequests,
+    helpers: {
+      getAbsenceTypeLabel,
+      getTimeOffDisplayRange,
+      getRequestDisplayStatus,
+      getRequestDisplayLabel,
+      getAbsenceCardClass,
+      formatDate
     }
-    return cardB.sortDate.localeCompare(cardA.sortDate, "nl");
   });
 
   if (!ownCards.length) {
-    requestsOpenCards.className = "request-list request-list-compact empty";
+    setClassName(requestsOpenCards, "request-list request-list-compact empty");
     requestsOpenCards.innerHTML = `
       <div class="request-mini-heading">Mijn aanvragen</div>
       <div class="request-mini-empty">Nog geen aanvragen.</div>
@@ -13476,7 +13234,7 @@ function renderRequestsOpenCards() {
     return;
   }
 
-  requestsOpenCards.className = "request-list request-list-compact";
+  setClassName(requestsOpenCards, "request-list request-list-compact");
   requestsOpenCards.innerHTML = `
     <div class="request-mini-heading">Mijn aanvragen</div>
     ${ownCards.map((card) => `
@@ -13612,7 +13370,7 @@ function renderControlModeOverview(weekDates, visibleEntries) {
   }
 
   if (!isPlannerRole() || !isControlModeActive()) {
-    controlModeOverview.className = "control-mode-overview hidden";
+    setClassName(controlModeOverview, "control-mode-overview hidden");
     controlModeOverview.innerHTML = "";
     return;
   }
@@ -13643,7 +13401,7 @@ function renderControlModeOverview(weekDates, visibleEntries) {
       };
     });
 
-  controlModeOverview.className = "control-mode-overview";
+  setClassName(controlModeOverview, "control-mode-overview");
   controlModeOverview.innerHTML = `
     <div class="control-mode-card">
       <strong>Controlemodus</strong>
@@ -13672,10 +13430,6 @@ function renderControlModeOverview(weekDates, visibleEntries) {
 }
 
 function updateWeekViewTitle() {
-  if (!isWeekTabName(currentMainTab)) {
-    return;
-  }
-
   const currentWeek = getCurrentWeekValue();
   const selectedWeek = weekFilterInput.value || currentWeek;
 
@@ -13694,7 +13448,7 @@ function updateWeekViewTitle() {
 
 function clearPlannerWeekInsights() {
   if (weekReviewStatusPanel) {
-    weekReviewStatusPanel.className = "week-review-status hidden";
+    setClassName(weekReviewStatusPanel, "week-review-status hidden");
     weekReviewStatusPanel.innerHTML = "";
   }
   if (completeReviewButton) {
@@ -13702,50 +13456,50 @@ function clearPlannerWeekInsights() {
     completeReviewButton.textContent = "Controle afronden";
   }
   if (plannerControlPanel) {
-    plannerControlPanel.className = "planner-control-panel hidden";
+    setClassName(plannerControlPanel, "planner-control-panel hidden");
     plannerControlPanel.innerHTML = "";
   }
   if (weekStatusOverview) {
-    weekStatusOverview.className = "week-status-overview hidden";
+    setClassName(weekStatusOverview, "week-status-overview hidden");
     weekStatusOverview.innerHTML = "";
   }
   if (autoFillSummaryOverview) {
-    autoFillSummaryOverview.className = "auto-fill-summary-overview hidden";
+    setClassName(autoFillSummaryOverview, "auto-fill-summary-overview hidden");
     autoFillSummaryOverview.innerHTML = "";
   }
   if (plannerContractOverview) {
-    plannerContractOverview.className = "planner-contract-overview hidden";
+    setClassName(plannerContractOverview, "planner-contract-overview hidden");
     plannerContractOverview.innerHTML = "";
   }
   if (deviationWhyOverview) {
-    deviationWhyOverview.className = "deviation-why-overview hidden";
+    setClassName(deviationWhyOverview, "deviation-why-overview hidden");
     deviationWhyOverview.innerHTML = "";
   }
   if (openReplacementOverview) {
-    openReplacementOverview.className = "open-replacement-overview hidden";
+    setClassName(openReplacementOverview, "open-replacement-overview hidden");
     openReplacementOverview.innerHTML = "";
   }
   if (weekReplacementOverview) {
-    weekReplacementOverview.className = "week-replacement-overview hidden";
+    setClassName(weekReplacementOverview, "week-replacement-overview hidden");
     weekReplacementOverview.innerHTML = "";
   }
   if (controlModeOverview) {
-    controlModeOverview.className = "control-mode-overview hidden";
+    setClassName(controlModeOverview, "control-mode-overview hidden");
     controlModeOverview.innerHTML = "";
   }
   rosterLegend?.classList.add("hidden");
 }
 
 function isFocusModeActive() {
-  return Boolean(preferences.plannerFocusMode) && isPlannerRole() && (currentMainTab === TABS.WEEK_CURRENT || currentMainTab === TABS.WEEK_NEXT);
+  return isFocusModeActiveStateHelper(activeTab, activeRole, preferences);
 }
 
 function isControlModeActive() {
-  return Boolean(preferences.plannerControlMode) && isPlannerRole() && (currentMainTab === TABS.WEEK_CURRENT || currentMainTab === TABS.WEEK_NEXT);
+  return isControlModeActiveStateHelper(activeTab, activeRole, preferences);
 }
 
 function isDeviationOnlyModeActive() {
-  return Boolean(preferences.plannerDeviationOnly) && isPlannerRole() && (currentMainTab === TABS.WEEK_CURRENT || currentMainTab === TABS.WEEK_NEXT);
+  return isDeviationOnlyModeActiveStateHelper(activeTab, activeRole, preferences);
 }
 
 function updateFocusModeUI() {
@@ -13755,30 +13509,30 @@ function updateFocusModeUI() {
 
   document.body.dataset.focusMode = isActive ? "planner" : "off";
   document.body.dataset.controlMode = isControlActive ? "planner" : "off";
-  document.body.dataset.activeTab = currentMainTab;
+  document.body.dataset.activeTab = activeTab;
   appShell?.classList.toggle("focus-week-mode", isActive);
 
   if (focusModeButton) {
-    focusModeButton.classList.toggle("hidden", !isPlannerRole() || !(currentMainTab === TABS.WEEK_CURRENT || currentMainTab === TABS.WEEK_NEXT));
+    focusModeButton.classList.toggle("hidden", !isPlannerRole() || !(activeTab === "week-current" || activeTab === "week-next"));
     focusModeButton.classList.toggle("active", isActive);
     focusModeButton.textContent = isActive ? "Focusmodus uit" : "Focusmodus aan";
   }
 
   if (controlModeButton) {
-    controlModeButton.classList.toggle("hidden", !isPlannerRole() || !(currentMainTab === TABS.WEEK_CURRENT || currentMainTab === TABS.WEEK_NEXT));
+    controlModeButton.classList.toggle("hidden", !isPlannerRole() || !(activeTab === "week-current" || activeTab === "week-next"));
     controlModeButton.classList.toggle("active", isControlActive);
     controlModeButton.textContent = isControlActive ? "Controlemodus uit" : "Controlemodus aan";
   }
 
   if (deviationOnlyButton) {
-    deviationOnlyButton.classList.toggle("hidden", !isPlannerRole() || !(currentMainTab === TABS.WEEK_CURRENT || currentMainTab === TABS.WEEK_NEXT));
+    deviationOnlyButton.classList.toggle("hidden", !isPlannerRole() || !(activeTab === "week-current" || activeTab === "week-next"));
     deviationOnlyButton.classList.toggle("active", isDeviationOnlyActive);
     deviationOnlyButton.textContent = isDeviationOnlyActive ? "Alles tonen" : "Alleen afwijkingen tonen";
   }
 }
 
 function isWeekTabName(tabName) {
-  return tabName === TABS.WEEK_CURRENT || tabName === TABS.WEEK_NEXT;
+  return isWeekTabNameHelper(tabName);
 }
 
 function scrollToPlannerEmployee(employeeName) {
@@ -13825,15 +13579,10 @@ function scrollToPlannerShift(day, shiftId) {
 }
 
 function getNormalizedTabName(tabName) {
-  const rawTabName = String(tabName || "").trim();
-  const nextTabName = TAB_ALIASES[rawTabName.toLowerCase()] || rawTabName;
+  const nextTabName = String(tabName || "").trim();
 
   if (!nextTabName) {
-    return currentMainTab || getDefaultTabForCurrentRole();
-  }
-
-  if (TAB_VALUES.has(nextTabName)) {
-    return nextTabName;
+    return getDefaultTabForCurrentRole();
   }
 
   const hasMatchingButton = navTabs.some((button) => button.dataset.tab === nextTabName) ||
@@ -13844,52 +13593,29 @@ function getNormalizedTabName(tabName) {
     (isWeekTabName(nextTabName) && (panel.hasAttribute("data-week-panel") || panel.dataset.panel === "week-summary"))
   );
 
-  return hasMatchingButton || hasMatchingPanel ? nextTabName : (currentMainTab || getDefaultTabForCurrentRole());
-}
-
-function applyCurrentMainTabState(tabName, options = {}) {
-  const normalizedTabName = getNormalizedTabName(tabName);
-
-  if (!normalizedTabName) {
-    return currentMainTab;
-  }
-
-  currentMainTab = normalizedTabName;
-
-  if (options.markInitialized) {
-    hasInitializedDefaultTab = true;
-  }
-
-  return currentMainTab;
+  return hasMatchingButton || hasMatchingPanel ? nextTabName : getDefaultTabForCurrentRole();
 }
 
 function updateTabVisibility() {
-  if (SIMPLE_MAIN_TAB_EMERGENCY_MODE) {
-    renderEmergencyMainTabState();
-    return;
-  }
-
-  const isWeekTab = isWeekTabName(currentMainTab);
+  activeTab = getNormalizedTabName(activeTab);
+  const isWeekTab = isWeekTabName(activeTab);
 
   navTabs.forEach((button) => {
     const isAllowed = isTabAllowedForCurrentRole(button.dataset.tab);
     button.classList.toggle("hidden-by-role", !isAllowed);
     button.hidden = !isAllowed;
     button.setAttribute("aria-hidden", isAllowed ? "false" : "true");
-    button.classList.toggle("active", button.dataset.tab === currentMainTab);
+    button.classList.toggle("active", button.dataset.tab === activeTab);
   });
 
   mobileNavButtons.forEach((button) => {
-    const isAllowed = isTabAllowedForCurrentRole(button.dataset.goTab);
-    button.hidden = !isAllowed;
-    button.setAttribute("aria-hidden", isAllowed ? "false" : "true");
-    const isRosterButton = button.dataset.goTab === TABS.WEEK_CURRENT;
+    const isRosterButton = button.dataset.goTab === "week-current";
     const isRosterTab = isWeekTab;
-    button.classList.toggle("active", isRosterButton ? isRosterTab : button.dataset.goTab === currentMainTab);
+    button.classList.toggle("active", isRosterButton ? isRosterTab : button.dataset.goTab === activeTab);
   });
 
   appPanels.forEach((panel) => {
-    const shouldShow = panel.dataset.panel === currentMainTab ||
+    const shouldShow = panel.dataset.panel === activeTab ||
       (isWeekTab && (panel.hasAttribute("data-week-panel") || panel.dataset.panel === "week-summary"));
     const plannerOnly = panel.classList.contains("role-planner");
     let isVisible = shouldShow && (!plannerOnly || isPlannerRole());
@@ -13904,157 +13630,7 @@ function updateTabVisibility() {
     panel.setAttribute("aria-hidden", isVisible ? "false" : "true");
   });
 
-  console.info(
-    "[tabs] zichtbare panelen:",
-    appPanels
-      .filter((panel) => !panel.hidden)
-      .map((panel) => `${panel.dataset.panel || "(geen)"}${panel.dataset.slot ? `:${panel.dataset.slot}` : ""}`)
-  );
-
   updateFocusModeUI();
-}
-
-function normalizeEmergencyMainTab(tabName) {
-  return String(tabName || "").trim().toLowerCase() || "week";
-}
-
-function applyEmergencyMainTab(tabName) {
-  console.info("[tabs-debug] applyEmergencyMainTab:start", {
-    requestedTab: tabName,
-    before: emergencyMainTab
-  });
-  emergencyMainTab = normalizeEmergencyMainTab(tabName);
-  currentMainTab = emergencyMainTab;
-  console.info("[tabs-debug] applyEmergencyMainTab:after-set", {
-    requestedTab: tabName,
-    after: emergencyMainTab
-  });
-  renderEmergencyMainTabState();
-  renderEmployeePersistenceDebug();
-}
-
-function renderEmergencyMainTabState() {
-  console.info("[tabs-debug] renderEmergencyMainTabState:before-render", {
-    emergencyMainTab
-  });
-  currentMainTab = emergencyMainTab;
-
-  simpleMainTabButtons.forEach((button) => {
-    const isAllowed = isPlannerRole() || !button.classList.contains("planner-only-tab");
-    button.hidden = !isAllowed;
-    button.classList.toggle("is-active", button.dataset.simpleTab === emergencyMainTab);
-  });
-
-  appPanels.forEach((panel) => {
-    panel.classList.remove("is-active");
-    panel.hidden = true;
-    panel.style.display = "none";
-    panel.setAttribute("aria-hidden", "true");
-  });
-
-  if (plannerDashboard) {
-    plannerDashboard.hidden = true;
-    plannerDashboard.style.display = "none";
-  }
-
-  if (simpleTabEmergencyPanel) {
-    simpleTabEmergencyPanel.hidden = false;
-    simpleTabEmergencyPanel.style.display = "grid";
-  }
-
-  let title = "TAB WERKT";
-  let text = `Actieve tab: ${emergencyMainTab}`;
-
-  if (emergencyMainTab === "dashboard") {
-    title = "DASHBOARD WERKT";
-    text = "Dashboard is actief.";
-  }
-
-  if (emergencyMainTab === "week") {
-    title = "WEEK WERKT";
-    text = "Rooster deze week is actief.";
-  }
-
-  if (emergencyMainTab === "medewerkers") {
-    title = "MEDEWERKERS WERKT";
-    text = "Medewerkers is actief.";
-  }
-
-  if (emergencyMainTab === "aanvragen") {
-    title = "AANVRAGEN WERKT";
-    text = "Aanvragen is actief.";
-  }
-
-  if (emergencyMainTab === "uren") {
-    title = "UREN WERKT";
-    text = "Mijn uren is actief.";
-  }
-
-  if (emergencyMainTab === "uren-accorderen") {
-    title = "UREN ACCORDEREN WERKT";
-    text = "Uren accorderen is actief.";
-  }
-
-  if (simpleTabEmergencyTitle) {
-    simpleTabEmergencyTitle.textContent = title;
-  }
-
-  if (simpleTabEmergencyText) {
-    simpleTabEmergencyText.textContent = text;
-  }
-
-  console.info("[tabs] render noodtab:", emergencyMainTab);
-}
-
-function getActiveTabPanels() {
-  const isWeekTab = isWeekTabName(currentMainTab);
-
-  return appPanels.filter((panel) => {
-    if (panel.hidden) {
-      return false;
-    }
-
-    if (panel.dataset.panel === currentMainTab) {
-      return true;
-    }
-
-    return isWeekTab && (panel.hasAttribute("data-week-panel") || panel.dataset.panel === "week-summary");
-  });
-}
-
-function clearActiveTabRenderError() {
-  getActiveTabPanels().forEach((panel) => {
-    panel.querySelectorAll("[data-tab-render-error='true']").forEach((element) => element.remove());
-  });
-}
-
-function showActiveTabRenderError(error) {
-  const errorMessage = error instanceof Error && error.message
-    ? error.message
-    : "Deze tab kon niet worden geladen.";
-  const visiblePanels = getActiveTabPanels();
-
-  visiblePanels.forEach((panel) => {
-    const errorBox = document.createElement("div");
-    errorBox.dataset.tabRenderError = "true";
-    errorBox.className = "message message-error compact-message";
-    errorBox.style.marginTop = "12px";
-    errorBox.textContent = `Deze tab kon niet volledig worden geladen: ${errorMessage}`;
-    panel.prepend(errorBox);
-  });
-
-  showError(`Tab-fout: ${errorMessage}`);
-}
-
-function renderActiveTabContentSafely() {
-  clearActiveTabRenderError();
-
-  try {
-    renderActiveTabContent();
-  } catch (error) {
-    console.error("[tab-render] fout in actieve tab:", currentMainTab, error);
-    showActiveTabRenderError(error);
-  }
 }
 
 function resetTabScrollPosition() {
@@ -14065,32 +13641,37 @@ function resetTabScrollPosition() {
   document.querySelector(".app-shell")?.scrollTo?.({ top: 0, left: 0, behavior: "auto" });
 }
 
-function setCurrentMainTab(tabName, options = {}) {
-  const rawRequestedTabName = String(tabName || "").trim();
-  console.info("[tabs] aangeklikte tab:", rawRequestedTabName || "(leeg)");
+function setActiveTab(tabName, options = {}) {
+  const normalizedTabName = getNormalizedTabName(tabName);
 
-  if (!rawRequestedTabName) {
+  if (
+    activeTab === "employees" &&
+    normalizedTabName !== "employees" &&
+    !options.skipEmployeeUnsavedCheck
+  ) {
+    const employeeName = getSelectedEmployeeAdminName();
+    const navigationChoice = confirmEmployeeEditorNavigation(employeeName);
+
+    if (navigationChoice === "cancel") {
+      updateTabVisibility();
+      return;
+    }
+  }
+
+  if (handleBlockedTabAccess(normalizedTabName)) {
+    updateTabVisibility();
+    resetTabScrollPosition();
+    render();
     return;
   }
 
-  const requestedTabName = SIMPLE_MAIN_TAB_EMERGENCY_MODE
-    ? rawRequestedTabName.toLowerCase()
-    : getNormalizedTabName(rawRequestedTabName);
-  console.info("[tabs] genormaliseerde tab:", requestedTabName);
-
-  if (SIMPLE_MAIN_TAB_EMERGENCY_MODE) {
-    applyEmergencyMainTab(requestedTabName);
-    return;
-  }
-
-  applyCurrentMainTabState(requestedTabName, { markInitialized: true });
-  console.info("[tabs] currentMainTab gezet naar:", currentMainTab);
+  activeTab = normalizedTabName;
   updateTabVisibility();
   resetTabScrollPosition();
 
   const currentWeek = getCurrentWeekValue();
 
-  if (requestedTabName === TABS.WEEK_CURRENT) {
+  if (normalizedTabName === "week-current") {
     weekFilterInput.value = currentWeek;
     weekInput.value = currentWeek;
     hoursWeekInput.value = currentWeek;
@@ -14099,26 +13680,19 @@ function setCurrentMainTab(tabName, options = {}) {
     }
   }
 
-  if (requestedTabName === TABS.WEEK_NEXT) {
+  if (normalizedTabName === "week-next") {
     const nextWeek = getNextWeekValue(currentWeek);
     weekFilterInput.value = nextWeek;
     weekInput.value = nextWeek;
     hoursWeekInput.value = nextWeek;
   }
 
-  if (requestedTabName === TABS.MY_HOURS && !isPlannerRole() && !options.preserveMyHoursSection) {
-    activeMyHoursSection = "fill";
+  if (normalizedTabName === "my-hours" && !isPlannerRole() && !options.preserveMyHoursSection) {
+    activeMyHoursSection = "";
     activeMyHoursEntryMode = "planned";
-    if (hoursDateInput) {
-      const todayValue = getTodayLocalDateValue();
-      hoursDateInput.value = todayValue;
-      preferences.lastHoursDate = todayValue;
-      preferences.lastHoursWeek = getWeekValueFromDate(todayValue) || getCurrentWeekValue();
-      savePreferences();
-    }
   }
 
-  if (requestedTabName === TABS.REQUESTS) {
+  if (normalizedTabName === "requests") {
     activeRequestType = "vrije-dag";
     activeRequestComposer = "free";
   }
@@ -14126,15 +13700,6 @@ function setCurrentMainTab(tabName, options = {}) {
   updateWeekViewTitle();
   render();
 }
-
-window.__forceTabClick = function forceTabClick(tabName) {
-  console.info("[tabs] inline force tab click:", tabName);
-  if (SIMPLE_MAIN_TAB_EMERGENCY_MODE) {
-    applyEmergencyMainTab(tabName);
-    return;
-  }
-  setCurrentMainTab(tabName, { force: true });
-};
 
 function isDefaultFreeDay(dateValue) {
   const weekday = new Date(`${dateValue}T00:00:00`).getDay();
@@ -14178,7 +13743,10 @@ function findShiftAssignmentConflict(day, selectedShift, ignoredIndex = editInde
 }
 
 function getRequiredDayPlannerShifts(dateValue) {
-  return getDayPlannerShifts(dateValue).filter((shift) => !isOptionalShift(shift));
+  return getRequiredDayPlannerShiftsHelper(dateValue, {
+    getDayPlannerShifts,
+    isOptionalShift
+  });
 }
 
 function getShiftValidationError(day, selectedShift, ignoredIndex = editIndex) {
@@ -14217,77 +13785,25 @@ function getShiftValidationError(day, selectedShift, ignoredIndex = editIndex) {
 }
 
 function getOpenReplacementItems(weekValue) {
-  if (!weekValue) {
-    return [];
-  }
-
-  return getWeekDates(weekValue).flatMap((day) =>
-    getRequiredDayPlannerShifts(day)
-      .filter((shift) => isBakeryCoreShift(shift))
-      .map((shift) => {
-        const standardCoverage = getStandardShiftCoverageInfo(shift, day);
-
-        if (!standardCoverage.standardEmployee || !standardCoverage.isAbsent || getEntryForShiftOnDate(day, shift)) {
-          return null;
-        }
-
-        return {
-          day,
-          shift,
-          normalEmployee: standardCoverage.standardEmployee,
-          reason: standardCoverage.reason,
-          suitableEmployees: getSuitableEmployeesForShift(shift, day, shift.startTime, shift.endTime, null)
-        };
-      })
-      .filter(Boolean)
-  );
+  return getOpenReplacementItemsHelper(weekValue, {
+    getWeekDates,
+    getRequiredDayPlannerShifts,
+    isBakeryCoreShift,
+    getStandardShiftCoverageInfo,
+    getEntryForShiftOnDate,
+    getSuitableEmployeesForShift
+  });
 }
 
 function getWeekReplacementItems(weekValue) {
-  if (!weekValue) {
-    return [];
-  }
-
-  const openItems = getOpenReplacementItems(weekValue).map((item) => ({
-    day: item.day,
-    shiftId: item.shift.id,
-    shiftName: item.shift.name,
-    normalEmployee: item.normalEmployee,
-    replacementEmployee: "",
-    isOpen: true,
-    suitableEmployees: item.suitableEmployees
-  }));
-
-  const filledItems = entries
-    .filter((entry) =>
-      getWeekValueFromDate(entry.day) === weekValue &&
-      Boolean(entry.replacementFor)
-    )
-    .sort((entryA, entryB) =>
-      entryA.day.localeCompare(entryB.day) ||
-      entryA.startTime.localeCompare(entryB.startTime) ||
-      getShiftName(entryA).localeCompare(getShiftName(entryB), "nl")
-    )
-    .map((entry) => ({
-      day: entry.day,
-      shiftId: entry.shiftId || getShiftForEntry(entry)?.id || "",
-      shiftName: getShiftName(entry),
-      normalEmployee: entry.replacementFor,
-      replacementEmployee: entry.name,
-      isOpen: false,
-      suitableEmployees: getSuitableEmployeesForShift(
-        getShiftForEntry(entry),
-        entry.day,
-        entry.startTime,
-        entry.endTime,
-        entries.indexOf(entry)
-      )
-    }));
-
-  return [...openItems, ...filledItems].sort((itemA, itemB) =>
-    itemA.day.localeCompare(itemB.day) ||
-    itemA.shiftName.localeCompare(itemB.shiftName, "nl")
-  );
+  return getWeekReplacementItemsHelper(weekValue, {
+    getOpenReplacementItems,
+    entries,
+    getWeekValueFromDate,
+    getShiftName,
+    getShiftForEntry,
+    getSuitableEmployeesForShift
+  });
 }
 
 function renderOpenReplacementOverview(weekValue) {
@@ -14296,15 +13812,14 @@ function renderOpenReplacementOverview(weekValue) {
   }
 
   if (!isPlannerRole()) {
-    openReplacementOverview.className = "open-replacement-overview hidden";
+    setClassName(openReplacementOverview, "open-replacement-overview hidden");
     openReplacementOverview.innerHTML = "";
     return;
   }
 
   const replacementItems = getOpenReplacementItems(weekValue);
 
-  openReplacementOverview.className = "open-replacement-overview";
-
+  setClassName(openReplacementOverview, "open-replacement-overview");
   if (!replacementItems.length) {
     openReplacementOverview.innerHTML = `
       <div class="open-replacement-card is-complete">
@@ -14326,7 +13841,7 @@ function renderOpenReplacementOverview(weekValue) {
           <article class="open-replacement-item">
             <div class="open-replacement-meta">
               <strong>${formatWeekday(item.day)} - ${item.shift.name}</strong>
-                    <span>${formatDate(item.day)} Â· Normaal ${item.normalEmployee}${item.reason ? ` (${item.reason})` : ""}</span>
+                    <span>${formatDate(item.day)} · Normaal ${item.normalEmployee}${item.reason ? ` (${item.reason})` : ""}</span>
             </div>
             <div class="open-replacement-actions">
               <label class="sr-only" for="replacement-${item.day}-${item.shift.id}">Vervanger kiezen</label>
@@ -14350,8 +13865,7 @@ function renderWeekReplacementOverview(weekValue) {
 
   const replacementItems = getWeekReplacementItems(weekValue);
 
-  weekReplacementOverview.className = "week-replacement-overview";
-
+  setClassName(weekReplacementOverview, "week-replacement-overview");
   if (!replacementItems.length) {
     weekReplacementOverview.innerHTML = `
       <div class="week-replacement-card is-empty">
@@ -14507,10 +14021,6 @@ function getFilteredEntries(sourceEntries = getPlanningEntries()) {
 }
 
 function renderEmployeeFilterOptions() {
-  if (!isWeekTabName(currentMainTab)) {
-    return;
-  }
-
   const selectedValue = employeeFilterInput.value;
   const names = isPlannerRole()
     ? [...employees]
@@ -14580,7 +14090,7 @@ function toggleFavoriteEmployee(employeeName) {
 
 function renderEmployeeSelectors() {
   const selectedName = nameSelect.value;
-  const selectedRemoveName = employeeAdminSelection || removeEmployeeSelect.value;
+  const selectedRemoveName = removeEmployeeSelect.value;
   const selectedTimeOffEmployees = getAllTimeOffEmployeeSelects().map((select) => select.value);
   const selectedSwapEmployee = swapEmployeeSelect.value;
   const selectedSwapTargetEmployee = swapTargetEmployeeSelect.value;
@@ -14631,9 +14141,7 @@ function renderEmployeeSelectors() {
   currentEmployeeSelect.innerHTML = `<option value="">Kies medewerker</option>${activeOptions}`;
 
   nameSelect.value = suitableEmployees.includes(selectedName) ? selectedName : "";
-  const resolvedAdminSelection = employees.includes(selectedRemoveName) ? selectedRemoveName : (employees[0] || "");
-  removeEmployeeSelect.value = resolvedAdminSelection;
-  employeeAdminSelection = resolvedAdminSelection;
+  removeEmployeeSelect.value = employees.includes(selectedRemoveName) ? selectedRemoveName : "";
   getAllTimeOffEmployeeSelects().forEach((select, index) => {
     const selectedValue = selectedTimeOffEmployees[index] || "";
     select.value = getActiveEmployees().includes(selectedValue) ? selectedValue : "";
@@ -14649,13 +14157,6 @@ function renderEmployeeSelectors() {
 
   if (!isPlannerRole() && employeeIdentity) {
     syncScopedEmployeeSelectors(employeeIdentity);
-    currentEmployeeSelect.value = employeeIdentity;
-    portalEmployeeSelect.value = employeeIdentity;
-    hoursEmployeeSelect.value = employeeIdentity;
-    getAllTimeOffEmployeeSelects().forEach((select) => {
-      select.value = employeeIdentity;
-    });
-    swapEmployeeSelect.value = employeeIdentity;
   }
 
   const employeeLocked = !isPlannerRole() && Boolean(employeeIdentity);
@@ -14666,6 +14167,7 @@ function renderEmployeeSelectors() {
     select.disabled = employeeLocked;
   });
   swapEmployeeSelect.disabled = employeeLocked;
+  populateLoginEmployeeSelect();
 
   updateRoleContextBadge(currentEmployeeBadge, getRoleScopedEmployeeName());
   updateRoleContextBadge(portalEmployeeBadge, getRoleScopedEmployeeName(portalEmployeeSelect.value));
@@ -14702,13 +14204,13 @@ function renderEmployeeSelectors() {
 
 function renderEmployeeList() {
   if (!employees.length) {
-    employeeListCard.className = "simple-list empty";
+    setClassName(employeeListCard, "simple-list empty");
     employeeListCard.textContent = "Nog geen medewerkers toegevoegd.";
     return;
   }
   const selectedEmployee = getSelectedEmployeeAdminName();
 
-  employeeListCard.className = "employee-summary-list";
+  setClassName(employeeListCard, "employee-summary-list");
   employeeListCard.innerHTML = getEmployeesWithFavoritesFirst(employees)
     .map((employee) => {
       const employeeStatus = getEmployeeStatus(employee);
@@ -14735,7 +14237,7 @@ function renderEmployeeStandardShifts() {
   }
 
   if (!employees.length) {
-    employeeStandardShiftList.className = "employee-standard-shift-list empty";
+    setClassName(employeeStandardShiftList, "employee-standard-shift-list empty");
     employeeStandardShiftList.textContent = "Nog geen medewerkers toegevoegd.";
     return;
   }
@@ -14755,7 +14257,7 @@ function renderEmployeeStandardShifts() {
   const employeeName = getSelectedEmployeeAdminName();
 
   if (!employeeName) {
-    employeeStandardShiftList.className = "employee-standard-shift-list empty";
+    setClassName(employeeStandardShiftList, "employee-standard-shift-list empty");
     employeeStandardShiftList.textContent = "Kies eerst links een medewerker.";
     return;
   }
@@ -14772,7 +14274,7 @@ function renderEmployeeStandardShifts() {
   const strongPreferenceNote = getEmployeeStrongPreferenceNote(employeeName, selectedWeek);
   const basePatternDescription = getEmployeeBasePatternCatalogMap()[selectedBasePatternId]?.description || "Geen vaste basisplanning ingesteld.";
 
-  employeeStandardShiftList.className = "employee-standard-shift-list";
+  setClassName(employeeStandardShiftList, "employee-standard-shift-list");
   employeeStandardShiftList.innerHTML = `
     <article class="employee-standard-shift-card">
       <div class="employee-roster-summary-grid">
@@ -14864,25 +14366,11 @@ function renderEmployeeStandardShifts() {
 }
 
 function getPermissionShiftGroups() {
-  const permissionShifts = getPermissionShiftDescriptors();
-  return [
-    {
-      title: "Bakkerijdiensten",
-      shifts: permissionShifts.filter((shift) => !isShopShiftName(shift.name) && !isAllroundShiftName(shift.name) && !isStageShiftName(shift.name))
-    },
-    {
-      title: "Allround diensten",
-      shifts: permissionShifts.filter((shift) => isAllroundShiftName(shift.name))
-    },
-    {
-      title: "Winkeldiensten",
-      shifts: permissionShifts.filter((shift) => isShopShiftName(shift.name))
-    },
-    {
-      title: "Stageplekken",
-      shifts: permissionShifts.filter((shift) => isStageShiftName(shift.name))
-    }
-  ].filter((group) => group.shifts.length);
+  return getPermissionShiftGroupsHelper(getPermissionShiftDescriptors, {
+    isShopShiftName,
+    isAllroundShiftName,
+    isStageShiftName
+  });
 }
 
 function renderEmployeePermissions() {
@@ -14891,7 +14379,7 @@ function renderEmployeePermissions() {
   }
 
   if (!employees.length) {
-    employeePermissionsList.className = "employee-permissions-list empty";
+    setClassName(employeePermissionsList, "employee-permissions-list empty");
     employeePermissionsList.textContent = "Nog geen medewerkers toegevoegd.";
     return;
   }
@@ -14899,14 +14387,14 @@ function renderEmployeePermissions() {
   const employeeName = getSelectedEmployeeAdminName();
 
   if (!employeeName) {
-    employeePermissionsList.className = "employee-permissions-list empty";
+    setClassName(employeePermissionsList, "employee-permissions-list empty");
     employeePermissionsList.textContent = "Kies eerst links een medewerker.";
     return;
   }
 
   const employeeDraft = getEmployeeEditorDraft(employeeName);
   const groupedShifts = getPermissionShiftGroups();
-  employeePermissionsList.className = "employee-permissions-list";
+  setClassName(employeePermissionsList, "employee-permissions-list");
   employeePermissionsList.innerHTML = `
     <article class="employee-permission-card">
       <p class="panel-note">Zet per dienst aan of deze medewerker de dienst mag uitvoeren.</p>
@@ -14940,7 +14428,7 @@ function renderEmployeeContractPanel() {
   }
 
   if (!employees.length) {
-    employeeContractPanel.className = "employee-contract-panel empty";
+    setClassName(employeeContractPanel, "employee-contract-panel empty");
     employeeContractPanel.textContent = "Nog geen medewerkers toegevoegd.";
     return;
   }
@@ -14948,7 +14436,7 @@ function renderEmployeeContractPanel() {
   const employeeName = getSelectedEmployeeAdminName();
 
   if (!employeeName) {
-    employeeContractPanel.className = "employee-contract-panel empty";
+    setClassName(employeeContractPanel, "employee-contract-panel empty");
     employeeContractPanel.textContent = "Kies eerst links een medewerker.";
     return;
   }
@@ -14957,19 +14445,23 @@ function renderEmployeeContractPanel() {
   const selectedWeek = weekInput?.value || getCurrentWeekValue();
   const contractHours = typeof employeeDraft?.contractHours === "number" ? employeeDraft.contractHours : getEmployeeContractHours(employeeName);
   const plannedWeekHours = getEmployeeWeekHours(employeeName, selectedWeek, entries);
-  const contractTypeLabel = contractHours > 0 ? `Vast contract ${formatHours(contractHours)}` : "0-uren contract";
+  const contractPanelData = getEmployeeContractPanelDataHelper({
+    contractHours,
+    plannedWeekHours,
+    formatHours
+  });
 
-  employeeContractPanel.className = "employee-contract-panel";
+  setClassName(employeeContractPanel, "employee-contract-panel");
   employeeContractPanel.innerHTML = `
     <article class="employee-contract-card">
       <div class="employee-roster-summary-grid">
         <div class="employee-roster-summary-item">
           <span class="employee-roster-summary-label">Contracttype</span>
-          <strong>${contractTypeLabel}</strong>
+          <strong>${contractPanelData.contractTypeLabel}</strong>
         </div>
         <div class="employee-roster-summary-item">
           <span class="employee-roster-summary-label">Gepland deze week</span>
-          <strong>${formatHours(plannedWeekHours)}</strong>
+          <strong>${contractPanelData.plannedWeekHoursLabel}</strong>
         </div>
       </div>
       <div class="employee-roster-controls">
@@ -15002,14 +14494,10 @@ function renderEmployeeStatusControls() {
     if (employeeMailTestUserInput) {
       employeeMailTestUserInput.checked = false;
     }
-    if (employeeLoginAllowedInput) {
-      employeeLoginAllowedInput.checked = true;
-    }
     if (employeeDetailTitle) {
       employeeDetailTitle.textContent = "Kies links een medewerker";
     }
     employeeStatusImpact.textContent = "Nog geen medewerkers toegevoegd.";
-    setEmployeeClerkStatus("");
     return;
   }
 
@@ -15024,13 +14512,14 @@ function renderEmployeeStatusControls() {
   if (employeeEmailInput) {
     employeeEmailInput.value = employeeDraft?.email || (selectedEmployee ? getEmployeeEmail(selectedEmployee) : "");
   }
-  if (employeeLoginAllowedInput) {
-    employeeLoginAllowedInput.checked = employeeDraft?.loginAllowed !== false;
-  }
   if (employeeMailTestUserInput) {
-    employeeMailTestUserInput.checked = false;
-    employeeMailTestUserInput.disabled = true;
-    employeeMailTestUserInput.title = "";
+    employeeMailTestUserInput.checked = EMPLOYEE_MAIL_TEST_MODE_ENABLED
+      ? isEmployeeMailTestEnabled(selectedEmployee)
+      : Boolean(employeeDraft?.mailTestUser);
+    employeeMailTestUserInput.disabled = EMPLOYEE_MAIL_TEST_MODE_ENABLED && selectedEmployee !== EMPLOYEE_MAIL_TEST_EMPLOYEE;
+    employeeMailTestUserInput.title = EMPLOYEE_MAIL_TEST_MODE_ENABLED
+      ? `Tijdelijke testmodus actief: alleen ${EMPLOYEE_MAIL_TEST_EMPLOYEE} ontvangt medewerker-mails.`
+      : "";
   }
   clearEmployeeEmailFieldError();
   if (employeeNameDisplayInput) {
@@ -15040,7 +14529,6 @@ function renderEmployeeStatusControls() {
     employeeDetailTitle.textContent = selectedEmployee || "Kies links een medewerker";
   }
   employeeStatusImpact.textContent = formatEmployeeStatusImpact(employeeStatusSelect.value);
-  setEmployeeClerkStatus("");
   renderEmployeeDetailMailStatus(selectedEmployee);
 }
 
@@ -15050,17 +14538,17 @@ function renderBackupRestore() {
   }
 
   if (!backupHistory.length) {
-    backupRestoreSelect.innerHTML = `<option value="">Kies herstelpunt</option>`;
-    backupSummary.textContent = "Nog geen back-up beschikbaar.";
+    backupRestoreSelect.innerHTML = `<option value="">${getBackupRestoreEmptyLabel()}</option>`;
+    backupSummary.textContent = getBackupEmptySummaryText();
     return;
   }
 
   const selectedValue = backupRestoreSelect.value;
-  backupRestoreSelect.innerHTML = `<option value="">Kies herstelpunt</option>${backupHistory.map((backup) => `
-    <option value="${backup.id}">${formatDateTime(backup.createdAt)} - ${backup.reason}</option>
+  backupRestoreSelect.innerHTML = `<option value="">${getBackupRestoreEmptyLabel()}</option>${backupHistory.map((backup) => `
+    <option value="${backup.id}">${getBackupOptionLabel(backup, { formatDateTime })}</option>
   `).join("")}`;
   backupRestoreSelect.value = backupHistory.some((backup) => backup.id === selectedValue) ? selectedValue : backupHistory[0].id;
-  backupSummary.textContent = `Laatste back-up: ${formatDateTime(backupHistory[0].createdAt)}. Totaal ${backupHistory.length} lokaal opgeslagen herstelpunt(en).`;
+  backupSummary.textContent = getBackupSummaryText(backupHistory, { formatDateTime });
 }
 
 function renderMailSettings() {
@@ -15069,39 +14557,31 @@ function renderMailSettings() {
   }
 
   mailSenderNameInput.value = normalizeMailSenderName(mailSettings.senderName || "Bakkerij Stroet");
-  mailSenderEmailInput.value = normalizeEmployeeEmail(mailSettings.senderEmail || "info@bakkerijstroet.nl");
+  mailSenderEmailInput.value = normalizeEmployeeEmail(mailSettings.senderEmail);
 
   if (!hasConfiguredMailSender()) {
-    mailSettingsStatus.textContent = "Nog niet compleet: vul afzendernaam en e-mailadres in.";
+    mailSettingsStatus.textContent = `Nog niet compleet: vul afzendernaam en e-mailadres in. Testmail gaat daarna naar ${FIXED_TEST_MAIL_RECIPIENT}.`;
     return;
   }
 
   const updatedLabel = mailSettings.updatedAt
     ? ` Laatst bijgewerkt op ${formatDateTime(mailSettings.updatedAt)}${mailSettings.updatedByName ? ` door ${mailSettings.updatedByName}` : ""}.`
     : "";
-  mailSettingsStatus.textContent = `Actieve afzender: ${mailSettings.senderName} <${mailSettings.senderEmail}>.${updatedLabel}`;
+  mailSettingsStatus.textContent = `Actieve afzender: ${mailSettings.senderName} <${mailSettings.senderEmail}>. Testmail gaat naar ${FIXED_TEST_MAIL_RECIPIENT}.${updatedLabel}`;
 }
 
 function getDayPlannerShifts(dateValue) {
-  if (!dateValue) {
-    return [];
-  }
-
-  if (isClosedPlannerDay(dateValue)) {
-    return [];
-  }
-
-  return [
-    ...shifts,
-    ...getDateSpecificShifts(dateValue)
-  ].sort((shiftA, shiftB) => shiftA.startTime.localeCompare(shiftB.startTime) || shiftA.name.localeCompare(shiftB.name, "nl"));
+  return getDayPlannerShiftsHelper(dateValue, {
+    getDateSpecificShifts,
+    isClosedPlannerDay,
+    shifts
+  });
 }
 
 function getEntryForShiftOnDate(dateValue, shift, sourceEntries = getPlanningEntries()) {
-  return sourceEntries.find((entry) =>
-    entry.day === dateValue &&
-    getShiftName(entry).toLowerCase() === shift.name.toLowerCase()
-  ) || null;
+  return getEntryForShiftOnDateHelper(dateValue, shift, sourceEntries, {
+    getShiftName
+  });
 }
 
 function getDayPlannerAssignments(dateValue, plannerShifts) {
@@ -15237,12 +14717,12 @@ function renderDayPlannerAbsenceList(selectedDate, plannerShifts) {
   });
 
   if (!absenceRows.length) {
-    dayPlannerAbsenceList.className = "day-planner-absence-list hidden";
+    setClassName(dayPlannerAbsenceList, "day-planner-absence-list hidden");
     dayPlannerAbsenceList.innerHTML = "";
     return;
   }
 
-  dayPlannerAbsenceList.className = "day-planner-absence-list";
+  setClassName(dayPlannerAbsenceList, "day-planner-absence-list");
   dayPlannerAbsenceList.innerHTML = `
     <section class="day-planner-absence-card">
       <div class="day-planner-absence-title">
@@ -15500,10 +14980,6 @@ function autoFillSmartDayPlanner() {
 }
 
 function renderDayPlanner() {
-  if (!isWeekTabName(currentMainTab)) {
-    return;
-  }
-
   if (!dayPlannerPanel) {
     return;
   }
@@ -15511,20 +14987,20 @@ function renderDayPlanner() {
   const selectedDate = dayPlannerDateInput.value;
 
   if (dayPlannerSummary) {
-    dayPlannerSummary.className = "hidden";
+    setClassName(dayPlannerSummary, "hidden");
     dayPlannerSummary.innerHTML = "";
   }
   if (dayPlannerAbsenceList) {
-    dayPlannerAbsenceList.className = "day-planner-absence-list hidden";
+    setClassName(dayPlannerAbsenceList, "day-planner-absence-list hidden");
     dayPlannerAbsenceList.innerHTML = "";
   }
   if (dayPlannerOpenList) {
-    dayPlannerOpenList.className = "day-planner-open-list hidden";
+    setClassName(dayPlannerOpenList, "day-planner-open-list hidden");
     dayPlannerOpenList.innerHTML = "";
   }
 
   if (!selectedDate) {
-    dayPlannerList.className = "day-planner-list empty";
+    setClassName(dayPlannerList, "day-planner-list empty");
     dayPlannerList.textContent = "Kies een dag om alle diensten te tonen.";
     return;
   }
@@ -15532,7 +15008,7 @@ function renderDayPlanner() {
   const plannerShifts = getDayPlannerShifts(selectedDate);
 
   if (!plannerShifts.length) {
-    dayPlannerList.className = "day-planner-list empty";
+    setClassName(dayPlannerList, "day-planner-list empty");
     dayPlannerList.textContent = "Voor deze dag zijn geen diensten ingesteld.";
     return;
   }
@@ -15543,7 +15019,7 @@ function renderDayPlanner() {
   const openBakeryRows = [];
   const openShopRows = [];
 
-  dayPlannerList.className = "day-planner-list";
+  setClassName(dayPlannerList, "day-planner-list");
   dayPlannerList.innerHTML = plannerShifts.map((shift) => {
     const existingEntry = getEntryForShiftOnDate(selectedDate, shift);
     const authorizedEmployees = getAuthorizedEmployeesForShift(shift.name);
@@ -15618,7 +15094,7 @@ function renderDayPlanner() {
             <strong>${shift.name}</strong>
             <span class="day-planner-badge">${statusLabel}</span>
           </div>
-              <span>${formatWeekday(selectedDate)} Â· ${shift.startTime} - ${shift.endTime}</span>
+              <span>${formatWeekday(selectedDate)} · ${shift.startTime} - ${shift.endTime}</span>
           ${standardCoverage.standardEmployee ? `<span class="day-planner-note is-info">Normaal op deze dienst: ${standardCoverage.standardEmployee}${standardCoverage.isAbsent ? ` (${standardCoverage.reason})` : ""}</span>` : ""}
           ${isOptionalShift(shift) ? '<span class="day-planner-note is-info">Optioneel: telt niet mee voor planning compleet.</span>' : ""}
           ${existingEntry?.replacementFor ? `<span class="day-planner-note is-info">Vervanging actief: ${existingEntry.name} vervangt ${existingEntry.replacementFor}</span>` : ""}
@@ -15642,7 +15118,7 @@ function renderDayPlanner() {
     const hasOpenRows = openBakeryRows.length > 0 || openShopRows.length > 0;
 
     if (hasOpenRows) {
-      dayPlannerOpenList.className = "day-planner-open-list";
+      setClassName(dayPlannerOpenList, "day-planner-open-list");
       dayPlannerOpenList.innerHTML = `
         <section class="day-planner-open-card">
           <div class="day-planner-open-title">
@@ -15667,7 +15143,7 @@ function renderDayPlanner() {
   }
 
   if (dayPlannerSummary && uncoveredShifts.length > 0) {
-    dayPlannerSummary.className = "day-planner-summary";
+    setClassName(dayPlannerSummary, "day-planner-summary");
     dayPlannerSummary.innerHTML = `
       <strong>Let op: deze diensten hebben nog geen geschikte medewerker</strong>
       <div class="day-planner-summary-list">
@@ -15675,7 +15151,7 @@ function renderDayPlanner() {
       </div>
     `;
   } else if (dayPlannerSummary) {
-    dayPlannerSummary.className = "day-planner-summary is-complete";
+    setClassName(dayPlannerSummary, "day-planner-summary is-complete");
     dayPlannerSummary.innerHTML = `
       <strong>${formatWeekday(selectedDate)} ${formatDate(selectedDate)}</strong>
       <div class="day-planner-summary-list">
@@ -15726,12 +15202,12 @@ function renderShiftList() {
     );
 
   if (!shifts.length && !allroundOverview.length) {
-    shiftListCard.className = "shift-list empty";
+    setClassName(shiftListCard, "shift-list empty");
     shiftListCard.textContent = "Nog geen diensten toegevoegd.";
     return;
   }
 
-  shiftListCard.className = "shift-list";
+  setClassName(shiftListCard, "shift-list");
   shiftListCard.innerHTML = `
     ${shifts.map((shift) => `
       <article class="shift-list-item ${shift.color || 'shift-tone-inpak'}">
@@ -15763,7 +15239,7 @@ function renderShiftPreferenceEditor() {
   const selectedShiftName = shiftPreferenceShiftSelect?.value || "";
 
   if (!selectedShiftName) {
-    shiftPreferenceList.className = "shift-preference-list empty";
+    setClassName(shiftPreferenceList, "shift-preference-list empty");
     shiftPreferenceList.textContent = "Kies eerst een dienst om de voorkeursvolgorde te beheren.";
     return;
   }
@@ -15785,12 +15261,12 @@ function renderShiftPreferenceEditor() {
   });
 
   if (!employeesForPreference.length) {
-    shiftPreferenceList.className = "shift-preference-list empty";
+    setClassName(shiftPreferenceList, "shift-preference-list empty");
     shiftPreferenceList.textContent = "Nog geen actieve medewerkers beschikbaar.";
     return;
   }
 
-  shiftPreferenceList.className = "shift-preference-list";
+  setClassName(shiftPreferenceList, "shift-preference-list");
   shiftPreferenceList.innerHTML = `
     <div class="panel-note">Gebruik 0 voor geen vaste voorkeur. Laagste nummer krijgt voorrang bij automatisch plannen.</div>
     ${employeesForPreference.map((employeeName) => {
@@ -15823,7 +15299,7 @@ function renderSwapEntryOptions() {
   const currentValue = swapEntrySelect.value;
   const employeeName = !isPlannerRole() ? getRoleScopedEmployeeName() : swapEmployeeSelect.value;
   const date = swapDateInput.value;
-  const todayDate = getTodayString();
+  const todayDate = getTodayLocalDateValue();
 
   if (!isPlannerRole() && employeeName) {
     swapEmployeeSelect.value = employeeName;
@@ -15891,22 +15367,23 @@ function renderTimeOffRequests() {
     }
 
     if (requests.length === 0) {
-      target.className = "request-list empty";
+      setClassName(target, "request-list empty");
       target.textContent = emptyText;
       return;
     }
 
-    target.className = "request-list";
+    setClassName(target, "request-list");
     target.innerHTML = requests.map((request) => `
       <article class="request-card is-${getRequestDisplayStatus(request)} absence-${getAbsenceCardClass(request.type)}">
         <div class="request-top">
           <strong>${isPlannerRole() ? request.employeeName : getAbsenceTypeLabel(request.type)}</strong>
           <span class="status-pill status-${getRequestDisplayStatus(request)}">${getRequestDisplayLabel(request)}</span>
         </div>
+        ${isPlannerRole() ? `<div class="request-meta">${getAbsenceTypeLabel(request.type)}</div>` : ""}
         <div class="request-meta">${getTimeOffDisplayRange(request)}${request.reason ? ` - ${request.reason}` : ""}</div>
-        ${isPlannerRole() ? `<div class="request-impact">${getRequestRosterEffectText(request, "timeoff")}</div>` : ""}
+        <div class="request-impact">${getRequestRosterEffectText(request, "timeoff")}</div>
         ${request.status === "open" && getRequestAttentionText(request) ? `<div class="request-impact request-attention-note">${getRequestAttentionText(request)}</div>` : ""}
-        ${isPlannerRole() && getTimeOffMailStatusText(request) ? `<div class="request-impact"><strong>Mail:</strong> ${getTimeOffMailStatusText(request)}</div>` : ""}
+        ${getTimeOffMailStatusText(request) ? `<div class="request-impact"><strong>Mail:</strong> ${getTimeOffMailStatusText(request)}</div>` : ""}
         ${request.managerNote ? `<div class="request-impact"><strong>Opmerking:</strong> ${request.managerNote}</div>` : ""}
         ${request.status === "open" && isPlannerRole() ? `
           <label class="request-note-field">
@@ -15929,49 +15406,48 @@ function renderTimeOffRequests() {
   };
 
   if (isPlannerRole()) {
-    const plannerOpenRequests = sortedRequests.filter((request) => request.status === "open");
-    const plannerHandledRequests = sortedRequests.filter((request) => request.status !== "open");
     renderPlannerRequestCards(
       plannerFreeRequestsContainer,
-      plannerOpenRequests.filter((request) => request.type === "vrij"),
+      sortedRequests.filter((request) => request.type === "vrij"),
       "Nog geen vrije dagen.",
       "timeoff"
     );
     renderPlannerRequestCards(
       plannerVacationRequestsContainer,
-      plannerOpenRequests.filter((request) => request.type === "vakantie"),
+      sortedRequests.filter((request) => request.type === "vakantie"),
       "Nog geen vakantieaanvragen.",
       "timeoff"
     );
     renderPlannerRequestCards(
       plannerSickRequestsContainer,
-      plannerOpenRequests.filter((request) => request.type === "ziek"),
+      sortedRequests.filter((request) => request.type === "ziek"),
       "Nog geen ziekmeldingen.",
       "timeoff"
     );
-    renderPlannerRequestCards(
-      plannerHandledFreeRequestsContainer,
-      plannerHandledRequests.filter((request) => request.type === "vrij"),
-      "Nog geen vrije dagen.",
-      "timeoff"
-    );
-    renderPlannerRequestCards(
-      plannerHandledVacationRequestsContainer,
-      plannerHandledRequests.filter((request) => request.type === "vakantie"),
-      "Nog geen vakantieaanvragen.",
-      "timeoff"
-    );
-    renderPlannerRequestCards(
-      plannerHandledSickRequestsContainer,
-      plannerHandledRequests.filter((request) => request.type === "ziek"),
-      "Nog geen ziekmeldingen.",
-      "timeoff"
-    );
-    openTimeOffRequestsContainer.className = "request-list hidden";
-    handledTimeOffRequestsContainer.className = "request-list hidden";
-    openTimeOffRequestsContainer.innerHTML = "";
-    handledTimeOffRequestsContainer.innerHTML = "";
+    if (openTimeOffRequestsContainer) {
+      setClassName(openTimeOffRequestsContainer, "request-list hidden");
+      openTimeOffRequestsContainer.innerHTML = "";
+    }
+    if (handledTimeOffRequestsContainer) {
+      setClassName(handledTimeOffRequestsContainer, "request-list hidden");
+      handledTimeOffRequestsContainer.innerHTML = "";
+    }
     return;
+  }
+
+  if (openTimeOffRequestsContainer) {
+    renderCards(
+      openTimeOffRequestsContainer,
+      sortedRequests.filter((request) => request.status === "open"),
+      "Nog geen open afwezigheidsaanvragen."
+    );
+  }
+  if (handledTimeOffRequestsContainer) {
+    renderCards(
+      handledTimeOffRequestsContainer,
+      sortedRequests.filter((request) => request.status !== "open"),
+      "Nog geen afgehandelde afwezigheidsaanvragen."
+    );
   }
 }
 
@@ -15996,23 +15472,24 @@ function renderSwapRequests() {
     }
 
     if (requests.length === 0) {
-      target.className = "request-list empty";
+      setClassName(target, "request-list empty");
       target.textContent = emptyText;
       return;
     }
 
-      target.className = "request-list";
+      setClassName(target, "request-list");
       target.innerHTML = requests.map((request) => `
         <article class="request-card is-${getRequestDisplayStatus(request)}">
           <div class="request-top">
             <strong>${isPlannerRole() ? `${request.employeeName} -> ${request.targetEmployeeName || "Open aangeboden"}` : request.shiftName}</strong>
             <span class="status-pill status-${getRequestDisplayStatus(request)}">${getRequestDisplayLabel(request)}</span>
           </div>
+          ${isPlannerRole() ? `<div class="request-meta">${request.shiftName}</div>` : ""}
           <div class="request-meta">${formatDate(request.date)} - ${request.startTime} - ${request.endTime}${request.targetEmployeeName ? ` - Naar ${request.targetEmployeeName}` : " - Open aangeboden"}</div>
-          ${isPlannerRole() ? `<div class="request-impact">${getRequestRosterEffectText(request, "swap")}</div>` : ""}
+          <div class="request-impact">${getRequestRosterEffectText(request, "swap")}</div>
           ${request.escalatedToPlanner ? `<div class="request-impact request-attention-note">Directie is gevraagd om mee te kijken naar deze ruil.</div>` : ""}
           ${request.status === "open" && getRequestAttentionText(request) ? `<div class="request-impact request-attention-note">${getRequestAttentionText(request)}</div>` : ""}
-          ${isPlannerRole() && getSwapMailStatusText(request) ? `<div class="request-impact"><strong>Mail:</strong> ${getSwapMailStatusText(request)}</div>` : ""}
+          ${getSwapMailStatusText(request) ? `<div class="request-impact"><strong>Mail:</strong> ${getSwapMailStatusText(request)}</div>` : ""}
           ${request.managerNote ? `<div class="request-impact"><strong>Opmerking:</strong> ${request.managerNote}</div>` : ""}
           ${request.status === "open" && isPlannerRole() ? `
           ${!request.targetEmployeeName ? `
@@ -16048,113 +15525,36 @@ function renderSwapRequests() {
   };
 
   if (isPlannerRole()) {
-    const plannerOpenRequests = sortedRequests.filter((request) => request.status === "open");
-    const plannerHandledRequests = sortedRequests.filter((request) => request.status !== "open");
     renderPlannerRequestCards(
       plannerSwapRequestsContainer,
-      plannerOpenRequests,
+      sortedRequests,
       "Nog geen ruilverzoeken.",
       "swap"
     );
-    renderPlannerRequestCards(
-      plannerHandledSwapRequestsContainer,
-      plannerHandledRequests,
-      "Nog geen ruilverzoeken.",
-      "swap"
-    );
-    openSwapRequestsContainer.className = "request-list hidden";
-    handledSwapRequestsContainer.className = "request-list hidden";
-    openSwapRequestsContainer.innerHTML = "";
-    handledSwapRequestsContainer.innerHTML = "";
+    if (openSwapRequestsContainer) {
+      setClassName(openSwapRequestsContainer, "request-list hidden");
+      openSwapRequestsContainer.innerHTML = "";
+    }
+    if (handledSwapRequestsContainer) {
+      setClassName(handledSwapRequestsContainer, "request-list hidden");
+      handledSwapRequestsContainer.innerHTML = "";
+    }
     return;
   }
-
-  renderEmployeeRequestOverview();
-}
-
-function renderEmployeeRequestOverview() {
-  if (isPlannerRole()) {
-    return;
-  }
-
-  const { visibleTimeOffRequests, visibleSwapRequests } = getVisibleRequestSources();
-  const visibleTimeOff = visibleTimeOffRequests.filter((request) => matchesRequestStatusFilter(request));
-  const visibleSwaps = visibleSwapRequests.filter((request) => matchesRequestStatusFilter(request));
-
-  const combinedRequests = [
-    ...visibleTimeOff.map((request) => ({
-      kind: "timeoff",
-      request,
-      sortDate: getTimeOffStartDate(request)
-    })),
-    ...visibleSwaps.map((request) => ({
-      kind: "swap",
-      request,
-      sortDate: request.date
-    }))
-  ].sort((itemA, itemB) => {
-    const priorityMap = { open: 0, approved: 1, rejected: 2, waiting: 3, overdue: 4 };
-    const statusA = getRequestDisplayStatus(itemA.request);
-    const statusB = getRequestDisplayStatus(itemB.request);
-    const statusCompare = (priorityMap[statusA] ?? 9) - (priorityMap[statusB] ?? 9);
-    return statusCompare !== 0
-      ? statusCompare
-      : String(itemA.sortDate || "").localeCompare(String(itemB.sortDate || ""));
-  });
-
-  const renderEmployeeCards = (target, items, emptyText) => {
-    if (!target) {
-      return;
-    }
-
-    if (!items.length) {
-      target.className = "request-list empty";
-      target.textContent = emptyText;
-      return;
-    }
-
-    target.className = "request-list";
-    target.innerHTML = items.map(({ kind, request }) => {
-      const typeLabel = kind === "swap" ? "Ruilen" : getAbsenceTypeLabel(request.type);
-      const periodLabel = kind === "swap"
-        ? `${formatDate(request.date)} - ${request.startTime} - ${request.endTime}`
-        : getTimeOffDisplayRange(request);
-      const noteMarkup = request.managerNote
-        ? `<div class="request-impact"><strong>Opmerking:</strong> ${request.managerNote}</div>`
-        : "";
-
-      return `
-        <article class="request-card compact-request-card is-${getRequestDisplayStatus(request)}${kind === "timeoff" ? ` absence-${getAbsenceCardClass(request.type)}` : ""}">
-          <div class="request-top">
-            <strong>${typeLabel}</strong>
-            <span class="status-pill status-${getRequestDisplayStatus(request)}">${getRequestDisplayLabel(request)}</span>
-          </div>
-          <div class="request-meta">${periodLabel}</div>
-          ${noteMarkup}
-        </article>
-      `;
-    }).join("");
-  };
-
-  renderEmployeeCards(
-    openTimeOffRequestsContainer,
-    combinedRequests.filter(({ request }) => request.status === "open"),
-    "Nog geen open aanvragen."
-  );
-  renderEmployeeCards(
-    handledTimeOffRequestsContainer,
-    combinedRequests.filter(({ request }) => request.status !== "open"),
-    "Nog geen afgeronde aanvragen."
-  );
 
   if (openSwapRequestsContainer) {
-    openSwapRequestsContainer.className = "request-list hidden";
-    openSwapRequestsContainer.innerHTML = "";
+    renderCards(
+      openSwapRequestsContainer,
+      sortedRequests.filter((request) => request.status === "open"),
+      "Nog geen open ruilverzoeken."
+    );
   }
-
   if (handledSwapRequestsContainer) {
-    handledSwapRequestsContainer.className = "request-list hidden";
-    handledSwapRequestsContainer.innerHTML = "";
+    renderCards(
+      handledSwapRequestsContainer,
+      sortedRequests.filter((request) => request.status !== "open"),
+      "Nog geen afgehandelde ruilverzoeken."
+    );
   }
 }
 
@@ -16175,10 +15575,10 @@ function renderPlanningSettings() {
     .sort(([dateA], [dateB]) => dateA.localeCompare(dateB));
 
   if (overrideEntries.length === 0) {
-    overrideList.className = "request-list empty";
+    setClassName(overrideList, "request-list empty");
     overrideList.textContent = "Nog geen afwijkende bezetting ingesteld.";
   } else {
-    overrideList.className = "request-list";
+    setClassName(overrideList, "request-list");
     overrideList.innerHTML = overrideEntries
       .map(([date, count]) => `
         <article class="request-card">
@@ -16200,12 +15600,12 @@ function renderPlanningSettings() {
     : [];
 
   if (vacationWeeks.length === 0) {
-    vacationWeekList.className = "request-list empty";
+    setClassName(vacationWeekList, "request-list empty");
     vacationWeekList.textContent = "Nog geen vakantieweken ingesteld.";
     return;
   }
 
-  vacationWeekList.className = "request-list";
+  setClassName(vacationWeekList, "request-list");
   vacationWeekList.innerHTML = vacationWeeks
     .map((weekValue) => `
       <article class="request-card">
@@ -16230,33 +15630,9 @@ function saveShiftPreference(employeeName, shiftName, value) {
 }
 
 function getShopCoverageLabel(dateValue) {
-  const coverage = getShopCoverageForDate(dateValue);
-
-  if (coverage.status === "closed") {
-    return {
-      text: coverage.closedReason ? `Gesloten - ${coverage.closedReason}` : "Winkel gesloten",
-      className: "planner-status closed"
-    };
-  }
-
-  if (coverage.status === "full") {
-    return {
-      text: `Winkel volledig gevuld (${coverage.planned}/${coverage.needed})`,
-      className: "planner-status full"
-    };
-  }
-
-  if (coverage.status === "under") {
-    return {
-      text: `Onderbezet winkel (${coverage.planned}/${coverage.needed})`,
-      className: "planner-status under"
-    };
-  }
-
-  return {
-    text: `Winkel ${coverage.planned}/${coverage.needed}`,
-    className: "planner-status over"
-  };
+  return getShopCoverageLabelHelper(dateValue, {
+    getShopCoverageForDate
+  });
 }
 
 function renderDashboard() {
@@ -16264,7 +15640,7 @@ function renderDashboard() {
     return;
   }
 
-  const shouldShowDashboard = isPlannerRole() && currentMainTab === TABS.DASHBOARD;
+  const shouldShowDashboard = isPlannerRole() && activeTab === "dashboard";
   plannerDashboard.classList.toggle("hidden", !shouldShowDashboard);
 
   if (!shouldShowDashboard) {
@@ -16301,7 +15677,7 @@ function renderRequestsOpenSummary() {
 
   if (isPlannerRole()) {
     const summaryCounts = getPlannerRequestSummaryCounts();
-    requestsOpenSummary.className = "planner-request-summary-row";
+    setClassName(requestsOpenSummary, "planner-request-summary-row");
     requestsOpenSummary.innerHTML = `
       <article class="planner-summary-chip">
         <span>Open vrije dagen</span>
@@ -16321,7 +15697,7 @@ function renderRequestsOpenSummary() {
       </article>
     `;
   } else {
-    requestsOpenSummary.className = "dashboard-grid";
+    setClassName(requestsOpenSummary, "dashboard-grid");
     requestsOpenSummary.innerHTML = `
       <article class="dashboard-card compact-status-card ${overdueCount ? "is-danger" : waitingCount ? "is-warning" : openCount ? "is-warning" : "is-complete"}">
         <strong>Open aanvragen</strong>
@@ -16364,7 +15740,7 @@ function renderHomeWeekOverview() {
   const currentWeek = getCurrentWeekValue();
   const weekDates = getWeekDates(currentWeek);
 
-  homeWeekOverview.className = "schedule-board";
+  setClassName(homeWeekOverview, "schedule-board");
   homeWeekOverview.innerHTML = `
     <section class="mini-week-grid">
       ${weekDates.map((date) => {
@@ -16388,23 +15764,16 @@ function applyRoleUI() {
   const employeeIdentity = getEmployeeIdentity();
   const employeeLocked = !isPlannerRole() && Boolean(employeeIdentity);
   const scopedEmployeeName = getRoleScopedEmployeeName();
+  const isAuthenticated = sessionState.isAuthenticated;
   const sessionBar = document.querySelector(".session-bar");
   const roleLabel = roleSelect?.closest("label") || null;
   const currentEmployeeLabel = currentEmployeeSelect?.closest("label") || null;
-  const portalEmployeeLabel = portalEmployeeSelect?.closest("label") || null;
-  const hoursEmployeeLabel = hoursEmployeeSelect?.closest("label") || null;
-  const freeDayEmployeeLabel = freeDayEmployeeSelect?.closest("label") || null;
-  const vacationEmployeeLabel = vacationEmployeeSelect?.closest("label") || null;
-  const sickEmployeeLabel = sickEmployeeSelect?.closest("label") || null;
-  const swapEmployeeLabel = swapEmployeeSelect?.closest("label") || null;
-  const authLocked = isClerkAccessLocked();
 
   document.body.dataset.role = activeRole;
-  document.body.dataset.layoutMode = isPlannerRole() ? "planner-desktop" : "employee-mobile";
   document.body.dataset.employeeLocked = employeeLocked ? "true" : "false";
-  document.body.dataset.authLocked = authLocked ? "true" : "false";
   roleSelect.value = activeRole;
-  roleSelect.disabled = clerkAuthState.enabled;
+  roleSelect.disabled = true;
+  roleSelect.title = "Log uit om als andere rol in te loggen.";
   currentEmployeeSelect.disabled = isPlannerRole() || employeeLocked;
   sessionBar?.classList.toggle("hidden", !isPlannerRole());
   sessionBar?.setAttribute("aria-hidden", isPlannerRole() ? "false" : "true");
@@ -16414,22 +15783,11 @@ function applyRoleUI() {
   if (currentEmployeeLabel) {
     currentEmployeeLabel.hidden = !isPlannerRole();
   }
-  [portalEmployeeLabel, hoursEmployeeLabel, freeDayEmployeeLabel, vacationEmployeeLabel, sickEmployeeLabel, swapEmployeeLabel].forEach((label) => {
-    if (label) {
-      label.hidden = !isPlannerRole();
-    }
-  });
-  [portalPreviousEmployeeButton, portalNextEmployeeButton, hoursPreviousEmployeeButton, hoursNextEmployeeButton].forEach((button) => {
-    if (button) {
-      button.hidden = !isPlannerRole();
-      button.setAttribute("aria-hidden", isPlannerRole() ? "false" : "true");
-    }
-  });
   if (roleIndicator) {
     roleIndicator.hidden = !isPlannerRole();
   }
-  plannerDashboard.classList.toggle("hidden", !isPlannerRole() || currentMainTab !== TABS.DASHBOARD);
-  plannerDashboard.hidden = !isPlannerRole() || currentMainTab !== TABS.DASHBOARD;
+  plannerDashboard.classList.toggle("hidden", !isPlannerRole() || activeTab !== "dashboard");
+  plannerDashboard.hidden = !isPlannerRole() || activeTab !== "dashboard";
   plannerOnlyTabs.forEach((button) => {
     button.classList.toggle("hidden-by-role", !isPlannerRole());
     button.hidden = !isPlannerRole();
@@ -16497,11 +15855,8 @@ function applyRoleUI() {
   }
 
   if (switchUserButton) {
-    const showLogoutButton = hasClerkAuthenticatedSession();
     switchUserButton.textContent = "Uitloggen";
-    switchUserButton.classList.toggle("hidden", !showLogoutButton);
-    switchUserButton.hidden = !showLogoutButton;
-    switchUserButton.setAttribute("aria-hidden", showLogoutButton ? "false" : "true");
+    switchUserButton.hidden = !isAuthenticated;
   }
 
   if (resetTestDataButton) {
@@ -16509,9 +15864,10 @@ function applyRoleUI() {
   }
 
   if (mailTestModeBadge) {
-    mailTestModeBadge.classList.add("hidden");
-    mailTestModeBadge.hidden = true;
-    mailTestModeBadge.setAttribute("aria-hidden", "true");
+    const showMailTestMode = isPlannerRole() && APP_MAIL_TEST_MODE_ENABLED;
+    mailTestModeBadge.classList.toggle("hidden", !showMailTestMode);
+    mailTestModeBadge.hidden = !showMailTestMode;
+    mailTestModeBadge.setAttribute("aria-hidden", showMailTestMode ? "false" : "true");
   }
 
   if (dashboardTestMailButton) {
@@ -16531,10 +15887,6 @@ function applyRoleUI() {
 }
 
 function renderSchedule() {
-  if (!isWeekTabName(currentMainTab)) {
-    return;
-  }
-
   const selectedWeek = weekFilterInput.value;
   const roleVisibleEntriesAll = getEntriesVisibleForCurrentRole();
   const visibleEntries = getFilteredEntries(roleVisibleEntriesAll);
@@ -16581,7 +15933,7 @@ function renderSchedule() {
       employeeWeekViewButton.setAttribute("aria-pressed", activeEmployeeWeekView === "week" ? "true" : "false");
     }
 
-    scheduleBoard.className = "schedule-board employee-roster-board";
+    setClassName(scheduleBoard, "schedule-board employee-roster-board");
     scheduleBoard.dataset.employeeView = activeEmployeeWeekView;
 
     if (activeEmployeeWeekView === "today") {
@@ -16628,7 +15980,7 @@ function renderSchedule() {
 
   if (employeeNames.length === 0 && !hasWeekPlannerShifts) {
     clearPlannerWeekInsights();
-    scheduleBoard.className = "schedule-board empty";
+    setClassName(scheduleBoard, "schedule-board empty");
     scheduleBoard.textContent = "Geen diensten of afwezigheid gevonden voor deze filters.";
     return;
   }
@@ -16653,7 +16005,7 @@ function renderSchedule() {
 
   if (isMobileView()) {
     const plannerDeviationOnlyActive = isDeviationOnlyModeActive();
-    scheduleBoard.className = "schedule-board";
+    setClassName(scheduleBoard, "schedule-board");
     scheduleBoard.innerHTML = `
       <p class="week-note">Weekrooster week ${selectedWeek.replace("-W", " - ")}</p>
       ${employeeWeekFocusMarkup}
@@ -16720,7 +16072,7 @@ function renderSchedule() {
   const plannerEntriesForBoard = plannerDeviationOnlyActive
     ? getDeviationOnlyEntries(visibleEntries, weekDates)
     : visibleEntries;
-  scheduleBoard.className = "schedule-board";
+  setClassName(scheduleBoard, "schedule-board");
   scheduleBoard.innerHTML = `
     <p class="week-note">Weekrooster week ${selectedWeek.replace("-W", " - ")}</p>
     ${employeeWeekFocusMarkup}
@@ -16798,7 +16150,7 @@ function renderMySchedule() {
   const selectedWeek = myScheduleWeekInput.value || weekFilterInput.value || getCurrentWeekValue();
 
   if (!employeeName) {
-    myScheduleBoard.className = "schedule-board empty";
+    setClassName(myScheduleBoard, "schedule-board empty");
     myScheduleBoard.textContent = isPlannerRole() ? "Kies een medewerker." : "Geen medewerker gekoppeld.";
     return;
   }
@@ -16818,7 +16170,7 @@ function renderMySchedule() {
   if (isEmployeeMobileView) {
     const plannedDays = weekDates.filter((day) => entriesForEmployee.some((entry) => entry.day === day));
 
-    myScheduleBoard.className = "schedule-board";
+    setClassName(myScheduleBoard, "schedule-board");
     myScheduleBoard.innerHTML = plannedDays.length
       ? `
         <section class="mobile-week my-schedule-mobile-week my-schedule-simple-week">
@@ -16848,7 +16200,7 @@ function renderMySchedule() {
       `
       : `<div class="planner-empty">Geen diensten in deze week.</div>`;
   } else if (isMobileView()) {
-    myScheduleBoard.className = "schedule-board";
+    setClassName(myScheduleBoard, "schedule-board");
     myScheduleBoard.innerHTML = `
       <section class="mobile-week my-schedule-mobile-week">
         ${weekDates.map((day) => {
@@ -16892,7 +16244,7 @@ function renderMySchedule() {
       </section>
     `;
   } else {
-    myScheduleBoard.className = "schedule-board";
+    setClassName(myScheduleBoard, "schedule-board");
     myScheduleBoard.innerHTML = `
       ${renderDesktopWeekColumns(weekDates, (day) => {
         const dayEntries = entriesForEmployee
@@ -16940,9 +16292,6 @@ function renderMyHours() {
   }
 
   if (!employeeName) {
-    if (myHoursPanel) {
-      delete myHoursPanel.dataset.hoursSection;
-    }
     if (myHoursSectionSwitch) {
       myHoursSectionSwitch.hidden = true;
     }
@@ -16950,12 +16299,12 @@ function renderMyHours() {
       submitWeekHoursButton.disabled = true;
       submitWeekHoursButton.classList.toggle("hidden", isPlannerRole());
     }
-    myHoursHighlight.className = "hours-highlight empty";
+    setClassName(myHoursHighlight, "hours-highlight empty");
     myHoursHighlight.textContent = isPlannerRole() ? "Kies een medewerker." : "Geen medewerker gekoppeld.";
-    myHoursSummary.className = "totals empty";
+    setClassName(myHoursSummary, "totals empty");
     myHoursSummary.textContent = isPlannerRole() ? "Nog geen uren beschikbaar." : "Nog geen uren beschikbaar voor jouw account.";
     if (myHoursRegistrations) {
-      myHoursRegistrations.className = "request-list empty";
+      setClassName(myHoursRegistrations, "request-list empty");
       myHoursRegistrations.textContent = isPlannerRole()
         ? "Kies een medewerker om urenregistratie te tonen."
         : "Nog geen medewerker gekoppeld voor urenregistratie.";
@@ -17013,19 +16362,19 @@ function renderMyHours() {
     savePreferences();
   }
 
-  const selectedWeekDays = [...new Set(selectedWeekEntries.map((entry) => entry.day))].sort();
-  const selectedWeekVisibleDays = [...new Set(selectedWeekPastEntries.map((entry) => entry.day))].sort();
-  const filledWeekDays = selectedWeekVisibleDays.filter((day) => {
-    const dayEntries = selectedWeekPastEntries.filter((entry) => entry.day === day);
-    return dayEntries.length > 0 && dayEntries.every((entry) => Boolean(getWorkLogForEntry(entry)));
+  const {
+    selectedWeekDays,
+    selectedWeekVisibleDays,
+    filledWeekDays,
+    openWeekDays,
+    missingSubmittableWeekDays,
+    selectedWeekWorkedHours
+  } = buildMyHoursWeekSummaryDataHelper({
+    selectedWeekEntries,
+    selectedWeekPastEntries,
+    getWorkLogForEntry,
+    calculateWorkedHours
   });
-  const openWeekDays = selectedWeekVisibleDays.filter((day) => {
-    const dayEntries = selectedWeekPastEntries.filter((entry) => entry.day === day);
-    return dayEntries.some((entry) => !getWorkLogForEntry(entry));
-  });
-  const missingSubmittableWeekDays = [...new Set(selectedWeekPastEntries
-    .filter((entry) => !getWorkLogForEntry(entry))
-    .map((entry) => entry.day))];
   const selectedDateEntries = selectedWeekEntries
     .filter((entry) => entry.day === effectiveSelectedDate)
     .sort((entryA, entryB) => entryA.startTime.localeCompare(entryB.startTime));
@@ -17034,11 +16383,6 @@ function renderMyHours() {
     log.day <= todayValue &&
     (log.status === "draft" || log.status === "revision" || log.status === "rejected")
   );
-  const selectedWeekWorkedHours = selectedWeekEntries.reduce((total, entry) => {
-    const workLog = getWorkLogForEntry(entry);
-    const workedHours = workLog ? calculateWorkedHours(workLog.actualStart, workLog.actualEnd, workLog.breakMinutes) : null;
-    return total + (workedHours || 0);
-  }, 0);
   const selectedDateWorkedHours = selectedDateEntries.reduce((total, entry) => {
     const workLog = getWorkLogForEntry(entry);
     const workedHours = workLog ? calculateWorkedHours(workLog.actualStart, workLog.actualEnd, workLog.breakMinutes) : null;
@@ -17054,12 +16398,12 @@ function renderMyHours() {
       submitWeekHoursButton.disabled = true;
       submitWeekHoursButton.classList.toggle("hidden", isPlannerRole());
     }
-    myHoursHighlight.className = "hours-highlight empty";
+    setClassName(myHoursHighlight, "hours-highlight empty");
     myHoursHighlight.textContent = "Nog geen uren gevonden voor deze medewerker.";
-    myHoursSummary.className = "totals empty";
+    setClassName(myHoursSummary, "totals empty");
     myHoursSummary.textContent = "Nog geen uren gevonden voor deze medewerker.";
     if (myHoursRegistrations) {
-      myHoursRegistrations.className = "request-list empty";
+      setClassName(myHoursRegistrations, "request-list empty");
       myHoursRegistrations.textContent = "Nog geen ingeplande diensten of urenregistraties voor deze medewerker.";
     }
     return;
@@ -17073,7 +16417,7 @@ function renderMyHours() {
       : (!submittableWeekLogs.length ? "Er zijn geen ingevulde uren om in te dienen." : "");
   }
 
-  myHoursHighlight.className = "hours-highlight";
+  setClassName(myHoursHighlight, "hours-highlight");
   const firstMissingPastDay = missingPastDays[0] || "";
   const selectedDateSectionLabel = effectiveSelectedDate === todayValue ? "Vandaag" : "Afgelopen dag";
   const selectedDateStatus = selectedDateEntries.length
@@ -17093,18 +16437,12 @@ function renderMyHours() {
   `;
 
   if (!isPlannerRole()) {
-    const resolvedSection = activeMyHoursSection === "history" ? "history" : "fill";
-    const sortedWorkLogs = employeeWorkLogs
-      .slice()
-      .sort((logA, logB) =>
-        (logB.day || "").localeCompare(logA.day || "") ||
-        String(logB.updatedAt || "").localeCompare(String(logA.updatedAt || "")) ||
-        String(logB.id || "").localeCompare(String(logA.id || ""))
-      );
+    const hasTodayPlannedEntries = plannedTodayEntries.length > 0;
+    const defaultEmployeeHoursSection = hasTodayPlannedEntries
+      ? "today"
+      : (missingPastDays.length ? "missing" : "fill");
+    const resolvedSection = activeMyHoursSection || defaultEmployeeHoursSection;
     activeMyHoursSection = resolvedSection;
-    if (myHoursPanel) {
-      myHoursPanel.dataset.hoursSection = resolvedSection;
-    }
 
     if (submitWeekHoursButton) {
       submitWeekHoursButton.hidden = true;
@@ -17116,8 +16454,9 @@ function renderMyHours() {
     }
 
     [
+      [myHoursTodayButton, "today"],
       [myHoursFillButton, "fill"],
-      [myHoursHistoryButton, "history"]
+      [myHoursMissingButton, "missing"]
     ].forEach(([button, section]) => {
       if (!button) {
         return;
@@ -17126,107 +16465,108 @@ function renderMyHours() {
       button.setAttribute("aria-pressed", resolvedSection === section ? "true" : "false");
     });
 
-    if (resolvedSection === "history") {
-      const selectedWeekHistoryLogs = sortedWorkLogs.filter((workLog) => getWeekValueFromDate(workLog.day) === selectedWeek);
-      const dailyHistory = selectedWeekHistoryLogs.reduce((accumulator, workLog) => {
-        const dayKey = workLog.day || "";
-
-        if (!dayKey) {
-          return accumulator;
-        }
-
-        if (!accumulator[dayKey]) {
-          accumulator[dayKey] = [];
-        }
-
-        accumulator[dayKey].push(workLog);
-        return accumulator;
-      }, {});
-      const historyDays = Object.keys(dailyHistory).sort((dayA, dayB) => dayB.localeCompare(dayA));
-      const selectedWeekHistoryHours = selectedWeekHistoryLogs.reduce((total, workLog) => {
-        const workedHours = calculateWorkedHours(workLog.actualStart, workLog.actualEnd, workLog.breakMinutes);
-        return total + (workedHours || 0);
-      }, 0);
-
-      myHoursHighlight.className = "hours-highlight";
+    if (resolvedSection === "missing") {
+      setClassName(myHoursHighlight, "hours-highlight");
       myHoursHighlight.innerHTML = `
-        <span class="hours-section-kicker">Mijn gewerkte uren</span>
-        <strong>Week ${selectedWeek.split("-W")[1] || ""}</strong>
-        <small>${historyDays.length ? `${historyDays.length} ${historyDays.length === 1 ? "dag" : "dagen"} in deze week` : "Nog geen gewerkte uren in deze week."}</small>
+        <span class="hours-section-kicker">Nog in te vullen uren</span>
+        <strong>${missingPastDays.length ? `${missingPastDays.length} ${missingPastDays.length === 1 ? "open dag" : "open dagen"}` : "Alles ingevuld"}</strong>
+        ${weekOverviewMarkup}
       `;
-      myHoursSummary.className = "totals";
-      myHoursSummary.innerHTML = `
-        <div class="hours-week-overview">
-          <span><strong>${formatHours(selectedWeekHistoryHours)}</strong> totaal uren</span>
-        </div>
-      `;
-      myHoursRegistrations.className = "hours-history-list";
-      myHoursRegistrations.innerHTML = historyDays.length
-        ? historyDays.map((day) => {
-          const dayLogs = dailyHistory[day] || [];
-          const workedHoursTotal = dayLogs.reduce((total, workLog) => {
-            const workedHours = calculateWorkedHours(workLog.actualStart, workLog.actualEnd, workLog.breakMinutes);
-            return total + (workedHours || 0);
-          }, 0);
-          const noteTexts = [...new Set(dayLogs
-            .map((workLog) => (workLog.managerNote || workLog.notes || "").trim())
-            .filter(Boolean))];
-          const status = getDailyWorkLogStatus(dayLogs);
 
-          return `
-            <article class="hours-history-card">
-              <div class="hours-history-head">
-                <div>
-                  <strong>${formatWeekday(day)} ${formatDate(day)}</strong>
-                  <span>${dayLogs.length === 1 ? "1 registratie" : `${dayLogs.length} registraties`}</span>
-                </div>
-                <span class="status-pill status-${status.className}">${status.label}</span>
-              </div>
-              <div class="hours-history-meta">
-                <span>${formatHours(workedHoursTotal)} ingevuld</span>
-                <span>Status: ${status.label}</span>
-              </div>
-              ${noteTexts.length ? `<div class="hours-history-note">${noteTexts.join(" Â· ")}</div>` : ""}
-            </article>
-          `;
-        }).join("")
+      setClassName(myHoursSummary, missingPastDays.length ? "totals" : "totals empty");
+      myHoursSummary.innerHTML = missingPastDays.length
+        ? `
+          <div class="hours-missing-list">
+            ${missingPastDays.map((day) => `
+              <button type="button" class="hours-missing-item" data-hours-pick-date="${day}">
+                <span>${formatWeekday(day)} ${formatDate(day)}</span>
+              </button>
+            `).join("")}
+          </div>
+        `
+        : "Geen open uren meer.";
+
+      setClassName(myHoursRegistrations, "hours-registration-list");
+      myHoursRegistrations.innerHTML = "";
+      return;
+    }
+
+    if (resolvedSection === "today") {
+      setClassName(myHoursHighlight, "hours-highlight");
+      myHoursHighlight.innerHTML = `
+        <span class="hours-section-kicker">Uren doorgeven</span>
+        <span class="hours-label">${formatWeekday(todayValue)} ${formatDate(todayValue)}</span>
+        <strong>${hasTodayPlannedEntries ? `${plannedTodayEntries.length === 1 ? "Dienst van vandaag" : "Diensten van vandaag"}` : "Geen dienst vandaag"}</strong>
+        <small>${hasTodayPlannedEntries ? "Bevestig of pas kort aan." : "Geen dienst vandaag. Gebruik Uren invullen voor extra uren."}</small>
+        ${weekOverviewMarkup}
+      `;
+      setClassName(myHoursSummary, "totals hidden");
+      myHoursSummary.innerHTML = "";
+      setClassName(myHoursRegistrations, "hours-registration-list is-today-quick");
+      myHoursRegistrations.innerHTML = hasTodayPlannedEntries
+        ? plannedTodayEntries.map((entry) => renderWorkLogCardMarkup(entry)).join("")
         : `
           <div class="hours-day-empty">
-            <strong>Nog geen gewerkte uren.</strong>
-            <span>Zodra je uren opslaat, verschijnen ze hier.</span>
+            <strong>Geen dienst gepland voor vandaag.</strong>
+            <span>Gebruik Uren invullen om extra uren van vandaag vast te leggen.</span>
           </div>
         `;
       return;
     }
 
-    myHoursHighlight.className = "hours-highlight";
+    setClassName(myHoursHighlight, "hours-highlight");
     myHoursHighlight.innerHTML = `
       <span class="hours-section-kicker">Uren invullen</span>
       <span class="hours-label">${formatWeekday(effectiveSelectedDate)} ${formatDate(effectiveSelectedDate)}</span>
       <strong>${selectedDateEntries.length ? `${selectedDateEntries.length === 1 ? "Geplande dienst" : "Geplande diensten"} van deze dag` : "Extra uren van deze dag"}</strong>
       <small>${selectedDateStatusLabel ? `Status: ${selectedDateStatusLabel}` : "Nog niet ingevuld"}</small>
+      ${weekOverviewMarkup}
     `;
 
-    myHoursSummary.className = missingPastDays.length ? "totals" : "totals hidden";
-    myHoursSummary.innerHTML = missingPastDays.length ? `
-      <div class="hours-missing-block">
-        <strong>Nog in te vullen uren</strong>
-        <div class="hours-missing-list">
-          ${missingPastDays.map((day) => `
-            <button type="button" class="hours-missing-item" data-hours-pick-date="${day}">
-              <span>${formatWeekday(day)} ${formatDate(day)}</span>
-            </button>
-          `).join("")}
+    const availableEntryMode = selectedDateEntries.length ? activeMyHoursEntryMode || "planned" : "extra";
+    activeMyHoursEntryMode = availableEntryMode;
+    setClassName(myHoursSummary, "totals");
+    myHoursSummary.innerHTML = missingPastDays.length
+      ? `
+        <div class="hours-entry-mode-switch">
+          <button type="button" class="request-switch-button ${activeMyHoursEntryMode === "planned" ? "active" : ""}" data-hours-entry-mode="planned" ${selectedDateEntries.length ? "" : "disabled"}>
+            Geplande uren
+          </button>
+          <button type="button" class="request-switch-button ${activeMyHoursEntryMode === "extra" ? "active" : ""}" data-hours-entry-mode="extra">
+            Extra uren
+          </button>
         </div>
-      </div>
-    ` : "";
+        <button type="button" class="hours-reminder-banner" data-hours-open-section="missing">
+          <strong>Je hebt nog uren openstaan</strong>
+          <span>${missingPastDays.length} ${missingPastDays.length === 1 ? "dag" : "dagen"} nog invullen</span>
+        </button>
+      `
+      : `
+        <div class="hours-entry-mode-switch">
+          <button type="button" class="request-switch-button ${activeMyHoursEntryMode === "planned" ? "active" : ""}" data-hours-entry-mode="planned" ${selectedDateEntries.length ? "" : "disabled"}>
+            Geplande uren
+          </button>
+          <button type="button" class="request-switch-button ${activeMyHoursEntryMode === "extra" ? "active" : ""}" data-hours-entry-mode="extra">
+            Extra uren
+          </button>
+        </div>
+      `;
 
-    myHoursRegistrations.className = "hours-registration-list";
-    myHoursRegistrations.innerHTML = renderSimpleEmployeeHoursFormMarkup(
-      employeeName,
-      effectiveSelectedDate,
-      selectedDateEntries
-    );
+    setClassName(myHoursRegistrations, `hours-registration-list${effectiveSelectedDate === todayValue ? " is-today-quick" : ""}`);
+    myHoursRegistrations.innerHTML = activeMyHoursEntryMode === "planned" && selectedDateEntries.length
+      ? selectedDateEntries.map((entry) => renderWorkLogCardMarkup(entry)).join("")
+      : `
+        <div class="hours-day-empty">
+                <strong>${activeMyHoursEntryMode === "extra" ? `Extra uren op ${formatWeekday(effectiveSelectedDate)} ${formatDate(effectiveSelectedDate)}` : `Geen dienst gepland op ${formatWeekday(effectiveSelectedDate)} ${formatDate(effectiveSelectedDate)}.`}</strong>
+                <span>${activeMyHoursEntryMode === "extra" ? "Gebruik dit alleen voor extra werk buiten je geplande dienst, op vandaag of een eerdere datum." : "Vul alleen extra uren in als je buiten het rooster hebt gewerkt."}</span>
+              </div>
+        ${renderWorkLogCardMarkup(buildHoursManualEntry(employeeName, effectiveSelectedDate), manualWorkLog, {
+          shiftName: "Extra uren",
+          workLogId: buildManualWorkLogId(employeeName, effectiveSelectedDate),
+          notesLabel: "Reden of type werk",
+          notesPlaceholder: "Korte reden of type werk"
+        })}
+      `;
     return;
   }
 
@@ -17261,10 +16601,10 @@ function renderMyHours() {
   }
 
   if (!isPlannerRole()) {
-    myHoursSummary.className = "totals hidden";
+    setClassName(myHoursSummary, "totals hidden");
     myHoursSummary.innerHTML = "";
   } else if (missingPastDays.length) {
-    myHoursSummary.className = "totals";
+    setClassName(myHoursSummary, "totals");
     myHoursSummary.innerHTML = `
       <div class="hours-week-overview">
         <div class="hours-week-stat is-complete">
@@ -17294,7 +16634,7 @@ function renderMyHours() {
       </div>
     `;
   } else {
-    myHoursSummary.className = "totals";
+    setClassName(myHoursSummary, "totals");
     myHoursSummary.innerHTML = `
       <div class="hours-week-overview">
         <div class="hours-week-stat is-complete">
@@ -17316,11 +16656,12 @@ function renderMyHours() {
   }
 
   if (selectedWeekEntries.length === 0 && !manualWorkLog) {
-    myHoursRegistrations.className = "request-list empty";
+    setClassName(myHoursRegistrations, "request-list empty");
     myHoursRegistrations.textContent = "Nog geen ingeplande diensten in deze week.";
     return;
   }
 
+  const isTodaySelection = effectiveSelectedDate === todayValue;
   const selectedDateMarkup = `
     <div class="hours-day-section-head">
       <strong>${effectiveSelectedDate === todayValue ? "Vandaag" : "Afgelopen dag"}</strong>
@@ -17328,6 +16669,12 @@ function renderMyHours() {
     </div>
   ` + (selectedDateEntries.length
     ? `
+      ${isPlannerRole() && isTodaySelection ? `
+        <div class="hours-today-quick-note">
+          <strong>Snelle ureninvoer voor vandaag</strong>
+          <span>Bevestig je geplande tijden met <em>Gewerkt zoals gepland</em> of pas start, eind en pauze aan.</span>
+        </div>
+      ` : ""}
       ${selectedDateEntries.map((entry) => renderWorkLogCardMarkup(entry)).join("")}
     `
     : `
@@ -17341,7 +16688,7 @@ function renderMyHours() {
       })}
     `);
 
-  myHoursRegistrations.className = "hours-registration-list";
+  setClassName(myHoursRegistrations, `hours-registration-list${isTodaySelection ? " is-today-quick" : ""}`);
   myHoursRegistrations.innerHTML = selectedDateMarkup;
 }
 
@@ -17354,7 +16701,7 @@ function openHoursForDate(targetDate) {
   const targetWeek = getWeekValueFromDate(safeDate) || getCurrentWeekValue();
   const scopedEmployeeName = ensureEmployeeIdentityForCurrentRole();
   if (!isPlannerRole()) {
-    activeMyHoursSection = "fill";
+    activeMyHoursSection = safeDate === getTodayLocalDateValue() ? "today" : "fill";
     activeMyHoursEntryMode = "planned";
   }
   hoursDateInput.value = safeDate;
@@ -17364,12 +16711,9 @@ function openHoursForDate(targetDate) {
   if (!isPlannerRole() && scopedEmployeeName) {
     preferences.lastHoursEmployee = scopedEmployeeName;
   }
-  if (!isPlannerRole()) {
-    activeMyHoursSection = "fill";
-  }
   savePreferences();
   syncScopedEmployeeSelectors(scopedEmployeeName);
-  setCurrentMainTab(TABS.MY_HOURS, { preserveMyHoursSection: true });
+  setActiveTab("my-hours", { preserveMyHoursSection: true });
   renderMyHours();
   renderMySchedule();
   renderSchedule();
@@ -17379,25 +16723,10 @@ function openHoursForDate(targetDate) {
 }
 
 function getDayWorkLogStatusForEntries(dayEntries) {
-  if (!Array.isArray(dayEntries) || !dayEntries.length) {
-    return "";
-  }
-
-  const logs = dayEntries.map((entry) => getWorkLogForEntry(entry));
-
-  if (logs.every((log) => log?.status === "approved")) {
-    return "goedgekeurd";
-  }
-
-  if (logs.every((log) => log && (log.status === "open" || log.status === "approved"))) {
-    return "ingediend";
-  }
-
-  if (logs.every((log) => Boolean(log))) {
-    return "ingevuld";
-  }
-
-  return "";
+  return getDayWorkLogStatusForEntriesHelper(dayEntries, {
+    getWorkLogForEntry,
+    getWorkLogStatusLabel
+  });
 }
 
 function quickCompleteWorkDay(targetDate) {
@@ -17486,14 +16815,10 @@ function quickCompleteWorkDay(targetDate) {
 }
 
 function renderTotals() {
-  if (!isWeekTabName(currentMainTab)) {
-    return;
-  }
-
   const visibleEntries = getFilteredEntries();
 
   if (visibleEntries.length === 0) {
-    totalsContainer.className = "totals empty";
+    setClassName(totalsContainer, "totals empty");
     totalsContainer.textContent = "Nog geen totalen beschikbaar voor deze filters.";
     return;
   }
@@ -17503,7 +16828,7 @@ function renderTotals() {
     return accumulator;
   }, {});
 
-  totalsContainer.className = "totals";
+  setClassName(totalsContainer, "totals");
   totalsContainer.innerHTML = Object.entries(totals)
     .sort(([nameA], [nameB]) => nameA.localeCompare(nameB, "nl"))
     .map(([name, hours]) => `
@@ -17740,117 +17065,26 @@ function refreshWorkLogValidationForCard(workLogId) {
 }
 
 function getWorkLogsForWeek(weekValue, employeeName = "") {
-  return workLogs
-    .filter((log) => getWeekValueFromDate(log.day) === weekValue && (!employeeName || log.employeeName === employeeName))
-    .sort((logA, logB) => logA.employeeName.localeCompare(logB.employeeName, "nl") || logA.day.localeCompare(logB.day) || logA.plannedStart.localeCompare(logB.plannedStart));
+  return getWorkLogsForWeekHelper(workLogs, weekValue, employeeName, {
+    getWeekValueFromDate
+  });
 }
 
 function getHoursWeekReviewState(weekValue, employeeName = "") {
-  const todayValue = getTodayLocalDateValue();
-  const weekEntries = entries.filter((entry) =>
-    getWeekValueFromDate(entry.day) === weekValue &&
-    (!employeeName || entry.name === employeeName)
-  );
-  const plannedDays = [...new Set(weekEntries.map((entry) => entry.day))].sort();
-  const futureDays = plannedDays.filter((day) => day > todayValue);
-  const missingDays = plannedDays.filter((day) => {
-    const dayEntries = weekEntries.filter((entry) => entry.day === day);
-    return dayEntries.some((entry) => !getWorkLogForEntry(entry));
+  return getHoursWeekReviewStateHelper({
+    weekValue,
+    employeeName,
+    entries,
+    workLogs,
+    helpers: {
+      getTodayLocalDateValue,
+      getWeekValueFromDate,
+      getWorkLogForEntry,
+      getWorkLogsForWeek: getWorkLogsForWeekHelper,
+      formatWeekday,
+      formatDate
+    }
   });
-  const weekLogs = getWorkLogsForWeek(weekValue, employeeName);
-  const draftLogs = weekLogs.filter((log) => log.status === "draft");
-  const revisionLogs = weekLogs.filter((log) => log.status === "revision" || log.status === "rejected");
-  const openLogs = weekLogs.filter((log) => log.status === "open");
-  const approvedLogs = weekLogs.filter((log) => log.status === "approved");
-
-  if (!weekEntries.length && !weekLogs.length) {
-    return {
-      status: "incomplete",
-      label: "Incompleet",
-      note: "Nog geen uren in deze week.",
-      futureDays: [],
-      missingDays: [],
-      draftLogs,
-      revisionLogs,
-      openLogs,
-      approvedLogs
-    };
-  }
-
-  if (futureDays.length) {
-    return {
-      status: "incomplete",
-      label: "Incompleet",
-      note: `Deze week loopt nog. ${futureDays.length} ${futureDays.length === 1 ? "dag staat nog in de toekomst." : "dagen staan nog in de toekomst."}`,
-      futureDays,
-      missingDays,
-      draftLogs,
-      revisionLogs,
-      openLogs,
-      approvedLogs
-    };
-  }
-
-  if (missingDays.length) {
-    const previewDays = missingDays
-      .slice(0, 3)
-      .map((day) => `${formatWeekday(day)} ${formatDate(day)}`)
-      .join(", ");
-    const extraText = missingDays.length > 3 ? ` en nog ${missingDays.length - 3}` : "";
-    return {
-      status: "incomplete",
-      label: "Incompleet",
-      note: `Er ontbreken nog uren voor: ${previewDays}${extraText}.`,
-      futureDays,
-      missingDays,
-      draftLogs,
-      revisionLogs,
-      openLogs,
-      approvedLogs
-    };
-  }
-
-  if (draftLogs.length || revisionLogs.length) {
-    return {
-      status: "incomplete",
-      label: "Incompleet",
-      note: draftLogs.length
-        ? "Niet alle uren zijn al ingediend."
-        : "Er staan nog uren open met opmerking of afkeuring.",
-      futureDays,
-      missingDays,
-      draftLogs,
-      revisionLogs,
-      openLogs,
-      approvedLogs
-    };
-  }
-
-  if (openLogs.length) {
-    return {
-      status: "ready",
-      label: "Klaar voor goedkeuring",
-      note: `${openLogs.length} ${openLogs.length === 1 ? "registratie staat klaar" : "registraties staan klaar"} voor goedkeuring.`,
-      futureDays,
-      missingDays,
-      draftLogs,
-      revisionLogs,
-      openLogs,
-      approvedLogs
-    };
-  }
-
-  return {
-    status: "done",
-    label: "Afgerond",
-    note: "Alle uren van deze week zijn goedgekeurd.",
-    futureDays,
-    missingDays,
-    draftLogs,
-    revisionLogs,
-    openLogs,
-    approvedLogs
-  };
 }
 
 function updateWorkLogStatus(workLogId, nextStatus, managerNote = "") {
@@ -17868,6 +17102,11 @@ function updateWorkLogStatus(workLogId, nextStatus, managerNote = "") {
 
   if (workLog.status === "approved") {
     showMessage("Goedgekeurde uren zijn geblokkeerd voor verdere wijziging.", "error");
+    return;
+  }
+
+  if ((nextStatus === "rejected" || nextStatus === "revision") && !managerNote?.trim()) {
+    showMessage("Een opmerking is verplicht bij afkeuren of terugsturen.", "error");
     return;
   }
 
@@ -17904,14 +17143,15 @@ function updateWorkLogStatus(workLogId, nextStatus, managerNote = "") {
   });
   renderMyHours();
   renderHoursApproval();
-  showSuccess(
+  showMessage(
     nextStatus === "approved"
-      ? "Uren goedgekeurd"
+      ? "Uren goedgekeurd."
       : nextStatus === "rejected"
-        ? "Uren afgekeurd"
+        ? "Uren afgekeurd."
         : nextStatus === "revision"
-          ? "Uren teruggestuurd met opmerking"
-          : "Status bijgewerkt"
+          ? "Uren teruggestuurd met opmerking."
+          : "Status bijgewerkt.",
+    "success"
   );
 }
 
@@ -18016,7 +17256,7 @@ function submitWorkLogsForWeek(weekValue, employeeName) {
     log.updatedAt = submittedAt;
     log.auditTrail = [
       ...(log.auditTrail || []),
-        createWorkLogAuditEntry("submit-week", "week in Ã©Ã©n keer ingediend")
+        createWorkLogAuditEntry("submit-week", "week in één keer ingediend")
     ];
   });
 
@@ -18062,7 +17302,7 @@ function renderHoursApproval() {
   }
 
   if (!isPlannerRole()) {
-    hoursApprovalQueue.className = "hidden";
+    setClassName(hoursApprovalQueue, "hidden");
     hoursApprovalQueue.innerHTML = "";
     renderHoursExportControls();
     return;
@@ -18072,100 +17312,126 @@ function renderHoursApproval() {
 
   const selectedWeek = approvalWeekInput?.value || hoursWeekInput.value || getCurrentWeekValue();
   const selectedEmployee = approvalEmployeeSelect?.value || "";
-  const visibleLogs = getWorkLogsForWeek(selectedWeek, selectedEmployee)
-    .filter((log) => log.status !== "draft")
-    .sort((logA, logB) =>
-      (logA.status === "open" ? -1 : 1) - (logB.status === "open" ? -1 : 1) ||
-      logB.day.localeCompare(logA.day) ||
-      String(logA.employeeName || "").localeCompare(String(logB.employeeName || ""), "nl")
-    );
-  const openLogs = visibleLogs.filter((log) => log.status === "open");
-  const handledLogs = visibleLogs.filter((log) => log.status === "approved" || log.status === "rejected");
+  const weekReviewState = getHoursWeekReviewState(selectedWeek, selectedEmployee);
+  const weekLogs = getWorkLogsForWeek(selectedWeek, selectedEmployee).filter((log) =>
+    log.status === "open" || log.status === "revision" || log.status === "rejected"
+  );
+  const openLogs = weekLogs.filter((log) => log.status === "open");
+  const reviewLogs = weekLogs.filter((log) => log.status === "revision" || log.status === "rejected");
+  const approvalGroups = weekLogs.reduce((groups, log) => {
+    const employeeLogs = groups.get(log.employeeName) || [];
+    employeeLogs.push(log);
+    groups.set(log.employeeName, employeeLogs);
+    return groups;
+  }, new Map());
 
-  if (!visibleLogs.length) {
-    hoursApprovalQueue.className = "request-list empty";
-    hoursApprovalQueue.textContent = "Nog geen ingediende uren in deze week.";
+  if (!weekLogs.length) {
+    setClassName(hoursApprovalQueue, "request-list empty");
+    hoursApprovalQueue.textContent = getHoursApprovalEmptyTextHelper(weekReviewState);
     return;
   }
 
-  const renderApprovalRow = (log, options = {}) => {
-    const isHandled = options.handled === true;
-    const workedHours = getWorkedHoursFromLog(log) || 0;
-    const statusClass = log.status === "approved" ? "approved" : log.status === "rejected" ? "rejected" : "open";
-    const noteText = (log.managerNote || log.notes || "").trim();
+  const approvalGroupViewModels = buildHoursApprovalGroupViewModelsHelper(approvalGroups, {
+    getWorkLogStatusLabel
+  });
 
-    return `
-      <article class="hours-approval-day-card request-card is-${statusClass}">
-        <div class="request-top">
-          <strong>${log.employeeName}</strong>
-          <span class="status-pill status-${statusClass}">${getWorkLogStatusLabel(log)}</span>
-        </div>
-        <div class="request-meta">${formatWeekday(log.day)} ${formatDate(log.day)} Â· ${formatHours(workedHours)}</div>
-        ${log.shiftName ? `<div class="hours-registration-audit">${log.shiftName}</div>` : ""}
-        ${noteText ? `<div class="hours-history-note">${escapeHtml(noteText)}</div>` : ""}
-        ${isHandled ? "" : `
-          <label class="hours-registration-notes">
-            Opmerking
-            <input type="text" maxlength="200" data-worklog-review-note="${log.id}" value="${escapeHtml(log.managerNote || "")}" placeholder="Optioneel">
-          </label>
-          <div class="actions compact-actions">
-            <button type="button" data-worklog-review="approved" data-worklog-id="${log.id}">Goedkeuren</button>
-            <button type="button" class="warning" data-worklog-review="rejected" data-worklog-id="${log.id}">Afkeuren</button>
-          </div>
-        `}
-      </article>
-    `;
-  };
-
-  hoursApprovalQueue.className = "hours-approval-list";
+  setClassName(hoursApprovalQueue, "hours-approval-list");
   hoursApprovalQueue.innerHTML = `
     <article class="hours-approval-card">
       <div class="hours-registration-head">
         <div>
-          <strong>Open uren</strong>
-          <span>${selectedEmployee || "Alle medewerkers"} Â· ${selectedWeek.replace("-W", " week ")}</span>
+          <strong>Open urenregistraties</strong>
+              <span>${selectedEmployee || "Alle medewerkers"} · ${selectedWeek.replace("-W", " week ")}</span>
         </div>
       </div>
       <div class="hours-registration-meta">
-        <span>${openLogs.length} open</span>
+        <span>Open: ${openLogs.length}</span>
+        <span>Opmerking nodig / afgekeurd: ${reviewLogs.length}</span>
+        <span>Totaal ingediend: ${weekLogs.length}</span>
       </div>
-      <div class="hours-approval-day-list">
-        ${openLogs.length
-          ? openLogs.map((log) => renderApprovalRow(log)).join("")
-          : `<div class="hours-day-empty"><strong>Geen open uren.</strong><span>Alles uit deze week is verwerkt.</span></div>`}
+      <div class="form-actions compact-actions">
+        <button type="button" data-worklog-bulk="employee-week" data-worklog-week="${selectedWeek}" data-worklog-employee="${selectedEmployee}">Keur selectie goed</button>
+        <button type="button" class="secondary" data-worklog-bulk="full-week" data-worklog-week="${selectedWeek}">Keur hele week goed</button>
       </div>
-    </article>
-    <article class="hours-approval-card">
-      <div class="hours-registration-head">
-        <div>
-          <strong>Afgeronde uren</strong>
-          <span>${handledLogs.length} verwerkt</span>
-        </div>
-      </div>
-      <div class="hours-approval-day-list">
-        ${handledLogs.length
-          ? handledLogs.map((log) => renderApprovalRow(log, { handled: true })).join("")
-          : `<div class="hours-day-empty"><strong>Nog geen afgeronde uren.</strong><span>Goedgekeurde en afgekeurde uren verschijnen hier.</span></div>`}
+      <div class="hours-approval-groups">
+        ${approvalGroupViewModels
+          .map(({ employeeName, sortedEmployeeLogs, openCount, deviationCount, dayCount }) => `
+              <article class="hours-approval-employee-group">
+                <div class="hours-approval-employee-head">
+                  <div>
+                    <strong>${employeeName}</strong>
+                    <span>${dayCount} ${dayCount === 1 ? "dag" : "dagen"} in deze week</span>
+                  </div>
+                  <div class="hours-approval-employee-meta">
+                    <span>Open ${openCount}</span>
+                    <span>Afwijking ${deviationCount}</span>
+                  </div>
+                </div>
+                <div class="hours-approval-day-list">
+                  ${sortedEmployeeLogs.map((log) => {
+                    const deviation = log.actualStart !== log.plannedStart || log.actualEnd !== log.plannedEnd || Number(log.breakMinutes) > 0 || Boolean(log.notes?.trim());
+                    const statusClass = log.status === "approved"
+                      ? "approved"
+                      : log.status === "rejected" || log.status === "revision"
+                        ? "rejected"
+                        : "open";
+
+                    return `
+                      <article class="hours-approval-day-card request-card is-${statusClass} ${deviation ? "has-deviation" : ""}">
+                        <div class="request-top">
+                  <strong>${formatWeekday(log.day)} ${formatDate(log.day)} · ${log.shiftName}</strong>
+                          <span class="status-pill status-${statusClass}">${getWorkLogStatusLabel(log)}</span>
+                        </div>
+                  <div class="request-meta">Gepland ${log.plannedStart} - ${log.plannedEnd} · Werkelijk ${log.actualStart} - ${log.actualEnd} · Pauze ${log.breakMinutes} min</div>
+                        ${log.shiftName === "Extra uren" ? `<div class="hours-registration-flag is-extra">Extra uren</div>` : ""}
+                        ${deviation ? `<div class="hours-registration-flag">Afwijking van planning</div>` : `<div class="hours-registration-audit">Volgens planning</div>`}
+                        ${log.notes ? `<div class="hours-registration-audit">Opmerking medewerker: ${log.notes}</div>` : ""}
+                        ${log.employeeReply ? `<div class="hours-registration-audit">Reactie medewerker: ${log.employeeReply}</div>` : ""}
+                        <label class="hours-registration-notes">
+                          Opmerking directie
+                          <input type="text" maxlength="200" data-worklog-review-note="${log.id}" value="${log.managerNote || ""}" placeholder="Korte toelichting voor medewerker" ${log.status === "approved" ? "disabled" : ""}>
+                        </label>
+                        <div class="actions compact-actions">
+                          <button type="button" data-worklog-review="approved" data-worklog-id="${log.id}" ${log.status === "approved" ? "disabled" : ""}>Goedkeuren</button>
+                          <button type="button" class="secondary" data-worklog-review="revision" data-worklog-id="${log.id}" ${log.status === "approved" ? "disabled" : ""}>Opmerking nodig</button>
+                          <button type="button" class="warning" data-worklog-review="rejected" data-worklog-id="${log.id}" ${log.status === "approved" ? "disabled" : ""}>Afkeuren</button>
+                        </div>
+                      </article>
+                    `;
+                  }).join("")}
+                </div>
+              </article>
+            `).join("")}
       </div>
     </article>
   `;
+
+  const approvalCard = hoursApprovalQueue.querySelector(".hours-approval-card");
+  const approvalHead = approvalCard?.querySelector(".hours-registration-head");
+  const approvalActions = approvalCard?.querySelector(".form-actions");
+
+  if (approvalHead) {
+    approvalHead.insertAdjacentHTML("beforeend", `
+      <span class="status-pill status-${weekReviewState.status === "done" ? "approved" : weekReviewState.status === "ready" ? "open" : "rejected"}">${weekReviewState.label}</span>
+    `);
+  }
+
+  if (approvalActions) {
+    approvalActions.insertAdjacentHTML("beforebegin", `<div class="panel-note">${weekReviewState.note}</div>`);
+    approvalActions.querySelectorAll("[data-worklog-bulk]").forEach((button) => {
+      button.disabled = weekReviewState.status !== "ready";
+    });
+  }
 }
 
 function renderActiveTabContent() {
-  if (SIMPLE_MAIN_TAB_EMERGENCY_MODE) {
-    renderEmergencyMainTabState();
-    return;
-  }
-
-  console.info("[tabs] render currentMainTab:", currentMainTab);
-
-  if (currentMainTab === TABS.DASHBOARD) {
+  if (activeTab === "dashboard") {
     renderHomeSummary();
     renderHomeWeekOverview();
     return;
   }
 
-  if (currentMainTab === TABS.REQUESTS) {
+  if (activeTab === "requests") {
     renderRequestsOpenSummary();
     renderSwapEntryOptions();
     renderTimeOffRequests();
@@ -18173,7 +17439,7 @@ function renderActiveTabContent() {
     return;
   }
 
-  if (currentMainTab === TABS.EMPLOYEES) {
+  if (activeTab === "employees") {
     renderEmployeeList();
     renderEmployeeStatusControls();
     renderEmployeePermissions();
@@ -18182,45 +17448,45 @@ function renderActiveTabContent() {
     return;
   }
 
-  if (currentMainTab === TABS.SERVICES) {
+  if (activeTab === "services") {
     renderShiftSelectors();
     renderShiftList();
     renderShiftPreferenceEditor();
     return;
   }
 
-  if (currentMainTab === TABS.PLANNING) {
+  if (activeTab === "planning") {
     renderPlanningSettings();
     return;
   }
 
-  if (currentMainTab === TABS.SCHEDULE_PLANNING) {
+  if (activeTab === "schedule-planning") {
     renderSchedulePlanningOverview();
     return;
   }
 
-  if (currentMainTab === TABS.BACKUP) {
+  if (activeTab === "backup") {
     renderBackupRestore();
     renderMailSettings();
     return;
   }
 
-  if (currentMainTab === TABS.MY_SCHEDULE) {
+  if (activeTab === "my-schedule") {
     renderMySchedule();
     return;
   }
 
-  if (currentMainTab === TABS.MY_HOURS) {
+  if (activeTab === "my-hours") {
     renderMyHours();
     return;
   }
 
-  if (currentMainTab === TABS.HOURS_APPROVAL) {
+  if (activeTab === "hours-approval") {
     renderHoursApproval();
     return;
   }
 
-  if (currentMainTab === TABS.WEEK_CURRENT || currentMainTab === TABS.WEEK_NEXT) {
+  if (activeTab === "week-current" || activeTab === "week-next") {
     renderEmployeeFilterOptions();
     updateWeekViewTitle();
     renderSchedule();
@@ -18230,243 +17496,19 @@ function renderActiveTabContent() {
   }
 }
 
-function ensureEmployeePersistenceDebugElement() {
-  let debugElement = document.getElementById("employeePersistenceDebug");
-  if (debugElement) {
-    return debugElement;
-  }
-
-  const appShell = document.querySelector(".app-shell");
-  if (!appShell) {
-    return null;
-  }
-
-  debugElement = document.createElement("div");
-  debugElement.id = "employeePersistenceDebug";
-  debugElement.hidden = true;
-  debugElement.style.cssText = "margin:12px 0 0; padding:8px 12px; border:1px solid #f0d7b1; border-radius:12px; background:#fff6ea; color:#6b4a19; font-size:12px; line-height:1.4;";
-
-  const header = appShell.querySelector(".brand-header");
-  if (header && header.parentElement === appShell) {
-    header.insertAdjacentElement("afterend", debugElement);
-  } else {
-    appShell.prepend(debugElement);
-  }
-
-  return debugElement;
-}
-
-function refreshEmployeePersistenceDebugState() {
-  updateEmployeePersistenceState({
-    loadedCount: employees.length,
-    twanFound: Boolean(findEmployeeByEmail(twanLoginEmail))
-  });
-}
-
-function renderEmployeePersistenceDebug() {
-  const debugElement = ensureEmployeePersistenceDebugElement();
-  if (!debugElement) {
-    return;
-  }
-
-  if (SIMPLE_MAIN_TAB_EMERGENCY_MODE) {
-    debugElement.textContent = `DEBUG TAB: ${emergencyMainTab}`;
-    debugElement.hidden = false;
-    return;
-  }
-
-  if (!isPlannerRole()) {
-    debugElement.hidden = true;
-    debugElement.textContent = "";
-    return;
-  }
-
-  refreshEmployeePersistenceDebugState();
-  debugElement.textContent = `currentMainTab: ${currentMainTab} · Medewerkers: ${employeePersistenceState.loadedCount} · bron: ${employeePersistenceState.source} · backup gebruikt: ${employeePersistenceState.backupUsed ? "ja" : "nee"} · Twan record: ${employeePersistenceState.twanFound ? "gevonden" : "niet gevonden"}`;
-  debugElement.hidden = false;
-}
-
-function getDebugElementSignature(element) {
-  if (!element) {
-    return "(geen element)";
-  }
-
-  const idPart = element.id ? `#${element.id}` : "";
-  const classPart = element.className && typeof element.className === "string"
-    ? `.${element.className.trim().replace(/\s+/g, ".")}`
-    : "";
-
-  return `${element.tagName?.toLowerCase?.() || "unknown"}${idPart}${classPart}`;
-}
-
-function installTabHitTestDebug() {
-  if (tabHitTestDebugInstalled) {
-    return;
-  }
-
-  tabHitTestDebugInstalled = true;
-
-  document.addEventListener("mousemove", (event) => {
-    if (!isPlannerRole() || !appNav || appNav.hidden) {
-      return;
-    }
-
-    const navRect = appNav.getBoundingClientRect();
-    const isOverNav =
-      event.clientX >= navRect.left &&
-      event.clientX <= navRect.right &&
-      event.clientY >= navRect.top &&
-      event.clientY <= navRect.bottom;
-
-    if (!isOverNav) {
-      return;
-    }
-
-    const topElement = document.elementFromPoint(event.clientX, event.clientY);
-    const signature = getDebugElementSignature(topElement);
-
-    if (signature === lastTabHitTestSignature) {
-      return;
-    }
-
-    lastTabHitTestSignature = signature;
-    console.info("[tabs-hit-test] boven tabs:", signature, {
-      id: topElement?.id || "",
-      className: topElement?.className || "",
-      position: topElement ? window.getComputedStyle(topElement).position : "",
-      zIndex: topElement ? window.getComputedStyle(topElement).zIndex : "",
-      pointerEvents: topElement ? window.getComputedStyle(topElement).pointerEvents : "",
-      opacity: topElement ? window.getComputedStyle(topElement).opacity : ""
-    });
-
-    document.querySelectorAll("[data-tab-hit-debug='nav'], [data-tab-hit-debug='blocker']").forEach((element) => {
-      element.removeAttribute("data-tab-hit-debug");
-    });
-
-    appNav.setAttribute("data-tab-hit-debug", "nav");
-
-    if (topElement && topElement !== appNav && !appNav.contains(topElement)) {
-      topElement.setAttribute("data-tab-hit-debug", "blocker");
-    }
-  }, true);
-}
-
-function logElementAtPoint(label, x, y) {
-  const topElement = document.elementFromPoint(x, y);
-  const parentElement = topElement?.parentElement || null;
-
-  console.info(`[tabs-hit-test] ${label}:`, {
-    tagName: topElement?.tagName || "",
-    id: topElement?.id || "",
-    className: topElement?.className || "",
-    parentTagName: parentElement?.tagName || "",
-    parentId: parentElement?.id || "",
-    parentClassName: parentElement?.className || "",
-    position: topElement ? window.getComputedStyle(topElement).position : "",
-    zIndex: topElement ? window.getComputedStyle(topElement).zIndex : "",
-    pointerEvents: topElement ? window.getComputedStyle(topElement).pointerEvents : "",
-    opacity: topElement ? window.getComputedStyle(topElement).opacity : ""
-  });
-
-  return topElement;
-}
-
-function installForcedClickLayerDebug() {
-  if (forcedClickLayerDebugInstalled) {
-    return;
-  }
-
-  forcedClickLayerDebugInstalled = true;
-
-  const runHitTest = () => {
-    if (testClickButton) {
-      const testRect = testClickButton.getBoundingClientRect();
-      if (testRect.width > 0 && testRect.height > 0) {
-        logElementAtPoint(
-          "boven testknop",
-          testRect.left + testRect.width / 2,
-          testRect.top + testRect.height / 2
-        );
-      }
-    }
-
-    if (appNav) {
-      const navRect = appNav.getBoundingClientRect();
-      if (navRect.width > 0 && navRect.height > 0) {
-        logElementAtPoint(
-          "boven tabs links",
-          navRect.left + Math.min(24, navRect.width / 4),
-          navRect.top + navRect.height / 2
-        );
-        logElementAtPoint(
-          "boven tabs midden",
-          navRect.left + navRect.width / 2,
-          navRect.top + navRect.height / 2
-        );
-        logElementAtPoint(
-          "boven tabs rechts",
-          navRect.right - Math.min(24, navRect.width / 4),
-          navRect.top + navRect.height / 2
-        );
-      }
-    }
-  };
-
-  window.setTimeout(runHitTest, 100);
-}
-
-function installSimpleDomClickDebug() {
-  if (simpleDomClickDebugInstalled) {
-    return;
-  }
-
-  simpleDomClickDebugInstalled = true;
-
-  testClickButton?.addEventListener("click", () => {
-    console.info("[tabs] pure DOM testknop klik");
-    window.alert("pure DOM klik werkt");
-  });
-}
-
-function installEmergencyMainTabBindings() {
-  if (emergencyMainTabBindingsInstalled || !SIMPLE_MAIN_TAB_EMERGENCY_MODE) {
-    return;
-  }
-
-  emergencyMainTabBindingsInstalled = true;
-
-  simpleMainTabButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      const requestedTab = button.dataset.simpleTab || "week";
-      console.info("[tabs-debug] installEmergencyMainTabBindings:click", {
-        requestedTab,
-        before: emergencyMainTab
-      });
-      if (requestedTab === "medewerkers") {
-        window.alert("medewerkers klik");
-      }
-      applyEmergencyMainTab(requestedTab);
-      console.info("[tabs-debug] installEmergencyMainTabBindings:after-apply", {
-        requestedTab,
-        after: emergencyMainTab
-      });
-    });
-  });
-}
-
 function render() {
   try {
-    installTabHitTestDebug();
-    installForcedClickLayerDebug();
-    installSimpleDomClickDebug();
-    installEmergencyMainTabBindings();
+    if (sessionState.isAuthenticated) {
+      const validatedSession = buildSessionSnapshot();
 
-    if (SIMPLE_MAIN_TAB_EMERGENCY_MODE) {
-      updateTabVisibility();
-      renderEmployeePersistenceDebug();
-      renderActiveTabContentSafely();
-      renderActiveMessage();
-      return;
+      if (!validatedSession.isAuthenticated) {
+        applySessionSnapshot(validatedSession, { persist: true });
+        openSessionLogin({
+          preferredRole: validatedSession.role,
+          preferredEmployee: ""
+        });
+        showMessage("De medewerker is niet meer actief of niet meer beschikbaar. Log opnieuw in.", "warning");
+      }
     }
 
     ensureEmployeeIdentityForCurrentRole();
@@ -18474,9 +17516,8 @@ function render() {
     updateTabVisibility();
     renderHoursExportControls();
     renderDashboard();
-    renderEmployeePersistenceDebug();
     renderEmployeeSelectors();
-    renderActiveTabContentSafely();
+    renderActiveTabContent();
     maybeShowOpenRequestReminder();
     renderActiveMessage();
   } catch (error) {
@@ -19673,8 +18714,13 @@ timeOffRequestsContainer.addEventListener("click", (event) => {
       entry.name === request.employeeName &&
       requestIncludesDate(request, entry.day)
     );
+    const absenceLabel = getAbsenceTypeLabel(request.type);
+    let approvalMessage = `${absenceLabel} is goedgekeurd en direct zichtbaar in het rooster.`;
+
     if (scheduledEntries.length > 0) {
-      applyApprovedTimeOffToRoster(request);
+      const removedEntries = applyApprovedTimeOffToRoster(request);
+      const scheduleText = removedEntries.map((entry) => `${getShiftName(entry)} (${entry.startTime} - ${entry.endTime})`).join(", ");
+      approvalMessage = `${absenceLabel} is goedgekeurd. ${removedEntries.length} dienst(en) zijn vrijgemaakt in het rooster: ${scheduleText}.`;
     }
 
     request.status = "approved";
@@ -19696,7 +18742,7 @@ timeOffRequestsContainer.addEventListener("click", (event) => {
       }
     });
     render();
-    showSuccess("Status bijgewerkt");
+    showMessage(approvalMessage, "success");
     return;
   } else {
     request.status = "rejected";
@@ -19720,7 +18766,7 @@ timeOffRequestsContainer.addEventListener("click", (event) => {
     }
   });
   render();
-  showSuccess("Status bijgewerkt");
+  showDeletedMessage("Afwezigheidsaanvraag afgewezen.");
 });
 
 swapRequestsContainer.addEventListener("click", (event) => {
@@ -19895,7 +18941,7 @@ swapRequestsContainer.addEventListener("click", (event) => {
       }
     });
     render();
-    showSuccess("Status bijgewerkt");
+    showDeletedMessage("Ruilverzoek afgewezen.");
     return;
   }
 
@@ -19923,7 +18969,7 @@ swapRequestsContainer.addEventListener("click", (event) => {
     finalizeApprovedSwapRequest(request, {
       managerNote: plannerNote,
       autoApproved: false,
-      successMessage: "Status bijgewerkt",
+      successMessage: button.dataset.requestAction === "assign-replacement" ? "Vervanger gekozen en rooster bijgewerkt." : "Rooster bijgewerkt.",
       persistMessage: `Ruilverzoek goedgekeurd voor ${request.employeeName}.`,
       action: "swap-approved"
     });
@@ -19955,7 +19001,7 @@ repeatShiftButton.addEventListener("click", () => {
 
 copyPreviousWeekButton.addEventListener("click", () => {
   if (!isPlannerRole()) {
-    showMessage("Alleen planner of directie kan weken kopiÃ«ren.", "error");
+    showMessage("Alleen planner of directie kan weken kopiëren.", "error");
     return;
   }
 
@@ -19973,7 +19019,7 @@ copyPreviousWeekButton.addEventListener("click", () => {
   }
 
   if (!ensureWeekActionAllowed(targetWeek, {
-    actionLabel: "een week te kopiÃ«ren",
+    actionLabel: "een week te kopiëren",
     blockPlannerWhenLocked: true
   })) {
     return;
@@ -19993,7 +19039,7 @@ copyPreviousWeekButton.addEventListener("click", () => {
     return;
   }
 
-  const confirmed = confirmAction(`Weet je zeker dat je ${sourceEntries.length} dienst(en) wilt kopiÃ«ren van ${sourceWeek} naar ${targetWeek}?`);
+  const confirmed = confirmAction(`Weet je zeker dat je ${sourceEntries.length} dienst(en) wilt kopiëren van ${sourceWeek} naar ${targetWeek}?`);
 
   if (!confirmed) {
     return;
@@ -20032,25 +19078,6 @@ copyPreviousWeekButton.addEventListener("click", () => {
 });
 
 myHoursRegistrations?.addEventListener("click", (event) => {
-  const quickHoursButton = event.target.closest("[data-simple-hours-quick][data-worklog-id]");
-
-  if (quickHoursButton?.dataset.simpleHoursQuick && quickHoursButton.dataset.worklogId) {
-    const hoursInput = myHoursRegistrations?.querySelector(`[data-simple-hours="value"][data-worklog-id="${quickHoursButton.dataset.worklogId}"]`);
-
-    if (hoursInput && !hoursInput.disabled) {
-      hoursInput.value = quickHoursButton.dataset.simpleHoursQuick;
-      hoursInput.focus();
-    }
-    return;
-  }
-
-  const simpleSaveButton = event.target.closest("[data-simple-hours-save]");
-
-  if (simpleSaveButton?.dataset.simpleHoursSave) {
-    saveSimpleHoursForm(simpleSaveButton.dataset.simpleHoursSave);
-    return;
-  }
-
   const quickButton = event.target.closest("[data-worklog-quick-set][data-worklog-id][data-worklog-value]");
 
   if (quickButton) {
@@ -20136,6 +19163,27 @@ myHoursRegistrations?.addEventListener("change", (event) => {
 });
 
 myHoursSummary?.addEventListener("click", (event) => {
+  const entryModeButton = event.target.closest("[data-hours-entry-mode]");
+
+  if (entryModeButton?.dataset.hoursEntryMode) {
+    const requestedMode = entryModeButton.dataset.hoursEntryMode;
+    const employeeName = getRoleScopedEmployeeName();
+    const selectedDate = getSelectedHoursDate();
+    const hasPlannedEntries = entries.some((entry) => entry.name === employeeName && entry.day === selectedDate);
+
+    activeMyHoursEntryMode = requestedMode === "planned" && !hasPlannedEntries ? "extra" : requestedMode;
+    renderMyHours();
+    return;
+  }
+
+  const sectionButton = event.target.closest("[data-hours-open-section]");
+
+  if (sectionButton?.dataset.hoursOpenSection) {
+    activeMyHoursSection = sectionButton.dataset.hoursOpenSection;
+    renderMyHours();
+    return;
+  }
+
   const button = event.target.closest("[data-hours-pick-date]");
 
   if (!button?.dataset.hoursPickDate || !hoursDateInput) {
@@ -20145,6 +19193,7 @@ myHoursSummary?.addEventListener("click", (event) => {
   const targetDate = button.dataset.hoursPickDate;
   const targetWeek = getWeekValueFromDate(targetDate) || getCurrentWeekValue();
   activeMyHoursSection = "fill";
+  activeMyHoursEntryMode = "planned";
   hoursDateInput.value = targetDate;
   hoursWeekInput.value = targetWeek;
   preferences.lastHoursDate = targetDate;
@@ -20160,15 +19209,30 @@ myHoursSectionSwitch?.addEventListener("click", (event) => {
     return;
   }
 
-  if (button === myHoursFillButton) {
-    activeMyHoursSection = "fill";
+  if (button === myHoursTodayButton && hoursDateInput) {
+    const todayValue = getTodayLocalDateValue();
+    hoursDateInput.value = todayValue;
+    if (hoursWeekInput) {
+      hoursWeekInput.value = getWeekValueFromDate(todayValue) || getCurrentWeekValue();
+    }
+    preferences.lastHoursDate = todayValue;
+    preferences.lastHoursWeek = hoursWeekInput?.value || getCurrentWeekValue();
+    activeMyHoursSection = "today";
     activeMyHoursEntryMode = "planned";
+    savePreferences();
     renderMyHours();
     return;
   }
 
-  if (button === myHoursHistoryButton) {
-    activeMyHoursSection = "history";
+  if (button === myHoursMissingButton) {
+    activeMyHoursSection = "missing";
+    renderMyHours();
+    return;
+  }
+
+  if (button === myHoursFillButton) {
+    activeMyHoursSection = "fill";
+    activeMyHoursEntryMode = "planned";
     renderMyHours();
   }
 });
@@ -20198,6 +19262,21 @@ hoursApprovalQueue?.addEventListener("click", (event) => {
     updateWorkLogStatus(reviewButton.dataset.worklogId, reviewButton.dataset.worklogReview, noteInput?.value || "");
     return;
   }
+
+  const bulkButton = event.target.closest("[data-worklog-bulk][data-worklog-week]");
+
+  if (!bulkButton) {
+    return;
+  }
+
+  if (bulkButton.dataset.worklogBulk === "employee-week") {
+    approveWorkLogsForWeek(bulkButton.dataset.worklogWeek, bulkButton.dataset.worklogEmployee || "");
+    return;
+  }
+
+  if (bulkButton.dataset.worklogBulk === "full-week") {
+    approveWorkLogsForWeek(bulkButton.dataset.worklogWeek);
+  }
 });
 
 addEmployeeButton.addEventListener("click", () => {
@@ -20207,21 +19286,9 @@ addEmployeeButton.addEventListener("click", () => {
   }
 
   const employeeName = newEmployeeNameInput.value.trim();
-  const employeeEmail = normalizeEmployeeEmail(newEmployeeEmailInput?.value);
-  const employeeRole = normalizeEmployeeAppRole(newEmployeeRoleSelect?.value);
 
   if (!employeeName) {
     showMessage("Vul eerst een naam van een medewerker in.", "error");
-    return;
-  }
-
-  if (!employeeEmail) {
-    showMessage("Vul een e-mailadres in.", "error");
-    return;
-  }
-
-  if (!isValidEmployeeEmail(employeeEmail)) {
-    showMessage("Vul een geldig e-mailadres in, bijvoorbeeld naam@domein.nl.", "error");
     return;
   }
 
@@ -20230,20 +19297,12 @@ addEmployeeButton.addEventListener("click", () => {
     return;
   }
 
-  const duplicateEmployeeName = findEmployeeByEmail(employeeEmail);
-  if (duplicateEmployeeName) {
-    showMessage(`Dit e-mailadres is al gekoppeld aan ${duplicateEmployeeName}.`, "error");
-    return;
-  }
-
   employees.push(employeeName);
   employees.sort((nameA, nameB) => nameA.localeCompare(nameB, "nl"));
   employeeMeta[employeeName] = {
     ...getEmployeeStatusMetaDefaults(),
     status: "active",
-    role: employeeRole,
-    email: employeeEmail,
-    loginAllowed: true,
+    role: getDefaultEmployeeAppRole(employeeName),
     updatedAt: getNowIsoString(),
     updatedByRole: isPlannerRole() ? "planner" : "employee",
     updatedByName: isPlannerRole() ? "Planner / Directie" : (getRoleScopedEmployeeName() || "Medewerker")
@@ -20261,10 +19320,7 @@ addEmployeeButton.addEventListener("click", () => {
     message: `Medewerker ${employeeName} toegevoegd.`,
     details: {
       employeeName,
-      employeeEmail,
-      employeeRole,
-      employeeStatus: "active",
-      loginAllowed: true
+      employeeStatus: "active"
     }
   });
   if (removeEmployeeSelect) {
@@ -20275,12 +19331,6 @@ addEmployeeButton.addEventListener("click", () => {
   preferences.lastEmployee = employeeName;
   savePreferences();
   newEmployeeNameInput.value = "";
-  if (newEmployeeEmailInput) {
-    newEmployeeEmailInput.value = "";
-  }
-  if (newEmployeeRoleSelect) {
-    newEmployeeRoleSelect.value = "employee";
-  }
   showSavedMessage();
 });
 
@@ -20702,9 +19752,6 @@ employeeListCard?.addEventListener("click", (event) => {
     return;
   }
 
-  event.preventDefault();
-  event.stopPropagation();
-
   const employeeName = card.dataset.employeeSelect;
 
   if (!employeeName || !employees.includes(employeeName)) {
@@ -20721,130 +19768,125 @@ employeeListCard?.addEventListener("click", (event) => {
     }
   }
 
-  selectEmployeeForAdmin(employeeName);
+  removeEmployeeSelect.value = employeeName;
+  renderEmployeeList();
+  renderEmployeeEditorDetails();
 });
 
 function submitTimeOffRequest(composer) {
-  try {
-    const ownEmployeeName = !isPlannerRole() ? getOwnEmployeeNameOrWarn() : "";
+  const ownEmployeeName = !isPlannerRole() ? getOwnEmployeeNameOrWarn() : "";
 
-    if (!isPlannerRole() && !ownEmployeeName) {
-      return;
-    }
-
-    syncTimeOffFormStateFromFields(composer);
-    const currentTimeOffForm = getRequestComposerState(composer);
-    const formElements = getTimeOffFormElements(composer);
-    const employeeName = !isPlannerRole() ? ownEmployeeName : (currentTimeOffForm.employeeName || formElements?.employeeSelect?.value || "");
-    const type = currentTimeOffForm.type || getComposerTimeOffType(composer);
-    const startDate = type === "vakantie" ? currentTimeOffForm.startDate : currentTimeOffForm.date;
-    const endDate = type === "vakantie" ? (currentTimeOffForm.endDate || startDate) : startDate;
-    const reason = (currentTimeOffForm.reason || "").trim();
-
-    if (!ensureOwnRequestAction(employeeName, "een afwezigheidsaanvraag")) {
-      return;
-    }
-
-    if (!employeeName || !startDate || !reason || (type === "vakantie" && !endDate)) {
-      showError(
-        isPlannerRole()
-          ? "Kies medewerker, status, datum of periode en reden voor de afwezigheid."
-          : "Kies type aanvraag, datum of periode en reden."
-      );
-      return;
-    }
-
-    if (type === "vakantie" && endDate < startDate) {
-      showError("De einddatum van de vakantie moet gelijk zijn aan of later zijn dan de begindatum.");
-      return;
-    }
-
-    if (!ensureEmployeeDateRangeEditable(startDate, endDate, "een afwezigheidsaanvraag te doen of te wijzigen")) {
-      return;
-    }
-
-    if (timeOffRequests.some((request) =>
-      request.id !== editingTimeOffId &&
-      request.employeeName === employeeName &&
-      request.status === "open" &&
-      requestMatchesExactRange(request, startDate, endDate)
-    )) {
-      showError(startDate === endDate ? "Je hebt al een aanvraag voor deze datum." : "Je hebt al een aanvraag voor deze periode.");
-      return;
-    }
-
-    if (editingTimeOffId) {
-      const request = timeOffRequests.find((item) => item.id === editingTimeOffId);
-
-      if (request) {
-        if (!ensureOwnRequestAction(request.employeeName, "het wijzigen van deze afwezigheidsaanvraag")) {
-          return;
-        }
-
-        request.employeeName = employeeName;
-        request.type = type;
-        request.date = startDate;
-        request.startDate = startDate;
-        request.endDate = endDate;
-        request.reason = reason;
-        request.status = "open";
-        request.updatedAt = getNowIsoString();
-        request.mailLog = Array.isArray(request.mailLog) ? request.mailLog : [];
-      }
-    } else {
-      timeOffRequests.push({
-        id: createRequestId("timeoff"),
-        employeeName,
-        type,
-        date: startDate,
-        startDate,
-        endDate,
-        reason,
-        status: "open",
-        createdAt: getNowIsoString(),
-        updatedAt: getNowIsoString()
-      });
-    }
-
-    const currentTimeOffRequest = editingTimeOffId
-      ? timeOffRequests.find((item) => item.id === editingTimeOffId)
-      : timeOffRequests[timeOffRequests.length - 1];
-
-    if (currentTimeOffRequest) {
-      registerTimeOffMailNotification(currentTimeOffRequest, "submitted", [employeeName], {
-        notifyUser: true,
-        notifySuccessMessage: getAppMailSentMessage(),
-        notifyErrorMessage: "Mail kon niet worden verzonden"
-      });
-    }
-    saveTimeOffRequests();
-    persistProtectedChange({
-      reason: editingTimeOffId ? `Afwezigheidsaanvraag gewijzigd: ${employeeName} ${startDate}` : `Afwezigheidsaanvraag ingediend: ${employeeName} ${startDate}`,
-      scope: "request",
-      action: editingTimeOffId ? "timeoff-updated" : "timeoff-created",
-      message: `${getAbsenceTypeLabel(type)} opgeslagen voor ${employeeName}.`,
-      details: {
-        employeeName,
-        date: startDate,
-        startDate,
-        endDate,
-        type,
-        status: "open"
-      }
-    });
-    resetTimeOffComposer({
-      nextComposer: composer,
-      preserveEmployee: !isPlannerRole()
-    });
-    render();
-    showSuccess("Aanvraag verzonden");
-  } catch (error) {
-    console.error("[requests] submitTimeOffRequest:error", {
-      composer,
-      error
-    });
-    showError(error instanceof Error && error.message ? error.message : "Aanvraag opslaan mislukt");
+  if (!isPlannerRole() && !ownEmployeeName) {
+    return;
   }
+
+  syncTimeOffFormStateFromFields(composer);
+  const currentTimeOffForm = getRequestComposerState(composer);
+  const formElements = getTimeOffFormElements(composer);
+  const employeeName = !isPlannerRole() ? ownEmployeeName : (currentTimeOffForm.employeeName || formElements?.employeeSelect?.value || "");
+  const type = currentTimeOffForm.type || getComposerTimeOffType(composer);
+  const startDate = type === "vakantie" ? currentTimeOffForm.startDate : currentTimeOffForm.date;
+  const endDate = type === "vakantie" ? (currentTimeOffForm.endDate || startDate) : startDate;
+  const date = startDate;
+  const reason = (currentTimeOffForm.reason || "").trim();
+
+  if (!ensureOwnRequestAction(employeeName, "een afwezigheidsaanvraag")) {
+    return;
+  }
+
+  if (!employeeName || !startDate || !reason || (type === "vakantie" && !endDate)) {
+    showMessage(
+      isPlannerRole()
+        ? "Kies medewerker, status, datum of periode en reden voor de afwezigheid."
+        : "Kies type aanvraag, datum of periode en reden.",
+      "error"
+    );
+    return;
+  }
+
+  if (type === "vakantie" && endDate < startDate) {
+    showMessage("De einddatum van de vakantie moet gelijk zijn aan of later zijn dan de begindatum.", "error");
+    return;
+  }
+
+  if (!ensureEmployeeDateRangeEditable(startDate, endDate, "een afwezigheidsaanvraag te doen of te wijzigen")) {
+    return;
+  }
+
+  if (timeOffRequests.some((request) =>
+    request.id !== editingTimeOffId &&
+    request.employeeName === employeeName &&
+    request.status === "open" &&
+    requestOverlapsRange(request, startDate, endDate)
+  )) {
+    showMessage("Voor deze medewerker staat al een open afwezigheidsaanvraag in deze periode.", "error");
+    return;
+  }
+
+  if (editingTimeOffId) {
+    const request = timeOffRequests.find((item) => item.id === editingTimeOffId);
+
+    if (request) {
+      if (!ensureOwnRequestAction(request.employeeName, "het wijzigen van deze afwezigheidsaanvraag")) {
+        return;
+      }
+
+      request.employeeName = employeeName;
+      request.type = type;
+      request.date = startDate;
+      request.startDate = startDate;
+      request.endDate = endDate;
+      request.reason = reason;
+      request.status = "open";
+      request.updatedAt = getNowIsoString();
+      request.mailLog = Array.isArray(request.mailLog) ? request.mailLog : [];
+    }
+  } else {
+    timeOffRequests.push({
+      id: createRequestId("timeoff"),
+      employeeName,
+      type,
+      date: startDate,
+      startDate,
+      endDate,
+      reason,
+      status: "open",
+      createdAt: getNowIsoString(),
+      updatedAt: getNowIsoString()
+    });
+  }
+  const currentTimeOffRequest = editingTimeOffId
+    ? timeOffRequests.find((item) => item.id === editingTimeOffId)
+    : timeOffRequests[timeOffRequests.length - 1];
+
+  if (currentTimeOffRequest) {
+    registerTimeOffMailNotification(currentTimeOffRequest, "submitted", [employeeName], {
+      notifyUser: true,
+      notifySuccessMessage: getAppMailSentMessage(),
+      notifyErrorMessage: "Aanvraag opgeslagen, mail niet verzonden"
+    });
+  }
+  saveTimeOffRequests();
+  persistProtectedChange({
+    reason: editingTimeOffId ? `Afwezigheidsaanvraag gewijzigd: ${employeeName} ${startDate}` : `Afwezigheidsaanvraag ingediend: ${employeeName} ${startDate}`,
+    scope: "request",
+    action: editingTimeOffId ? "timeoff-updated" : "timeoff-created",
+    message: `${getAbsenceTypeLabel(type)} opgeslagen voor ${employeeName}.`,
+    details: {
+      employeeName,
+      date: startDate,
+      startDate,
+      endDate,
+      type,
+      status: "open"
+    }
+  });
+  resetTimeOffComposer({
+    nextComposer: composer,
+    preserveEmployee: !isPlannerRole()
+  });
+  render();
+  showToast("Aanvraag verzonden");
 }
 
 submitFreeDayButton?.addEventListener("click", () => {
@@ -20875,10 +19917,11 @@ submitSwapButton.addEventListener("click", () => {
   const date = entryDetails?.date || currentSwapForm.date || swapDateInput.value;
 
   if (!employeeName || !date || !entryValue || !targetEmployeeName) {
-    showError(
+    showMessage(
       isPlannerRole()
         ? "Kies medewerker, datum, dienst en een overnemer of open aanbieden."
-        : "Kies datum, dienst en een geschikte collega."
+        : "Kies datum, dienst en een geschikte collega.",
+      "error"
     );
     return;
   }
@@ -20888,12 +19931,12 @@ submitSwapButton.addEventListener("click", () => {
   }
 
   if (employeeName === targetEmployeeName) {
-    showError("Een medewerker kan niet zijn eigen dienst overnemen.");
+    showMessage("Een medewerker kan niet zijn eigen dienst overnemen.", "error");
     return;
   }
 
   if (!isPlannerRole() && targetEmployeeName === "__open__") {
-    showError("Kies een geschikte collega of schakel directie in.");
+    showMessage("Kies een geschikte collega of schakel directie in.", "error");
     return;
   }
 
@@ -20904,7 +19947,7 @@ submitSwapButton.addEventListener("click", () => {
   const entry = entryDetails?.entry || null;
 
   if (!entry) {
-    showError("De gekozen dienst is niet meer gevonden.");
+    showMessage("De gekozen dienst is niet meer gevonden.", "error");
     render();
     return;
   }
@@ -20913,7 +19956,7 @@ submitSwapButton.addEventListener("click", () => {
     const replacementCandidates = getSwapCandidatesForEntryDetails(entryDetails);
 
     if (!replacementCandidates.includes(targetEmployeeName)) {
-      showError("Deze collega is niet bevoegd of niet beschikbaar voor deze dienst.");
+      showMessage("Deze collega is niet bevoegd of niet beschikbaar voor deze dienst.", "error");
       renderSwapTargetOptions();
       return;
     }
@@ -20934,7 +19977,7 @@ submitSwapButton.addEventListener("click", () => {
     request.startTime === entry.startTime &&
     request.endTime === entry.endTime
   )) {
-    showError("Voor deze dienst bestaat al een open ruilverzoek.");
+    showMessage("Voor deze dienst bestaat al een open ruilverzoek.", "error");
     return;
   }
 
@@ -20993,11 +20036,10 @@ submitSwapButton.addEventListener("click", () => {
         finalizeApprovedSwapRequest(currentRequest, {
           managerNote: "Automatisch goedgekeurd",
           autoApproved: true,
-          successMessage: "Status bijgewerkt",
+          successMessage: "Ruil automatisch goedgekeurd en rooster bijgewerkt.",
           persistMessage: `Ruil automatisch goedgekeurd voor ${currentRequest.employeeName}.`,
           action: "swap-auto-approved"
         });
-        resetSwapComposer({ preserveEmployee: !isPlannerRole() });
         return;
       }
     }
@@ -21006,7 +20048,7 @@ submitSwapButton.addEventListener("click", () => {
       registerSwapMailNotification(currentRequest, "submitted", [currentRequest.employeeName], {
         notifyUser: true,
         notifySuccessMessage: getAppMailSentMessage(),
-        notifyErrorMessage: "Mail kon niet worden verzonden"
+        notifyErrorMessage: "Aanvraag opgeslagen, mail niet verzonden"
       });
     }
 
@@ -21030,7 +20072,7 @@ submitSwapButton.addEventListener("click", () => {
   });
   resetSwapComposer({ preserveEmployee: !isPlannerRole() });
     render();
-    showSuccess("Aanvraag verzonden");
+    showToast("Aanvraag verzonden");
   });
 
 removeEmployeeButton?.addEventListener("click", () => {
@@ -21140,21 +20182,17 @@ employeeEmailInput?.addEventListener("input", () => {
   }
 });
 
-employeeLoginAllowedInput?.addEventListener("change", () => {
-  const employeeName = getSelectedEmployeeAdminName();
-  const employeeDraft = getEmployeeEditorDraft(employeeName);
-
-  if (employeeDraft) {
-    employeeDraft.loginAllowed = employeeLoginAllowedInput.checked !== false;
-  }
-});
-
 employeeMailTestUserInput?.addEventListener("change", () => {
+  if (EMPLOYEE_MAIL_TEST_MODE_ENABLED) {
+    renderEmployeeStatusControls();
+    return;
+  }
+
   const employeeName = getSelectedEmployeeAdminName();
   const employeeDraft = getEmployeeEditorDraft(employeeName);
 
   if (employeeDraft) {
-    employeeDraft.mailTestUser = false;
+    employeeDraft.mailTestUser = Boolean(employeeMailTestUserInput.checked);
   }
 });
 
@@ -21163,7 +20201,6 @@ removeEmployeeSelect?.addEventListener("change", () => {
     return;
   }
 
-  employeeAdminSelection = removeEmployeeSelect.value || employees[0] || "";
   renderEmployeeList();
   renderEmployeeStatusControls();
   renderEmployeePermissions();
@@ -21175,14 +20212,14 @@ function saveSelectedEmployeeDetails(options = {}) {
   const { showSuccessMessage = true } = options;
 
   if (!isPlannerRole()) {
-    showError("Alleen planner of directie kan medewerkers beheren.");
+    showMessage("Alleen planner of directie kan medewerkers beheren.", "error");
     return false;
   }
 
   const employeeName = removeEmployeeSelect.value;
 
   if (!employeeName || !employeeMeta[employeeName]) {
-    showError("Kies eerst een medewerker.");
+    showMessage("Kies eerst een medewerker.", "error");
     return false;
   }
 
@@ -21190,8 +20227,7 @@ function saveSelectedEmployeeDetails(options = {}) {
   const normalizedEmail = normalizeEmployeeEmail(employeeEmailInput?.value);
   const normalizedRole = normalizeEmployeeAppRole(employeeRoleSelect?.value);
   const nextStatus = normalizeEmployeeStatus(employeeStatusSelect?.value);
-  const loginAllowed = employeeLoginAllowedInput?.checked !== false;
-  const shouldEnableMailTestUser = false;
+  const shouldEnableMailTestUser = Boolean(employeeDraft?.mailTestUser);
   const normalizedContractHours = normalizeContractHours(employeeDraft?.contractHours);
   const normalizedPermissions = Object.fromEntries(
     getPermissionShiftDescriptors().map((shift) => [
@@ -21208,21 +20244,21 @@ function saveSelectedEmployeeDetails(options = {}) {
   if (!normalizedEmail) {
     setEmployeeEmailFieldError("Vul een e-mailadres in.");
     employeeEmailInput?.reportValidity();
-    showError("Vul een e-mailadres in.");
+    showMessage("Vul een e-mailadres in.", "error");
     return false;
   }
 
   if (!isValidEmployeeEmail(normalizedEmail)) {
     setEmployeeEmailFieldError("Vul een geldig e-mailadres in, bijvoorbeeld naam@domein.nl.");
     employeeEmailInput?.reportValidity();
-    showError("Vul een geldig e-mailadres in, bijvoorbeeld naam@domein.nl.");
+    showMessage("Vul een geldig e-mailadres in, bijvoorbeeld naam@domein.nl.", "error");
     return false;
   }
 
   if (duplicateEmployeeName) {
     setEmployeeEmailFieldError(`Dit e-mailadres is al gekoppeld aan ${duplicateEmployeeName}.`);
     employeeEmailInput?.reportValidity();
-    showError(`Dit e-mailadres is al gekoppeld aan ${duplicateEmployeeName}.`);
+    showMessage(`Dit e-mailadres is al gekoppeld aan ${duplicateEmployeeName}.`, "error");
     return false;
   }
 
@@ -21266,7 +20302,6 @@ Bewaarde historie:
     role: normalizedRole,
     email: normalizedEmail,
     status: nextStatus,
-    loginAllowed,
     mailTestUser: shouldEnableMailTestUser,
     contractHours: normalizedContractHours,
     updatedAt: getNowIsoString(),
@@ -21278,28 +20313,11 @@ Bewaarde historie:
   employeeBasePatterns[employeeName] = normalizedBasePatternId;
   employeeCustomRosters[employeeName] = normalizedCustomRoster;
 
-  saveEmployees();
   saveEmployeeMeta();
   saveEmployeePermissions();
   saveEmployeeStandardShifts();
   saveEmployeeBasePatterns();
   saveEmployeeCustomRosters();
-  saveEmployeeEmergencyBackup("Medewerker opgeslagen");
-  refreshEmployeePersistenceDebugState();
-
-  const persistedEmployeeNames = getStoredJsonValueForMode(employeeStorageKey);
-  const persistedMeta = getStoredJsonValueForMode(employeeMetaStorageKey);
-  const persistedPermissions = getStoredJsonValueForMode(employeePermissionsStorageKey);
-  const employeeSavedCorrectly = Array.isArray(persistedEmployeeNames) &&
-    persistedEmployeeNames.includes(employeeName) &&
-    normalizeEmployeeEmail(persistedMeta?.[employeeName]?.email) === normalizedEmail &&
-    Boolean(persistedPermissions?.[employeeName]);
-
-  if (!employeeSavedCorrectly) {
-    showError("Medewerkergegevens konden niet betrouwbaar worden opgeslagen.");
-    return false;
-  }
-
   syncEmployeePermissions();
   syncEmployeeStandardShifts();
   syncEmployeeBasePatterns();
@@ -21316,7 +20334,6 @@ Bewaarde historie:
       email: normalizedEmail,
       role: normalizedRole,
       status: nextStatus,
-      loginAllowed,
       mailTestUser: shouldEnableMailTestUser,
       contractHours: normalizedContractHours,
       standardShiftName: normalizedStandardShift,
@@ -21327,9 +20344,8 @@ Bewaarde historie:
   renderEmployeeSelectors();
   renderDayPlanner();
   render();
-  selectEmployeeForAdmin(employeeName);
   if (showSuccessMessage) {
-    showSuccess("Medewerker opgeslagen");
+    showToast("Medewerker opgeslagen");
   }
   return true;
 }
@@ -21361,21 +20377,21 @@ saveEmployeeEmailButton?.addEventListener("click", () => {
 
 employeeDetailTestMailButton?.addEventListener("click", async () => {
   if (!isPlannerRole()) {
-    showError("Mail verzenden mislukt");
+    showMessage("Mail verzenden mislukt", "error");
     return;
   }
 
   const employeeName = removeEmployeeSelect?.value;
 
   if (!employeeName || !employeeMeta[employeeName]) {
-    showError("Kies eerst een medewerker.");
+    showMessage("Kies eerst een medewerker.", "error");
     return;
   }
 
   const employeeEmail = getEmployeeEmail(employeeName);
 
   if (!employeeEmail) {
-    showError("Geen e-mailadres ingesteld");
+    showMessage("Geen e-mailadres ingesteld", "error");
     setEmployeeEmailFieldError("Geen e-mailadres ingesteld");
     return;
   }
@@ -21385,7 +20401,7 @@ employeeDetailTestMailButton?.addEventListener("click", async () => {
   employeeDetailTestMailButton.textContent = "Verzenden...";
 
   try {
-    const result = await sendTestEmailRequest(employeeEmail);
+    const result = await sendTestEmailRequest();
 
     if (!result.ok) {
       employeeMeta[employeeName] = {
@@ -21396,7 +20412,7 @@ employeeDetailTestMailButton?.addEventListener("click", async () => {
       };
       saveEmployeeMeta();
       renderEmployeeDetailMailStatus(employeeName);
-      showError(result.error || "Mail verzenden mislukt");
+      showMessage(result.error || "Mail verzenden mislukt", "error");
       return;
     }
 
@@ -21404,11 +20420,12 @@ employeeDetailTestMailButton?.addEventListener("click", async () => {
       ...employeeMeta[employeeName],
       lastTestMailAt: getNowIsoString(),
       lastTestMailStatus: "sent",
-      lastTestMailMessage: "Mail verzonden"
+      lastTestMailMessage: `Testmodus: mail gaat nu alleen naar ${FIXED_TEST_MAIL_RECIPIENT}`
     };
     saveEmployeeMeta();
     renderEmployeeDetailMailStatus(employeeName);
-    showSuccess("Testmail verzonden");
+    showToast("Testmail verzonden");
+    showMessage(`Testmodus: mail gaat nu alleen naar ${FIXED_TEST_MAIL_RECIPIENT}`, "success");
   } catch (error) {
     employeeMeta[employeeName] = {
       ...employeeMeta[employeeName],
@@ -21418,84 +20435,13 @@ employeeDetailTestMailButton?.addEventListener("click", async () => {
     };
     saveEmployeeMeta();
     renderEmployeeDetailMailStatus(employeeName);
-    showError(error instanceof Error && error.message ? error.message : "Mail verzenden mislukt");
+    showMessage(
+      error instanceof Error && error.message ? error.message : "Mail verzenden mislukt",
+      "error"
+    );
   } finally {
     employeeDetailTestMailButton.disabled = false;
     employeeDetailTestMailButton.textContent = originalLabel;
-  }
-});
-
-employeeInviteButton?.addEventListener("click", async () => {
-  if (!isPlannerRole()) {
-    showError("Uitnodigen mislukt");
-    return;
-  }
-
-  const employeeName = getSelectedEmployeeAdminName();
-
-  if (!employeeName || !employeeMeta?.[employeeName]) {
-    showError("Kies eerst een medewerker.");
-    return;
-  }
-
-  if (hasUnsavedEmployeeChanges(employeeName)) {
-    showError("Sla eerst de medewerker op voordat je een uitnodiging verstuurt.");
-    return;
-  }
-
-  if (normalizeEmployeeStatus(getEmployeeStatus(employeeName)) !== "active") {
-    const message = "Alleen actieve medewerkers kunnen worden uitgenodigd.";
-    setEmployeeClerkStatus(message, "error");
-    showError(message);
-    return;
-  }
-
-  if (!isEmployeeLoginAllowed(employeeName)) {
-    const message = "Login toegestaan staat uit voor deze medewerker.";
-    setEmployeeClerkStatus(message, "error");
-    showError(message);
-    return;
-  }
-
-  const employeeEmail = getEmployeeEmail(employeeName);
-
-  if (!employeeEmail) {
-    const message = "Geen e-mailadres ingesteld";
-    setEmployeeClerkStatus(message, "error");
-    setEmployeeEmailFieldError(message);
-    showError(message);
-    return;
-  }
-
-  clearEmployeeEmailFieldError();
-  setEmployeeClerkStatus("Uitnodiging wordt verzonden...", "pending");
-
-  const originalLabel = employeeInviteButton.textContent;
-  employeeInviteButton.disabled = true;
-  employeeInviteButton.textContent = "Verzenden...";
-
-  try {
-    const result = await sendClerkInvitationRequest({
-      email: employeeEmail,
-      employeeName,
-      role: getEmployeeAppRole(employeeName)
-    });
-
-    if (!result.ok) {
-      setEmployeeClerkStatus(result.error || "Uitnodigen mislukt.", "error");
-      showError(result.error || "Uitnodigen mislukt.");
-      return;
-    }
-
-    setEmployeeClerkStatus(result.message || "Uitnodiging verzonden.", "success");
-    showSuccess(result.message || "Uitnodiging verzonden");
-  } catch (error) {
-    const message = error instanceof Error && error.message ? error.message : "Uitnodigen mislukt.";
-    setEmployeeClerkStatus(message, "error");
-    showError(message);
-  } finally {
-    employeeInviteButton.disabled = false;
-    employeeInviteButton.textContent = originalLabel;
   }
 });
 
@@ -21569,7 +20515,7 @@ saveMailSettingsButton?.addEventListener("click", () => {
 
   mailSettings.senderName = senderName;
   mailSettings.senderEmail = senderEmail;
-  mailSettings.testRecipientEmail = normalizeEmployeeEmail(mailSettings.testRecipientEmail || senderEmail);
+  mailSettings.testRecipientEmail = FIXED_TEST_MAIL_RECIPIENT;
   mailSettings.updatedAt = getNowIsoString();
   mailSettings.updatedByRole = "planner";
   mailSettings.updatedByName = "Planner / Directie";
@@ -21582,7 +20528,7 @@ saveMailSettingsButton?.addEventListener("click", () => {
     details: {
       senderName,
       senderEmail,
-      testRecipientEmail: mailSettings.testRecipientEmail || senderEmail
+      testRecipientEmail: FIXED_TEST_MAIL_RECIPIENT
     }
   });
   renderMailSettings();
@@ -21590,7 +20536,7 @@ saveMailSettingsButton?.addEventListener("click", () => {
 });
 
 function getConfiguredTestMailRecipient() {
-  return normalizeEmployeeEmail(mailSettings?.testRecipientEmail || mailSettings?.senderEmail || '');
+  return normalizeEmployeeEmail(FIXED_TEST_MAIL_RECIPIENT);
 }
 
 function setTestMailButtonsDisabled(isDisabled) {
@@ -21612,14 +20558,12 @@ async function handleTestMailSend() {
       return;
     }
 
-    const testRecipient = getConfiguredTestMailRecipient();
-
-    if (!testRecipient) {
-      showMessage("Geen e-mailadres ingesteld", "error");
-      return;
+    if (mailSettings.testRecipientEmail !== FIXED_TEST_MAIL_RECIPIENT) {
+      mailSettings.testRecipientEmail = FIXED_TEST_MAIL_RECIPIENT;
+      saveMailSettings();
     }
 
-    const result = await sendTestEmailRequest(testRecipient);
+    const result = await sendTestEmailRequest();
 
     if (!result.ok) {
       showMessage(getTestMailErrorMessage(result.error), "error");
@@ -22364,7 +21308,7 @@ hoursDateInput?.addEventListener("change", () => {
   preferences.lastHoursWeek = derivedWeek;
   hoursWeekInput.value = derivedWeek;
   if (!isPlannerRole()) {
-    activeMyHoursSection = "fill";
+    activeMyHoursSection = selectedDate === getTodayLocalDateValue() ? "today" : "fill";
     activeMyHoursEntryMode = "planned";
   }
   savePreferences();
@@ -22455,122 +21399,61 @@ hoursExportButton?.addEventListener("click", () => {
 });
 
 roleSelect.addEventListener("change", () => {
-  if (clerkAuthState.enabled) {
-    roleSelect.value = activeRole;
-    return;
-  }
-
-  activeRole = roleSelect.value;
-  preferences.lastRole = activeRole;
-  preferences.hasUserSession = true;
-  savePreferences();
-
-  if (!isPlannerRole()) {
-    if (!getEmployeeIdentity()) {
-      const preferredEmployee = getPreferredEmployeeIdentityCandidate();
-
-      if (preferredEmployee) {
-        preferences.employeeIdentity = preferredEmployee;
-        savePreferences();
-      }
-    }
-
-    reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
-  } else {
-    reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
-  }
+  roleSelect.value = activeRole;
 });
 
 currentEmployeeSelect.addEventListener("change", () => {
-  if (!isPlannerRole()) {
-    const ownEmployeeName = getOwnEmployeeNameOrWarn();
+  if (!isPlannerRole() && currentEmployeeSelect.value && !getEmployeeIdentity()) {
+    preferences.employeeIdentity = currentEmployeeSelect.value;
+    preferences.hasUserSession = true;
+    savePreferences();
+  }
 
-    if (!ownEmployeeName) {
-      currentEmployeeSelect.value = "";
-      reloadForLoggedInUser();
-      return;
-    }
+  if (!isPlannerRole() && getEmployeeIdentity()) {
+    currentEmployeeSelect.value = getEmployeeIdentity();
+  }
 
-    currentEmployeeSelect.value = ownEmployeeName;
-    portalEmployeeSelect.value = ownEmployeeName;
-    hoursEmployeeSelect.value = ownEmployeeName;
+  if (!isPlannerRole() && currentEmployeeSelect.value) {
+    portalEmployeeSelect.value = currentEmployeeSelect.value;
+    hoursEmployeeSelect.value = currentEmployeeSelect.value;
     getAllTimeOffEmployeeSelects().forEach((select) => {
-      select.value = ownEmployeeName;
+      select.value = currentEmployeeSelect.value;
     });
-    swapEmployeeSelect.value = ownEmployeeName;
-    reloadForLoggedInUser();
-    return;
+    swapEmployeeSelect.value = currentEmployeeSelect.value;
   }
 
   reloadForLoggedInUser();
 });
 
 switchUserButton?.addEventListener("click", () => {
-  if (clerkAuthState.enabled) {
-    signOutAuthenticatedUser();
-    return;
-  }
-
-  showClerkAuthMessage("Clerk login is vereist voor live gebruik.", "error");
-  openLoginOverlay();
+  logoutCurrentSession({ showMessageAfterLogout: true });
 });
 
 resetTestDataButton?.addEventListener("click", () => {
   resetTestPlanningData();
 });
 
-clerkLoginButton?.addEventListener("click", () => {
-  beginClerkSignIn();
+loginRoleSelect?.addEventListener("change", () => {
+  updateLoginRoleState();
 });
 
-clerkLogoutButton?.addEventListener("click", () => {
-  signOutAuthenticatedUser();
+loginTestModeCheckbox?.addEventListener("change", () => {
+  populateLoginEmployeeSelect();
+});
+
+loginConfirmButton?.addEventListener("click", () => {
+  applyLoggedInUserSelection({ showStartupMessage: true });
 });
 
 navTabs.forEach((button) => {
   button.addEventListener("click", () => {
-    if (button.dataset.tab === TABS.EMPLOYEES) {
-      console.info("klik medewerkers");
-      window.alert("klik werkt");
-    }
-    console.info("[tabs] klik hoofdtab:", button.dataset.tab);
-    setCurrentMainTab(button.dataset.tab);
-    console.info("[tabs] na klik hoofdtab:", currentMainTab);
+    setActiveTab(button.dataset.tab);
   });
-});
-
-appNav?.addEventListener("click", (event) => {
-  const simpleButton = event.target.closest(".simple-main-tab-button");
-
-  if (simpleButton && !simpleButton.hidden) {
-    console.info("[tabs] klik simpele hoofdtab:", simpleButton.dataset.simpleTab);
-    if (simpleButton.dataset.simpleTab === TABS.EMPLOYEES) {
-      console.info("klik medewerkers");
-      window.alert("klik werkt");
-    }
-    setCurrentMainTab(simpleButton.dataset.simpleTab);
-    console.info("[tabs] na klik simpele hoofdtab:", currentMainTab);
-    return;
-  }
-
-  const button = event.target.closest(".nav-tab");
-
-  if (!button || button.hidden) {
-    return;
-  }
-
-  if (button.dataset.tab === TABS.EMPLOYEES) {
-    console.info("klik medewerkers");
-    window.alert("klik werkt");
-  }
-  setCurrentMainTab(button.dataset.tab, { force: true });
 });
 
 quickLinks.forEach((button) => {
   button.addEventListener("click", () => {
-    console.info("[tabs] klik quick link:", button.dataset.goTab);
-    setCurrentMainTab(button.dataset.goTab);
-    console.info("[tabs] na klik quick link:", currentMainTab);
+    setActiveTab(button.dataset.goTab);
   });
 });
 
@@ -22598,24 +21481,12 @@ requestStatusFilter?.addEventListener("change", () => {
 
 mobileNavButtons.forEach((button) => {
   button.addEventListener("click", () => {
-    console.info("[tabs] klik mobiele tab:", button.dataset.goTab);
-    setCurrentMainTab(button.dataset.goTab);
-    console.info("[tabs] na klik mobiele tab:", currentMainTab);
+    setActiveTab(button.dataset.goTab);
   });
 });
 
-mobileBottomNav?.addEventListener("click", (event) => {
-  const button = event.target.closest(".mobile-nav-button");
-
-  if (!button || button.hidden) {
-    return;
-  }
-
-  setCurrentMainTab(button.dataset.goTab, { force: true });
-});
-
 window.addEventListener("beforeunload", (event) => {
-  if (currentMainTab !== TABS.EMPLOYEES) {
+  if (activeTab !== "employees") {
     return;
   }
 
@@ -22709,11 +21580,11 @@ if (typeof mobileMediaQuery.addEventListener === "function") {
 }
 
 window.addEventListener("error", (event) => {
-  reportAppError("App-fout:", event.error || event.message, "window-error");
+  reportAppError("Er ging onverwacht iets mis in de app.", event.error || event.message, "window-error");
 });
 
 window.addEventListener("unhandledrejection", (event) => {
-  reportAppError("Async fout:", event.reason, "unhandledrejection");
+  reportAppError("Er ging onverwacht iets mis tijdens het verwerken van gegevens.", event.reason, "unhandledrejection");
 });
 
 syncStartWeekToCurrent();
@@ -22721,18 +21592,9 @@ newShiftColorInput.value = "shift-tone-oven";
 updateFormState();
 reloadScopedData();
 applySavedPreferences();
-initializeDefaultTabIfNeeded(true);
+activeTab = getDefaultTabForCurrentRole();
 updateTabVisibility();
-render();
-if (employeeEmergencyRestoreApplied) {
-  showSuccess("Medewerkergegevens hersteld uit noodbackup");
-}
-void initializeClerkAuthentication();
-
-
-
-
-
+restoreSessionState({ resetToDefaultTab: true, resetWeekToCurrent: true });
 
 
 

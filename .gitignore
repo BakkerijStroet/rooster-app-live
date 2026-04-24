@@ -1,0 +1,6 @@
+.chrome-headless/
+.chrome-headless*
+.edge-headless/
+node_modules/
+.env
+dist/
