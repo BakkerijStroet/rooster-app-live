@@ -7514,11 +7514,10 @@ body[data-role="planner"] .container {
   pointer-events: auto !important;
 }
 
-.app-shell > :not(#test-click):not(.app-nav):not(#simpleTabEmergencyPanel) {
+.app-shell > :not(#test-click):not(.app-nav):not(#simpleTabEmergencyPanel):not(#loginOverlay) {
   pointer-events: none !important;
 }
 
-.login-overlay,
 .login-overlay.hidden,
 .brand-header,
 .session-bar,
@@ -7528,6 +7527,13 @@ body[data-role="planner"] .container {
 .mobile-bottom-nav,
 .dashboard {
   pointer-events: none !important;
+}
+
+.login-overlay,
+.login-overlay *,
+.login-card,
+.login-card * {
+  pointer-events: auto !important;
 }
 
 body[data-role="planner"] .app-shell {
