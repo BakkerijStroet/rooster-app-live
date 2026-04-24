@@ -87,6 +87,7 @@ const employeeEmailInput = document.getElementById("employeeEmailInput");
 const employeeEmailError = document.getElementById("employeeEmailError");
 const employeeLoginPinInput = document.getElementById("employeeLoginPinInput");
 const employeeLoginPinError = document.getElementById("employeeLoginPinError");
+const employeeLoginPinStatus = document.getElementById("employeeLoginPinStatus");
 const employeeMailTestUserInput = document.getElementById("employeeMailTestUserInput");
 const employeeNameDisplayInput = document.getElementById("employeeNameDisplay");
 const employeeDetailMailStatus = document.getElementById("employeeDetailMailStatus");
@@ -2920,6 +2921,7 @@ const {
   createEmployeeEditorDraft: createEmployeeEditorDraftHelper = function fallbackCreateEmployeeEditorDraft(getters, employeeName) {
     return {
       email: getters.getEmployeeEmail(employeeName),
+      loginPin: getters.getConfiguredEmployeeLoginPin(employeeName),
       role: getters.getEmployeeAppRole(employeeName),
       status: getters.getEmployeeStatus(employeeName),
       mailTestUser: getters.isEmployeeMailTestEnabled(employeeName),
@@ -2976,6 +2978,13 @@ const {
     return {
       hidden: false,
       text: `${employeeEmailText} · ${testModeText} · mislukt${message ? ` · ${message}` : ""}`
+    };
+  },
+  getEmployeeLoginPinStatusViewModel: getEmployeeLoginPinStatusViewModelHelper = function fallbackGetEmployeeLoginPinStatusViewModel({ configuredLoginPin }) {
+    return {
+      text: configuredLoginPin
+        ? "Eigen pincode ingesteld"
+        : "Gebruikt tijdelijke standaardpin"
     };
   },
   getPermissionShiftGroups: getPermissionShiftGroupsHelper = function fallbackGetPermissionShiftGroups(getPermissionShiftDescriptors, matchers) {
@@ -3663,6 +3672,12 @@ function createEmployeeEditorDraft(employeeName) {
   }, employeeName);
 }
 
+function getEmployeeLoginPinStatusViewModel(configuredLoginPin) {
+  return getEmployeeLoginPinStatusViewModelHelper({
+    configuredLoginPin: normalizeEmployeeLoginPin(configuredLoginPin)
+  });
+}
+
 function getEmployeeEditorDraft(employeeName) {
   if (!employeeName) {
     return null;
@@ -3775,6 +3790,24 @@ function setEmployeeLoginPinFieldError(message = "") {
 
 function clearEmployeeLoginPinFieldError() {
   setEmployeeLoginPinFieldError("");
+}
+
+function renderEmployeeLoginPinStatus(employeeName = getSelectedEmployeeAdminName()) {
+  if (!employeeLoginPinStatus) {
+    return;
+  }
+
+  if (!employeeName) {
+    employeeLoginPinStatus.textContent = "Gebruikt tijdelijke standaardpin";
+    return;
+  }
+
+  const employeeDraft = getEmployeeEditorDraft(employeeName);
+  const configuredLoginPin = typeof employeeDraft?.loginPin === "string"
+    ? employeeDraft.loginPin
+    : getConfiguredEmployeeLoginPin(employeeName);
+  const statusViewModel = getEmployeeLoginPinStatusViewModel(configuredLoginPin);
+  employeeLoginPinStatus.textContent = statusViewModel.text;
 }
 
 function discardEmployeeEditorChanges(employeeName) {
@@ -14633,6 +14666,7 @@ function renderEmployeeStatusControls() {
     }
     employeeStatusImpact.textContent = "Nog geen medewerkers toegevoegd.";
     clearEmployeeLoginPinFieldError();
+    renderEmployeeLoginPinStatus("");
     return;
   }
 
@@ -14670,6 +14704,7 @@ function renderEmployeeStatusControls() {
     employeeDetailTitle.textContent = selectedEmployee || "Kies links een medewerker";
   }
   employeeStatusImpact.textContent = formatEmployeeStatusImpact(employeeStatusSelect.value);
+  renderEmployeeLoginPinStatus(selectedEmployee);
   renderEmployeeDetailMailStatus(selectedEmployee);
 }
 
@@ -20332,6 +20367,8 @@ employeeLoginPinInput?.addEventListener("input", () => {
   if (employeeDraft) {
     employeeDraft.loginPin = employeeLoginPinInput.value;
   }
+
+  renderEmployeeLoginPinStatus(employeeName);
 });
 
 employeeMailTestUserInput?.addEventListener("change", () => {

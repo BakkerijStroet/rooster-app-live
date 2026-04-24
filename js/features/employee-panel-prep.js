@@ -96,9 +96,18 @@
     };
   }
 
+  function getEmployeeLoginPinStatusViewModel({ configuredLoginPin }) {
+    return {
+      text: configuredLoginPin
+        ? "Eigen pincode ingesteld"
+        : "Gebruikt tijdelijke standaardpin"
+    };
+  }
+
   globalScope.StroetEmployeePanelPrepFeature = Object.freeze({
     createEmployeeEditorDraft,
     getEmployeeDetailMailStatusViewModel,
+    getEmployeeLoginPinStatusViewModel,
     getPermissionShiftGroups,
     getEmployeeContractPanelData
   });
