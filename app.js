@@ -109,6 +109,8 @@ const EMPLOYEE_MAIL_TEST_MODE_ENABLED = true;
 const EMPLOYEE_MAIL_TEST_EMPLOYEE = "Twan";
 // TODO: replace this temporary local planner PIN with settings-backed or server-side auth.
 const PLANNER_LOGIN_PIN = "1234";
+// TODO: replace this temporary default employee PIN with per-employee settings or server-side auth.
+const DEFAULT_EMPLOYEE_LOGIN_PIN = "1234";
 const employeeListCard = document.getElementById("employeeListCard");
 const employeeStandardShiftList = document.getElementById("employeeStandardShiftList");
 const employeePermissionsList = document.getElementById("employeePermissionsList");
@@ -650,6 +652,11 @@ function clearPlannerPinInput() {
   if (loginPlannerPinInput) {
     loginPlannerPinInput.value = "";
   }
+}
+
+function getEmployeeLoginPin(employeeName) {
+  const configuredPin = normalizeEmployeeLoginPin(employeeMeta?.[employeeName]?.loginPin);
+  return configuredPin || DEFAULT_EMPLOYEE_LOGIN_PIN;
 }
 
 function clearLoginError() {
@@ -1423,6 +1430,9 @@ const {
     return value === "planner" ? "planner" : "employee";
   },
   normalizeEmployeeEmail = function fallbackNormalizeEmployeeEmail(value) {
+    return typeof value === "string" ? value.trim() : "";
+  },
+  normalizeEmployeeLoginPin = function fallbackNormalizeEmployeeLoginPin(value) {
     return typeof value === "string" ? value.trim() : "";
   },
   normalizeEmployeeStatus = function fallbackNormalizeEmployeeStatus(value) {
@@ -3469,6 +3479,7 @@ function loadEmployeeMeta() {
       employeeName,
       {
         ...getEmployeeStatusMetaDefaults(),
+        loginPin: "",
         mailTestUser: employeeName === "Twan"
       }
     ])
@@ -3492,6 +3503,7 @@ function loadEmployeeMeta() {
         role: normalizeEmployeeAppRole(currentMeta?.role || getDefaultEmployeeAppRole(employeeName)),
         contractHours: normalizeContractHours(currentMeta?.contractHours ?? getConfiguredEmployeeContractHours()[employeeName] ?? 0),
         email: normalizeEmployeeEmail(currentMeta?.email),
+        loginPin: normalizeEmployeeLoginPin(currentMeta?.loginPin),
         mailTestUser: hasExplicitMailTestUser ? Boolean(currentMeta?.mailTestUser) : employeeName === "Twan",
         lastTestMailAt: typeof currentMeta?.lastTestMailAt === "string" ? currentMeta.lastTestMailAt : "",
         lastTestMailStatus: typeof currentMeta?.lastTestMailStatus === "string" ? currentMeta.lastTestMailStatus : "",
@@ -4088,6 +4100,7 @@ function syncEmployeeMeta() {
         employeeMeta[employeeName].contractHours ?? configuredContractHours[employeeName] ?? 0
       );
       const normalizedEmail = normalizeEmployeeEmail(employeeMeta[employeeName].email);
+      const normalizedLoginPin = normalizeEmployeeLoginPin(employeeMeta[employeeName].loginPin);
       const normalizedMailTestUser = Boolean(employeeMeta[employeeName].mailTestUser);
       const normalizedLastTestMailAt = typeof employeeMeta[employeeName].lastTestMailAt === "string" ? employeeMeta[employeeName].lastTestMailAt : "";
       const normalizedLastTestMailStatus = typeof employeeMeta[employeeName].lastTestMailStatus === "string" ? employeeMeta[employeeName].lastTestMailStatus : "";
@@ -4105,6 +4118,11 @@ function syncEmployeeMeta() {
 
       if (employeeMeta[employeeName].email !== normalizedEmail) {
         employeeMeta[employeeName].email = normalizedEmail;
+        changed = true;
+      }
+
+      if (employeeMeta[employeeName].loginPin !== normalizedLoginPin) {
+        employeeMeta[employeeName].loginPin = normalizedLoginPin;
         changed = true;
       }
 
@@ -7574,6 +7592,12 @@ function updateLoginRoleState() {
   clearPlannerPinInput();
   loginEmployeeLabel.classList.toggle("hidden", !isEmployeeLogin);
   loginPlannerPinLabel?.classList.toggle("hidden", isEmployeeLogin);
+  if (loginPlannerPinLabel) {
+    loginPlannerPinLabel.firstChild.textContent = isEmployeeLogin ? "Medewerker pincode" : "Planner pincode";
+  }
+  if (loginPlannerPinInput) {
+    loginPlannerPinInput.placeholder = isEmployeeLogin ? "Voer medewerker pincode in" : "Voer pincode in";
+  }
   loginConfirmButton.textContent = isEmployeeLogin ? "Inloggen als medewerker" : "Inloggen als planner";
 }
 
@@ -7609,20 +7633,43 @@ function closeLoginOverlay() {
 
 function applyLoggedInUserSelection({ showStartupMessage = false } = {}) {
   const selectedRole = getLoginRoleValue();
+  const enteredPin = String(loginPlannerPinInput?.value || "").trim();
 
   if (selectedRole === "employee") {
-    return startEmployeeSession(loginEmployeeSelect?.value || "", { showStartupMessage });
+    const employeeName = loginEmployeeSelect?.value || "";
+
+    if (!enteredPin) {
+      showLoginError("Vul eerst de medewerker-pincode in.");
+      loginPlannerPinInput?.focus();
+      return false;
+    }
+
+    if (!employeeName) {
+      showLoginError("Kies eerst een actieve medewerker.");
+      clearPlannerPinInput();
+      loginEmployeeSelect?.focus();
+      return false;
+    }
+
+    if (enteredPin !== getEmployeeLoginPin(employeeName)) {
+      showLoginError("Medewerker-pincode onjuist.");
+      clearPlannerPinInput();
+      loginPlannerPinInput?.focus();
+      return false;
+    }
+
+    clearLoginError();
+    clearPlannerPinInput();
+    return startEmployeeSession(employeeName, { showStartupMessage });
   }
 
-  const enteredPlannerPin = String(loginPlannerPinInput?.value || "").trim();
-
-  if (!enteredPlannerPin) {
+  if (!enteredPin) {
     showLoginError("Vul eerst de planner-pincode in.");
     loginPlannerPinInput?.focus();
     return false;
   }
 
-  if (enteredPlannerPin !== PLANNER_LOGIN_PIN) {
+  if (enteredPin !== PLANNER_LOGIN_PIN) {
     showLoginError("Planner-pincode onjuist.");
     clearPlannerPinInput();
     loginPlannerPinInput?.focus();

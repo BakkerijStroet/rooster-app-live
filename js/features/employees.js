@@ -5,6 +5,7 @@
       role: "employee",
       contractHours: 0,
       email: "",
+      loginPin: "",
       mailTestUser: false,
       lastTestMailAt: "",
       lastTestMailStatus: "",
@@ -48,6 +49,10 @@
   }
 
   function normalizeEmployeeEmail(value) {
+    return typeof value === "string" ? value.trim() : "";
+  }
+
+  function normalizeEmployeeLoginPin(value) {
     return typeof value === "string" ? value.trim() : "";
   }
 
@@ -103,6 +108,7 @@
     normalizeContractHours,
     normalizeEmployeeAppRole,
     normalizeEmployeeEmail,
+    normalizeEmployeeLoginPin,
     normalizeEmployeeStatus
   });
 })(window);
