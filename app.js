@@ -258,94 +258,6 @@ const auditLogStorageKey = "urenrooster-audit-log";
 const backupStorageKey = "urenrooster-backups";
 const mailSettingsStorageKey = "urenrooster-mail-settings";
 
-const preferences = loadPreferences();
-let currentDataMode = "live";
-if (preferences.lastDataMode !== "live") {
-  preferences.lastDataMode = "live";
-}
-const entries = loadEntries();
-const employees = loadEmployees();
-const shifts = loadShifts();
-const planningSettings = loadPlanningSettings();
-const timeOffRequests = loadTimeOffRequests();
-const swapRequests = loadSwapRequests();
-const workLogs = loadWorkLogs();
-const employeePermissions = loadEmployeePermissions();
-const employeeStandardShifts = loadEmployeeStandardShifts();
-const employeeShiftPreferences = loadEmployeeShiftPreferences();
-const employeeBasePatterns = loadEmployeeBasePatterns();
-const employeeCustomRosters = loadEmployeeCustomRosters();
-const employeeMeta = loadEmployeeMeta();
-const mailSettings = loadMailSettings();
-const auditLog = loadAuditLog();
-const backupHistory = loadBackupHistory();
-let editIndex = null;
-let editingShiftId = null;
-let activeTab = "week-current";
-let activeEmployeeWeekView = "today";
-let activeRole = preferences.lastRole === "employee" ? "employee" : "planner";
-let editingTimeOffId = null;
-let editingSwapId = null;
-let activeRequestComposer = "";
-let activeRequestType = "vrije-dag";
-let vrijeDagForm = {
-  employeeName: "",
-  type: "vrij",
-  date: "",
-  startDate: "",
-  endDate: "",
-  reason: ""
-};
-let vakantieForm = {
-  employeeName: "",
-  type: "vakantie",
-  date: "",
-  startDate: "",
-  endDate: "",
-  reason: ""
-};
-let ziekmeldingForm = {
-  employeeName: "",
-  type: "ziek",
-  date: "",
-  startDate: "",
-  endDate: "",
-  reason: ""
-};
-let ruilForm = {
-  employeeName: "",
-  date: "",
-  entryValue: "",
-  targetEmployeeName: ""
-};
-let showSuitableEmployees = false;
-let autoFillPreviewEntries = [];
-let undoState = null;
-let pendingPlannerFocus = null;
-let planningOverviewExpandedWeek = "";
-const mobileMediaQuery = window.matchMedia("(max-width: 640px)");
-let messageTimeoutId = null;
-let activeMessageState = null;
-let queuedMessageStates = [];
-const employeeAllowedTabs = ["week-current", "my-schedule", "my-hours", "requests"];
-let planningDataRevision = 0;
-let requestDataRevision = 0;
-let previewDataRevision = 0;
-let activeMyHoursSection = "";
-let activeMyHoursEntryMode = "planned";
-let lastOpenRequestReminderKey = "";
-let lastEmployeeHoursReminderKey = "";
-const derivedDataCache = {
-  planningEntriesKey: "",
-  planningEntries: [],
-  visibleEntriesKey: "",
-  visibleEntries: [],
-  filteredEntriesKey: "",
-  filteredEntries: [],
-  approvedTimeOffKey: "",
-  approvedTimeOff: []
-};
-
 const { setClassName = function fallbackSetClassName(element, value) {
   if (!element) {
     return;
@@ -357,15 +269,6 @@ const { setClassName = function fallbackSetClassName(element, value) {
 if (dayPlannerNote) {
   dayPlannerNote.textContent = "Kies een dag en plan alle diensten van die dag in een keer.";
 }
-
-mergeEmployeesFromEntries();
-ensureConfiguredBakeryEmployees();
-syncEmployeeMeta();
-syncEmployeePermissions();
-syncEmployeeStandardShifts();
-syncEmployeeShiftPreferences();
-syncEmployeeBasePatterns();
-syncEmployeeCustomRosters();
 
 function getScopedStorageKey(baseKey) {
   return currentDataMode === "test" ? `${baseKey}__test` : baseKey;
@@ -680,6 +583,211 @@ function hasRememberedUserSession() {
 
 function needsLoginSelection() {
   return needsLoginSelectionHelper(hasRememberedUserSession(), activeRole, getEmployeeIdentity());
+}
+
+function buildSessionSnapshot(sourcePreferences = preferences) {
+  const requestedRole = sourcePreferences?.lastRole === "employee" ? "employee" : "planner";
+  const validEmployeeIdentity = getEmployeeIdentityHelper(
+    {
+      employeeIdentity: typeof sourcePreferences?.employeeIdentity === "string"
+        ? sourcePreferences.employeeIdentity
+        : ""
+    },
+    employees,
+    isEmployeeActive
+  );
+  const rememberedUserSession = hasRememberedUserSessionHelper(sourcePreferences);
+  const isAuthenticated = !needsLoginSelectionHelper(
+    rememberedUserSession,
+    requestedRole,
+    validEmployeeIdentity
+  );
+
+  return {
+    isAuthenticated,
+    role: requestedRole,
+    employeeIdentity: requestedRole === "employee" ? validEmployeeIdentity : ""
+  };
+}
+
+function applySessionSnapshot(nextSessionState, { persist = false } = {}) {
+  const normalizedRole = nextSessionState?.role === "employee" ? "employee" : "planner";
+  const normalizedEmployeeIdentity = normalizedRole === "employee"
+    ? String(nextSessionState?.employeeIdentity || "")
+    : "";
+  const isAuthenticated = Boolean(nextSessionState?.isAuthenticated) &&
+    (normalizedRole === "planner" || Boolean(normalizedEmployeeIdentity));
+
+  sessionState.isAuthenticated = isAuthenticated;
+  sessionState.role = normalizedRole;
+  sessionState.employeeIdentity = isAuthenticated ? normalizedEmployeeIdentity : "";
+  activeRole = normalizedRole;
+  currentDataMode = "live";
+  preferences.lastRole = normalizedRole;
+  preferences.lastDataMode = "live";
+  preferences.employeeIdentity = sessionState.employeeIdentity;
+  preferences.hasUserSession = isAuthenticated;
+
+  if (persist) {
+    savePreferences();
+  }
+}
+
+function getAvailableLoginEmployees() {
+  const modeEmployees = getEmployeesForMode("live");
+  const modeEmployeeMeta = getEmployeeMetaForMode("live", modeEmployees);
+  return modeEmployees.filter((employeeName) =>
+    normalizeEmployeeStatus(modeEmployeeMeta?.[employeeName]?.status) === "active"
+  );
+}
+
+function resetScopedEmployeeSelectors() {
+  const emptyEmployeeName = "";
+  currentEmployeeSelect.value = emptyEmployeeName;
+  portalEmployeeSelect.value = emptyEmployeeName;
+  hoursEmployeeSelect.value = emptyEmployeeName;
+  getAllTimeOffEmployeeSelects().forEach((select) => {
+    select.value = emptyEmployeeName;
+  });
+  swapEmployeeSelect.value = emptyEmployeeName;
+}
+
+function openSessionLogin({ preferredRole = activeRole, preferredEmployee = "" } = {}) {
+  if (!loginOverlay) {
+    return;
+  }
+
+  populateLoginEmployeeSelect();
+  loginRoleSelect.value = preferredRole === "employee" ? "employee" : "planner";
+  if (loginTestModeCheckbox) {
+    loginTestModeCheckbox.checked = false;
+  }
+  populateLoginEmployeeSelect();
+  loginEmployeeSelect.value = getAvailableLoginEmployees().includes(preferredEmployee)
+    ? preferredEmployee
+    : "";
+  updateLoginRoleState();
+  appShell?.classList.add("login-required");
+  loginOverlay.classList.remove("hidden");
+}
+
+function closeSessionLogin() {
+  appShell?.classList.remove("login-required");
+  loginOverlay?.classList.add("hidden");
+}
+
+function startPlannerSession({ showStartupMessage = false } = {}) {
+  applySessionSnapshot({
+    isAuthenticated: true,
+    role: "planner",
+    employeeIdentity: ""
+  }, { persist: true });
+  reloadScopedData();
+  closeSessionLogin();
+  reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
+
+  if (showStartupMessage) {
+    showMessage("Planner geladen.", "success");
+  }
+
+  return true;
+}
+
+function startEmployeeSession(employeeName, { showStartupMessage = false } = {}) {
+  const availableEmployees = getAvailableLoginEmployees();
+
+  if (!employeeName || !availableEmployees.includes(employeeName)) {
+    showMessage("Kies eerst een actieve medewerker.", "error");
+    openSessionLogin({
+      preferredRole: "employee",
+      preferredEmployee: ""
+    });
+    return false;
+  }
+
+  applySessionSnapshot({
+    isAuthenticated: true,
+    role: "employee",
+    employeeIdentity: employeeName
+  }, { persist: true });
+  reloadScopedData();
+
+  if (!getEmployeeIdentity()) {
+    showMessage("De gekozen medewerker is niet meer beschikbaar. Log opnieuw in.", "error");
+    applySessionSnapshot({
+      isAuthenticated: false,
+      role: "employee",
+      employeeIdentity: ""
+    }, { persist: true });
+    render();
+    openSessionLogin({
+      preferredRole: "employee",
+      preferredEmployee: ""
+    });
+    return false;
+  }
+
+  closeSessionLogin();
+  reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
+
+  if (showStartupMessage) {
+    showMessage("Medewerker geladen.", "success");
+  }
+
+  return true;
+}
+
+function restoreSessionState({
+  resetToDefaultTab = true,
+  resetWeekToCurrent = true
+} = {}) {
+  const restoredSession = buildSessionSnapshot();
+  const employeeSessionExpired = hasRememberedUserSession() &&
+    restoredSession.role === "employee" &&
+    !restoredSession.isAuthenticated;
+  applySessionSnapshot(restoredSession, { persist: !restoredSession.isAuthenticated });
+
+  if (!restoredSession.isAuthenticated) {
+    resetScopedEmployeeSelectors();
+    render();
+    openSessionLogin({
+      preferredRole: restoredSession.role,
+      preferredEmployee: restoredSession.employeeIdentity
+    });
+
+    if (employeeSessionExpired) {
+      showMessage("De medewerker is niet meer actief of niet meer beschikbaar. Log opnieuw in.", "warning");
+    }
+
+    return false;
+  }
+
+  closeSessionLogin();
+  reloadForLoggedInUser({
+    resetToDefaultTab,
+    resetWeekToCurrent
+  });
+  return true;
+}
+
+function logoutCurrentSession({ showMessageAfterLogout = false } = {}) {
+  applySessionSnapshot({
+    isAuthenticated: false,
+    role: sessionState.role,
+    employeeIdentity: ""
+  }, { persist: true });
+  resetScopedEmployeeSelectors();
+  activeTab = getDefaultTabForCurrentRole();
+  syncStartWeekToCurrent();
+  render();
+  openSessionLogin({
+    preferredRole: sessionState.role,
+    preferredEmployee: ""
+  });
+
+  if (showMessageAfterLogout) {
+    showMessage("Uitgelogd.", "success");
+  }
 }
 
 function loadEntries() {
@@ -3179,6 +3287,109 @@ const {
   }
 } = window.StroetHoursPanelPrepFeature || {};
 
+const preferences = loadPreferences();
+let currentDataMode = "live";
+if (preferences.lastDataMode !== "live") {
+  preferences.lastDataMode = "live";
+}
+const entries = loadEntries();
+const employees = loadEmployees();
+let shifts = [];
+shifts = loadShifts();
+const planningSettings = loadPlanningSettings();
+const timeOffRequests = loadTimeOffRequests();
+const swapRequests = loadSwapRequests();
+const workLogs = loadWorkLogs();
+const employeePermissions = loadEmployeePermissions();
+const employeeStandardShifts = loadEmployeeStandardShifts();
+const employeeShiftPreferences = loadEmployeeShiftPreferences();
+const employeeBasePatterns = loadEmployeeBasePatterns();
+const employeeCustomRosters = loadEmployeeCustomRosters();
+const employeeMeta = loadEmployeeMeta();
+const mailSettings = loadMailSettings();
+const auditLog = loadAuditLog();
+const backupHistory = loadBackupHistory();
+let editIndex = null;
+let editingShiftId = null;
+let activeTab = "week-current";
+let activeEmployeeWeekView = "today";
+let activeRole = preferences.lastRole === "employee" ? "employee" : "planner";
+const sessionState = {
+  isAuthenticated: false,
+  role: activeRole,
+  employeeIdentity: ""
+};
+let editingTimeOffId = null;
+let editingSwapId = null;
+let activeRequestComposer = "";
+let activeRequestType = "vrije-dag";
+let vrijeDagForm = {
+  employeeName: "",
+  type: "vrij",
+  date: "",
+  startDate: "",
+  endDate: "",
+  reason: ""
+};
+let vakantieForm = {
+  employeeName: "",
+  type: "vakantie",
+  date: "",
+  startDate: "",
+  endDate: "",
+  reason: ""
+};
+let ziekmeldingForm = {
+  employeeName: "",
+  type: "ziek",
+  date: "",
+  startDate: "",
+  endDate: "",
+  reason: ""
+};
+let ruilForm = {
+  employeeName: "",
+  date: "",
+  entryValue: "",
+  targetEmployeeName: ""
+};
+let showSuitableEmployees = false;
+let autoFillPreviewEntries = [];
+let undoState = null;
+let pendingPlannerFocus = null;
+let planningOverviewExpandedWeek = "";
+const mobileMediaQuery = window.matchMedia("(max-width: 640px)");
+let messageTimeoutId = null;
+let activeMessageState = null;
+let queuedMessageStates = [];
+const employeeAllowedTabs = ["week-current", "my-schedule", "my-hours", "requests"];
+let planningDataRevision = 0;
+let requestDataRevision = 0;
+let previewDataRevision = 0;
+let activeMyHoursSection = "";
+let activeMyHoursEntryMode = "planned";
+let lastOpenRequestReminderKey = "";
+let lastEmployeeHoursReminderKey = "";
+const derivedDataCache = {
+  planningEntriesKey: "",
+  planningEntries: [],
+  visibleEntriesKey: "",
+  visibleEntries: [],
+  filteredEntriesKey: "",
+  filteredEntries: [],
+  approvedTimeOffKey: "",
+  approvedTimeOff: []
+};
+
+mergeEmployeesFromEntries();
+ensureConfiguredBakeryEmployees();
+syncEmployeeMeta();
+syncEmployeePermissions();
+syncEmployeeStandardShifts();
+syncEmployeeShiftPreferences();
+syncEmployeeBasePatterns();
+syncEmployeeCustomRosters();
+
 function getMailSettingsDefaults() {
   return getMailSettingsDefaultsHelper(FIXED_TEST_MAIL_RECIPIENT);
 }
@@ -4018,6 +4229,13 @@ function restoreBackupById(backupId) {
 }
 
 function getPermissionShiftDescriptors() {
+  const activeShifts = (() => {
+    try {
+      return Array.isArray(shifts) ? shifts : [];
+    } catch {
+      return [];
+    }
+  })();
   const shopNumbers = new Set(getHolidayShopTemplates().map((template) => template.number));
   const allroundNames = new Set();
 
@@ -4048,7 +4266,7 @@ function getPermissionShiftDescriptors() {
     }));
 
   const descriptors = [
-    ...shifts.map((shift) => ({
+    ...activeShifts.map((shift) => ({
       name: shift.name,
       color: shift.color || "shift-tone-inpak"
     })),
@@ -6926,7 +7144,13 @@ function isPlannerRole() {
 }
 
 function getEmployeeIdentity() {
-  return getEmployeeIdentityHelper(preferences, employees, isEmployeeActive);
+  return getEmployeeIdentityHelper(
+    {
+      employeeIdentity: sessionState.employeeIdentity || preferences.employeeIdentity
+    },
+    employees,
+    isEmployeeActive
+  );
 }
 
 function getRoleScopedEmployeeName(fallbackName = "") {
@@ -6964,17 +7188,8 @@ function ensureEmployeeIdentityForCurrentRole() {
     return currentIdentity;
   }
 
-  const preferredEmployee = getPreferredEmployeeIdentityCandidate();
-
-  if (!preferredEmployee) {
-    return "";
-  }
-
-  preferences.employeeIdentity = preferredEmployee;
-  preferences.hasUserSession = true;
-  savePreferences();
-  syncScopedEmployeeSelectors(preferredEmployee);
-  return preferredEmployee;
+  syncScopedEmployeeSelectors("");
+  return "";
 }
 
 function getPreferredEmployeeIdentityCandidate() {
@@ -7344,76 +7559,38 @@ function populateLoginEmployeeSelect() {
 }
 
 function openLoginOverlay() {
-  if (!loginOverlay) {
-    return;
-  }
-
-  populateLoginEmployeeSelect();
-  loginRoleSelect.value = activeRole;
-  if (loginTestModeCheckbox) {
-    loginTestModeCheckbox.checked = false;
-  }
-  populateLoginEmployeeSelect();
-  loginEmployeeSelect.value = getEmployeeIdentity() || preferences.lastPortalEmployee || preferences.lastEmployee || "";
-  updateLoginRoleState();
-  appShell?.classList.add("login-required");
-  loginOverlay.classList.remove("hidden");
+  openSessionLogin({
+    preferredRole: sessionState.role || activeRole,
+    preferredEmployee: getEmployeeIdentity() || preferences.lastPortalEmployee || preferences.lastEmployee || ""
+  });
 }
 
 function closeLoginOverlay() {
-  appShell?.classList.remove("login-required");
-  loginOverlay?.classList.add("hidden");
+  closeSessionLogin();
 }
 
 function applyLoggedInUserSelection({ showStartupMessage = false } = {}) {
-  activeRole = getLoginRoleValue();
-  const selectedMode = "live";
+  const selectedRole = getLoginRoleValue();
 
-  if (activeRole === "employee") {
-    const selectedEmployee = loginEmployeeSelect.value;
-    const modeEmployees = getEmployeesForMode(selectedMode);
-    const modeEmployeeMeta = getEmployeeMetaForMode(selectedMode, modeEmployees);
-    const availableEmployees = modeEmployees.filter((employeeName) => normalizeEmployeeStatus(modeEmployeeMeta?.[employeeName]?.status) === "active");
-
-    if (!selectedEmployee || !availableEmployees.includes(selectedEmployee)) {
-      showMessage("Kies eerst een medewerker.", "error");
-      return false;
-    }
-
-    preferences.employeeIdentity = selectedEmployee;
-  } else {
-    preferences.employeeIdentity = "";
+  if (selectedRole === "employee") {
+    return startEmployeeSession(loginEmployeeSelect?.value || "", { showStartupMessage });
   }
 
-  currentDataMode = selectedMode;
-  preferences.lastRole = activeRole;
-  preferences.lastDataMode = currentDataMode;
-  preferences.hasUserSession = true;
-  savePreferences();
-  reloadScopedData();
-
-  if (activeRole === "employee" && !getEmployeeIdentity()) {
-    showMessage("De gekozen medewerker bestaat niet in deze gegevensset.", "error");
-    openLoginOverlay();
-    return false;
-  }
-
-  closeLoginOverlay();
-  reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
-
-  if (showStartupMessage) {
-    showMessage("Gebruiker geladen.", "success");
-  }
-
-  return true;
+  return startPlannerSession({ showStartupMessage });
 }
 
 function reloadForLoggedInUser(options = {}) {
   const { resetToDefaultTab = false, resetWeekToCurrent = false } = options;
 
-  if (needsLoginSelection()) {
+  const nextSession = buildSessionSnapshot();
+  applySessionSnapshot(nextSession, { persist: !nextSession.isAuthenticated });
+
+  if (!nextSession.isAuthenticated) {
     render();
-    openLoginOverlay();
+    openSessionLogin({
+      preferredRole: nextSession.role,
+      preferredEmployee: nextSession.employeeIdentity
+    });
     return;
   }
 
@@ -7429,7 +7606,7 @@ function reloadForLoggedInUser(options = {}) {
     syncStartWeekToCurrent();
   }
 
-  closeLoginOverlay();
+  closeSessionLogin();
   render();
 }
 
@@ -12039,30 +12216,6 @@ function queueRequestMailDelivery(request, mailEntry, options = {}) {
   });
 }
 
-function getSwapMailTemplateKey(type) {
-  const templateMap = {
-    submitted: "swapSubmitted",
-    "request-created": "swapRequestCreated",
-    "auto-approved": "swapAutoApproved",
-    approved: "swapApproved",
-    rejected: "swapRejected",
-    "planner-help": "swapPlannerHelp",
-    reminder: "swapReminder"
-  };
-
-  return templateMap[type] || "swapSubmitted";
-}
-
-function getTimeOffMailTemplateKey(request, type) {
-  const templateMap = {
-    submitted: "timeoffSubmitted",
-    approved: "timeoffApproved",
-    rejected: "timeoffRejected"
-  };
-
-  return templateMap[type] || "timeoffSubmitted";
-}
-
 function registerRequestMailNotification(request, type, employeeNames = [], options = {}) {
   if (!request || !type) {
     return;
@@ -15611,6 +15764,7 @@ function applyRoleUI() {
   const employeeIdentity = getEmployeeIdentity();
   const employeeLocked = !isPlannerRole() && Boolean(employeeIdentity);
   const scopedEmployeeName = getRoleScopedEmployeeName();
+  const isAuthenticated = sessionState.isAuthenticated;
   const sessionBar = document.querySelector(".session-bar");
   const roleLabel = roleSelect?.closest("label") || null;
   const currentEmployeeLabel = currentEmployeeSelect?.closest("label") || null;
@@ -15618,6 +15772,8 @@ function applyRoleUI() {
   document.body.dataset.role = activeRole;
   document.body.dataset.employeeLocked = employeeLocked ? "true" : "false";
   roleSelect.value = activeRole;
+  roleSelect.disabled = true;
+  roleSelect.title = "Log uit om als andere rol in te loggen.";
   currentEmployeeSelect.disabled = isPlannerRole() || employeeLocked;
   sessionBar?.classList.toggle("hidden", !isPlannerRole());
   sessionBar?.setAttribute("aria-hidden", isPlannerRole() ? "false" : "true");
@@ -15699,7 +15855,8 @@ function applyRoleUI() {
   }
 
   if (switchUserButton) {
-    switchUserButton.textContent = "Wissel gebruiker";
+    switchUserButton.textContent = "Uitloggen";
+    switchUserButton.hidden = !isAuthenticated;
   }
 
   if (resetTestDataButton) {
@@ -17341,6 +17498,19 @@ function renderActiveTabContent() {
 
 function render() {
   try {
+    if (sessionState.isAuthenticated) {
+      const validatedSession = buildSessionSnapshot();
+
+      if (!validatedSession.isAuthenticated) {
+        applySessionSnapshot(validatedSession, { persist: true });
+        openSessionLogin({
+          preferredRole: validatedSession.role,
+          preferredEmployee: ""
+        });
+        showMessage("De medewerker is niet meer actief of niet meer beschikbaar. Log opnieuw in.", "warning");
+      }
+    }
+
     ensureEmployeeIdentityForCurrentRole();
     applyRoleUI();
     updateTabVisibility();
@@ -21229,25 +21399,7 @@ hoursExportButton?.addEventListener("click", () => {
 });
 
 roleSelect.addEventListener("change", () => {
-  activeRole = roleSelect.value;
-  preferences.lastRole = activeRole;
-  preferences.hasUserSession = true;
-  savePreferences();
-
-  if (!isPlannerRole()) {
-    if (!getEmployeeIdentity()) {
-      const preferredEmployee = getPreferredEmployeeIdentityCandidate();
-
-      if (preferredEmployee) {
-        preferences.employeeIdentity = preferredEmployee;
-        savePreferences();
-      }
-    }
-
-    reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
-  } else {
-    reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
-  }
+  roleSelect.value = activeRole;
 });
 
 currentEmployeeSelect.addEventListener("change", () => {
@@ -21274,7 +21426,7 @@ currentEmployeeSelect.addEventListener("change", () => {
 });
 
 switchUserButton?.addEventListener("click", () => {
-  openLoginOverlay();
+  logoutCurrentSession({ showMessageAfterLogout: true });
 });
 
 resetTestDataButton?.addEventListener("click", () => {
@@ -21442,14 +21594,7 @@ reloadScopedData();
 applySavedPreferences();
 activeTab = getDefaultTabForCurrentRole();
 updateTabVisibility();
-
-if (needsLoginSelection()) {
-  render();
-  openLoginOverlay();
-} else {
-  closeLoginOverlay();
-  reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
-}
+restoreSessionState({ resetToDefaultTab: true, resetWeekToCurrent: true });
 
 
 
