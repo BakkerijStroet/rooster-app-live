@@ -16,6 +16,9 @@ const loginOverlay = document.getElementById("loginOverlay");
 const loginRoleSelect = document.getElementById("loginRoleSelect");
 const loginEmployeeLabel = document.getElementById("loginEmployeeLabel");
 const loginEmployeeSelect = document.getElementById("loginEmployeeSelect");
+const loginPlannerPinLabel = document.getElementById("loginPlannerPinLabel");
+const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
+const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
 const submitButton = document.getElementById("submitButton");
@@ -104,6 +107,8 @@ const FIXED_TEST_MAIL_RECIPIENT = "info@bakkerijstroet.nl";
 const APP_MAIL_TEST_MODE_ENABLED = true;
 const EMPLOYEE_MAIL_TEST_MODE_ENABLED = true;
 const EMPLOYEE_MAIL_TEST_EMPLOYEE = "Twan";
+// TODO: replace this temporary local planner PIN with settings-backed or server-side auth.
+const PLANNER_LOGIN_PIN = "1234";
 const employeeListCard = document.getElementById("employeeListCard");
 const employeeStandardShiftList = document.getElementById("employeeStandardShiftList");
 const employeePermissionsList = document.getElementById("employeePermissionsList");
@@ -641,6 +646,31 @@ function getAvailableLoginEmployees() {
   );
 }
 
+function clearPlannerPinInput() {
+  if (loginPlannerPinInput) {
+    loginPlannerPinInput.value = "";
+  }
+}
+
+function clearLoginError() {
+  if (!loginErrorMessage) {
+    return;
+  }
+
+  loginErrorMessage.textContent = "";
+  loginErrorMessage.classList.add("hidden");
+}
+
+function showLoginError(message) {
+  if (!loginErrorMessage) {
+    showMessage(message, "error");
+    return;
+  }
+
+  loginErrorMessage.textContent = message;
+  loginErrorMessage.classList.remove("hidden");
+}
+
 function resetScopedEmployeeSelectors() {
   const emptyEmployeeName = "";
   currentEmployeeSelect.value = emptyEmployeeName;
@@ -657,6 +687,8 @@ function openSessionLogin({ preferredRole = activeRole, preferredEmployee = "" }
     return;
   }
 
+  clearLoginError();
+  clearPlannerPinInput();
   populateLoginEmployeeSelect();
   loginRoleSelect.value = preferredRole === "employee" ? "employee" : "planner";
   if (loginTestModeCheckbox) {
@@ -672,6 +704,8 @@ function openSessionLogin({ preferredRole = activeRole, preferredEmployee = "" }
 }
 
 function closeSessionLogin() {
+  clearLoginError();
+  clearPlannerPinInput();
   appShell?.classList.remove("login-required");
   loginOverlay?.classList.add("hidden");
 }
@@ -7531,12 +7565,16 @@ function updateTestModeBadge() {
 }
 
 function updateLoginRoleState() {
-  if (!loginEmployeeLabel) {
+  if (!loginEmployeeLabel || !loginConfirmButton) {
     return;
   }
 
   const isEmployeeLogin = getLoginRoleValue() === "employee";
+  clearLoginError();
+  clearPlannerPinInput();
   loginEmployeeLabel.classList.toggle("hidden", !isEmployeeLogin);
+  loginPlannerPinLabel?.classList.toggle("hidden", isEmployeeLogin);
+  loginConfirmButton.textContent = isEmployeeLogin ? "Inloggen als medewerker" : "Inloggen als planner";
 }
 
 function populateLoginEmployeeSelect() {
@@ -7576,6 +7614,23 @@ function applyLoggedInUserSelection({ showStartupMessage = false } = {}) {
     return startEmployeeSession(loginEmployeeSelect?.value || "", { showStartupMessage });
   }
 
+  const enteredPlannerPin = String(loginPlannerPinInput?.value || "").trim();
+
+  if (!enteredPlannerPin) {
+    showLoginError("Vul eerst de planner-pincode in.");
+    loginPlannerPinInput?.focus();
+    return false;
+  }
+
+  if (enteredPlannerPin !== PLANNER_LOGIN_PIN) {
+    showLoginError("Planner-pincode onjuist.");
+    clearPlannerPinInput();
+    loginPlannerPinInput?.focus();
+    return false;
+  }
+
+  clearLoginError();
+  clearPlannerPinInput();
   return startPlannerSession({ showStartupMessage });
 }
 
@@ -21435,6 +21490,14 @@ resetTestDataButton?.addEventListener("click", () => {
 
 loginRoleSelect?.addEventListener("change", () => {
   updateLoginRoleState();
+});
+
+loginEmployeeSelect?.addEventListener("change", () => {
+  clearLoginError();
+});
+
+loginPlannerPinInput?.addEventListener("input", () => {
+  clearLoginError();
 });
 
 loginTestModeCheckbox?.addEventListener("change", () => {

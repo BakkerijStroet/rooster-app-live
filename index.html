@@ -63,12 +63,31 @@
             </div>
           </div>
           <h2 id="loginOverlayTitle">Inloggen</h2>
-          <p class="panel-note" id="loginOverlayNote">Log in met je e-mailadres en wachtwoord om de roosterapp te openen.</p>
-          <div id="clerkAuthStatus" class="login-auth-status hidden" aria-live="polite"></div>
-          <div id="clerkSignInMount" class="clerk-signin-mount" aria-live="polite"></div>
-          <div class="form-actions compact-actions" id="clerkLoginActions">
-            <button type="button" id="clerkLoginButton">Inloggen</button>
-            <button type="button" id="clerkLogoutButton" class="secondary hidden">Uitloggen</button>
+          <p class="panel-note" id="loginOverlayNote">Kies hoe je de app wilt openen.</p>
+          <label>
+            Gebruikerstype
+            <select id="loginRoleSelect">
+              <option value="planner">Planner / Directie</option>
+              <option value="employee">Medewerker</option>
+            </select>
+          </label>
+          <label id="loginEmployeeLabel" class="hidden">
+            Medewerker
+            <select id="loginEmployeeSelect">
+              <option value="">Kies medewerker</option>
+            </select>
+          </label>
+          <label id="loginPlannerPinLabel">
+            Planner pincode
+            <input type="password" id="loginPlannerPinInput" inputmode="numeric" autocomplete="current-password" placeholder="Voer pincode in">
+          </label>
+          <div id="loginErrorMessage" class="panel-note hidden" aria-live="assertive"></div>
+          <label class="login-checkbox hidden" aria-hidden="true">
+            <input type="checkbox" id="loginTestMode">
+            <span>Gebruik testmodus met aparte testdata</span>
+          </label>
+          <div class="form-actions compact-actions">
+            <button type="button" id="loginConfirmButton">Inloggen als planner</button>
           </div>
         </div>
       </section>
