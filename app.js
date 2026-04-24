@@ -15842,15 +15842,15 @@ function renderDashboard() {
     <section class="panel-section">
       <h3>Acties nodig</h3>
       <div class="dashboard-grid">
-        <button type="button" class="dashboard-item" data-dashboard-go-tab="requests">
+        <button type="button" class="dashboard-item" data-dashboard-go-tab="requests" data-dashboard-action="open-requests">
           <span>Open aanvragen</span>
           <strong>${totalOpenRequests}</strong>
         </button>
-        <button type="button" class="dashboard-item" data-dashboard-go-tab="requests">
+        <button type="button" class="dashboard-item" data-dashboard-go-tab="requests" data-dashboard-action="overdue-requests">
           <span>Overdue aanvragen</span>
           <strong>${overdueRequests}</strong>
         </button>
-        <button type="button" class="dashboard-item" data-dashboard-go-tab="hours-approval">
+        <button type="button" class="dashboard-item" data-dashboard-go-tab="hours-approval" data-dashboard-action="hours-approval">
           <span>Uren klaar voor goedkeuring</span>
           <strong>${hoursReadyCount}</strong>
         </button>
@@ -15888,6 +15888,40 @@ function renderDashboard() {
   `;
 }
 
+function applyPlannerDashboardAction(actionName) {
+  if (!isPlannerRole()) {
+    return;
+  }
+
+  const currentWeek = getCurrentWeekValue();
+
+  if (actionName === "open-requests") {
+    if (requestStatusFilter) {
+      requestStatusFilter.value = "open";
+      requestStatusFilter.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    setActiveTab("requests");
+    return;
+  }
+
+  if (actionName === "overdue-requests") {
+    if (requestStatusFilter) {
+      requestStatusFilter.value = "open";
+      requestStatusFilter.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    setActiveTab("requests");
+    return;
+  }
+
+  if (actionName === "hours-approval") {
+    if (approvalWeekInput) {
+      approvalWeekInput.value = currentWeek;
+      approvalWeekInput.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    setActiveTab("hours-approval");
+  }
+}
+
 plannerDashboard?.addEventListener("click", (event) => {
   if (!isPlannerRole()) {
     return;
@@ -15896,6 +15930,11 @@ plannerDashboard?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-dashboard-go-tab]");
 
   if (!button?.dataset.dashboardGoTab) {
+    return;
+  }
+
+  if (button.dataset.dashboardAction) {
+    applyPlannerDashboardAction(button.dataset.dashboardAction);
     return;
   }
 
