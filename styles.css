@@ -239,69 +239,10 @@ h3 {
   z-index: 9999;
   pointer-events: auto;
   isolation: isolate;
-  outline: 2px solid #ff5c35;
-  outline-offset: 3px;
 }
 
 .app-nav * {
   pointer-events: auto;
-}
-
-.simple-main-tab-bar {
-  gap: 8px;
-}
-
-.simple-main-tab-button {
-  appearance: none;
-  border: 1px solid #d9cfc3;
-  background: #ffffff;
-  color: #333333;
-  border-radius: 12px;
-  padding: 10px 14px;
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-  position: relative;
-  z-index: 100000;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-.app-nav,
-.app-nav button,
-#test-click,
-#tab-medewerkers,
-.simple-main-tab-button {
-  pointer-events: auto !important;
-  cursor: pointer !important;
-  position: relative;
-  z-index: 100000 !important;
-}
-
-.simple-main-tab-button.is-active {
-  background: #f28c28;
-  border-color: #f28c28;
-  color: #ffffff;
-}
-
-.simple-tab-emergency-panel {
-  display: grid;
-  gap: 6px;
-  padding: 14px 16px;
-  border: 2px solid #f28c28;
-  border-radius: 16px;
-  background: #fffaf4;
-  color: #333333;
-}
-
-[data-tab-hit-debug="nav"] {
-  outline: 3px solid #ff5c35 !important;
-  outline-offset: 4px !important;
-}
-
-[data-tab-hit-debug="blocker"] {
-  outline: 3px solid #0066ff !important;
-  outline-offset: -2px !important;
 }
 
 .session-bar {
@@ -7500,40 +7441,6 @@ body[data-role="planner"] .container {
   max-width: none;
   margin-left: 16px;
   margin-right: 16px;
-}
-
-/* Tijdelijke brute noodfix voor kliklaag van de noodtabs */
-.container,
-.app-shell,
-#test-click,
-.app-nav,
-.simple-main-tab-button,
-#simpleTabEmergencyPanel {
-  position: relative;
-  z-index: 99999;
-  pointer-events: auto !important;
-}
-
-.app-shell > :not(#test-click):not(.app-nav):not(#simpleTabEmergencyPanel):not(#loginOverlay) {
-  pointer-events: none !important;
-}
-
-.login-overlay.hidden,
-.brand-header,
-.session-bar,
-#plannerDashboard,
-.app-panel,
-.app-panel.is-active,
-.mobile-bottom-nav,
-.dashboard {
-  pointer-events: none !important;
-}
-
-.login-overlay,
-.login-overlay *,
-.login-card,
-.login-card * {
-  pointer-events: auto !important;
 }
 
 body[data-role="planner"] .app-shell {
