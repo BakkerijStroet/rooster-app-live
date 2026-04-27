@@ -1,19 +1,27 @@
 (() => {
   function getAllowedTabsForRole(role, options = {}) {
+    const plannerAllowedTabs = Array.isArray(options.plannerAllowedTabs)
+      ? options.plannerAllowedTabs
+      : [];
     const employeeAllowedTabs = Array.isArray(options.employeeAllowedTabs)
       ? options.employeeAllowedTabs
       : [];
     const normalizedRole = String(role || "").trim().toLowerCase();
 
     if (normalizedRole === "planner" || normalizedRole === "directie") {
-      return null;
+      return [...plannerAllowedTabs];
     }
 
     return [...employeeAllowedTabs];
   }
 
   function getDefaultTabForRole(role) {
-    void role;
+    const normalizedRole = String(role || "").trim().toLowerCase();
+
+    if (normalizedRole === "planner" || normalizedRole === "directie") {
+      return "dashboard";
+    }
+
     return "week-current";
   }
 

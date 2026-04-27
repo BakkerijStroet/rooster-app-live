@@ -2740,19 +2740,27 @@ const {
 
 const {
   getAllowedTabsForRole: getAllowedTabsForRoleHelper = function fallbackGetAllowedTabsForRole(role, options = {}) {
+    const plannerAllowedTabsValue = Array.isArray(options.plannerAllowedTabs)
+      ? options.plannerAllowedTabs
+      : [];
     const employeeAllowedTabs = Array.isArray(options.employeeAllowedTabs)
       ? options.employeeAllowedTabs
       : [];
     const normalizedRole = String(role || "").trim().toLowerCase();
 
     if (normalizedRole === "planner" || normalizedRole === "directie") {
-      return null;
+      return [...plannerAllowedTabsValue];
     }
 
     return [...employeeAllowedTabs];
   },
   getDefaultTabForRole: getDefaultTabForRoleHelper = function fallbackGetDefaultTabForRole(role) {
-    void role;
+    const normalizedRole = String(role || "").trim().toLowerCase();
+
+    if (normalizedRole === "planner" || normalizedRole === "directie") {
+      return "dashboard";
+    }
+
     return "week-current";
   },
   isControlModeActiveState: isControlModeActiveStateHelper = function fallbackIsControlModeActiveState(activeTabValue, role, nextPreferences = {}) {
@@ -3425,6 +3433,7 @@ const mobileMediaQuery = window.matchMedia("(max-width: 640px)");
 let messageTimeoutId = null;
 let activeMessageState = null;
 let queuedMessageStates = [];
+const plannerAllowedTabs = ["dashboard", "week-current", "week-next", "hours-approval", "requests", "employees", "schedule-planning", "services", "planning", "backup"];
 const employeeAllowedTabs = ["week-current", "my-schedule", "my-hours", "requests"];
 let planningDataRevision = 0;
 let requestDataRevision = 0;
@@ -7574,6 +7583,7 @@ function getApprovedTimeOffVisibleForCurrentRole(sourceRequests = timeOffRequest
 
 function isTabAllowedForCurrentRole(tabName) {
   return isTabAllowedForRoleHelper(activeRole, tabName, {
+    plannerAllowedTabs,
     employeeAllowedTabs
   });
 }
@@ -7583,15 +7593,16 @@ function getDefaultTabForCurrentRole() {
 }
 
 function handleBlockedTabAccess(tabName) {
-  if (isPlannerRole()) {
-    return false;
-  }
-
   if (isTabAllowedForCurrentRole(tabName)) {
     return false;
   }
 
-  showMessage("Deze beheerpagina is alleen beschikbaar voor planner of directie.", "error");
+  showMessage(
+    isPlannerRole()
+      ? "Deze tab is niet beschikbaar in de plannerweergave."
+      : "Deze beheerpagina is alleen beschikbaar voor planner of directie.",
+    "error"
+  );
   activeTab = getDefaultTabForCurrentRole();
   return true;
 }
