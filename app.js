@@ -40,6 +40,7 @@ const planningOverviewAutoButton = document.getElementById("planningOverviewAuto
 const planningOverviewRefreshButton = document.getElementById("planningOverviewRefreshButton");
 const planningOverviewMonthInput = document.getElementById("planningOverviewMonth");
 const planningOverviewSummary = document.getElementById("planningOverviewSummary");
+const planningProposalReview = document.getElementById("planningProposalReview");
 const previousWeekButton = document.getElementById("previousWeekButton");
 const todayWeekButton = document.getElementById("todayWeekButton");
 const nextWeekButton = document.getElementById("nextWeekButton");
@@ -11034,17 +11035,7 @@ function getAutoFillQualityData(selectedWeek, previewEntries, plannedEntries, op
   };
 }
 
-function renderAutoFillSummaryOverview(selectedWeek) {
-  if (!autoFillSummaryOverview) {
-    return;
-  }
-
-  if (!autoFillPreviewEntries.length || !selectedWeek) {
-    setClassName(autoFillSummaryOverview, "auto-fill-summary-overview hidden");
-    autoFillSummaryOverview.innerHTML = "";
-    return;
-  }
-
+function buildAutoFillSummaryMarkup(selectedWeek, { includeActions = false } = {}) {
   const previewEntries = autoFillPreviewEntries
     .filter((entry) => getWeekValueFromDate(entry.day) === selectedWeek)
     .sort((entryA, entryB) =>
@@ -11057,7 +11048,14 @@ function renderAutoFillSummaryOverview(selectedWeek) {
   const openShifts = weekDates.flatMap((day) =>
     getRequiredDayPlannerShifts(day)
       .filter((shift) => !getEntryForShiftOnDate(day, shift, plannedEntries))
-      .map((shift) => ({ day, shift }))
+      .map((shift) => {
+        const candidateResult = getAutoFillCandidateResult(shift, day, plannedEntries, selectedWeek);
+        return {
+          day,
+          shift,
+          reason: candidateResult.reason || ""
+        };
+      })
   );
   const replacementEntries = previewEntries.filter((entry) => entry.replacementFor);
   const qualityData = getAutoFillQualityData(selectedWeek, previewEntries, plannedEntries, openShifts, replacementEntries);
@@ -11078,8 +11076,24 @@ function renderAutoFillSummaryOverview(selectedWeek) {
     `;
   };
 
-  setClassName(autoFillSummaryOverview, "auto-fill-summary-overview");
-  autoFillSummaryOverview.innerHTML = `
+  return `
+    <section class="auto-fill-summary-card is-quality">
+      <div class="auto-fill-summary-head">
+        <strong>Voorstel controleren</strong>
+        <span>${selectedWeek}</span>
+      </div>
+      <div class="auto-fill-summary-list">
+        <div>X diensten ingevuld: <strong>${previewEntries.length}</strong></div>
+        <div>Y diensten blijven open: <strong>${openShifts.length}</strong></div>
+        <div>Controleer de open diensten hieronder en kies daarna bewust voor toepassen of annuleren.</div>
+      </div>
+      ${includeActions ? `
+        <div class="planning-proposal-review-actions">
+          <button type="button" class="secondary" data-proposal-action="apply">Voorstel toepassen</button>
+          <button type="button" class="secondary" data-proposal-action="cancel">Voorstel annuleren</button>
+        </div>
+      ` : ""}
+    </section>
     <section class="auto-fill-summary-card is-quality">
       <div class="auto-fill-summary-quality-top">
         <div class="auto-fill-summary-score">${qualityData.score}%</div>
@@ -11110,7 +11124,7 @@ function renderAutoFillSummaryOverview(selectedWeek) {
       </div>
       ${renderList(
         openShifts,
-        ({ day, shift }) => getShiftSummaryLabel(shift.name, day, shift.startTime, shift.endTime),
+        ({ day, shift, reason }) => `${formatWeekday(day)} · ${shift.name} · ${shift.startTime}-${shift.endTime}${reason ? ` · ${reason}` : ""}`,
         "Geen open diensten over."
       )}
     </section>
@@ -11127,16 +11141,46 @@ function renderAutoFillSummaryOverview(selectedWeek) {
     </section>
     <section class="auto-fill-summary-card is-warning">
       <div class="auto-fill-summary-head">
-        <strong>Geen geschikte medewerker</strong>
+        <strong>Aandacht nodig</strong>
         <span>${openShifts.length}</span>
       </div>
       ${renderList(
         openShifts,
-        ({ day, shift }) => getShiftSummaryLabel(shift.name, day, shift.startTime, shift.endTime),
+        ({ day, shift, reason }) => `${formatWeekday(day)} · ${shift.name} · ${shift.startTime}-${shift.endTime}${reason ? ` · ${reason}` : " · geen geschikte medewerker"}`,
         "Alles kon automatisch worden ingevuld."
       )}
     </section>
   `;
+}
+
+function renderAutoFillSummaryOverview(selectedWeek) {
+  if (!autoFillSummaryOverview) {
+    return;
+  }
+
+  if (!autoFillPreviewEntries.length || !selectedWeek) {
+    setClassName(autoFillSummaryOverview, "auto-fill-summary-overview hidden");
+    autoFillSummaryOverview.innerHTML = "";
+    return;
+  }
+
+  setClassName(autoFillSummaryOverview, "auto-fill-summary-overview");
+  autoFillSummaryOverview.innerHTML = buildAutoFillSummaryMarkup(selectedWeek);
+}
+
+function renderPlanningProposalReview(selectedWeek) {
+  if (!planningProposalReview) {
+    return;
+  }
+
+  if (!isPlannerRole() || activeTab !== "schedule-planning" || !autoFillPreviewEntries.length || !selectedWeek) {
+    setClassName(planningProposalReview, "auto-fill-summary-overview hidden");
+    planningProposalReview.innerHTML = "";
+    return;
+  }
+
+  setClassName(planningProposalReview, "auto-fill-summary-overview");
+  planningProposalReview.innerHTML = buildAutoFillSummaryMarkup(selectedWeek, { includeActions: true });
 }
 
 function renderPlannerContractOverview(selectedWeek, visibleEntries) {
@@ -11547,6 +11591,22 @@ function openSpecificWeekInRoster(weekValue) {
   render();
 }
 
+function syncSelectedWeekControls(weekValue) {
+  if (!/^\d{4}-W\d{2}$/.test(String(weekValue || ""))) {
+    return;
+  }
+
+  weekFilterInput.value = weekValue;
+  weekInput.value = weekValue;
+  hoursWeekInput.value = weekValue;
+  myScheduleWeekInput.value = weekValue;
+
+  const weekDates = getWeekDates(weekValue);
+  if (dayPlannerDateInput && (!dayPlannerDateInput.value || getWeekValueFromDate(dayPlannerDateInput.value) !== weekValue)) {
+    dayPlannerDateInput.value = weekDates[0] || "";
+  }
+}
+
 function autoPlanWeeksDirectly(weekValues, {
   summaryLabel = "weken automatisch geroosterd"
 } = {}) {
@@ -11633,6 +11693,10 @@ function renderSchedulePlanningOverview() {
       setClassName(planningOverviewSummary, "planning-overview-summary hidden");
       planningOverviewSummary.innerHTML = "";
     }
+    if (planningProposalReview) {
+      setClassName(planningProposalReview, "auto-fill-summary-overview hidden");
+      planningProposalReview.innerHTML = "";
+    }
     return;
   }
 
@@ -11681,6 +11745,11 @@ function renderSchedulePlanningOverview() {
       </article>
     `;
   }
+
+  const proposalWeek = autoFillPreviewEntries.length
+    ? getWeekValueFromDate(autoFillPreviewEntries[0]?.day || "") || weekFilterInput.value || weekInput.value || ""
+    : "";
+  renderPlanningProposalReview(proposalWeek);
 
   setClassName(planningOverviewList, `planning-overview-list${weekRows.length ? "" : " empty"}`);
   planningOverviewList.innerHTML = weekRows.length
@@ -21219,6 +21288,23 @@ cancelAutoFillButton?.addEventListener("click", () => {
   showDeletedMessage("Voorstel geannuleerd.");
 });
 
+planningProposalReview?.addEventListener("click", (event) => {
+  const actionButton = event.target.closest("[data-proposal-action]");
+
+  if (!actionButton) {
+    return;
+  }
+
+  if (actionButton.dataset.proposalAction === "apply") {
+    applyAutoFillButton?.click();
+    return;
+  }
+
+  if (actionButton.dataset.proposalAction === "cancel") {
+    cancelAutoFillButton?.click();
+  }
+});
+
 planningOverviewList?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-planning-action][data-week-value]");
 
@@ -21246,7 +21332,7 @@ planningOverviewList?.addEventListener("click", (event) => {
   }
 
   if (action === "smart-plan") {
-    openSpecificWeekInRoster(weekValue);
+    syncSelectedWeekControls(weekValue);
     autoFillWeekSchedule(weekValue);
   }
 });

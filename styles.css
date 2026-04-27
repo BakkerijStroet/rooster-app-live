@@ -3618,6 +3618,17 @@ body[data-role="employee"][data-employee-locked="true"] .director-screen-toolbar
   margin-bottom: 12px;
 }
 
+.planning-proposal-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.planning-proposal-review-actions .secondary {
+  min-width: 160px;
+}
+
 .planner-contract-overview {
   margin-bottom: 12px;
 }
