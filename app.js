@@ -11705,7 +11705,7 @@ function renderSchedulePlanningOverview() {
             </div>
             <div class="planning-overview-actions">
               <button type="button" class="secondary" data-planning-action="open-week" data-week-value="${week.weekValue}">Open week</button>
-              <button type="button" class="secondary" data-planning-action="smart-plan" data-week-value="${week.weekValue}" ${week.status.key === "locked" ? "disabled" : ""}>Automatisch roosteren</button>
+              <button type="button" class="secondary" data-planning-action="smart-plan" data-week-value="${week.weekValue}" ${week.status.key === "locked" ? "disabled" : ""}>Vul week automatisch (voorstel)</button>
             </div>
           </article>
         `;
@@ -21246,9 +21246,8 @@ planningOverviewList?.addEventListener("click", (event) => {
   }
 
   if (action === "smart-plan") {
-    autoPlanWeeksDirectly([weekValue], {
-      summaryLabel: `Week automatisch geroosterd: ${weekValue}`
-    });
+    openSpecificWeekInRoster(weekValue);
+    autoFillWeekSchedule(weekValue);
   }
 });
 
