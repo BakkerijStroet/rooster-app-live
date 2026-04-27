@@ -309,6 +309,61 @@ h3 {
   flex-wrap: wrap;
 }
 
+.planner-toolbar-groups,
+.planner-toolbar-actions,
+.planner-planning-groups {
+  display: grid;
+  gap: 10px;
+}
+
+.planner-action-group {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid rgba(216, 116, 47, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 252, 248, 0.96);
+  min-width: 0;
+}
+
+.planner-action-group--primary {
+  background: #fff8f0;
+  border-color: #e8c8a0;
+}
+
+.planner-action-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #7a6851;
+}
+
+.planner-action-group-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.planner-action-group-buttons .week-select {
+  max-width: 220px;
+}
+
+.planner-week-insights-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.planner-week-insights-column {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+}
+
 .employee-context-badge {
   display: grid;
   gap: 4px;
@@ -7030,6 +7085,19 @@ button,
   min-width: 0;
 }
 
+.schedule-planning-panel .planner-planning-groups,
+.schedule-planning-panel .planner-planning-groups .planner-action-group-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: end;
+}
+
+.schedule-planning-panel .planning-overview-summary,
+.schedule-planning-panel #planningProposalReview {
+  margin-bottom: 10px;
+}
+
 .planning-overview-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -7378,6 +7446,16 @@ button,
 }
 
 @media (max-width: 900px) {
+  .planner-week-insights-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .planner-toolbar-groups,
+  .planner-toolbar-actions,
+  .planner-planning-groups {
+    grid-template-columns: 1fr;
+  }
+
   .planning-overview-header {
     display: none;
   }

@@ -923,29 +923,58 @@
             <span>Week</span>
             <input type="week" id="weekFilter">
           </label>
-          <div class="week-switcher compact-actions">
-            <button type="button" id="previousWeekButton" class="secondary">Vorige</button>
-            <button type="button" id="todayWeekButton" class="secondary">Deze</button>
-            <button type="button" id="nextWeekButton" class="secondary">Volgende</button>
-            <button type="button" id="focusModeButton" class="secondary role-planner">Focusmodus aan</button>
-            <button type="button" id="controlModeButton" class="secondary role-planner">Controlemodus aan</button>
-            <button type="button" id="deviationOnlyButton" class="secondary role-planner">Alleen afwijkingen tonen</button>
-            <button type="button" id="printButton" class="secondary">Print rooster</button>
-            <button type="button" id="exportButton" class="secondary">Exporteer CSV</button>
+          <div class="week-switcher compact-actions planner-toolbar-groups">
+            <div class="planner-action-group">
+              <span class="planner-action-group-label">Weeknavigatie</span>
+              <div class="planner-action-group-buttons">
+                <button type="button" id="previousWeekButton" class="secondary">Vorige</button>
+                <button type="button" id="todayWeekButton" class="secondary">Deze</button>
+                <button type="button" id="nextWeekButton" class="secondary">Volgende</button>
+              </div>
+            </div>
+            <div class="planner-action-group role-planner">
+              <span class="planner-action-group-label">Modus</span>
+              <div class="planner-action-group-buttons">
+                <button type="button" id="focusModeButton" class="secondary role-planner">Focusmodus aan</button>
+                <button type="button" id="controlModeButton" class="secondary role-planner">Controlemodus aan</button>
+                <button type="button" id="deviationOnlyButton" class="secondary role-planner">Alleen afwijkingen tonen</button>
+              </div>
+            </div>
+            <div class="planner-action-group">
+              <span class="planner-action-group-label">Export</span>
+              <div class="planner-action-group-buttons">
+                <button type="button" id="printButton" class="secondary">Print rooster</button>
+                <button type="button" id="exportButton" class="secondary">Exporteer CSV</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-      <div class="compact-actions planner-toolbar-actions role-planner">
-        <button type="button" id="showSuitableButton" class="secondary">Geschikte medewerkers</button>
-        <button type="button" id="autoFillButton" class="secondary">Automatisch roosteren</button>
-        <button type="button" id="rebalanceHoursButton" class="secondary">Slim herplannen winkel</button>
-        <button type="button" id="monthBalanceButton" class="secondary">Maandbalans herstellen</button>
-        <button type="button" id="completeReviewButton" class="secondary">Controle afronden</button>
-        <button type="button" id="applyAutoFillButton" class="secondary hidden">Voorstel toepassen</button>
-        <button type="button" id="cancelAutoFillButton" class="secondary hidden">Voorstel annuleren</button>
-        <button type="button" id="undoButton" class="secondary hidden">Ongedaan maken</button>
+      <div class="planner-toolbar-actions role-planner">
+        <div class="planner-action-group planner-action-group--primary">
+          <span class="planner-action-group-label">Belangrijkste acties</span>
+          <div class="planner-action-group-buttons">
+            <button type="button" id="showSuitableButton" class="secondary">Geschikte medewerkers</button>
+            <button type="button" id="autoFillButton" class="secondary">Automatisch roosteren</button>
+            <button type="button" id="completeReviewButton" class="secondary">Controle afronden</button>
+          </div>
+        </div>
+        <div class="planner-action-group">
+          <span class="planner-action-group-label">Voorstel</span>
+          <div class="planner-action-group-buttons">
+            <button type="button" id="applyAutoFillButton" class="secondary hidden">Voorstel toepassen</button>
+            <button type="button" id="cancelAutoFillButton" class="secondary hidden">Voorstel annuleren</button>
+            <button type="button" id="undoButton" class="secondary hidden">Ongedaan maken</button>
+          </div>
+        </div>
+        <div class="planner-action-group planner-action-group--secondary">
+          <span class="planner-action-group-label">Extra</span>
+          <div class="planner-action-group-buttons">
+            <button type="button" id="rebalanceHoursButton" class="secondary">Slim herplannen winkel</button>
+            <button type="button" id="monthBalanceButton" class="secondary">Maandbalans herstellen</button>
+          </div>
+        </div>
       </div>
-      <div id="weekReviewStatusPanel" class="week-review-status hidden role-planner"></div>
       <div id="message" class="message hidden compact-message" role="status" aria-live="polite"></div>
       <div class="hidden">
         <select id="employeeFilter">
@@ -964,12 +993,23 @@
         </select>
         <button type="button" id="clearFiltersButton" class="secondary">Wis alle filters</button>
       </div>
-      <div id="plannerControlPanel" class="planner-control-panel hidden"></div>
-      <div id="weekStatusOverview" class="week-status-overview hidden"></div>
-      <div id="autoFillSummaryOverview" class="auto-fill-summary-overview hidden"></div>
-      <div id="plannerContractOverview" class="planner-contract-overview hidden"></div>
-      <div id="deviationWhyOverview" class="deviation-why-overview hidden"></div>
-      <div id="controlModeOverview" class="control-mode-overview hidden"></div>
+      <div class="planner-week-insights-grid role-planner">
+        <div class="planner-week-insights-column planner-week-insights-column--status">
+          <div id="weekReviewStatusPanel" class="week-review-status hidden role-planner"></div>
+          <div id="weekStatusOverview" class="week-status-overview hidden"></div>
+          <div id="autoFillSummaryOverview" class="auto-fill-summary-overview hidden"></div>
+        </div>
+        <div class="planner-week-insights-column planner-week-insights-column--attention">
+          <div id="openReplacementOverview" class="open-replacement-overview hidden"></div>
+          <div id="weekReplacementOverview" class="week-replacement-overview hidden"></div>
+          <div id="deviationWhyOverview" class="deviation-why-overview hidden"></div>
+        </div>
+        <div class="planner-week-insights-column planner-week-insights-column--contracts">
+          <div id="plannerContractOverview" class="planner-contract-overview hidden"></div>
+          <div id="plannerControlPanel" class="planner-control-panel hidden"></div>
+          <div id="controlModeOverview" class="control-mode-overview hidden"></div>
+        </div>
+      </div>
       <div class="roster-legend" aria-label="Legenda rooster">
         <span class="legend-item"><span class="legend-swatch bakery"></span>Bakkerij</span>
         <span class="legend-item"><span class="legend-swatch shop"></span>Winkel</span>
@@ -977,8 +1017,6 @@
         <span class="legend-item"><span class="legend-swatch replacement"></span>Vervanging</span>
         <span class="legend-item"><span class="legend-swatch stage"></span>Stage</span>
       </div>
-      <div id="openReplacementOverview" class="open-replacement-overview hidden"></div>
-      <div id="weekReplacementOverview" class="week-replacement-overview hidden"></div>
       <div id="schedule-board" class="schedule-board empty">Nog geen diensten toegevoegd.</div>
     </section>
 
@@ -986,15 +1024,26 @@
       <div class="view-header director-screen-header">
         <div>
           <h2 id="planningOverviewTitle">Rooster inplannen</h2>
+          <p class="panel-note role-planner">1. Week kiezen · 2. Voorstel maken · 3. Voorstel controleren · 4. Bewust toepassen of annuleren</p>
         </div>
         <div class="board-toolbar director-screen-toolbar">
-          <div class="week-switcher compact-actions">
-            <label class="week-select role-planner">
-              <span>Maand</span>
-              <input type="month" id="planningOverviewMonth">
-            </label>
-            <button type="button" id="planningOverviewRefreshButton" class="secondary role-planner">Maandoverzicht verversen</button>
-            <button type="button" id="planningOverviewAutoButton" class="secondary role-planner">Automatisch roosteren</button>
+          <div class="week-switcher compact-actions planner-planning-groups">
+            <div class="planner-action-group">
+              <span class="planner-action-group-label">Week kiezen</span>
+              <div class="planner-action-group-buttons">
+                <label class="week-select role-planner">
+                  <span>Maand</span>
+                  <input type="month" id="planningOverviewMonth">
+                </label>
+              </div>
+            </div>
+            <div class="planner-action-group">
+              <span class="planner-action-group-label">Acties</span>
+              <div class="planner-action-group-buttons">
+                <button type="button" id="planningOverviewRefreshButton" class="secondary role-planner">Maandoverzicht verversen</button>
+                <button type="button" id="planningOverviewAutoButton" class="secondary role-planner">Automatisch roosteren</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
