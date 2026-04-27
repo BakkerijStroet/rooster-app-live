@@ -17442,17 +17442,15 @@ function approveWorkLogsForWeek(weekValue, employeeName = "") {
     return;
   }
 
-  const weekReviewState = getHoursWeekReviewState(weekValue, employeeName);
-
-  if (weekReviewState.status !== "ready" && weekReviewState.status !== "done") {
-    showMessage(weekReviewState.note || "Deze week is nog niet volledig ingevuld en kan nog niet worden goedgekeurd.", "warning");
-    return;
-  }
-
-  const logsToApprove = getWorkLogsForWeek(weekValue, employeeName).filter((log) => log.status === "open");
+  const openWorkLogIds = new Set(
+    getWorkLogsForWeek(weekValue, employeeName)
+      .filter((log) => log.status === "open")
+      .map((log) => log.id)
+  );
+  const logsToApprove = workLogs.filter((log) => openWorkLogIds.has(log.id) && log.status === "open");
 
   if (!logsToApprove.length) {
-    showMessage(weekReviewState.status === "done" ? "Deze week is al afgerond." : "Er zijn geen open urenregistraties om goed te keuren.", "warning");
+    showMessage("Er zijn geen open urenregistraties om goed te keuren.", "warning");
     return;
   }
 
@@ -17622,6 +17620,13 @@ function renderHoursApproval() {
       : activeHoursApprovalFilter === "missing"
         ? "Ontbrekende dagen in deze week."
         : "Alle urenregistraties van deze week.";
+  const bulkApproveButtonMarkup = openLogs.length
+    ? `
+      <div class="form-actions compact-actions">
+        <button type="button" data-worklog-bulk-approve="selected-week" data-worklog-week="${selectedWeek}" data-worklog-employee="${selectedEmployee}" onclick='if (confirm("Alle open uren van deze week goedkeuren?")) approveWorkLogsForWeek(${JSON.stringify(selectedWeek)}, ${JSON.stringify(selectedEmployee || "")});'>Alle open uren goedkeuren</button>
+      </div>
+    `
+    : "";
   const hoursWeekStatusMarkup = `
     <article class="hours-approval-card">
       <div class="hours-registration-head">
@@ -17656,6 +17661,7 @@ function renderHoursApproval() {
           >${label}</button>
         `).join("")}
       </div>
+      ${bulkApproveButtonMarkup}
       <div class="panel-note">${filterSummaryText}</div>
     </article>
   `;
@@ -17737,10 +17743,6 @@ function renderHoursApproval() {
           <span>Opmerking nodig / afgekeurd: ${reviewLogs.length}</span>
           <span>Totaal getoond: ${filteredLogs.length}</span>
         </div>
-        <div class="form-actions compact-actions">
-        <button type="button" data-worklog-bulk="employee-week" data-worklog-week="${selectedWeek}" data-worklog-employee="${selectedEmployee}" ${activeHoursApprovalFilter === "approved" ? "disabled" : ""}>Keur selectie goed</button>
-        <button type="button" class="secondary" data-worklog-bulk="full-week" data-worklog-week="${selectedWeek}" ${activeHoursApprovalFilter === "approved" ? "disabled" : ""}>Keur hele week goed</button>
-      </div>
       <div class="hours-approval-groups">
         ${approvalGroupViewModels
           .map(({ employeeName, sortedEmployeeLogs, openCount, deviationCount, dayCount }) => `
@@ -17811,9 +17813,6 @@ function renderHoursApproval() {
 
   if (approvalActions) {
     approvalActions.insertAdjacentHTML("beforebegin", `<div class="panel-note">${weekReviewState.note}</div>`);
-    approvalActions.querySelectorAll("[data-worklog-bulk]").forEach((button) => {
-      button.disabled = weekReviewState.status !== "ready" || activeHoursApprovalFilter === "approved";
-    });
   }
 }
 
@@ -19664,20 +19663,6 @@ hoursApprovalQueue?.addEventListener("click", (event) => {
     return;
   }
 
-  const bulkButton = event.target.closest("[data-worklog-bulk][data-worklog-week]");
-
-  if (!bulkButton) {
-    return;
-  }
-
-  if (bulkButton.dataset.worklogBulk === "employee-week") {
-    approveWorkLogsForWeek(bulkButton.dataset.worklogWeek, bulkButton.dataset.worklogEmployee || "");
-    return;
-  }
-
-  if (bulkButton.dataset.worklogBulk === "full-week") {
-    approveWorkLogsForWeek(bulkButton.dataset.worklogWeek);
-  }
 });
 
 addEmployeeButton.addEventListener("click", () => {
