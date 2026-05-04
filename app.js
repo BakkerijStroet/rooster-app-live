@@ -8854,10 +8854,11 @@ function getEmployeeContractGap(employeeName, weekValue, sourceEntries = entries
 function getEmployeeContractPlanningPriority(employeeName, weekValue, sourceEntries = entries) {
   const contractHours = getEmployeeContractHours(employeeName);
   const contractGap = getEmployeeContractGap(employeeName, weekValue, sourceEntries);
+  const nearContractThreshold = 2;
 
   if (contractHours <= 0) {
     return {
-      tier: 1,
+      tier: 2,
       gap: 0
     };
   }
@@ -8869,18 +8870,26 @@ function getEmployeeContractPlanningPriority(employeeName, weekValue, sourceEntr
     };
   }
 
+  if (contractGap >= -nearContractThreshold) {
+    return {
+      tier: 1,
+      gap: contractGap
+    };
+  }
+
   return {
-    tier: 2,
+    tier: 3,
     gap: contractGap
   };
 }
 
 function getEmployeeMonthlyContractPlanningPriority(employeeName, dateValue, sourceEntries = entries) {
   const contractHours = getEmployeeContractHours(employeeName);
+  const nearContractThreshold = 2;
 
   if (contractHours <= 0) {
     return {
-      tier: 1,
+      tier: 2,
       gap: 0
     };
   }
@@ -8896,8 +8905,15 @@ function getEmployeeMonthlyContractPlanningPriority(employeeName, dateValue, sou
     };
   }
 
+  if (monthlyGap >= -nearContractThreshold) {
+    return {
+      tier: 1,
+      gap: monthlyGap
+    };
+  }
+
   return {
-    tier: 2,
+    tier: 3,
     gap: monthlyGap
   };
 }
