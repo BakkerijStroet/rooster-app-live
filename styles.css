@@ -774,6 +774,10 @@ body[data-role="employee"] #completeReviewButton {
   display: none !important;
 }
 
+body[data-role="employee"] .planner-more-actions {
+  display: none !important;
+}
+
 body[data-role="employee"][data-employee-locked="false"] #switchUserButton {
   display: none !important;
 }
