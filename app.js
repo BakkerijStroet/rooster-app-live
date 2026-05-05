@@ -4892,7 +4892,12 @@ function isEmployeeAuthorizedForShift(employeeName, shiftName) {
     return true;
   }
 
-  const permissionValue = employeePermissions?.[employeeName]?.[shiftName];
+  const permissionMap = employeePermissions?.[employeeName];
+  const normalizedShiftName = String(shiftName || "").trim().toLowerCase();
+  const matchingPermissionKey = permissionMap && typeof permissionMap === "object"
+    ? Object.keys(permissionMap).find((permissionShiftName) => permissionShiftName.trim().toLowerCase() === normalizedShiftName)
+    : "";
+  const permissionValue = matchingPermissionKey ? permissionMap[matchingPermissionKey] : permissionMap?.[shiftName];
   return typeof permissionValue === "boolean" ? permissionValue : true;
 }
 
@@ -8225,6 +8230,7 @@ function getPlannerSectionLabel(sectionKey) {
 
 function renderOpenShiftCard(shift, day, { inlinePlanner = false } = {}) {
   const controlModeActive = isControlModeActive();
+  const authorizedEmployees = isPlannerRole() ? getAuthorizedEmployeesForShift(shift.name) : [];
   const suitableEmployees = isPlannerRole()
     ? getSuitableEmployeesForShift(shift, day, shift.startTime, shift.endTime, null)
     : [];
@@ -8234,19 +8240,21 @@ function renderOpenShiftCard(shift, day, { inlinePlanner = false } = {}) {
     : "Nog open";
   const detailLabel = standardCoverage.standardEmployee
     ? `Normaal ${standardCoverage.standardEmployee}${standardCoverage.isAbsent ? ` (${standardCoverage.reason})` : ""}`
-    : suitableEmployees.length
+    : authorizedEmployees.length === 0
+      ? "Geen bevoegde medewerker beschikbaar"
+      : suitableEmployees.length
       ? `${suitableEmployees.length} geschikte medewerker(s)`
       : "Geen geschikte medewerker";
   const employeeLine = standardCoverage.standardEmployee
     ? `<div class="shift-employee">${standardCoverage.standardEmployee}</div>`
     : "";
   const inlineSelectId = `open-shift-${`${day}-${shift.id}`.replace(/[^a-z0-9_-]/gi, "-").toLowerCase()}`;
-  const inlineSelectMarkup = inlinePlanner && suitableEmployees.length
+  const inlineSelectMarkup = inlinePlanner
     ? `
         <div class="quick-switch-row is-inline-planner">
           <label class="sr-only" for="${inlineSelectId}">${shift.name} invullen</label>
-          <select id="${inlineSelectId}" data-action="assign-open-shift" data-day="${day}" data-shift-id="${shift.id}">
-            <option value="">Kies medewerker</option>
+          <select id="${inlineSelectId}" data-action="assign-open-shift" data-day="${day}" data-shift-id="${shift.id}" ${suitableEmployees.length === 0 ? "disabled" : ""}>
+            <option value="">${suitableEmployees.length === 0 ? (authorizedEmployees.length === 0 ? "Geen bevoegde medewerker beschikbaar" : "Geen geschikte medewerker") : "Kies medewerker"}</option>
             ${suitableEmployees.map((employeeName) => `
               <option value="${employeeName}">${employeeName}</option>
             `).join("")}
@@ -8823,6 +8831,7 @@ function renderSuitableEmployeesHelper(day) {
   return `
     <div class="suitable-helper-list">
       ${openShifts.map((shift) => {
+        const authorizedEmployees = getAuthorizedEmployeesForShift(shift.name);
         const suitableEmployees = getSuitableEmployeesForShift(shift, day, shift.startTime, shift.endTime, null);
         const standardCoverage = getStandardShiftCoverageInfo(shift, day);
         const openReplacementLabel = standardCoverage.standardEmployee && standardCoverage.isAbsent
@@ -8837,7 +8846,7 @@ function renderSuitableEmployeesHelper(day) {
               ? `<div class="suitable-helper-names">
                   ${suitableEmployees.map((employeeName) => `<span class="suitable-helper-tag">${employeeName}</span>`).join("")}
                 </div>`
-              : `<span class="${isOptionalShift(shift) ? "day-planner-note is-info" : "suitable-helper-empty"}">${isOptionalShift(shift) ? "Mag leeg blijven" : "Geen geschikte medewerker"}</span>`}
+              : `<span class="${isOptionalShift(shift) ? "day-planner-note is-info" : "suitable-helper-empty"}">${isOptionalShift(shift) ? "Mag leeg blijven" : (authorizedEmployees.length === 0 ? "Geen bevoegde medewerker beschikbaar" : "Geen geschikte medewerker")}</span>`}
           </div>
         `;
       }).join("")}
@@ -14198,12 +14207,12 @@ function renderOpenReplacementOverview(weekValue) {
             </div>
             <div class="open-replacement-actions">
               <label class="sr-only" for="replacement-${item.day}-${item.shift.id}">Vervanger kiezen</label>
-              <select id="replacement-${item.day}-${item.shift.id}" data-replacement-day="${item.day}" data-replacement-shift="${item.shift.id}" data-replacement-normal="${item.normalEmployee}">
-                <option value="">Kies vervanger</option>
+              <select id="replacement-${item.day}-${item.shift.id}" data-replacement-day="${item.day}" data-replacement-shift="${item.shift.id}" data-replacement-normal="${item.normalEmployee}" ${item.suitableEmployees.length === 0 ? "disabled" : ""}>
+                <option value="">${item.suitableEmployees.length === 0 ? (getAuthorizedEmployeesForShift(item.shift.name).length === 0 ? "Geen bevoegde medewerker beschikbaar" : "Geen geschikte medewerker") : "Kies vervanger"}</option>
                 ${item.suitableEmployees.map((employeeName) => `<option value="${employeeName}">${employeeName}</option>`).join("")}
               </select>
             </div>
-            ${item.suitableEmployees.length === 0 ? '<span class="open-replacement-warning">Geen geschikte medewerker</span>' : ""}
+            ${item.suitableEmployees.length === 0 ? `<span class="open-replacement-warning">${getAuthorizedEmployeesForShift(item.shift.name).length === 0 ? "Geen bevoegde medewerker beschikbaar" : "Geen geschikte medewerker"}</span>` : ""}
           </article>
         `).join("")}
       </div>
@@ -14251,8 +14260,9 @@ function renderWeekReplacementOverview(weekValue) {
                 data-week-replacement-day="${item.day}"
                 data-week-replacement-shift="${item.shiftId}"
                 data-week-replacement-normal="${item.normalEmployee}"
+                ${item.suitableEmployees.length === 0 ? "disabled" : ""}
               >
-                <option value="">${item.isOpen ? "Kies vervanger" : "Wijzig vervanger"}</option>
+                <option value="">${item.suitableEmployees.length === 0 ? (getAuthorizedEmployeesForShift(item.shiftName).length === 0 ? "Geen bevoegde medewerker beschikbaar" : "Geen geschikte medewerker") : (item.isOpen ? "Kies vervanger" : "Wijzig vervanger")}</option>
                 ${item.suitableEmployees.map((employeeName) => `
                   <option value="${employeeName}" ${item.replacementEmployee === employeeName ? "selected" : ""}>${employeeName}</option>
                 `).join("")}
@@ -14405,6 +14415,22 @@ function buildEmployeeOptions(names) {
   return names.map((employee) => `<option value="${employee}">${employee}</option>`).join("");
 }
 
+function getEmployeeChoicePlaceholder({ selectedShift = null, suitableEmployees = [], authorizedEmployees = [], defaultText = "Kies medewerker" } = {}) {
+  if (!selectedShift) {
+    return defaultText;
+  }
+
+  if (authorizedEmployees.length === 0) {
+    return "Geen bevoegde medewerker beschikbaar";
+  }
+
+  if (suitableEmployees.length === 0) {
+    return "Geen geschikte medewerker";
+  }
+
+  return "Kies geschikte medewerker";
+}
+
 function getFavoriteEmployees() {
   return (preferences.favoriteEmployees || []).filter((name) => employees.includes(name));
 }
@@ -14474,8 +14500,14 @@ function renderEmployeeSelectors() {
   const ownEmployeeOptions = employeeIdentity ? buildEmployeeOptions([employeeIdentity]) : "";
   const portalOptions = isPlannerRole() ? buildEmployeeOptions(filteredPortalEmployees) : ownEmployeeOptions;
   const hoursOptions = isPlannerRole() ? buildEmployeeOptions(filteredHoursEmployees) : ownEmployeeOptions;
+  const planningPlaceholder = getEmployeeChoicePlaceholder({
+    selectedShift,
+    suitableEmployees,
+    authorizedEmployees,
+    defaultText: "Kies medewerker"
+  });
 
-  nameSelect.innerHTML = `<option value="">${selectedShift ? "Kies geschikte medewerker" : "Kies medewerker"}</option>${planningOptions}`;
+  nameSelect.innerHTML = `<option value="">${planningPlaceholder}</option>${planningOptions}`;
   removeEmployeeSelect.innerHTML = `<option value="">Kies medewerker voor statuswijziging</option>${options}`;
   getAllTimeOffEmployeeSelects().forEach((select) => {
     select.innerHTML = isPlannerRole()
@@ -15071,6 +15103,7 @@ function renderDayPlannerAbsenceList(selectedDate, plannerShifts) {
     return {
       request,
       fixedShift,
+      authorizedEmployees: getAuthorizedEmployeesForShift(fixedShift.name),
       suitableEmployees: getSuitableEmployeesForShift(
         fixedShift,
         selectedDate,
@@ -15095,7 +15128,7 @@ function renderDayPlannerAbsenceList(selectedDate, plannerShifts) {
         <span>${absenceRows.length} medewerker(s)</span>
       </div>
       <div class="day-planner-absence-rows">
-        ${absenceRows.map(({ request, fixedShift, suitableEmployees }) => `
+        ${absenceRows.map(({ request, fixedShift, authorizedEmployees = [], suitableEmployees }) => `
           <article class="day-planner-absence-item absence-${getAbsenceCardClass(request.type)}">
             <div class="day-planner-absence-meta">
               <strong>${request.employeeName} - ${getAbsenceTypeLabel(request.type)}</strong>
@@ -15108,7 +15141,7 @@ function renderDayPlannerAbsenceList(selectedDate, plannerShifts) {
               <div class="day-planner-absence-actions">
                 <label class="sr-only" for="absence-replacement-${selectedDate}-${fixedShift.id}">Vervanger kiezen</label>
                 <select data-absence-day="${selectedDate}" data-absence-shift="${fixedShift.id}" data-absence-normal="${request.employeeName}" ${suitableEmployees.length === 0 ? "disabled" : ""}>
-                  <option value="">${suitableEmployees.length === 0 ? "Geen geschikte medewerker" : "Kies vervanger"}</option>
+                  <option value="">${suitableEmployees.length === 0 ? (authorizedEmployees.length === 0 ? "Geen bevoegde medewerker beschikbaar" : "Geen geschikte medewerker") : "Kies vervanger"}</option>
                   ${suitableEmployees.map((employeeName) => `<option value="${employeeName}">${employeeName}</option>`).join("")}
                 </select>
               </div>
@@ -15416,7 +15449,7 @@ function renderDayPlanner() {
           <div class="day-planner-open-actions">
             <label class="sr-only" for="day-open-${selectedDate}-${shift.id}">Medewerker kiezen</label>
             <select data-open-day="${selectedDate}" data-open-shift="${shift.id}" ${suitableEmployees.length === 0 ? "disabled" : ""}>
-              <option value="">${suitableEmployees.length === 0 ? "Geen geschikte medewerker" : "Kies medewerker"}</option>
+              <option value="">${suitableEmployees.length === 0 ? (authorizedEmployees.length === 0 ? "Geen bevoegde medewerker beschikbaar" : "Geen geschikte medewerker") : "Kies medewerker"}</option>
               ${suitableEmployees.map((employee) => `<option value="${employee}">${employee}</option>`).join("")}
             </select>
           </div>
@@ -15469,7 +15502,7 @@ function renderDayPlanner() {
         <label>
           Medewerker
           <select data-day-planner-shift="${shift.id}" ${suitableEmployees.length === 0 ? "disabled" : ""}>
-            <option value="">${suitableEmployees.length === 0 ? (isOptionalShift(shift) ? "Mag leeg blijven" : "Niemand beschikbaar") : "Niet ingepland"}</option>
+            <option value="">${suitableEmployees.length === 0 ? (isOptionalShift(shift) ? "Mag leeg blijven" : (authorizedEmployees.length === 0 ? "Geen bevoegde medewerker beschikbaar" : "Niemand beschikbaar")) : "Niet ingepland"}</option>
             ${suitableEmployees.map((employee) => `
               <option value="${employee}" ${existingEntry?.name === employee ? "selected" : ""}>${employee}</option>
             `).join("")}
