@@ -9711,12 +9711,14 @@ function getRosterDepartmentForEntry(entry) {
 
 function getRosterShiftSortOrder(entry) {
   const shiftName = getShiftName(entry).toLowerCase();
+  const isStageShift = shiftName.includes("stage");
   const shopMatch = shiftName.match(/winkeldienst\s*(\d+)/i);
 
   if (shopMatch) {
     return 200 + Number(shopMatch[1]);
   }
 
+  if (shiftName.includes("winkel") && isStageShift) return 299;
   if (shiftName.includes("winkel")) return 200;
   if (shiftName.includes("draai")) return 10;
   if (shiftName.includes("oven")) return 20;
@@ -9724,6 +9726,7 @@ function getRosterShiftSortOrder(entry) {
   if (shiftName.includes("banket")) return 40;
   if (shiftName.includes("productie")) return 50;
   if (shiftName.includes("inpak")) return 60;
+  if (isStageShift) return 70;
   if (shiftName.includes("bezorg")) return 90;
 
   return 80;
