@@ -1337,6 +1337,21 @@ body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.is-
   background: #f5fbf3;
 }
 
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.has-open-hours {
+  border-color: rgba(191, 84, 69, 0.45);
+  background: #fff5f3;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.has-open-hours em {
+  color: #a23b2e;
+  font-weight: 700;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.has-complete-hours em {
+  color: #2f6f44;
+  font-weight: 700;
+}
+
 body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.is-current,
 body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-mobile-day.is-today {
   border-color: rgba(242, 140, 40, 0.55);

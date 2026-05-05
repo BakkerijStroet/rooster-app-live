@@ -790,8 +790,9 @@ function resetMyHoursChoiceState() {
   activeMobileWorkLogId = "";
 }
 
-function resetMyScheduleRosterState({ showYearOverview = true } = {}) {
+function resetMyScheduleRosterState({ showYearOverview = true, scrollToCurrentWeek = showYearOverview } = {}) {
   myScheduleYearOverviewVisible = showYearOverview;
+  shouldScrollMyScheduleYearToCurrentWeek = Boolean(showYearOverview && scrollToCurrentWeek);
   selectedMyScheduleMobileDate = "";
   selectedMobileRosterDate = "";
 }
@@ -4687,6 +4688,7 @@ let activeTab = "week-current";
 let activeEmployeeWeekView = "today";
 let selectedMobileRosterDate = "";
 let myScheduleYearOverviewVisible = true;
+let shouldScrollMyScheduleYearToCurrentWeek = true;
 let selectedMyScheduleMobileDate = "";
 let activeRole = preferences.lastRole === "employee" ? "employee" : "planner";
 const sessionState = {
@@ -9775,21 +9777,49 @@ function renderMyScheduleYearOverview(employeeName, selectedWeek) {
           const weekEntries = employeeEntries.filter((entry) => getWeekValueFromDate(entry.day) === weekValue);
           const isCurrentWeek = weekValue === currentWeek;
           const isSelectedWeek = weekValue === selectedWeek;
+          const hoursStatus = getMyScheduleWeekHoursStatus(weekEntries);
           const plannedLabel = weekEntries.length
             ? `${weekEntries.length} dienst${weekEntries.length === 1 ? "" : "en"}`
             : "Niet gepland";
+          const statusLabel = weekEntries.length
+            ? (hoursStatus.hasOpenHours ? "Uren open" : "Uren compleet")
+            : "";
 
           return `
-            <button type="button" class="my-schedule-week-tile ${weekEntries.length ? "is-planned" : "is-empty"} ${isCurrentWeek ? "is-current" : ""} ${isSelectedWeek ? "is-selected" : ""}" data-my-schedule-week="${weekValue}">
+            <button type="button" class="my-schedule-week-tile ${weekEntries.length ? "is-planned" : "is-empty"} ${hoursStatus.hasOpenHours ? "has-open-hours" : ""} ${hoursStatus.isComplete ? "has-complete-hours" : ""} ${isCurrentWeek ? "is-current is-current-week" : ""} ${isSelectedWeek ? "is-selected" : ""}" data-my-schedule-week="${weekValue}" ${isCurrentWeek ? 'data-my-schedule-current-week="true"' : ""}>
               <strong>Week ${getWeekNumber(weekValue)}</strong>
               <span>${formatDate(weekDates[0])} - ${formatDate(weekDates[6])}</span>
-              <em>${isCurrentWeek ? "Deze week · " : ""}${plannedLabel}</em>
+              <em>${isCurrentWeek ? "Deze week · " : ""}${plannedLabel}${statusLabel ? ` · ${statusLabel}` : ""}</em>
             </button>
           `;
         }).join("")}
       </div>
     </section>
   `;
+}
+
+function getMyScheduleWeekHoursStatus(weekEntries) {
+  if (!weekEntries.length) {
+    return {
+      hasOpenHours: false,
+      isComplete: false
+    };
+  }
+
+  const completeStatuses = new Set(["draft", "open", "approved"]);
+  const hasOpenHours = weekEntries.some((entry) => {
+    const workLog = getWorkLogForEntry(entry);
+
+    return !workLog ||
+      !workLog.actualStart ||
+      !workLog.actualEnd ||
+      !completeStatuses.has(workLog.status || "");
+  });
+
+  return {
+    hasOpenHours,
+    isComplete: !hasOpenHours
+  };
 }
 
 function renderMyScheduleBackToYearButton() {
@@ -18506,6 +18536,14 @@ function renderMySchedule() {
     selectedMyScheduleMobileDate = "";
     setClassName(myScheduleBoard, "schedule-board my-schedule-year-board");
     myScheduleBoard.innerHTML = renderMyScheduleYearOverview(employeeName, selectedWeek);
+    if (shouldScrollMyScheduleYearToCurrentWeek) {
+      shouldScrollMyScheduleYearToCurrentWeek = false;
+      requestAnimationFrame(() => {
+        myScheduleBoard
+          ?.querySelector('[data-my-schedule-current-week="true"]')
+          ?.scrollIntoView({ block: "center", inline: "nearest" });
+      });
+    }
     return;
   }
 
@@ -21962,7 +22000,7 @@ myScheduleBoard?.addEventListener("click", (event) => {
   }
 
   if (event.target.closest("[data-my-schedule-year-back]") && !isPlannerRole()) {
-    resetMyScheduleRosterState();
+    resetMyScheduleRosterState({ scrollToCurrentWeek: false });
     renderMySchedule();
     return;
   }
