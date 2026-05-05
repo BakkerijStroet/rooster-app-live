@@ -1498,6 +1498,10 @@ body[data-role="employee"] [data-panel="my-hours"] .view-toolbar {
   gap: 8px;
 }
 
+body[data-role="employee"] [data-panel="my-hours"] .hours-date-picker-control {
+  display: none;
+}
+
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-section-switch {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1506,6 +1510,18 @@ body[data-role="employee"] [data-panel="my-hours"] .my-hours-section-switch {
 }
 
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-section-switch .request-switch-button {
+  min-height: 46px;
+  width: 100%;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-choice-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-choice-tabs .request-switch-button {
   min-height: 46px;
   width: 100%;
 }
@@ -1548,6 +1564,21 @@ body[data-role="employee"] [data-panel="my-hours"] .hours-week-overview strong {
   line-height: 1.1;
 }
 
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-open-block,
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-extra-block {
+  display: grid;
+  gap: 8px;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-open-head {
+  display: grid;
+  gap: 2px;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-open-head strong {
+  font-size: 16px;
+}
+
 body[data-role="employee"] [data-panel="my-hours"] .totals {
   display: grid;
   gap: 8px;
@@ -1557,14 +1588,12 @@ body[data-role="employee"] [data-panel="my-hours"] .totals.hidden {
   display: none !important;
 }
 
-body[data-role="employee"] [data-panel="my-hours"] .my-hours-choice-grid,
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-history-list,
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-history-detail {
   display: grid;
   gap: 10px;
 }
 
-body[data-role="employee"] [data-panel="my-hours"] .my-hours-choice-card,
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-history-item,
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-history-card {
   border: 1px solid rgba(138, 85, 54, 0.12);
@@ -1576,27 +1605,6 @@ body[data-role="employee"] [data-panel="my-hours"] .my-hours-history-card {
   box-shadow: 0 6px 18px rgba(74, 52, 32, 0.05);
 }
 
-body[data-role="employee"] [data-panel="my-hours"] .my-hours-choice-card {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 10px;
-  align-items: center;
-  width: 100%;
-}
-
-body[data-role="employee"] [data-panel="my-hours"] .my-hours-choice-card span {
-  grid-row: span 2;
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  background: rgba(242, 140, 40, 0.14);
-  color: var(--accent-strong);
-  font-weight: 800;
-}
-
-body[data-role="employee"] [data-panel="my-hours"] .my-hours-choice-card small,
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-history-item small,
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-history-item em,
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-history-card span {

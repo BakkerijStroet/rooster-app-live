@@ -591,7 +591,7 @@
         <div class="view-header director-screen-header">
           <div>
             <h2>Mijn uren</h2>
-            <p class="panel-note">Kies een datum en vul direct die werkdag in.</p>
+            <p class="panel-note">Geef je uren door of kijk je registraties terug.</p>
           </div>
           <div class="view-toolbar director-screen-toolbar">
             <label class="week-select employee-picker-control">
@@ -612,7 +612,7 @@
               <span>Medewerker</span>
               <strong>Geen medewerker gekozen</strong>
             </div>
-            <label class="week-select">
+            <label class="week-select hours-date-picker-control">
               <span>Datum</span>
               <input type="date" id="hoursDate" max="">
             </label>
@@ -631,9 +631,13 @@
             </div>
           </div>
           <div class="hours-compact-results">
-          <div id="myHoursHighlight" class="hours-highlight empty">Kies een medewerker.</div>
-          <div id="myHoursSummary" class="totals empty">Nog geen uren beschikbaar.</div>
-          <div id="myHoursRegistrations" class="request-list empty">Nog geen ingeplande diensten voor urenregistratie.</div>
+            <div id="myHoursChoiceTabs" class="request-mobile-switch my-hours-choice-tabs" aria-label="Mijn uren kiezen">
+              <button type="button" class="request-switch-button" data-my-hours-choice="today">Uren doorgeven</button>
+              <button type="button" class="request-switch-button" data-my-hours-choice="worked">Mijn gewerkte uren</button>
+            </div>
+            <div id="myHoursHighlight" class="hours-highlight empty">Kies een medewerker.</div>
+            <div id="myHoursSummary" class="totals empty">Nog geen uren beschikbaar.</div>
+            <div id="myHoursRegistrations" class="request-list empty">Nog geen ingeplande diensten voor urenregistratie.</div>
         </div>
       </section>
 
