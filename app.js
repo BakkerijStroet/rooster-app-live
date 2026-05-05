@@ -261,6 +261,7 @@ const swapStorageKey = "urenrooster-swap-requests";
 const workLogStorageKey = "urenrooster-work-logs";
 const workLogApiEndpoint = "/api/work-logs";
 const employeePermissionsStorageKey = "urenrooster-employee-permissions";
+const employeeDataApiEndpoint = "/api/employee-data";
 const employeeStandardShiftStorageKey = "urenrooster-employee-standard-shifts";
 const employeeShiftPreferenceStorageKey = "urenrooster-employee-shift-preferences";
 const employeeBasePatternStorageKey = "urenrooster-employee-base-patterns";
@@ -1370,6 +1371,337 @@ async function migrateLocalWorkLogsToCentral() {
 
 window.migrateLocalWorkLogsToCentral = migrateLocalWorkLogsToCentral;
 
+let employeeDataCentralSyncTimer = null;
+let employeeDataCentralSyncInFlight = false;
+let employeeDataCentralSyncPending = false;
+let employeeDataCentralSyncLoaded = false;
+let lastEmployeeDataCentralSyncError = null;
+
+function isEmployeeDataCentralSyncEnabled() {
+  return currentDataMode === "live" && typeof fetch === "function";
+}
+
+function getEmployeeMetaComparableTimestamp(metaRecord) {
+  const parsed = Date.parse(metaRecord?.updatedAt || "");
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function hasMeaningfulEmployeeDataValue(value) {
+  if (typeof value === "string") {
+    return value.trim() !== "";
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value !== 0;
+  }
+
+  if (typeof value === "boolean") {
+    return true;
+  }
+
+  return value !== null && value !== undefined;
+}
+
+function normalizeEmployeeObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? structuredClone(value)
+    : {};
+}
+
+function getEmployeeDataSnapshot() {
+  return {
+    employees: sanitizeEmployeesForStorage(employees),
+    employeeMeta: normalizeEmployeeObject(employeeMeta),
+    employeePermissions: normalizeEmployeeObject(employeePermissions)
+  };
+}
+
+function persistEmployeeDataToLocalStorage() {
+  safeSetStorageItem(getScopedStorageKey(employeeStorageKey), JSON.stringify(sanitizeEmployeesForStorage(employees)), "medewerkers");
+  safeSetStorageItem(getScopedStorageKey(employeeMetaStorageKey), JSON.stringify(employeeMeta), "medewerkerstatus");
+  safeSetStorageItem(getScopedStorageKey(employeePermissionsStorageKey), JSON.stringify(employeePermissions), "bevoegdheden");
+}
+
+function serializeEmployeeDataForComparison(data) {
+  return JSON.stringify({
+    employees: sanitizeEmployeesForStorage(data?.employees || []),
+    employeeMeta: normalizeEmployeeObject(data?.employeeMeta),
+    employeePermissions: normalizeEmployeeObject(data?.employeePermissions)
+  });
+}
+
+function normalizeCentralEmployeeData(payload = {}) {
+  return {
+    employees: sanitizeEmployeesForStorage(Array.isArray(payload?.employees) ? payload.employees : []),
+    employeeMeta: normalizeEmployeeObject(payload?.employeeMeta),
+    employeePermissions: normalizeEmployeeObject(payload?.employeePermissions)
+  };
+}
+
+function mergeEmployeeMetaRecord(localRecord = {}, centralRecord = {}) {
+  const localMeta = normalizeEmployeeObject(localRecord);
+  const centralMeta = normalizeEmployeeObject(centralRecord);
+  const localTimestamp = getEmployeeMetaComparableTimestamp(localMeta);
+  const centralTimestamp = getEmployeeMetaComparableTimestamp(centralMeta);
+
+  if (!Object.keys(centralMeta).length) {
+    return localMeta;
+  }
+
+  if (!Object.keys(localMeta).length || centralTimestamp > localTimestamp) {
+    return {
+      ...localMeta,
+      ...centralMeta
+    };
+  }
+
+  const mergedMeta = { ...localMeta };
+
+  Object.entries(centralMeta).forEach(([key, value]) => {
+    if (!Object.prototype.hasOwnProperty.call(mergedMeta, key) || !hasMeaningfulEmployeeDataValue(mergedMeta[key])) {
+      mergedMeta[key] = value;
+    }
+  });
+
+  return mergedMeta;
+}
+
+function mergeEmployeeMetaCollections(localMeta = {}, centralMeta = {}) {
+  const localSource = normalizeEmployeeObject(localMeta);
+  const centralSource = normalizeEmployeeObject(centralMeta);
+  const employeeNames = new Set([...Object.keys(localSource), ...Object.keys(centralSource)]);
+  const mergedMeta = {};
+
+  employeeNames.forEach((employeeName) => {
+    mergedMeta[employeeName] = mergeEmployeeMetaRecord(localSource[employeeName], centralSource[employeeName]);
+  });
+
+  return mergedMeta;
+}
+
+function mergeEmployeePermissionsCollections(localPermissions = {}, centralPermissions = {}, localMeta = {}, centralMeta = {}) {
+  const localSource = normalizeEmployeeObject(localPermissions);
+  const centralSource = normalizeEmployeeObject(centralPermissions);
+  const employeeNames = new Set([...Object.keys(localSource), ...Object.keys(centralSource)]);
+  const mergedPermissions = {};
+
+  employeeNames.forEach((employeeName) => {
+    const localMap = normalizeEmployeeObject(localSource[employeeName]);
+    const centralMap = normalizeEmployeeObject(centralSource[employeeName]);
+    const localTimestamp = getEmployeeMetaComparableTimestamp(localMeta?.[employeeName]);
+    const centralTimestamp = getEmployeeMetaComparableTimestamp(centralMeta?.[employeeName]);
+
+    if (!Object.keys(centralMap).length) {
+      mergedPermissions[employeeName] = localMap;
+      return;
+    }
+
+    if (!Object.keys(localMap).length || centralTimestamp > localTimestamp) {
+      mergedPermissions[employeeName] = {
+        ...localMap,
+        ...centralMap
+      };
+      return;
+    }
+
+    mergedPermissions[employeeName] = {
+      ...centralMap,
+      ...localMap
+    };
+  });
+
+  return mergedPermissions;
+}
+
+function mergeEmployeeDataCollections(localData, centralData) {
+  const localSnapshot = normalizeCentralEmployeeData(localData);
+  const centralSnapshot = normalizeCentralEmployeeData(centralData);
+  const mergedMeta = mergeEmployeeMetaCollections(localSnapshot.employeeMeta, centralSnapshot.employeeMeta);
+  const mergedPermissions = mergeEmployeePermissionsCollections(
+    localSnapshot.employeePermissions,
+    centralSnapshot.employeePermissions,
+    localSnapshot.employeeMeta,
+    centralSnapshot.employeeMeta
+  );
+
+  return {
+    employees: sanitizeEmployeesForStorage([
+      ...localSnapshot.employees,
+      ...centralSnapshot.employees,
+      ...Object.keys(mergedMeta),
+      ...Object.keys(mergedPermissions)
+    ]),
+    employeeMeta: mergedMeta,
+    employeePermissions: mergedPermissions
+  };
+}
+
+function reportEmployeeDataCentralSyncError(action, error) {
+  lastEmployeeDataCentralSyncError = {
+    action,
+    mode: currentDataMode,
+    endpoint: employeeDataApiEndpoint,
+    employeeCount: employees.length,
+    message: error instanceof Error ? error.message : String(error),
+    at: new Date().toISOString()
+  };
+  window.lastEmployeeDataCentralSyncError = lastEmployeeDataCentralSyncError;
+  console.warn("[employeeData] Centrale sync mislukt; localStorage blijft actief.", lastEmployeeDataCentralSyncError, error);
+}
+
+async function fetchCentralEmployeeData() {
+  const response = await fetch(`${employeeDataApiEndpoint}?mode=${encodeURIComponent(currentDataMode)}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json"
+    },
+    cache: "no-store"
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || payload?.success === false) {
+    throw new Error(payload?.message || "Centraal laden van medewerkerdata is mislukt.");
+  }
+
+  return normalizeCentralEmployeeData(payload);
+}
+
+async function sendEmployeeDataToCentral(sourceData = getEmployeeDataSnapshot()) {
+  if (!isEmployeeDataCentralSyncEnabled()) {
+    return false;
+  }
+
+  const payload = normalizeCentralEmployeeData(sourceData);
+  const response = await fetch(employeeDataApiEndpoint, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify({
+      mode: currentDataMode,
+      employees: payload.employees,
+      employeeMeta: payload.employeeMeta,
+      employeePermissions: payload.employeePermissions
+    })
+  });
+
+  const responsePayload = await response.json().catch(() => ({}));
+
+  if (!response.ok || responsePayload?.success === false) {
+    throw new Error(responsePayload?.message || "Centraal opslaan van medewerkerdata is mislukt.");
+  }
+
+  return true;
+}
+
+function queueEmployeeDataCentralSave() {
+  if (!isEmployeeDataCentralSyncEnabled() || !employeeDataCentralSyncLoaded) {
+    return;
+  }
+
+  if (employeeDataCentralSyncTimer) {
+    clearTimeout(employeeDataCentralSyncTimer);
+  }
+
+  employeeDataCentralSyncTimer = setTimeout(() => {
+    employeeDataCentralSyncTimer = null;
+    syncEmployeeDataToCentral();
+  }, 500);
+}
+
+async function syncEmployeeDataToCentral() {
+  if (!isEmployeeDataCentralSyncEnabled()) {
+    return false;
+  }
+
+  if (employeeDataCentralSyncInFlight) {
+    employeeDataCentralSyncPending = true;
+    return false;
+  }
+
+  employeeDataCentralSyncInFlight = true;
+
+  try {
+    await sendEmployeeDataToCentral();
+    lastEmployeeDataCentralSyncError = null;
+    window.lastEmployeeDataCentralSyncError = null;
+    return true;
+  } catch (error) {
+    reportEmployeeDataCentralSyncError("save", error);
+    return false;
+  } finally {
+    employeeDataCentralSyncInFlight = false;
+    if (employeeDataCentralSyncPending) {
+      employeeDataCentralSyncPending = false;
+      queueEmployeeDataCentralSave();
+    }
+  }
+}
+
+async function syncEmployeeDataFromCentral() {
+  if (!isEmployeeDataCentralSyncEnabled() || employeeDataCentralSyncLoaded) {
+    return;
+  }
+
+  employeeDataCentralSyncLoaded = true;
+  const localBeforeSync = getEmployeeDataSnapshot();
+
+  try {
+    const centralData = await fetchCentralEmployeeData();
+    const mergedData = mergeEmployeeDataCollections(localBeforeSync, centralData);
+    const localSignature = serializeEmployeeDataForComparison(localBeforeSync);
+    const centralSignature = serializeEmployeeDataForComparison(centralData);
+    const mergedSignature = serializeEmployeeDataForComparison(mergedData);
+
+    if (mergedSignature !== localSignature) {
+      replaceArrayContents(employees, mergedData.employees);
+      replaceObjectContents(employeeMeta, mergedData.employeeMeta);
+      replaceObjectContents(employeePermissions, mergedData.employeePermissions);
+      syncEmployeeMeta();
+      syncEmployeePermissions();
+      persistEmployeeDataToLocalStorage();
+      renderEmployeeSelectors();
+      renderEmployeeList();
+      renderEmployeeStatusControls();
+      renderEmployeePermissions();
+    }
+
+    if (mergedSignature !== centralSignature) {
+      queueEmployeeDataCentralSave();
+    }
+  } catch (error) {
+    reportEmployeeDataCentralSyncError("load", error);
+  }
+}
+
+async function migrateLocalEmployeeDataToCentral() {
+  const localData = {
+    employees: loadEmployees(),
+    employeeMeta: loadEmployeeMeta(),
+    employeePermissions: loadEmployeePermissions()
+  };
+
+  if (!localData.employees.length && !Object.keys(localData.employeeMeta).length && !Object.keys(localData.employeePermissions).length) {
+    console.info("[employeeData] Geen lokale medewerkerdata gevonden om te migreren.");
+    return { success: true, migratedCount: 0 };
+  }
+
+  try {
+    await sendEmployeeDataToCentral(localData);
+    lastEmployeeDataCentralSyncError = null;
+    window.lastEmployeeDataCentralSyncError = null;
+    console.info(`[employeeData] ${localData.employees.length} medewerkers naar Supabase gestuurd.`);
+    return { success: true, migratedCount: localData.employees.length };
+  } catch (error) {
+    reportEmployeeDataCentralSyncError("migrate", error);
+    return { success: false, migratedCount: 0, error };
+  }
+}
+
+window.migrateLocalEmployeeDataToCentral = migrateLocalEmployeeDataToCentral;
+
 const {
   formatDateTime = function fallbackFormatDateTime(value) {
     return new Intl.DateTimeFormat("nl-NL", {
@@ -1575,6 +1907,7 @@ function loadEmployees() {
 function saveEmployees() {
   replaceArrayContents(employees, sanitizeEmployeesForStorage(employees));
   safeSetStorageItem(getScopedStorageKey(employeeStorageKey), JSON.stringify(employees), "medewerkers");
+  queueEmployeeDataCentralSave();
 }
 
   const {
@@ -3795,6 +4128,7 @@ function loadEmployeeMeta() {
 
 function saveEmployeeMeta() {
   safeSetStorageItem(getScopedStorageKey(employeeMetaStorageKey), JSON.stringify(employeeMeta), "medewerkerstatus");
+  queueEmployeeDataCentralSave();
 }
 
 function loadAuditLog() {
@@ -4714,6 +5048,7 @@ function loadEmployeePermissions() {
 
 function saveEmployeePermissions() {
   safeSetStorageItem(getScopedStorageKey(employeePermissionsStorageKey), JSON.stringify(employeePermissions), "bevoegdheden");
+  queueEmployeeDataCentralSave();
 }
 
 function getBakeryCoreShifts() {
@@ -22827,6 +23162,7 @@ applySavedPreferences();
 activeTab = getDefaultTabForCurrentRole();
 updateTabVisibility();
 restoreSessionState({ resetToDefaultTab: true, resetWeekToCurrent: true });
+syncEmployeeDataFromCentral();
 syncWorkLogsFromCentral();
 
 
