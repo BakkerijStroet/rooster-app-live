@@ -30,7 +30,13 @@ function parseBody(req) {
 }
 
 function normalizeMode(value) {
-  return value === "test" ? "test" : "live";
+  if (value === "test") {
+    const error = new Error("Testmodus gebruikt alleen lokale opslag en raakt Supabase niet.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return "live";
 }
 
 function getSupabaseConfig() {

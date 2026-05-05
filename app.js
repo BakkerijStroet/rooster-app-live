@@ -652,25 +652,73 @@ function buildSessionSnapshot(sourcePreferences = preferences) {
   return {
     isAuthenticated,
     role: requestedRole,
-    employeeIdentity: requestedRole === "employee" ? validEmployeeIdentity : ""
+    employeeIdentity: requestedRole === "employee" ? validEmployeeIdentity : "",
+    dataMode: sourcePreferences?.lastDataMode === "test" ? "test" : "live"
   };
 }
 
-function applySessionSnapshot(nextSessionState, { persist = false } = {}) {
+function getSelectedLoginDataMode() {
+  return loginTestModeCheckbox?.checked ? "test" : "live";
+}
+
+function resetCentralSyncStateForModeSwitch() {
+  [workLogCentralSyncTimer, employeeDataCentralSyncTimer, planningEntriesCentralSyncTimer, requestDataCentralSyncTimer]
+    .forEach((timer) => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+    });
+  workLogCentralSyncTimer = null;
+  employeeDataCentralSyncTimer = null;
+  planningEntriesCentralSyncTimer = null;
+  requestDataCentralSyncTimer = null;
+  workLogCentralSyncInFlight = false;
+  employeeDataCentralSyncInFlight = false;
+  planningEntriesCentralSyncInFlight = false;
+  requestDataCentralSyncInFlight = false;
+  workLogCentralSyncPending = false;
+  employeeDataCentralSyncPending = false;
+  planningEntriesCentralSyncPending = false;
+  requestDataCentralSyncPending = false;
+  workLogCentralSyncLoaded = false;
+  employeeDataCentralSyncLoaded = false;
+  planningEntriesCentralSyncLoaded = false;
+  requestDataCentralSyncLoaded = false;
+}
+
+function setCurrentDataMode(nextDataMode) {
+  const normalizedDataMode = nextDataMode === "test" ? "test" : "live";
+
+  if (currentDataMode !== normalizedDataMode) {
+    resetCentralSyncStateForModeSwitch();
+  }
+
+  currentDataMode = normalizedDataMode;
+  preferences.lastDataMode = normalizedDataMode;
+}
+
+function syncCentralDataForCurrentMode() {
+  syncEmployeeDataFromCentral();
+  syncPlanningEntriesFromCentral();
+  syncRequestDataFromCentral();
+  syncWorkLogsFromCentral();
+}
+
+function applySessionSnapshot(nextSessionState, { persist = false, dataMode = "" } = {}) {
   const normalizedRole = nextSessionState?.role === "employee" ? "employee" : "planner";
   const normalizedEmployeeIdentity = normalizedRole === "employee"
     ? String(nextSessionState?.employeeIdentity || "")
     : "";
   const isAuthenticated = Boolean(nextSessionState?.isAuthenticated) &&
     (normalizedRole === "planner" || Boolean(normalizedEmployeeIdentity));
+  const normalizedDataMode = dataMode === "test" || nextSessionState?.dataMode === "test" ? "test" : "live";
 
   sessionState.isAuthenticated = isAuthenticated;
   sessionState.role = normalizedRole;
   sessionState.employeeIdentity = isAuthenticated ? normalizedEmployeeIdentity : "";
   activeRole = normalizedRole;
-  currentDataMode = "live";
+  setCurrentDataMode(normalizedDataMode);
   preferences.lastRole = normalizedRole;
-  preferences.lastDataMode = "live";
   preferences.employeeIdentity = sessionState.employeeIdentity;
   preferences.hasUserSession = isAuthenticated;
 
@@ -680,8 +728,9 @@ function applySessionSnapshot(nextSessionState, { persist = false } = {}) {
 }
 
 function getAvailableLoginEmployees() {
-  const modeEmployees = getEmployeesForMode("live");
-  const modeEmployeeMeta = getEmployeeMetaForMode("live", modeEmployees);
+  const selectedMode = getSelectedLoginDataMode();
+  const modeEmployees = getEmployeesForMode(selectedMode);
+  const modeEmployeeMeta = getEmployeeMetaForMode(selectedMode, modeEmployees);
   return modeEmployees.filter((employeeName) =>
     normalizeEmployeeStatus(modeEmployeeMeta?.[employeeName]?.status) === "active"
   );
@@ -742,7 +791,7 @@ function openSessionLogin({ preferredRole = activeRole, preferredEmployee = "" }
   populateLoginEmployeeSelect();
   loginRoleSelect.value = preferredRole === "employee" ? "employee" : "planner";
   if (loginTestModeCheckbox) {
-    loginTestModeCheckbox.checked = false;
+    loginTestModeCheckbox.checked = currentDataMode === "test";
   }
   populateLoginEmployeeSelect();
   loginEmployeeSelect.value = getAvailableLoginEmployees().includes(preferredEmployee)
@@ -761,14 +810,17 @@ function closeSessionLogin() {
 }
 
 function startPlannerSession({ showStartupMessage = false } = {}) {
+  const selectedDataMode = getSelectedLoginDataMode();
   applySessionSnapshot({
     isAuthenticated: true,
     role: "planner",
-    employeeIdentity: ""
-  }, { persist: true });
+    employeeIdentity: "",
+    dataMode: selectedDataMode
+  }, { persist: true, dataMode: selectedDataMode });
   reloadScopedData();
   closeSessionLogin();
   reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
+  syncCentralDataForCurrentMode();
 
   if (showStartupMessage) {
     showMessage("Planner geladen.", "success");
@@ -778,6 +830,7 @@ function startPlannerSession({ showStartupMessage = false } = {}) {
 }
 
 function startEmployeeSession(employeeName, { showStartupMessage = false } = {}) {
+  const selectedDataMode = getSelectedLoginDataMode();
   const availableEmployees = getAvailableLoginEmployees();
 
   if (!employeeName || !availableEmployees.includes(employeeName)) {
@@ -792,8 +845,9 @@ function startEmployeeSession(employeeName, { showStartupMessage = false } = {})
   applySessionSnapshot({
     isAuthenticated: true,
     role: "employee",
-    employeeIdentity: employeeName
-  }, { persist: true });
+    employeeIdentity: employeeName,
+    dataMode: selectedDataMode
+  }, { persist: true, dataMode: selectedDataMode });
   reloadScopedData();
 
   if (!getEmployeeIdentity()) {
@@ -801,7 +855,8 @@ function startEmployeeSession(employeeName, { showStartupMessage = false } = {})
     applySessionSnapshot({
       isAuthenticated: false,
       role: "employee",
-      employeeIdentity: ""
+      employeeIdentity: "",
+      dataMode: currentDataMode
     }, { persist: true });
     render();
     openSessionLogin({
@@ -813,6 +868,7 @@ function startEmployeeSession(employeeName, { showStartupMessage = false } = {})
 
   closeSessionLogin();
   reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
+  syncCentralDataForCurrentMode();
 
   if (showStartupMessage) {
     showMessage("Medewerker geladen.", "success");
@@ -858,8 +914,9 @@ function logoutCurrentSession({ showMessageAfterLogout = false } = {}) {
   applySessionSnapshot({
     isAuthenticated: false,
     role: sessionState.role,
-    employeeIdentity: ""
-  }, { persist: true });
+    employeeIdentity: "",
+    dataMode: currentDataMode
+  }, { persist: true, dataMode: currentDataMode });
   resetScopedEmployeeSelectors();
   activeTab = getDefaultTabForCurrentRole();
   syncStartWeekToCurrent();
@@ -4540,10 +4597,8 @@ const {
 } = window.StroetHoursPanelPrepFeature || {};
 
 const preferences = loadPreferences();
-let currentDataMode = "live";
-if (preferences.lastDataMode !== "live") {
-  preferences.lastDataMode = "live";
-}
+let currentDataMode = preferences.lastDataMode === "test" ? "test" : "live";
+preferences.lastDataMode = currentDataMode;
 const entries = loadEntries();
 const employees = loadEmployees();
 let shifts = [];
@@ -6674,6 +6729,7 @@ function reloadScopedData() {
   syncEmployeeShiftPreferences();
   syncEmployeeBasePatterns();
   syncEmployeeCustomRosters();
+  ensureTestDataSeeded();
 }
 
 function resetTestPlanningData() {
