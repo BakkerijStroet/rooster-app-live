@@ -18494,6 +18494,7 @@ function renderMySchedule() {
   ensureEmployeeIdentityForCurrentRole();
   const employeeName = isPlannerRole() ? portalEmployeeSelect.value : getRoleScopedEmployeeName();
   const selectedWeek = myScheduleWeekInput.value || weekFilterInput.value || getCurrentWeekValue();
+  const todayValue = getTodayDateValue();
 
   if (!employeeName) {
     setClassName(myScheduleBoard, "schedule-board empty");
@@ -18548,7 +18549,7 @@ function renderMySchedule() {
             selectedMyScheduleMobileDate,
             selectedDayEntries,
             selectedDayRequests,
-            selectedMyScheduleMobileDate === getTodayDateValue() ? `Vandaag - ${formatWeekday(selectedMyScheduleMobileDate)}` : formatWeekday(selectedMyScheduleMobileDate),
+            selectedMyScheduleMobileDate === todayValue ? `Vandaag - ${formatWeekday(selectedMyScheduleMobileDate)}` : formatWeekday(selectedMyScheduleMobileDate),
             {
               showEmployeeName: false,
               subtitle: formatDate(selectedMyScheduleMobileDate),
