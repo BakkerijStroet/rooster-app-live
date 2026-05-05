@@ -210,6 +210,9 @@ const hoursPreviousEmployeeButton = document.getElementById("hoursPreviousEmploy
 const hoursNextEmployeeButton = document.getElementById("hoursNextEmployeeButton");
 const approvalWeekInput = document.getElementById("approvalWeek");
 const approvalEmployeeSelect = document.getElementById("approvalEmployee");
+const approvalPreviousWeekButton = document.getElementById("approvalPreviousWeekButton");
+const approvalCurrentWeekButton = document.getElementById("approvalCurrentWeekButton");
+const approvalNextWeekButton = document.getElementById("approvalNextWeekButton");
 const hoursExportPeriodSelect = document.getElementById("hoursExportPeriod");
 const hoursExportWeekLabel = document.getElementById("hoursExportWeekLabel");
 const hoursExportWeekInput = document.getElementById("hoursExportWeek");
@@ -4589,8 +4592,8 @@ const {
     if (openLogs.length) {
       return {
         status: "ready",
-        label: "Klaar voor goedkeuring",
-        note: `${openLogs.length} ${openLogs.length === 1 ? "registratie staat klaar" : "registraties staan klaar"} voor goedkeuring.`,
+        label: "Klaar voor controle",
+        note: `${openLogs.length} ${openLogs.length === 1 ? "registratie staat klaar" : "registraties staan klaar"} voor controle.`,
         futureDays,
         missingDays,
         draftLogs,
@@ -8827,7 +8830,7 @@ function maybeShowOpenRequestReminder() {
     savePreferences();
 
     if (totalOpen && pendingHoursCount) {
-      showMessage("Er staan open aanvragen in de Roosterapp. Er staan uren klaar om goed te keuren in de Roosterapp.", "warning");
+      showMessage("Er staan open aanvragen in de Roosterapp. Er staan uren klaar om te controleren in de Roosterapp.", "warning");
       return;
     }
 
@@ -8841,7 +8844,7 @@ function maybeShowOpenRequestReminder() {
       return;
     }
 
-    showMessage("Er staan uren klaar om goed te keuren in de Roosterapp.", "warning");
+    showMessage("Er staan uren klaar om te controleren in de Roosterapp.", "warning");
     return;
   }
 
@@ -18502,9 +18505,9 @@ function renderDashboard() {
           <button type="button" class="secondary dashboard-item-action" data-dashboard-go-tab="requests" data-dashboard-action="overdue-requests">Bekijk aanvragen</button>
         </article>
         <article class="dashboard-item" data-dashboard-go-tab="hours-approval" data-dashboard-action="hours-approval">
-          <span>Uren klaar voor goedkeuring</span>
+          <span>Uren klaar voor controle</span>
           <strong>${hoursReadyCount}</strong>
-          <button type="button" class="secondary dashboard-item-action" data-dashboard-go-tab="hours-approval" data-dashboard-action="hours-approval">Accorderen</button>
+          <button type="button" class="secondary dashboard-item-action" data-dashboard-go-tab="hours-approval" data-dashboard-action="hours-approval">Controleren</button>
         </article>
       </div>
     </section>
@@ -18538,7 +18541,7 @@ function renderDashboard() {
       </div>
     </section>
     ${(totalOpenRequests + overdueRequests + hoursReadyCount + planningWeekData.openCount + planningWeekData.replacementCount + contractMismatchCount) > 0
-      ? `<div class="dashboard-alert">Planner aandacht: ${totalOpenRequests} open aanvragen, ${hoursReadyCount} uren klaar voor goedkeuring en ${planningWeekData.openCount} open diensten in ${currentWeek}.</div>`
+      ? `<div class="dashboard-alert">Planner aandacht: ${totalOpenRequests} open aanvragen, ${hoursReadyCount} uren klaar voor controle en ${planningWeekData.openCount} open diensten in ${currentWeek}.</div>`
       : `<div class="dashboard-alert">Geen directe acties open voor ${currentWeek}. Alles staat er rustig bij.</div>`}
   `;
 }
@@ -20343,6 +20346,216 @@ function renderHoursExportControls() {
   hoursExportButton.classList.toggle("hidden", !isPlannerRole());
 }
 
+function getHoursControlStatusClass(log) {
+  if (log?.status === "approved") {
+    return "approved";
+  }
+
+  if (log?.status === "rejected" || log?.status === "revision") {
+    return "rejected";
+  }
+
+  if (log?.status === "open") {
+    return "open";
+  }
+
+  return "empty";
+}
+
+function getHoursControlSummary({ allWeekLogs, openLogs, approvedLogs, reviewLogs }) {
+  return {
+    open: openLogs.length,
+    approved: approvedLogs.length,
+    review: reviewLogs.length,
+    total: allWeekLogs.length
+  };
+}
+
+function sortPlannerHoursControlItems(logA, logB) {
+  const priorityMap = { open: 0, revision: 1, rejected: 2, draft: 3, approved: 4 };
+  const priorityCompare = (priorityMap[logA.status] ?? 9) - (priorityMap[logB.status] ?? 9);
+
+  if (priorityCompare !== 0) {
+    return priorityCompare;
+  }
+
+  return logA.day.localeCompare(logB.day) ||
+    logA.employeeName.localeCompare(logB.employeeName, "nl") ||
+    logA.plannedStart.localeCompare(logB.plannedStart);
+}
+
+function getPlannerHoursControlItems({ allWeekLogs, openLogs, approvedLogs, reviewLogs }) {
+  if (activeHoursApprovalFilter === "approved") {
+    return approvedLogs.slice().sort(sortPlannerHoursControlItems);
+  }
+
+  if (activeHoursApprovalFilter === "open") {
+    return openLogs.slice().sort(sortPlannerHoursControlItems);
+  }
+
+  if (activeHoursApprovalFilter === "review") {
+    return reviewLogs.slice().sort(sortPlannerHoursControlItems);
+  }
+
+  return allWeekLogs.slice().sort(sortPlannerHoursControlItems);
+}
+
+function renderHoursControlSummaryCards(summary) {
+  const cards = [
+    { key: "open", label: "Nog te controleren", value: summary.open },
+    { key: "approved", label: "Goedgekeurd", value: summary.approved },
+    { key: "review", label: "Afgewezen / gecorrigeerd", value: summary.review },
+    { key: "all", label: "Totaal deze week", value: summary.total }
+  ];
+
+  return `
+    <div class="hours-control-summary-row">
+      ${cards.map((card) => `
+        <button
+          type="button"
+          class="hours-control-summary-card ${activeHoursApprovalFilter === card.key ? "active" : ""}"
+          data-hours-approval-filter="${card.key}"
+          aria-pressed="${activeHoursApprovalFilter === card.key ? "true" : "false"}"
+        >
+          <span>${card.label}</span>
+          <strong>${card.value}</strong>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderHoursControlFilterButtons() {
+  const buttons = [
+    { key: "all", label: "Alles" },
+    { key: "open", label: "Nog te controleren" },
+    { key: "approved", label: "Goedgekeurd" },
+    { key: "review", label: "Afgewezen / correctie" },
+    { key: "missing", label: "Ontbrekend" }
+  ];
+
+  return `
+    <div class="form-actions compact-actions hours-control-filter-row">
+      ${buttons.map(({ key, label }) => `
+        <button
+          type="button"
+          class="${activeHoursApprovalFilter === key ? "" : "secondary"}"
+          data-hours-approval-filter="${key}"
+          aria-pressed="${activeHoursApprovalFilter === key ? "true" : "false"}"
+        >${label}</button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderHoursControlWeekStatus({ selectedWeek, selectedEmployee, weekReviewState, summary, openLogs }) {
+  const bulkApproveButtonMarkup = openLogs.length
+    ? `
+      <div class="form-actions compact-actions hours-control-bulk-actions">
+        <button type="button" data-worklog-bulk-approve="selected-week" data-worklog-week="${selectedWeek}" data-worklog-employee="${selectedEmployee}" onclick='if (confirm("Alle open uren van deze week goedkeuren?")) approveWorkLogsForWeek(${JSON.stringify(selectedWeek)}, ${JSON.stringify(selectedEmployee || "")});'>Alles goedkeuren</button>
+      </div>
+    `
+    : "";
+
+  return `
+    <article class="hours-control-status-card">
+      <div class="hours-control-status-head">
+        <div>
+          <strong>Weekstatus</strong>
+          <span>${selectedEmployee || "Alle medewerkers"} · ${selectedWeek.replace("-W", " week ")}</span>
+        </div>
+        <span class="status-pill status-${weekReviewState.status === "done" ? "approved" : weekReviewState.status === "ready" ? "open" : "rejected"}">${weekReviewState.label}</span>
+      </div>
+      ${renderHoursControlSummaryCards(summary)}
+      <div class="hours-control-status-footer">
+        <span>${weekReviewState.note || "Controleer de ingediende uren van deze week."}</span>
+        ${bulkApproveButtonMarkup}
+      </div>
+      ${renderHoursControlFilterButtons()}
+    </article>
+  `;
+}
+
+function renderHoursControlMissingDays({ selectedWeek, selectedEmployee, weekReviewState, summary, openLogs, missingDays }) {
+  setClassName(hoursApprovalQueue, "hours-control-list");
+  hoursApprovalQueue.innerHTML = `
+    ${renderHoursControlWeekStatus({ selectedWeek, selectedEmployee, weekReviewState, summary, openLogs })}
+    <article class="hours-control-card">
+      <div class="hours-control-list-title">
+        <strong>Ontbrekende dagen</strong>
+        <span>${selectedEmployee || "Alle medewerkers"} · ${selectedWeek.replace("-W", " week ")}</span>
+      </div>
+      ${missingDays.length ? `
+        <div class="hours-control-items">
+          ${missingDays.map((day) => `
+            <article class="hours-control-item is-rejected">
+              <div class="hours-control-item-grid">
+                <div class="hours-control-date"><strong>${formatWeekday(day)}</strong><span>${formatDate(day)}</span></div>
+                <div class="hours-control-main"><strong>Ontbrekende uren</strong><span>Voor deze dag ontbreken nog urenregistraties.</span></div>
+                <span class="status-pill status-rejected">Ontbrekend</span>
+              </div>
+            </article>
+          `).join("")}
+        </div>
+      ` : `<div class="hours-control-empty">Geen uren gevonden voor deze selectie.</div>`}
+    </article>
+  `;
+}
+
+function renderPlannerHoursControlItem(log) {
+  const statusClass = getHoursControlStatusClass(log);
+  const workedHours = getWorkedHoursFromLog(log);
+  const plannedText = log.plannedStart && log.plannedEnd ? `${log.plannedStart} - ${log.plannedEnd}` : "Niet gepland";
+  const actualText = log.actualStart && log.actualEnd ? `${log.actualStart} - ${log.actualEnd}` : "Nog niet ingevuld";
+  const pauseText = `${Number(log.breakMinutes) || 0} min`;
+  const totalText = workedHours !== null ? formatHours(workedHours) : "-";
+  const hasDeviation = log.actualStart !== log.plannedStart || log.actualEnd !== log.plannedEnd || Number(log.breakMinutes) > 0 || Boolean(log.notes?.trim());
+  const isApprovedLog = log.status === "approved";
+
+  return `
+    <article class="hours-control-item is-${statusClass} ${hasDeviation ? "has-deviation" : ""}">
+      <div class="hours-control-item-grid">
+        <div class="hours-control-date">
+          <strong>${formatWeekday(log.day)}</strong>
+          <span>${formatDate(log.day)}</span>
+        </div>
+        <div class="hours-control-main">
+          <strong>${log.employeeName}</strong>
+          <span>${log.shiftName || "Urenregistratie"}</span>
+        </div>
+        <div class="hours-control-meta"><span>Gepland</span><strong>${plannedText}</strong></div>
+        <div class="hours-control-meta"><span>Opgegeven</span><strong>${actualText}</strong></div>
+        <div class="hours-control-meta"><span>Pauze</span><strong>${pauseText}</strong></div>
+        <div class="hours-control-meta"><span>Totaal</span><strong>${totalText}</strong></div>
+        <div class="hours-control-status">
+          <span class="status-pill status-${statusClass}">${getWorkLogStatusLabel(log)}</span>
+          ${log.shiftName === "Extra uren" ? `<span class="hours-registration-flag is-extra">Extra uren</span>` : ""}
+          ${hasDeviation ? `<span class="hours-registration-flag">Afwijking</span>` : ""}
+        </div>
+        <div class="hours-control-note-area">
+          ${log.notes ? `<span>Medewerker: ${log.notes}</span>` : ""}
+          ${log.employeeReply ? `<span>Reactie: ${log.employeeReply}</span>` : ""}
+          ${isApprovedLog ? (log.managerNote ? `<span>Opmerking: ${log.managerNote}</span>` : `<span>Goedgekeurd</span>`) : `
+            <label class="hours-control-note-field">
+              <span>Korte toelichting</span>
+              <input type="text" maxlength="200" data-worklog-review-note="${log.id}" value="${log.managerNote || ""}" placeholder="Korte toelichting">
+            </label>
+          `}
+        </div>
+        <div class="actions compact-actions hours-control-actions">
+          ${isApprovedLog ? `
+            <span class="hours-registration-audit">Geen actie nodig</span>
+          ` : `
+            <button type="button" data-worklog-review="approved" data-worklog-id="${log.id}">Goedkeuren</button>
+            <button type="button" class="secondary" data-worklog-review="revision" data-worklog-id="${log.id}">Opmerking nodig</button>
+            <button type="button" class="warning" data-worklog-review="rejected" data-worklog-id="${log.id}">Afwijzen</button>
+          `}
+        </div>
+      </div>
+    </article>
+  `;
+}
+
 function renderHoursApproval() {
   if (!hoursApprovalQueue) {
     return;
@@ -20361,227 +20574,58 @@ function renderHoursApproval() {
   const selectedEmployee = approvalEmployeeSelect?.value || "";
   const weekReviewState = getHoursWeekReviewState(selectedWeek, selectedEmployee);
   const allWeekLogs = getWorkLogsForWeek(selectedWeek, selectedEmployee);
-  const weekLogs = allWeekLogs.filter((log) =>
-    log.status === "open" || log.status === "revision" || log.status === "rejected"
-  );
-  const openLogs = weekLogs.filter((log) => log.status === "open");
-  const reviewLogs = weekLogs.filter((log) => log.status === "revision" || log.status === "rejected");
+  const openLogs = allWeekLogs.filter((log) => log.status === "open");
+  const reviewLogs = allWeekLogs.filter((log) => log.status === "revision" || log.status === "rejected");
   const approvedLogs = Array.isArray(weekReviewState.approvedLogs) ? weekReviewState.approvedLogs : [];
   const missingDays = Array.isArray(weekReviewState.missingDays) ? weekReviewState.missingDays : [];
-  const availableHoursApprovalFilters = new Set(["all", "open", "approved", "missing"]);
+  const availableHoursApprovalFilters = new Set(["all", "open", "approved", "review", "missing"]);
 
   if (!availableHoursApprovalFilters.has(activeHoursApprovalFilter)) {
     activeHoursApprovalFilter = "all";
   }
 
-  const hoursApprovalFilterButtons = [
-    { key: "all", label: "Alles" },
-    { key: "open", label: "Open" },
-    { key: "approved", label: "Goedgekeurd" },
-    { key: "missing", label: "Ontbrekend" }
-  ];
-
-  const filterSummaryText = activeHoursApprovalFilter === "open"
-    ? "Alleen ingediende/open urenregistraties."
-    : activeHoursApprovalFilter === "approved"
-      ? "Alleen goedgekeurde urenregistraties."
-      : activeHoursApprovalFilter === "missing"
-        ? "Ontbrekende dagen in deze week."
-        : "Alle urenregistraties van deze week.";
-  const bulkApproveButtonMarkup = openLogs.length
-    ? `
-      <div class="form-actions compact-actions">
-        <button type="button" data-worklog-bulk-approve="selected-week" data-worklog-week="${selectedWeek}" data-worklog-employee="${selectedEmployee}" onclick='if (confirm("Alle open uren van deze week goedkeuren?")) approveWorkLogsForWeek(${JSON.stringify(selectedWeek)}, ${JSON.stringify(selectedEmployee || "")});'>Alle open uren goedkeuren</button>
-      </div>
-    `
-    : "";
-  const hoursWeekStatusMarkup = `
-    <article class="hours-approval-card">
-      <div class="hours-registration-head">
-        <div>
-          <strong>Weekstatus uren</strong>
-          <span>${selectedEmployee || "Alle medewerkers"} · ${selectedWeek.replace("-W", " week ")}</span>
-        </div>
-        <span class="status-pill status-${weekReviewState.status === "done" ? "approved" : weekReviewState.status === "ready" ? "open" : "rejected"}">${weekReviewState.label}</span>
-      </div>
-      <div class="dashboard-grid">
-        <div class="dashboard-item">
-          <span>Ingediende / open logs</span>
-          <strong>${openLogs.length}</strong>
-        </div>
-        <div class="dashboard-item">
-          <span>Goedgekeurde logs</span>
-          <strong>${approvedLogs.length}</strong>
-        </div>
-        <div class="dashboard-item">
-          <span>Ontbrekende dagen</span>
-          <strong>${missingDays.length}</strong>
-        </div>
-      </div>
-      <div class="panel-note">${weekReviewState.note || "Controleer de ingediende uren van deze week."}</div>
-      <div class="form-actions compact-actions">
-        ${hoursApprovalFilterButtons.map(({ key, label }) => `
-          <button
-            type="button"
-            class="${activeHoursApprovalFilter === key ? "" : "secondary"}"
-            data-hours-approval-filter="${key}"
-            aria-pressed="${activeHoursApprovalFilter === key ? "true" : "false"}"
-          >${label}</button>
-        `).join("")}
-      </div>
-      ${bulkApproveButtonMarkup}
-      <div class="panel-note">${filterSummaryText}</div>
-    </article>
-  `;
-  const filteredLogs = activeHoursApprovalFilter === "approved"
-    ? approvedLogs
-    : activeHoursApprovalFilter === "open"
-      ? openLogs
-      : activeHoursApprovalFilter === "all"
-        ? allWeekLogs
-        : [];
-
-  const approvalGroups = filteredLogs.reduce((groups, log) => {
-    const employeeLogs = groups.get(log.employeeName) || [];
-    employeeLogs.push(log);
-    groups.set(log.employeeName, employeeLogs);
-    return groups;
-  }, new Map());
+  const summary = getHoursControlSummary({ allWeekLogs, openLogs, approvedLogs, reviewLogs });
 
   if (activeHoursApprovalFilter === "missing") {
-    setClassName(hoursApprovalQueue, "hours-approval-list");
-    hoursApprovalQueue.innerHTML = `
-      ${hoursWeekStatusMarkup}
-      <article class="hours-approval-card">
-        <div class="hours-registration-head">
-          <div>
-            <strong>Ontbrekende dagen</strong>
-            <span>${selectedEmployee || "Alle medewerkers"} · ${selectedWeek.replace("-W", " week ")}</span>
-          </div>
-        </div>
-        ${missingDays.length ? `
-          <div class="request-list">
-            ${missingDays.map((day) => `
-              <article class="request-card">
-                <div class="request-top">
-                  <strong>${formatWeekday(day)} ${formatDate(day)}</strong>
-                  <span class="status-pill status-rejected">Ontbrekend</span>
-                </div>
-                <div class="request-meta">Voor deze dag ontbreken nog urenregistraties in de gekozen week.</div>
-              </article>
-            `).join("")}
-          </div>
-        ` : `
-          <div class="panel-note">Er zijn geen ontbrekende dagen in deze week.</div>
-        `}
-      </article>
-    `;
+    renderHoursControlMissingDays({ selectedWeek, selectedEmployee, weekReviewState, summary, openLogs, missingDays });
     return;
   }
+
+  const filteredLogs = getPlannerHoursControlItems({ allWeekLogs, openLogs, approvedLogs, reviewLogs });
 
   if (!filteredLogs.length) {
-    setClassName(hoursApprovalQueue, "request-list empty");
+    setClassName(hoursApprovalQueue, "hours-control-list empty");
     hoursApprovalQueue.innerHTML = `
-      ${hoursWeekStatusMarkup}
-      <div class="panel-note">${activeHoursApprovalFilter === "approved"
-        ? "Er zijn geen goedgekeurde urenregistraties in deze week."
-        : activeHoursApprovalFilter === "open"
-          ? "Er zijn geen open urenregistraties in deze week."
-          : getHoursApprovalEmptyTextHelper(weekReviewState)}</div>
+      ${renderHoursControlWeekStatus({ selectedWeek, selectedEmployee, weekReviewState, summary, openLogs })}
+      <div class="hours-control-empty">Geen uren gevonden voor deze selectie.</div>
     `;
     return;
   }
 
-  const approvalGroupViewModels = buildHoursApprovalGroupViewModelsHelper(approvalGroups, {
-    getWorkLogStatusLabel
-  });
-
-  setClassName(hoursApprovalQueue, "hours-approval-list");
+  setClassName(hoursApprovalQueue, "hours-control-list");
   hoursApprovalQueue.innerHTML = `
-      ${hoursWeekStatusMarkup}
-      <article class="hours-approval-card">
-        <div class="hours-registration-head">
-          <div>
-            <strong>${activeHoursApprovalFilter === "approved" ? "Goedgekeurde urenregistraties" : activeHoursApprovalFilter === "open" ? "Open urenregistraties" : "Urenregistraties van deze week"}</strong>
-              <span>${selectedEmployee || "Alle medewerkers"} · ${selectedWeek.replace("-W", " week ")}</span>
-          </div>
-        </div>
-        <div class="hours-registration-meta">
-          <span>Open: ${openLogs.length}</span>
-          <span>Opmerking nodig / afgekeurd: ${reviewLogs.length}</span>
-          <span>Totaal getoond: ${filteredLogs.length}</span>
-        </div>
-      <div class="hours-approval-groups">
-        ${approvalGroupViewModels
-          .map(({ employeeName, sortedEmployeeLogs, openCount, deviationCount, dayCount }) => `
-              <article class="hours-approval-employee-group">
-                <div class="hours-approval-employee-head">
-                  <div>
-                    <strong>${employeeName}</strong>
-                    <span>${dayCount} ${dayCount === 1 ? "dag" : "dagen"} in deze week</span>
-                  </div>
-                  <div class="hours-approval-employee-meta">
-                    <span>Open ${openCount}</span>
-                    <span>Afwijking ${deviationCount}</span>
-                  </div>
-                </div>
-                <div class="hours-approval-day-list">
-                  ${sortedEmployeeLogs.map((log) => {
-                    const deviation = log.actualStart !== log.plannedStart || log.actualEnd !== log.plannedEnd || Number(log.breakMinutes) > 0 || Boolean(log.notes?.trim());
-                    const isApprovedLog = log.status === "approved";
-                    const statusClass = isApprovedLog
-                      ? "approved"
-                      : log.status === "rejected" || log.status === "revision"
-                        ? "rejected"
-                        : "open";
-
-                    return `
-                      <article class="hours-approval-day-card request-card is-${statusClass} ${deviation ? "has-deviation" : ""}">
-                        <div class="request-top">
-                  <strong>${formatWeekday(log.day)} ${formatDate(log.day)} · ${log.shiftName}</strong>
-                          <span class="status-pill status-${statusClass}">${getWorkLogStatusLabel(log)}</span>
-                        </div>
-                  <div class="request-meta">Gepland ${log.plannedStart} - ${log.plannedEnd} · Werkelijk ${log.actualStart} - ${log.actualEnd} · Pauze ${log.breakMinutes} min</div>
-                        ${log.shiftName === "Extra uren" ? `<div class="hours-registration-flag is-extra">Extra uren</div>` : ""}
-                        ${deviation ? `<div class="hours-registration-flag">Afwijking van planning</div>` : `<div class="hours-registration-audit">Volgens planning</div>`}
-                        ${log.notes ? `<div class="hours-registration-audit">Opmerking medewerker: ${log.notes}</div>` : ""}
-                        ${log.employeeReply ? `<div class="hours-registration-audit">Reactie medewerker: ${log.employeeReply}</div>` : ""}
-                        ${isApprovedLog ? `
-                          <div class="hours-registration-audit">Deze urenregistratie is al goedgekeurd.</div>
-                        ` : `
-                          <label class="hours-registration-notes">
-                            Opmerking directie
-                            <input type="text" maxlength="200" data-worklog-review-note="${log.id}" value="${log.managerNote || ""}" placeholder="Korte toelichting voor medewerker">
-                          </label>
-                          <div class="actions compact-actions">
-                            <button type="button" data-worklog-review="approved" data-worklog-id="${log.id}">Goedkeuren</button>
-                            <button type="button" class="secondary" data-worklog-review="revision" data-worklog-id="${log.id}">Opmerking nodig</button>
-                            <button type="button" class="warning" data-worklog-review="rejected" data-worklog-id="${log.id}">Afkeuren</button>
-                          </div>
-                        `}
-                      </article>
-                    `;
-                  }).join("")}
-                </div>
-              </article>
-            `).join("")}
+    ${renderHoursControlWeekStatus({ selectedWeek, selectedEmployee, weekReviewState, summary, openLogs })}
+    <article class="hours-control-card">
+      <div class="hours-control-list-title">
+        <strong>${activeHoursApprovalFilter === "approved" ? "Goedgekeurde uren" : activeHoursApprovalFilter === "open" ? "Nog te controleren uren" : activeHoursApprovalFilter === "review" ? "Afgewezen / correctie" : "Uren van deze week"}</strong>
+        <span>${filteredLogs.length} ${filteredLogs.length === 1 ? "regel" : "regels"} · ${selectedEmployee || "Alle medewerkers"}</span>
+      </div>
+      <div class="hours-control-table-head" aria-hidden="true">
+        <span>Datum</span>
+        <span>Medewerker / dienst</span>
+        <span>Gepland</span>
+        <span>Opgegeven</span>
+        <span>Pauze</span>
+        <span>Totaal</span>
+        <span>Status</span>
+        <span>Toelichting</span>
+        <span>Acties</span>
+      </div>
+      <div class="hours-control-items">
+        ${filteredLogs.map(renderPlannerHoursControlItem).join("")}
       </div>
     </article>
   `;
-
-  const approvalCard = hoursApprovalQueue.querySelector(".hours-approval-card");
-  const approvalHead = approvalCard?.querySelector(".hours-registration-head");
-  const approvalActions = approvalCard?.querySelector(".form-actions");
-
-  if (approvalHead) {
-    approvalHead.insertAdjacentHTML("beforeend", `
-      <span class="status-pill status-${weekReviewState.status === "done" ? "approved" : weekReviewState.status === "ready" ? "open" : "rejected"}">${weekReviewState.label}</span>
-    `);
-  }
-
-  if (approvalActions) {
-    approvalActions.insertAdjacentHTML("beforebegin", `<div class="panel-note">${weekReviewState.note}</div>`);
-  }
 }
 
 function renderActiveTabContent() {
@@ -25097,6 +25141,42 @@ approvalWeekInput?.addEventListener("change", () => {
 });
 
 approvalEmployeeSelect?.addEventListener("change", () => {
+  renderHoursApproval();
+});
+
+approvalPreviousWeekButton?.addEventListener("click", () => {
+  const previousWeek = getPreviousWeekValue(approvalWeekInput?.value || getCurrentWeekValue());
+  if (approvalWeekInput) {
+    approvalWeekInput.value = previousWeek;
+  }
+  if (hoursExportWeekInput) {
+    hoursExportWeekInput.value = previousWeek;
+  }
+  renderHoursExportControls();
+  renderHoursApproval();
+});
+
+approvalCurrentWeekButton?.addEventListener("click", () => {
+  const currentWeek = getCurrentWeekValue();
+  if (approvalWeekInput) {
+    approvalWeekInput.value = currentWeek;
+  }
+  if (hoursExportWeekInput) {
+    hoursExportWeekInput.value = currentWeek;
+  }
+  renderHoursExportControls();
+  renderHoursApproval();
+});
+
+approvalNextWeekButton?.addEventListener("click", () => {
+  const nextWeek = getNextWeekValue(approvalWeekInput?.value || getCurrentWeekValue());
+  if (approvalWeekInput) {
+    approvalWeekInput.value = nextWeek;
+  }
+  if (hoursExportWeekInput) {
+    hoursExportWeekInput.value = nextWeek;
+  }
+  renderHoursExportControls();
   renderHoursApproval();
 });
 

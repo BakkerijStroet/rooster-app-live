@@ -114,8 +114,8 @@
     if (openLogs.length) {
       return {
         status: "ready",
-        label: "Klaar voor goedkeuring",
-        note: `${openLogs.length} ${openLogs.length === 1 ? "registratie staat klaar" : "registraties staan klaar"} voor goedkeuring.`,
+        label: "Klaar voor controle",
+        note: `${openLogs.length} ${openLogs.length === 1 ? "registratie staat klaar" : "registraties staan klaar"} voor controle.`,
         futureDays,
         missingDays,
         draftLogs,

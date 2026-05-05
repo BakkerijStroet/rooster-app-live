@@ -3383,6 +3383,184 @@ body[data-role="employee"][data-employee-locked="true"] .director-screen-toolbar
   align-items: end;
 }
 
+.hours-control-week-actions {
+  align-items: end;
+}
+
+.hours-control-list {
+  display: grid;
+  gap: 10px;
+}
+
+.hours-control-status-card,
+.hours-control-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fffdfa;
+}
+
+.hours-control-status-head,
+.hours-control-status-footer,
+.hours-control-list-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.hours-control-status-head div,
+.hours-control-list-title {
+  min-width: 0;
+}
+
+.hours-control-status-head span,
+.hours-control-list-title span,
+.hours-control-status-footer {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.hours-control-summary-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.hours-control-summary-card {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--text);
+  text-align: left;
+  box-shadow: none;
+}
+
+.hours-control-summary-card.active,
+.hours-control-summary-card:hover {
+  border-color: rgba(207, 121, 45, 0.4);
+  background: #fff4e4;
+}
+
+.hours-control-summary-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.hours-control-summary-card strong {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.hours-control-filter-row,
+.hours-control-bulk-actions {
+  justify-content: flex-start;
+}
+
+.hours-control-table-head,
+.hours-control-item-grid {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.75fr) minmax(140px, 1.1fr) minmax(90px, 0.75fr) minmax(100px, 0.85fr) minmax(70px, 0.55fr) minmax(80px, 0.65fr) minmax(105px, 0.85fr) minmax(150px, 1.1fr) minmax(210px, 1.2fr);
+  gap: 9px;
+  align-items: center;
+  min-width: 0;
+}
+
+.hours-control-table-head {
+  padding: 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.hours-control-items {
+  display: grid;
+  gap: 8px;
+}
+
+.hours-control-item {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fffcf5;
+}
+
+.hours-control-item.is-open {
+  border-color: #dfc979;
+  background: #fff8dd;
+}
+
+.hours-control-item.is-approved {
+  border-color: #9ec6b2;
+  background: #f2fbf6;
+}
+
+.hours-control-item.is-rejected {
+  border-color: #d9a49a;
+  background: #fff1ef;
+}
+
+.hours-control-date,
+.hours-control-main,
+.hours-control-meta,
+.hours-control-status,
+.hours-control-note-area {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.hours-control-date span,
+.hours-control-main span,
+.hours-control-meta span,
+.hours-control-note-area span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.hours-control-main strong,
+.hours-control-meta strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hours-control-note-field {
+  display: grid;
+  gap: 4px;
+}
+
+.hours-control-note-field span {
+  font-size: 11px;
+  font-weight: 800;
+  color: #6a6153;
+}
+
+.hours-control-note-field input {
+  width: 100%;
+  min-height: 36px;
+}
+
+.hours-control-actions {
+  justify-content: flex-start;
+}
+
+.hours-control-empty {
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  color: var(--muted);
+  background: #fffdfa;
+}
+
 .hours-approval-groups {
   display: grid;
   gap: 12px;
@@ -6963,6 +7141,31 @@ button,
   }
 
   .planner-request-inbox-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .hours-control-summary-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hours-control-status-head,
+  .hours-control-status-footer,
+  .hours-control-list-title {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .hours-control-table-head {
+    display: none;
+  }
+
+  .hours-control-item-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .hours-control-actions {
     display: grid;
     grid-template-columns: 1fr;
   }

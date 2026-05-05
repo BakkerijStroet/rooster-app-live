@@ -95,7 +95,7 @@
       <button type="button" class="nav-tab planner-only-tab" data-tab="dashboard">Dashboard</button>
       <button type="button" class="nav-tab" data-tab="week-current">Rooster</button>
       <button type="button" class="nav-tab planner-only-tab" data-tab="schedule-planning">Rooster inplannen</button>
-      <button type="button" class="nav-tab planner-only-tab" data-tab="hours-approval">Uren accorderen</button>
+      <button type="button" class="nav-tab planner-only-tab" data-tab="hours-approval">Uren controleren</button>
       <button type="button" class="nav-tab" data-tab="my-schedule">Mijn rooster</button>
       <button type="button" class="nav-tab" data-tab="my-hours">Mijn uren</button>
       <button type="button" class="nav-tab" data-tab="requests">Aanvragen</button>
@@ -643,10 +643,15 @@
       <section class="staff-panel role-planner app-panel aligned-view-panel director-screen-panel hours-approval-panel" data-panel="hours-approval">
         <div class="view-header director-screen-header">
           <div>
-            <h2>Uren accorderen</h2>
+            <h2>Uren controleren</h2>
             <p class="panel-note">Controle van ingediende urenregistraties per week.</p>
           </div>
           <div class="view-toolbar director-screen-toolbar">
+            <div class="week-switcher compact-actions hours-control-week-actions" aria-label="Weeknavigatie uren controleren">
+              <button type="button" id="approvalPreviousWeekButton" class="secondary">Vorige week</button>
+              <button type="button" id="approvalCurrentWeekButton" class="secondary">Deze week</button>
+              <button type="button" id="approvalNextWeekButton" class="secondary">Volgende week</button>
+            </div>
             <label class="week-select">
               <span>Week</span>
               <input type="week" id="approvalWeek">
