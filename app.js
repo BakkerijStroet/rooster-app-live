@@ -14495,6 +14495,7 @@ function updateMailLogEntry(request, mailEntry, patch = {}, persist = null) {
   }
 
   Object.assign(targetEntry, patch);
+  request.updatedAt = getNowIsoString();
 
   if (typeof persist === "function") {
     persist();
