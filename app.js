@@ -692,10 +692,7 @@ function setCurrentDataMode(nextDataMode) {
   if (currentDataMode !== normalizedDataMode) {
     resetCentralSyncStateForModeSwitch();
     resetMyScheduleRosterState();
-    activeMyHoursChoice = "";
-    activeMyHoursSection = "";
-    activeMyHoursEntryMode = "planned";
-    activeMobileWorkLogId = "";
+    resetMyHoursChoiceState();
   }
 
   currentDataMode = normalizedDataMode;
@@ -786,6 +783,13 @@ function resetScopedEmployeeSelectors() {
   swapEmployeeSelect.value = emptyEmployeeName;
 }
 
+function resetMyHoursChoiceState() {
+  activeMyHoursChoice = null;
+  activeMyHoursSection = "";
+  activeMyHoursEntryMode = "planned";
+  activeMobileWorkLogId = "";
+}
+
 function resetMyScheduleRosterState({ showYearOverview = true } = {}) {
   myScheduleYearOverviewVisible = showYearOverview;
   selectedMyScheduleMobileDate = "";
@@ -854,10 +858,7 @@ function startEmployeeSession(employeeName, { showStartupMessage = false } = {})
   }
 
   resetMyScheduleRosterState();
-  activeMyHoursChoice = "";
-  activeMyHoursSection = "";
-  activeMyHoursEntryMode = "planned";
-  activeMobileWorkLogId = "";
+  resetMyHoursChoiceState();
   applySessionSnapshot({
     isAuthenticated: true,
     role: "employee",
@@ -4743,7 +4744,7 @@ let requestDataRevision = 0;
 let previewDataRevision = 0;
 let activeMyHoursSection = "";
 let activeMyHoursEntryMode = "planned";
-let activeMyHoursChoice = "";
+let activeMyHoursChoice = null;
 let activeMobileWorkLogId = "";
 let activeMobileHoursFeedback = {
   workLogId: "",
@@ -6788,6 +6789,7 @@ function reloadScopedData() {
   editingTimeOffId = null;
   editingSwapId = null;
   resetMyScheduleRosterState();
+  resetMyHoursChoiceState();
   clearUndoState();
   mergeEmployeesFromEntries();
   ensureConfiguredBakeryEmployees();
@@ -15895,10 +15897,7 @@ function setActiveTab(tabName, options = {}) {
   }
 
   if (normalizedTabName === "my-hours" && !isPlannerRole() && !options.preserveMyHoursSection) {
-    activeMyHoursChoice = "";
-    activeMyHoursSection = "";
-    activeMyHoursEntryMode = "planned";
-    activeMobileWorkLogId = "";
+    resetMyHoursChoiceState();
   }
 
   if (normalizedTabName === "requests") {
@@ -19161,9 +19160,7 @@ function openHoursForDate(targetDate) {
   const targetWeek = getWeekValueFromDate(safeDate) || getCurrentWeekValue();
   const scopedEmployeeName = ensureEmployeeIdentityForCurrentRole();
   if (!isPlannerRole()) {
-    activeMyHoursChoice = safeDate === getTodayLocalDateValue() ? "today" : "fill";
-    activeMyHoursSection = safeDate === getTodayLocalDateValue() ? "today" : "fill";
-    activeMyHoursEntryMode = "planned";
+    resetMyHoursChoiceState();
   }
   hoursDateInput.value = safeDate;
   hoursWeekInput.value = targetWeek;
@@ -19174,7 +19171,7 @@ function openHoursForDate(targetDate) {
   }
   savePreferences();
   syncScopedEmployeeSelectors(scopedEmployeeName);
-  setActiveTab("my-hours", { preserveMyHoursSection: true });
+  setActiveTab("my-hours");
   renderMyHours();
   renderMySchedule();
   renderSchedule();
@@ -21873,10 +21870,7 @@ myHoursSummary?.addEventListener("click", (event) => {
   }
 
   if (event.target.closest("[data-my-hours-back-menu]") && !isPlannerRole()) {
-    activeMyHoursChoice = "";
-    activeMyHoursSection = "";
-    activeMyHoursEntryMode = "planned";
-    activeMobileWorkLogId = "";
+    resetMyHoursChoiceState();
     renderMyHours();
     return;
   }
