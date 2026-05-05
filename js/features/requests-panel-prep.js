@@ -79,24 +79,75 @@
     };
   }
 
+  function isDeletedRequest(request) {
+    return Boolean(request?.deletedAt || request?.deleted_at);
+  }
+
+  function getEmployeeRequestStatusClass(request) {
+    if (request?.status === "approved") {
+      return "approved";
+    }
+
+    if (request?.status === "rejected") {
+      return "rejected";
+    }
+
+    return "open";
+  }
+
+  function getEmployeeRequestCreatedText(request, helpers) {
+    if (!request?.createdAt || typeof helpers.formatDateTime !== "function") {
+      return "";
+    }
+
+    try {
+      return `Aangevraagd: ${helpers.formatDateTime(request.createdAt)}`;
+    } catch {
+      return "";
+    }
+  }
+
   function buildEmployeeRequestCards({ visibleTimeOffRequests, visibleSwapRequests, helpers }) {
     return [
-      ...visibleTimeOffRequests.map((request) => ({
-        type: helpers.getAbsenceTypeLabel(request.type),
-        meta: `${helpers.getTimeOffDisplayRange(request)}${request.reason ? ` - ${request.reason}` : ""}`,
-        status: helpers.getRequestDisplayStatus(request),
-        label: helpers.getRequestDisplayLabel(request),
-        typeClass: `absence-${helpers.getAbsenceCardClass(request.type)}`,
-        sortDate: request.updatedAt || request.createdAt || request.date || ""
-      })),
-      ...visibleSwapRequests.map((request) => ({
-        type: "Dienst ruilen",
-        meta: `${request.shiftName} - ${helpers.formatDate(request.date)} - ${request.startTime} - ${request.endTime}`,
-        status: helpers.getRequestDisplayStatus(request),
-        label: helpers.getRequestDisplayLabel(request),
-        typeClass: "",
-        sortDate: request.updatedAt || request.createdAt || request.date || ""
-      }))
+      ...visibleTimeOffRequests.filter((request) => !isDeletedRequest(request)).map((request) => {
+        const createdText = getEmployeeRequestCreatedText(request, helpers);
+
+        return {
+          type: "Verlofaanvraag",
+          meta: `${helpers.getAbsenceTypeLabel(request.type)} · ${helpers.getTimeOffDisplayRange(request)}`,
+          details: [
+            request.reason ? `Reden: ${request.reason}` : "",
+            request.managerNote ? `Opmerking: ${request.managerNote}` : "",
+            createdText
+          ].filter(Boolean),
+          status: helpers.getRequestDisplayStatus(request),
+          statusClass: getEmployeeRequestStatusClass(request),
+          label: helpers.getRequestDisplayLabel(request),
+          typeClass: `absence-${helpers.getAbsenceCardClass(request.type)}`,
+          sortDate: request.updatedAt || request.createdAt || request.date || ""
+        };
+      }),
+      ...visibleSwapRequests.filter((request) => !isDeletedRequest(request)).map((request) => {
+        const createdText = getEmployeeRequestCreatedText(request, helpers);
+        const targetText = request.targetEmployeeName
+          ? `Naar: ${request.targetEmployeeName}`
+          : "Open aangeboden";
+
+        return {
+          type: "Ruilverzoek",
+          meta: `${helpers.formatDate(request.date)} · ${request.shiftName} · ${request.startTime} - ${request.endTime}`,
+          details: [
+            targetText,
+            request.managerNote ? `Opmerking: ${request.managerNote}` : "",
+            createdText
+          ].filter(Boolean),
+          status: helpers.getRequestDisplayStatus(request),
+          statusClass: getEmployeeRequestStatusClass(request),
+          label: helpers.getRequestDisplayLabel(request),
+          typeClass: "",
+          sortDate: request.updatedAt || request.createdAt || request.date || ""
+        };
+      })
     ].sort((cardA, cardB) => {
       const priorityMap = { overdue: 0, waiting: 1, open: 2, approved: 3, rejected: 4 };
       const priorityDifference = (priorityMap[cardA.status] ?? 9) - (priorityMap[cardB.status] ?? 9);
