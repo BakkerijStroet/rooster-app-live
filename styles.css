@@ -3202,6 +3202,14 @@ body[data-role="employee"][data-employee-locked="true"] .director-screen-toolbar
   background: #fffcf5;
 }
 
+.mobile-hours-entry-card,
+.mobile-hours-entry-flow,
+.mobile-hours-cancel-button,
+.mobile-hours-feedback,
+.hours-mobile-field-label {
+  display: none;
+}
+
 .hours-registration-card.is-saved {
   border-color: #9ec6b2;
   background: #f2fbf6;
@@ -6576,6 +6584,167 @@ button,
     font-size: 14px;
     flex: 1 1 calc(50% - 8px);
     justify-content: center;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .hours-registration-card {
+    padding: 14px;
+    border-radius: 18px;
+    gap: 12px;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .hours-registration-card:not(.is-mobile-entry-active) .hours-registration-head,
+  body[data-role="employee"] [data-panel="my-hours"] .hours-registration-card:not(.is-mobile-entry-active) .hours-registration-meta,
+  body[data-role="employee"] [data-panel="my-hours"] .hours-registration-card:not(.is-mobile-entry-active) .hours-registration-grid,
+  body[data-role="employee"] [data-panel="my-hours"] .hours-registration-card:not(.is-mobile-entry-active) .hours-registration-validation,
+  body[data-role="employee"] [data-panel="my-hours"] .hours-registration-card:not(.is-mobile-entry-active) .panel-note,
+  body[data-role="employee"] [data-panel="my-hours"] .hours-registration-card:not(.is-mobile-entry-active) .hours-feedback-note,
+  body[data-role="employee"] [data-panel="my-hours"] .hours-registration-card:not(.is-mobile-entry-active) .hours-registration-lock,
+  body[data-role="employee"] [data-panel="my-hours"] .hours-registration-card:not(.is-mobile-entry-active) .form-actions {
+    display: none !important;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-entry-card {
+    display: grid;
+    gap: 10px;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-entry-main {
+    display: grid;
+    gap: 4px;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-entry-main strong {
+    font-size: 22px;
+    line-height: 1.2;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-entry-main span {
+    color: var(--muted);
+    font-size: 15px;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-day {
+    color: var(--text) !important;
+    font-weight: 800;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-status,
+  body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-note {
+    justify-self: start;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(242, 140, 40, 0.12);
+    color: var(--accent-strong);
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-status.status-approved {
+    background: rgba(106, 164, 122, 0.16);
+    color: #2f6f44;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-status.status-open {
+    background: rgba(242, 140, 40, 0.14);
+    color: #8a5a00;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-status.status-empty,
+  body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-status.status-rejected {
+    background: rgba(191, 84, 69, 0.12);
+    color: #a23b2e;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-feedback {
+    display: block;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(242, 140, 40, 0.1);
+    color: var(--accent-strong);
+    font-size: 14px;
+    font-weight: 800;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-feedback.is-success {
+    background: rgba(106, 164, 122, 0.14);
+    color: #2f6f44;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-feedback.is-error {
+    background: rgba(191, 84, 69, 0.12);
+    color: #a23b2e;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-feedback.is-empty {
+    display: none;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-open-button {
+    width: 100%;
+    min-height: 54px;
+    margin-top: 2px;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .is-mobile-entry-active .mobile-hours-entry-flow {
+    display: grid;
+    gap: 4px;
+    padding: 12px;
+    border-radius: 14px;
+    background: rgba(242, 140, 40, 0.08);
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .is-mobile-entry-active .mobile-hours-entry-flow strong {
+    font-size: 18px;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .is-mobile-entry-active .mobile-hours-entry-flow span {
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .is-mobile-entry-active .mobile-hours-open-button,
+  body[data-role="employee"] [data-panel="my-hours"] .is-mobile-entry-active [data-worklog-action="planned"] {
+    display: none !important;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .is-mobile-entry-active .hours-registration-head,
+  body[data-role="employee"] [data-panel="my-hours"] .is-mobile-entry-active .hours-registration-meta,
+  body[data-role="employee"] [data-panel="my-hours"] .is-mobile-entry-active .panel-note {
+    display: none !important;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .is-mobile-entry-active .hours-registration-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .is-mobile-entry-active .hours-registration-time-field,
+  body[data-role="employee"] [data-panel="my-hours"] .is-mobile-entry-active .hours-registration-notes {
+    gap: 6px;
+    font-size: 16px;
+    font-weight: 800;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .is-mobile-entry-active .hours-desktop-field-label {
+    display: none;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .is-mobile-entry-active .hours-mobile-field-label {
+    display: inline;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .is-mobile-entry-active .form-actions.compact-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .is-mobile-entry-active .form-actions.compact-actions button,
+  body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-cancel-button {
+    display: block;
+    width: 100%;
+    min-height: 54px;
+    font-size: 16px;
   }
 
   .compact-actions,
