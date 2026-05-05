@@ -1762,13 +1762,14 @@ function serializePlanningEntriesForComparison(sourceEntries) {
   );
 }
 
-function mergePlanningEntryCollections(localEntries = [], centralEntries = []) {
+function mergePlanningEntryCollections(localEntries = [], centralEntries = [], deletedEntryIds = []) {
   const mergedById = new Map();
+  const deletedIds = new Set(Array.isArray(deletedEntryIds) ? deletedEntryIds : []);
 
   sanitizeEntriesForStorage(localEntries).forEach((entry) => {
     const entryId = getPlanningEntrySyncId(entry);
 
-    if (entryId) {
+    if (entryId && !deletedIds.has(entryId)) {
       mergedById.set(entryId, entry);
     }
   });
@@ -1776,7 +1777,7 @@ function mergePlanningEntryCollections(localEntries = [], centralEntries = []) {
   sanitizeEntriesForStorage(centralEntries).forEach((centralEntry) => {
     const entryId = getPlanningEntrySyncId(centralEntry);
 
-    if (entryId && !mergedById.has(entryId)) {
+    if (entryId && !deletedIds.has(entryId) && !mergedById.has(entryId)) {
       mergedById.set(entryId, centralEntry);
     }
   });
@@ -1817,7 +1818,12 @@ async function fetchCentralPlanningEntries() {
     throw new Error(payload?.message || "Centraal laden van roosterregels is mislukt.");
   }
 
-  return Array.isArray(payload?.entries) ? sanitizeEntriesForStorage(payload.entries) : [];
+  return {
+    entries: Array.isArray(payload?.entries) ? sanitizeEntriesForStorage(payload.entries) : [],
+    deletedEntryIds: Array.isArray(payload?.deletedEntryIds)
+      ? payload.deletedEntryIds.filter((entryId) => typeof entryId === "string" && entryId)
+      : []
+  };
 }
 
 async function sendPlanningEntriesToCentral(sourceEntries = entries) {
@@ -1844,6 +1850,65 @@ async function sendPlanningEntriesToCentral(sourceEntries = entries) {
   }
 
   return true;
+}
+
+async function sendPlanningEntryDeletionsToCentral(deletedEntries = []) {
+  if (!isPlanningEntriesCentralSyncEnabled()) {
+    return false;
+  }
+
+  const deletedEntryIds = [...new Set(
+    (Array.isArray(deletedEntries) ? deletedEntries : [])
+      .map((entry) => typeof entry === "string" ? entry : getPlanningEntrySyncId(entry))
+      .filter(Boolean)
+  )];
+
+  if (!deletedEntryIds.length) {
+    return false;
+  }
+
+  const response = await fetch(planningEntriesApiEndpoint, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify({
+      mode: currentDataMode,
+      deletedEntryIds
+    })
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || payload?.success === false) {
+    throw new Error(payload?.message || "Centraal verwijderen van roosterregels is mislukt.");
+  }
+
+  return true;
+}
+
+function markPlanningEntriesDeletedCentrally(deletedEntries = []) {
+  if (!isPlanningEntriesCentralSyncEnabled()) {
+    return;
+  }
+
+  sendPlanningEntryDeletionsToCentral(deletedEntries)
+    .then(() => {
+      lastPlanningEntriesCentralSyncError = null;
+      window.lastPlanningEntriesCentralSyncError = null;
+    })
+    .catch((error) => reportPlanningEntriesCentralSyncError("delete", error));
+}
+
+function getPlanningEntriesRemovedByReplacement(previousEntries = [], nextEntries = []) {
+  const nextEntryIds = new Set(sanitizeEntriesForStorage(nextEntries).map((entry) => getPlanningEntrySyncId(entry)).filter(Boolean));
+
+  return sanitizeEntriesForStorage(previousEntries)
+    .filter((entry) => {
+      const entryId = getPlanningEntrySyncId(entry);
+      return entryId && !nextEntryIds.has(entryId);
+    });
 }
 
 function queuePlanningEntriesCentralSave() {
@@ -1899,8 +1964,9 @@ async function syncPlanningEntriesFromCentral() {
   const localBeforeSync = getPlanningEntriesSnapshot();
 
   try {
-    const centralEntries = await fetchCentralPlanningEntries();
-    const mergedEntries = mergePlanningEntryCollections(localBeforeSync, centralEntries);
+    const centralData = await fetchCentralPlanningEntries();
+    const centralEntries = centralData.entries;
+    const mergedEntries = mergePlanningEntryCollections(localBeforeSync, centralEntries, centralData.deletedEntryIds);
     const localSignature = serializePlanningEntriesForComparison(localBeforeSync);
     const centralSignature = serializePlanningEntriesForComparison(centralEntries);
     const mergedSignature = serializePlanningEntriesForComparison(mergedEntries);
@@ -1996,21 +2062,32 @@ function serializeRequestDataForComparison(data) {
 function normalizeCentralRequestData(payload = {}) {
   return {
     timeOffRequests: sanitizeTimeOffRequestsForStorage(Array.isArray(payload?.timeOffRequests) ? payload.timeOffRequests : []),
-    swapRequests: sanitizeSwapRequestsForStorage(Array.isArray(payload?.swapRequests) ? payload.swapRequests : [])
+    swapRequests: sanitizeSwapRequestsForStorage(Array.isArray(payload?.swapRequests) ? payload.swapRequests : []),
+    deletedRequests: {
+      timeOff: Array.isArray(payload?.deletedRequests?.timeOff)
+        ? payload.deletedRequests.timeOff.filter((requestId) => typeof requestId === "string" && requestId)
+        : [],
+      swap: Array.isArray(payload?.deletedRequests?.swap)
+        ? payload.deletedRequests.swap.filter((requestId) => typeof requestId === "string" && requestId)
+        : []
+    }
   };
 }
 
-function mergeRequestCollections(localRequests = [], centralRequests = [], sanitizer) {
+function mergeRequestCollections(localRequests = [], centralRequests = [], sanitizer, deletedRequestIds = []) {
   const mergedById = new Map();
+  const deletedIds = new Set(Array.isArray(deletedRequestIds) ? deletedRequestIds : []);
 
   sanitizer(localRequests).forEach((request) => {
-    mergedById.set(request.id, request);
+    if (!deletedIds.has(request.id)) {
+      mergedById.set(request.id, request);
+    }
   });
 
   sanitizer(centralRequests).forEach((centralRequest) => {
     const localRequest = mergedById.get(centralRequest.id);
 
-    if (!localRequest || getRequestComparableTimestamp(centralRequest) > getRequestComparableTimestamp(localRequest)) {
+    if (!deletedIds.has(centralRequest.id) && (!localRequest || getRequestComparableTimestamp(centralRequest) > getRequestComparableTimestamp(localRequest))) {
       mergedById.set(centralRequest.id, centralRequest);
     }
   });
@@ -2029,12 +2106,14 @@ function mergeRequestDataCollections(localData, centralData) {
     timeOffRequests: mergeRequestCollections(
       localSnapshot.timeOffRequests,
       centralSnapshot.timeOffRequests,
-      sanitizeTimeOffRequestsForStorage
+      sanitizeTimeOffRequestsForStorage,
+      centralSnapshot.deletedRequests.timeOff
     ),
     swapRequests: mergeRequestCollections(
       localSnapshot.swapRequests,
       centralSnapshot.swapRequests,
-      sanitizeSwapRequestsForStorage
+      sanitizeSwapRequestsForStorage,
+      centralSnapshot.deletedRequests.swap
     )
   };
 }
@@ -2097,6 +2176,54 @@ async function sendRequestDataToCentral(sourceData = getRequestDataSnapshot()) {
   }
 
   return true;
+}
+
+async function sendRequestDeletionsToCentral(deletedRequests = {}) {
+  if (!isRequestDataCentralSyncEnabled()) {
+    return false;
+  }
+
+  const payload = normalizeCentralRequestData({
+    deletedRequests
+  });
+  const hasDeletedRequests = payload.deletedRequests.timeOff.length > 0 || payload.deletedRequests.swap.length > 0;
+
+  if (!hasDeletedRequests) {
+    return false;
+  }
+
+  const response = await fetch(requestDataApiEndpoint, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify({
+      mode: currentDataMode,
+      deletedRequests: payload.deletedRequests
+    })
+  });
+
+  const responsePayload = await response.json().catch(() => ({}));
+
+  if (!response.ok || responsePayload?.success === false) {
+    throw new Error(responsePayload?.message || "Centraal intrekken/verwijderen van aanvragen is mislukt.");
+  }
+
+  return true;
+}
+
+function markRequestsDeletedCentrally(deletedRequests = {}) {
+  if (!isRequestDataCentralSyncEnabled()) {
+    return;
+  }
+
+  sendRequestDeletionsToCentral(deletedRequests)
+    .then(() => {
+      lastRequestDataCentralSyncError = null;
+      window.lastRequestDataCentralSyncError = null;
+    })
+    .catch((error) => reportRequestDataCentralSyncError("delete", error));
 }
 
 function queueRequestDataCentralSave() {
@@ -9838,6 +9965,10 @@ function clearPlannerDay(selectedDate) {
       plannerShifts.some((shift) => getShiftName(entry).toLowerCase() === shift.name.toLowerCase())
     )
     .map(({ index }) => index);
+  const removedEntries = removableIndexes
+    .map((index) => entries[index])
+    .filter(Boolean)
+    .map((entry) => ({ ...entry }));
 
   if (!removableIndexes.length) {
     showMessage("Voor deze dag zijn nog geen diensten ingepland.", "error");
@@ -9855,6 +9986,7 @@ function clearPlannerDay(selectedDate) {
       entries.splice(index, 1);
     });
   saveEntries();
+  markPlanningEntriesDeletedCentrally(removedEntries);
   persistProtectedChange({
     reason: `Dag leeggemaakt: ${selectedDate}`,
     scope: "roster",
@@ -16402,17 +16534,20 @@ function saveSingleDayPlannerShift(selectedDate, shift, employeeName) {
   }
 
   setUndoState(`${shift.name} ${formatDate(selectedDate)}`);
+  const removedEntries = [];
   for (let index = entries.length - 1; index >= 0; index -= 1) {
     if (
       entries[index].day === selectedDate &&
       getShiftName(entries[index]).toLowerCase() === shift.name.toLowerCase()
     ) {
+      removedEntries.push({ ...entries[index] });
       entries.splice(index, 1);
     }
   }
 
   entries.push(...selectedAssignments);
   saveEntries();
+  markPlanningEntriesDeletedCentrally(getPlanningEntriesRemovedByReplacement(removedEntries, selectedAssignments));
   const nextAssignment = selectedAssignments.find((assignment) => (assignment.shiftName || "").toLowerCase() === shift.name.toLowerCase()) || null;
   if (previousEntry && nextAssignment && moveWorkLogToEntry(previousEntry, nextAssignment)) {
     saveWorkLogs();
@@ -19590,14 +19725,17 @@ function persistDayPlannerAssignments(selectedDate, successMessage) {
   }
 
   setUndoState(`Dagplanning ${formatDate(selectedDate)}`);
+  const removedEntries = [];
   for (let index = entries.length - 1; index >= 0; index -= 1) {
     if (entries[index].day === selectedDate && plannerShifts.some((shift) => getShiftName(entries[index]).toLowerCase() === shift.name.toLowerCase())) {
+      removedEntries.push({ ...entries[index] });
       entries.splice(index, 1);
     }
   }
 
   entries.push(...selectedAssignments);
   saveEntries();
+  markPlanningEntriesDeletedCentrally(getPlanningEntriesRemovedByReplacement(removedEntries, selectedAssignments));
   const movedWorkLogs = selectedAssignments.some((assignment) => {
     const previousEntry = previousEntriesByShift.get((assignment.shiftName || "").toLowerCase());
     return previousEntry ? moveWorkLogToEntry(previousEntry, assignment) : false;
@@ -19707,6 +19845,9 @@ form.addEventListener("submit", (event) => {
     };
     const previousEntry = { ...entries[editIndex] };
     entries[editIndex] = entry;
+    if (getPlanningEntrySyncId(previousEntry) !== getPlanningEntrySyncId(entry)) {
+      markPlanningEntriesDeletedCentrally([previousEntry]);
+    }
     if (moveWorkLogToEntry(previousEntry, entry)) {
       saveWorkLogs();
     }
@@ -20205,8 +20346,10 @@ weekReplacementOverview?.addEventListener("click", (event) => {
   }
 
   setUndoState("Vervanging verwijderen");
+  const removedEntry = entries[existingEntryIndex] ? { ...entries[existingEntryIndex] } : null;
   entries.splice(existingEntryIndex, 1);
   saveEntries();
+  markPlanningEntriesDeletedCentrally(removedEntry ? [removedEntry] : []);
   persistProtectedChange({
     reason: `Vervanging verwijderd: ${day} ${shift.name}`,
     scope: "roster",
@@ -20264,12 +20407,12 @@ scheduleBoard.addEventListener("click", (event) => {
   }
 
   if (button.dataset.action === "clear-inline-entry") {
+    const removedEntry = entries[index] ? { ...entries[index] } : null;
     const shiftLabel = removedEntry ? `${getShiftName(removedEntry)} op ${formatDate(removedEntry.day)}` : "deze dienst";
     if (!confirmAction(`Weet je het zeker? ${shiftLabel} wordt leeggemaakt.`)) {
       return;
     }
 
-    const removedEntry = entries[index] ? { ...entries[index] } : null;
     if (!ensureWeekActionAllowed(getWeekValueFromDate(removedEntry?.day || ""), {
       actionLabel: "een dienst leeg te maken",
       blockPlannerWhenLocked: true
@@ -20286,6 +20429,7 @@ scheduleBoard.addEventListener("click", (event) => {
     setUndoState("Dienst leegmaken");
     entries.splice(index, 1);
     saveEntries();
+    markPlanningEntriesDeletedCentrally(removedEntry ? [removedEntry] : []);
     persistProtectedChange({
       reason: `Roosterdienst leeggemaakt: ${removedEntry?.name || ""} ${removedEntry?.day || ""}`,
       scope: "roster",
@@ -20310,12 +20454,12 @@ scheduleBoard.addEventListener("click", (event) => {
   }
 
   if (button.dataset.action === "delete") {
+    const removedEntry = entries[index] ? { ...entries[index] } : null;
     const shiftLabel = removedEntry ? `${getShiftName(removedEntry)} op ${formatDate(removedEntry.day)}` : "deze dienst";
     if (!confirmAction(`Weet je het zeker? ${shiftLabel} wordt verwijderd.`)) {
       return;
     }
 
-    const removedEntry = entries[index] ? { ...entries[index] } : null;
     if (!ensureWeekActionAllowed(getWeekValueFromDate(removedEntry?.day || ""), {
       actionLabel: "een dienst te verwijderen",
       blockPlannerWhenLocked: true
@@ -20327,6 +20471,7 @@ scheduleBoard.addEventListener("click", (event) => {
     setUndoState("Dienst verwijderen");
     entries.splice(index, 1);
     saveEntries();
+    markPlanningEntriesDeletedCentrally(removedEntry ? [removedEntry] : []);
     persistProtectedChange({
       reason: `Roosterdienst verwijderd: ${removedEntry?.name || ""} ${removedEntry?.day || ""}`,
       scope: "roster",
@@ -20587,6 +20732,7 @@ timeOffRequestsContainer.addEventListener("click", (event) => {
     const requestIndex = timeOffRequests.findIndex((item) => item.id === request.id);
     timeOffRequests.splice(requestIndex, 1);
     saveTimeOffRequests();
+    markRequestsDeletedCentrally({ timeOff: [request.id] });
     persistProtectedChange({
       reason: `Afwezigheidsaanvraag ingetrokken: ${request.employeeName} ${request.date}`,
       scope: "request",
@@ -20749,6 +20895,7 @@ swapRequestsContainer.addEventListener("click", (event) => {
     const requestIndex = swapRequests.findIndex((item) => item.id === request.id);
     swapRequests.splice(requestIndex, 1);
     saveSwapRequests();
+    markRequestsDeletedCentrally({ swap: [request.id] });
     persistProtectedChange({
       reason: `Ruilverzoek ingetrokken: ${request.employeeName} ${request.date}`,
       scope: "request",

@@ -5,6 +5,7 @@ create table if not exists public.request_data (
   employee_name text not null default '',
   status text not null default 'open',
   payload jsonb not null,
+  deleted_at timestamptz,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   primary key (data_mode, request_type, id)
@@ -19,7 +20,10 @@ create index if not exists request_data_employee_name_idx
 create index if not exists request_data_status_idx
   on public.request_data (status);
 
+create index if not exists request_data_deleted_at_idx
+  on public.request_data (deleted_at);
+
 alter table public.request_data enable row level security;
 
 comment on table public.request_data is
-  'Centrale upsert-only opslag voor verlof- en ruilverzoeken. Delete-sync/intrekken wordt later apart en expliciet opgelost.';
+  'Centrale opslag voor verlof- en ruilverzoeken. Verwijderen/intrekken gebruikt deleted_at tombstones; geen harde deletes.';

@@ -140,6 +140,10 @@ function mergeRequests(existingRequests, incomingRequests, type) {
   );
 }
 
+function getRequestDeleteKey(type, id) {
+  return `${type}:${id}`;
+}
+
 function getSupabaseConfig() {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
@@ -206,20 +210,34 @@ function toDatabaseRow(request, mode, type) {
     employee_name: normalizedRequest.employeeName,
     status: normalizedRequest.status || "open",
     payload: normalizedRequest,
+    deleted_at: null,
     updated_at: new Date(getRequestTimestamp(normalizedRequest) || Date.now()).toISOString()
   };
 }
 
 async function readRequestData(mode) {
   const rows = await supabaseRequest(
-    `request_data?data_mode=eq.${encodeURIComponent(mode)}&select=request_type,payload&order=updated_at.desc`,
+    `request_data?data_mode=eq.${encodeURIComponent(mode)}&select=request_type,id,payload,deleted_at&order=updated_at.desc`,
     { method: "GET" }
   );
   const timeOffRequests = [];
   const swapRequests = [];
+  const deletedRequests = {
+    timeOff: [],
+    swap: []
+  };
 
   if (Array.isArray(rows)) {
     rows.forEach((row) => {
+      if (row?.deleted_at) {
+        if (row?.request_type === REQUEST_TYPES.timeOff && typeof row.id === "string" && row.id) {
+          deletedRequests.timeOff.push(row.id);
+        } else if (row?.request_type === REQUEST_TYPES.swap && typeof row.id === "string" && row.id) {
+          deletedRequests.swap.push(row.id);
+        }
+        return;
+      }
+
       if (row?.request_type === REQUEST_TYPES.timeOff) {
         const request = normalizeTimeOffRequest(row.payload);
         if (request) {
@@ -236,14 +254,26 @@ async function readRequestData(mode) {
 
   return {
     timeOffRequests: normalizeRequests(timeOffRequests, REQUEST_TYPES.timeOff),
-    swapRequests: normalizeRequests(swapRequests, REQUEST_TYPES.swap)
+    swapRequests: normalizeRequests(swapRequests, REQUEST_TYPES.swap),
+    deletedRequests: {
+      timeOff: [...new Set(deletedRequests.timeOff)],
+      swap: [...new Set(deletedRequests.swap)]
+    }
   };
 }
 
 async function upsertRequestData(mode, incomingData) {
   const existingData = await readRequestData(mode);
-  const mergedTimeOffRequests = mergeRequests(existingData.timeOffRequests, incomingData.timeOffRequests, REQUEST_TYPES.timeOff);
-  const mergedSwapRequests = mergeRequests(existingData.swapRequests, incomingData.swapRequests, REQUEST_TYPES.swap);
+  const deletedRequestKeys = new Set([
+    ...(existingData.deletedRequests?.timeOff || []).map((id) => getRequestDeleteKey(REQUEST_TYPES.timeOff, id)),
+    ...(existingData.deletedRequests?.swap || []).map((id) => getRequestDeleteKey(REQUEST_TYPES.swap, id))
+  ]);
+  const incomingTimeOffRequests = normalizeRequests(incomingData.timeOffRequests, REQUEST_TYPES.timeOff)
+    .filter((request) => !deletedRequestKeys.has(getRequestDeleteKey(REQUEST_TYPES.timeOff, request.id)));
+  const incomingSwapRequests = normalizeRequests(incomingData.swapRequests, REQUEST_TYPES.swap)
+    .filter((request) => !deletedRequestKeys.has(getRequestDeleteKey(REQUEST_TYPES.swap, request.id)));
+  const mergedTimeOffRequests = mergeRequests(existingData.timeOffRequests, incomingTimeOffRequests, REQUEST_TYPES.timeOff);
+  const mergedSwapRequests = mergeRequests(existingData.swapRequests, incomingSwapRequests, REQUEST_TYPES.swap);
   const rows = [
     ...mergedTimeOffRequests.map((request) => toDatabaseRow(request, mode, REQUEST_TYPES.timeOff)),
     ...mergedSwapRequests.map((request) => toDatabaseRow(request, mode, REQUEST_TYPES.swap))
@@ -259,7 +289,33 @@ async function upsertRequestData(mode, incomingData) {
     });
   }
 
-  // Stap 4 is bewust upsert-only: intrekken/verwijderen wordt later apart en expliciet opgelost.
+  // Upsert blijft bewust actief-data-only: deletes/intrekkingen gebeuren alleen via expliciete tombstones.
+  return readRequestData(mode);
+}
+
+async function tombstoneRequestData(mode, deletedRequests) {
+  const deletedAt = new Date().toISOString();
+  const deleteItems = [
+    ...(Array.isArray(deletedRequests?.timeOff) ? deletedRequests.timeOff.map((id) => ({ type: REQUEST_TYPES.timeOff, id })) : []),
+    ...(Array.isArray(deletedRequests?.swap) ? deletedRequests.swap.map((id) => ({ type: REQUEST_TYPES.swap, id })) : [])
+  ].filter((item) => typeof item.id === "string" && item.id.trim());
+
+  for (const item of deleteItems) {
+    await supabaseRequest(
+      `request_data?data_mode=eq.${encodeURIComponent(mode)}&request_type=eq.${encodeURIComponent(item.type)}&id=eq.${encodeURIComponent(item.id.trim())}`,
+      {
+        method: "PATCH",
+        headers: {
+          Prefer: "return=minimal"
+        },
+        body: JSON.stringify({
+          deleted_at: deletedAt,
+          updated_at: deletedAt
+        })
+      }
+    );
+  }
+
   return readRequestData(mode);
 }
 
@@ -286,6 +342,20 @@ async function handler(req, res) {
         timeOffRequests: payload?.timeOffRequests,
         swapRequests: payload?.swapRequests
       });
+      sendJson(res, 200, { success: true, ...requestData });
+      return;
+    }
+
+    if (method === "DELETE") {
+      const payload = parseBody(req);
+      const mode = normalizeMode(payload?.mode || req.query?.mode);
+      const requestType = typeof req.query?.type === "string" ? req.query.type : "";
+      const requestId = typeof req.query?.id === "string" ? req.query.id : "";
+      const deletedRequests = payload?.deletedRequests || {
+        timeOff: requestType === REQUEST_TYPES.timeOff && requestId ? [requestId] : [],
+        swap: requestType === REQUEST_TYPES.swap && requestId ? [requestId] : []
+      };
+      const requestData = await tombstoneRequestData(mode, deletedRequests);
       sendJson(res, 200, { success: true, ...requestData });
       return;
     }

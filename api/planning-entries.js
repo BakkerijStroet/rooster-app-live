@@ -177,23 +177,44 @@ function toDatabaseRow(entry, mode) {
     start_time: normalizedEntry.startTime,
     end_time: normalizedEntry.endTime,
     payload: normalizedEntry,
+    deleted_at: null,
     updated_at: new Date().toISOString()
   };
 }
 
 async function readPlanningEntries(mode) {
   const rows = await supabaseRequest(
-    `planning_entries?data_mode=eq.${encodeURIComponent(mode)}&select=payload&order=day.asc,start_time.asc,employee_name.asc`,
+    `planning_entries?data_mode=eq.${encodeURIComponent(mode)}&select=id,payload,deleted_at&order=day.asc,start_time.asc,employee_name.asc`,
     { method: "GET" }
   );
+  const entries = [];
+  const deletedEntryIds = [];
 
-  return Array.isArray(rows)
-    ? normalizePlanningEntries(rows.map((row) => row?.payload))
-    : [];
+  if (Array.isArray(rows)) {
+    rows.forEach((row) => {
+      if (row?.deleted_at) {
+        if (typeof row.id === "string" && row.id) {
+          deletedEntryIds.push(row.id);
+        }
+        return;
+      }
+
+      entries.push(row?.payload);
+    });
+  }
+
+  return {
+    entries: normalizePlanningEntries(entries),
+    deletedEntryIds: [...new Set(deletedEntryIds)]
+  };
 }
 
 async function upsertPlanningEntries(mode, entries) {
+  const existingData = await readPlanningEntries(mode);
+  const deletedEntryIds = new Set(existingData.deletedEntryIds);
   const rows = normalizePlanningEntries(entries)
+    // Veiligheidsregel stap 5: oude localStorage mag centrale tombstones niet opnieuw actief maken.
+    .filter((entry) => !deletedEntryIds.has(getPlanningEntryId(entry)))
     .map((entry) => toDatabaseRow(entry, mode))
     .filter(Boolean);
 
@@ -207,7 +228,34 @@ async function upsertPlanningEntries(mode, entries) {
     });
   }
 
-  // Stap 3 is bewust upsert-only: centrale roosterregels worden niet automatisch verwijderd.
+  // Upsert blijft bewust actief-data-only: deletes gebeuren alleen via expliciete tombstones.
+  return readPlanningEntries(mode);
+}
+
+async function tombstonePlanningEntries(mode, entryIds) {
+  const uniqueEntryIds = [...new Set((Array.isArray(entryIds) ? entryIds : [])
+    .filter((entryId) => typeof entryId === "string" && entryId.trim())
+    .map((entryId) => entryId.trim()))];
+
+  if (!uniqueEntryIds.length) {
+    return readPlanningEntries(mode);
+  }
+
+  const deletedAt = new Date().toISOString();
+
+  for (const entryId of uniqueEntryIds) {
+    await supabaseRequest(`planning_entries?data_mode=eq.${encodeURIComponent(mode)}&id=eq.${encodeURIComponent(entryId)}`, {
+      method: "PATCH",
+      headers: {
+        Prefer: "return=minimal"
+      },
+      body: JSON.stringify({
+        deleted_at: deletedAt,
+        updated_at: deletedAt
+      })
+    });
+  }
+
   return readPlanningEntries(mode);
 }
 
@@ -222,8 +270,8 @@ async function handler(req, res) {
   try {
     if (method === "GET") {
       const mode = normalizeMode(req.query?.mode);
-      const entries = await readPlanningEntries(mode);
-      sendJson(res, 200, { success: true, entries });
+      const planningData = await readPlanningEntries(mode);
+      sendJson(res, 200, { success: true, ...planningData });
       return;
     }
 
@@ -231,8 +279,19 @@ async function handler(req, res) {
       const payload = parseBody(req);
       const mode = normalizeMode(payload?.mode || req.query?.mode);
       const entries = Array.isArray(payload?.entries) ? payload.entries : [];
-      const savedEntries = await upsertPlanningEntries(mode, entries);
-      sendJson(res, 200, { success: true, entries: savedEntries });
+      const savedData = await upsertPlanningEntries(mode, entries);
+      sendJson(res, 200, { success: true, ...savedData });
+      return;
+    }
+
+    if (method === "DELETE") {
+      const payload = parseBody(req);
+      const mode = normalizeMode(payload?.mode || req.query?.mode);
+      const deletedEntryIds = Array.isArray(payload?.deletedEntryIds)
+        ? payload.deletedEntryIds
+        : (typeof req.query?.id === "string" ? [req.query.id] : []);
+      const savedData = await tombstonePlanningEntries(mode, deletedEntryIds);
+      sendJson(res, 200, { success: true, ...savedData });
       return;
     }
 
