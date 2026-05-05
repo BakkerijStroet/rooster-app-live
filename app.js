@@ -3820,6 +3820,9 @@ const {
     const getRequiredDayPlannerShifts = typeof options.getRequiredDayPlannerShifts === "function"
       ? options.getRequiredDayPlannerShifts
       : (() => []);
+    const shouldRenderPlannerOpenShiftsForDay = typeof options.shouldRenderPlannerOpenShiftsForDay === "function"
+      ? options.shouldRenderPlannerOpenShiftsForDay
+      : (() => true);
     const getEntryForShiftOnDate = typeof options.getEntryForShiftOnDate === "function"
       ? options.getEntryForShiftOnDate
       : (() => null);
@@ -3866,7 +3869,7 @@ const {
         getShiftName(entryA).localeCompare(getShiftName(entryB), "nl")
       );
     const openItems = weekDates
-      .filter((day) => getShopCoverageForDate(day).status !== "closed")
+      .filter((day) => shouldRenderPlannerOpenShiftsForDay(day) && getShopCoverageForDate(day).status !== "closed")
       .flatMap((day) =>
         getRequiredDayPlannerShifts(day)
           .filter((shift) => !getEntryForShiftOnDate(day, shift, sourceEntries))
@@ -13473,6 +13476,7 @@ function getSchedulePlanningWeekData(weekValue, sourceEntries = entries) {
     getShiftName,
     getShopCoverageForDate,
     getRequiredDayPlannerShifts,
+    shouldRenderPlannerOpenShiftsForDay,
     getEntryForShiftOnDate,
     getDeviationOnlyEntries,
     getRecognizedSpecialDayInfo,
@@ -13578,9 +13582,14 @@ function getPlanningOverviewShiftOptions(shift, day, existingEntry) {
 }
 
 function renderSchedulePlanningDayCard(day, sourceEntries = entries) {
-  const shiftRows = getRequiredDayPlannerShifts(day)
+  const dayEntries = sourceEntries.filter((entry) => entry.day === day);
+  const matchedEntries = new Set();
+  const shiftRows = (shouldRenderPlannerOpenShiftsForDay(day) ? getRequiredDayPlannerShifts(day) : [])
     .map((shift) => {
       const existingEntry = getEntryForShiftOnDate(day, shift, sourceEntries);
+      if (existingEntry) {
+        matchedEntries.add(existingEntry);
+      }
       const shiftKey = getPlanningOverviewShiftKey(day, shift);
       const employeeName = existingEntry?.name || "";
       const { suitableEmployees, markup } = getPlanningOverviewShiftOptions(shift, day, existingEntry);
@@ -13597,6 +13606,33 @@ function renderSchedulePlanningDayCard(day, sourceEntries = entries) {
         suitableEmployees
       };
     });
+  dayEntries.forEach((entry) => {
+    if (matchedEntries.has(entry)) {
+      return;
+    }
+
+    const matchingShift = getShiftForEntry(entry);
+    const shift = matchingShift || {
+      id: entry.shiftName || getShiftName(entry),
+      name: getShiftName(entry),
+      startTime: entry.startTime || "",
+      endTime: entry.endTime || ""
+    };
+    const shiftKey = getPlanningOverviewShiftKey(day, shift);
+    const { suitableEmployees, markup } = getPlanningOverviewShiftOptions(shift, day, entry);
+
+    shiftRows.push({
+      shift,
+      shiftName: getShiftName(entry),
+      startTime: entry.startTime || shift.startTime || "",
+      endTime: entry.endTime || shift.endTime || "",
+      entry,
+      employeeName: entry.name || "",
+      isEditing: planningOverviewEditingShiftKey === shiftKey,
+      markup,
+      suitableEmployees
+    });
+  });
   shiftRows.sort(compareCompactRosterRows);
   const groupedRows = groupEntriesByDepartment(shiftRows);
   const hasOpenShifts = shiftRows.some((row) => !row.employeeName);

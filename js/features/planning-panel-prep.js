@@ -288,6 +288,9 @@
     const getRequiredDayPlannerShifts = typeof options.getRequiredDayPlannerShifts === "function"
       ? options.getRequiredDayPlannerShifts
       : (() => []);
+    const shouldRenderPlannerOpenShiftsForDay = typeof options.shouldRenderPlannerOpenShiftsForDay === "function"
+      ? options.shouldRenderPlannerOpenShiftsForDay
+      : (() => true);
     const getEntryForShiftOnDate = typeof options.getEntryForShiftOnDate === "function"
       ? options.getEntryForShiftOnDate
       : (() => null);
@@ -334,7 +337,7 @@
         getShiftName(entryA).localeCompare(getShiftName(entryB), "nl")
       );
     const openItems = weekDates
-      .filter((day) => getShopCoverageForDate(day).status !== "closed")
+      .filter((day) => shouldRenderPlannerOpenShiftsForDay(day) && getShopCoverageForDate(day).status !== "closed")
       .flatMap((day) =>
         getRequiredDayPlannerShifts(day)
           .filter((shift) => !getEntryForShiftOnDate(day, shift, sourceEntries))
