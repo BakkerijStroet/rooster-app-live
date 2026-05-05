@@ -259,6 +259,7 @@ const planningSettingsStorageKey = "urenrooster-planning-settings";
 const preferencesStorageKey = "urenrooster-preferences";
 const timeOffStorageKey = "urenrooster-time-off-requests";
 const swapStorageKey = "urenrooster-swap-requests";
+const requestDataApiEndpoint = "/api/request-data";
 const workLogStorageKey = "urenrooster-work-logs";
 const workLogApiEndpoint = "/api/work-logs";
 const employeePermissionsStorageKey = "urenrooster-employee-permissions";
@@ -1068,6 +1069,7 @@ function saveTimeOffRequests() {
   derivedDataCache.approvedTimeOffKey = "";
   replaceArrayContents(timeOffRequests, sanitizeTimeOffRequestsForStorage(timeOffRequests));
   safeSetStorageItem(getScopedStorageKey(timeOffStorageKey), JSON.stringify(timeOffRequests), "aanvragen");
+  queueRequestDataCentralSave();
 }
 
 function loadSwapRequests() {
@@ -1119,6 +1121,7 @@ function saveSwapRequests() {
   requestDataRevision += 1;
   replaceArrayContents(swapRequests, sanitizeSwapRequestsForStorage(swapRequests));
   safeSetStorageItem(getScopedStorageKey(swapStorageKey), JSON.stringify(swapRequests), "ruilverzoeken");
+  queueRequestDataCentralSave();
 }
 
 function loadWorkLogs() {
@@ -1945,6 +1948,262 @@ async function migrateLocalPlanningEntriesToCentral() {
 }
 
 window.migrateLocalPlanningEntriesToCentral = migrateLocalPlanningEntriesToCentral;
+
+let requestDataCentralSyncTimer = null;
+let requestDataCentralSyncInFlight = false;
+let requestDataCentralSyncPending = false;
+let requestDataCentralSyncLoaded = false;
+let lastRequestDataCentralSyncError = null;
+
+function isRequestDataCentralSyncEnabled() {
+  return currentDataMode === "live" && typeof fetch === "function";
+}
+
+function getRequestComparableTimestamp(request) {
+  const parsedUpdated = Date.parse(request?.updatedAt || "");
+
+  if (Number.isFinite(parsedUpdated)) {
+    return parsedUpdated;
+  }
+
+  const parsedCreated = Date.parse(request?.createdAt || "");
+  return Number.isFinite(parsedCreated) ? parsedCreated : 0;
+}
+
+function getRequestDataSnapshot() {
+  return {
+    timeOffRequests: sanitizeTimeOffRequestsForStorage(timeOffRequests),
+    swapRequests: sanitizeSwapRequestsForStorage(swapRequests)
+  };
+}
+
+function persistRequestDataToLocalStorage() {
+  safeSetStorageItem(getScopedStorageKey(timeOffStorageKey), JSON.stringify(sanitizeTimeOffRequestsForStorage(timeOffRequests)), "aanvragen");
+  safeSetStorageItem(getScopedStorageKey(swapStorageKey), JSON.stringify(sanitizeSwapRequestsForStorage(swapRequests)), "ruilverzoeken");
+}
+
+function serializeRequestDataForComparison(data) {
+  return JSON.stringify({
+    timeOffRequests: sanitizeTimeOffRequestsForStorage(data?.timeOffRequests || [])
+      .slice()
+      .sort((requestA, requestB) => requestA.id.localeCompare(requestB.id)),
+    swapRequests: sanitizeSwapRequestsForStorage(data?.swapRequests || [])
+      .slice()
+      .sort((requestA, requestB) => requestA.id.localeCompare(requestB.id))
+  });
+}
+
+function normalizeCentralRequestData(payload = {}) {
+  return {
+    timeOffRequests: sanitizeTimeOffRequestsForStorage(Array.isArray(payload?.timeOffRequests) ? payload.timeOffRequests : []),
+    swapRequests: sanitizeSwapRequestsForStorage(Array.isArray(payload?.swapRequests) ? payload.swapRequests : [])
+  };
+}
+
+function mergeRequestCollections(localRequests = [], centralRequests = [], sanitizer) {
+  const mergedById = new Map();
+
+  sanitizer(localRequests).forEach((request) => {
+    mergedById.set(request.id, request);
+  });
+
+  sanitizer(centralRequests).forEach((centralRequest) => {
+    const localRequest = mergedById.get(centralRequest.id);
+
+    if (!localRequest || getRequestComparableTimestamp(centralRequest) > getRequestComparableTimestamp(localRequest)) {
+      mergedById.set(centralRequest.id, centralRequest);
+    }
+  });
+
+  return [...mergedById.values()].sort((requestA, requestB) =>
+    getRequestComparableTimestamp(requestB) - getRequestComparableTimestamp(requestA) ||
+    requestA.employeeName.localeCompare(requestB.employeeName, "nl")
+  );
+}
+
+function mergeRequestDataCollections(localData, centralData) {
+  const localSnapshot = normalizeCentralRequestData(localData);
+  const centralSnapshot = normalizeCentralRequestData(centralData);
+
+  return {
+    timeOffRequests: mergeRequestCollections(
+      localSnapshot.timeOffRequests,
+      centralSnapshot.timeOffRequests,
+      sanitizeTimeOffRequestsForStorage
+    ),
+    swapRequests: mergeRequestCollections(
+      localSnapshot.swapRequests,
+      centralSnapshot.swapRequests,
+      sanitizeSwapRequestsForStorage
+    )
+  };
+}
+
+function reportRequestDataCentralSyncError(action, error) {
+  lastRequestDataCentralSyncError = {
+    action,
+    mode: currentDataMode,
+    endpoint: requestDataApiEndpoint,
+    timeOffCount: timeOffRequests.length,
+    swapCount: swapRequests.length,
+    message: error instanceof Error ? error.message : String(error),
+    at: new Date().toISOString()
+  };
+  window.lastRequestDataCentralSyncError = lastRequestDataCentralSyncError;
+  console.warn("[requestData] Centrale sync mislukt; localStorage blijft actief.", lastRequestDataCentralSyncError, error);
+}
+
+async function fetchCentralRequestData() {
+  const response = await fetch(`${requestDataApiEndpoint}?mode=${encodeURIComponent(currentDataMode)}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json"
+    },
+    cache: "no-store"
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || payload?.success === false) {
+    throw new Error(payload?.message || "Centraal laden van aanvragen is mislukt.");
+  }
+
+  return normalizeCentralRequestData(payload);
+}
+
+async function sendRequestDataToCentral(sourceData = getRequestDataSnapshot()) {
+  if (!isRequestDataCentralSyncEnabled()) {
+    return false;
+  }
+
+  const payload = normalizeCentralRequestData(sourceData);
+  const response = await fetch(requestDataApiEndpoint, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify({
+      mode: currentDataMode,
+      timeOffRequests: payload.timeOffRequests,
+      swapRequests: payload.swapRequests
+    })
+  });
+
+  const responsePayload = await response.json().catch(() => ({}));
+
+  if (!response.ok || responsePayload?.success === false) {
+    throw new Error(responsePayload?.message || "Centraal opslaan van aanvragen is mislukt.");
+  }
+
+  return true;
+}
+
+function queueRequestDataCentralSave() {
+  if (!isRequestDataCentralSyncEnabled() || !requestDataCentralSyncLoaded) {
+    return;
+  }
+
+  if (requestDataCentralSyncTimer) {
+    clearTimeout(requestDataCentralSyncTimer);
+  }
+
+  requestDataCentralSyncTimer = setTimeout(() => {
+    requestDataCentralSyncTimer = null;
+    syncRequestDataToCentral();
+  }, 500);
+}
+
+async function syncRequestDataToCentral() {
+  if (!isRequestDataCentralSyncEnabled()) {
+    return false;
+  }
+
+  if (requestDataCentralSyncInFlight) {
+    requestDataCentralSyncPending = true;
+    return false;
+  }
+
+  requestDataCentralSyncInFlight = true;
+
+  try {
+    await sendRequestDataToCentral();
+    lastRequestDataCentralSyncError = null;
+    window.lastRequestDataCentralSyncError = null;
+    return true;
+  } catch (error) {
+    reportRequestDataCentralSyncError("save", error);
+    return false;
+  } finally {
+    requestDataCentralSyncInFlight = false;
+    if (requestDataCentralSyncPending) {
+      requestDataCentralSyncPending = false;
+      queueRequestDataCentralSave();
+    }
+  }
+}
+
+async function syncRequestDataFromCentral() {
+  if (!isRequestDataCentralSyncEnabled() || requestDataCentralSyncLoaded) {
+    return;
+  }
+
+  requestDataCentralSyncLoaded = true;
+  const localBeforeSync = getRequestDataSnapshot();
+
+  try {
+    const centralData = await fetchCentralRequestData();
+    const mergedData = mergeRequestDataCollections(localBeforeSync, centralData);
+    const localSignature = serializeRequestDataForComparison(localBeforeSync);
+    const centralSignature = serializeRequestDataForComparison(centralData);
+    const mergedSignature = serializeRequestDataForComparison(mergedData);
+
+    if (mergedSignature !== localSignature) {
+      replaceArrayContents(timeOffRequests, mergedData.timeOffRequests);
+      replaceArrayContents(swapRequests, mergedData.swapRequests);
+      requestDataRevision += 1;
+      derivedDataCache.approvedTimeOffKey = "";
+      persistRequestDataToLocalStorage();
+      renderRequestsOpenSummary();
+      renderTimeOffRequests();
+      renderSwapRequests();
+      renderSwapEntryOptions();
+      renderDashboard();
+    }
+
+    if (mergedSignature !== centralSignature) {
+      // Upsert-only: ingetrokken/verwijderde centrale rows worden later apart en expliciet opgelost.
+      queueRequestDataCentralSave();
+    }
+  } catch (error) {
+    reportRequestDataCentralSyncError("load", error);
+  }
+}
+
+async function migrateLocalRequestDataToCentral() {
+  const localData = {
+    timeOffRequests: sanitizeTimeOffRequestsForStorage(loadTimeOffRequests()),
+    swapRequests: sanitizeSwapRequestsForStorage(loadSwapRequests())
+  };
+
+  if (!localData.timeOffRequests.length && !localData.swapRequests.length) {
+    console.info("[requestData] Geen lokale aanvragen gevonden om te migreren.");
+    return { success: true, migratedCount: 0 };
+  }
+
+  try {
+    await sendRequestDataToCentral(localData);
+    lastRequestDataCentralSyncError = null;
+    window.lastRequestDataCentralSyncError = null;
+    console.info(`[requestData] ${localData.timeOffRequests.length + localData.swapRequests.length} lokale aanvragen naar Supabase gestuurd. Delete-sync is nog niet actief.`);
+    return { success: true, migratedCount: localData.timeOffRequests.length + localData.swapRequests.length };
+  } catch (error) {
+    reportRequestDataCentralSyncError("migrate", error);
+    return { success: false, migratedCount: 0, error };
+  }
+}
+
+window.migrateLocalRequestDataToCentral = migrateLocalRequestDataToCentral;
 
 const {
   formatDateTime = function fallbackFormatDateTime(value) {
@@ -23408,6 +23667,7 @@ updateTabVisibility();
 restoreSessionState({ resetToDefaultTab: true, resetWeekToCurrent: true });
 syncEmployeeDataFromCentral();
 syncPlanningEntriesFromCentral();
+syncRequestDataFromCentral();
 syncWorkLogsFromCentral();
 
 
