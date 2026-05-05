@@ -153,8 +153,10 @@ const plannerVacationRequestsContainer = document.getElementById("plannerVacatio
 const plannerSickRequestsContainer = document.getElementById("plannerSickRequests");
 const plannerSwapRequestsContainer = document.getElementById("plannerSwapRequests");
 const requestsOpenSummary = document.getElementById("requestsOpenSummary");
+const plannerRequestsInbox = document.getElementById("plannerRequestsInbox");
 const requestsEmployeeBadge = document.getElementById("requestsEmployeeBadge");
 const requestsOpenCards = document.getElementById("requestsOpenCards");
+const plannerRequestTypeFilter = document.getElementById("plannerRequestTypeFilter");
 const requestStatusFilter = document.getElementById("requestStatusFilter");
 const requestTypeFreeButton = document.getElementById("requestTypeFreeButton");
 const requestTypeVacationButton = document.getElementById("requestTypeVacationButton");
@@ -4708,6 +4710,7 @@ let editingSwapId = null;
 let activeRequestComposer = "";
 let activeRequestType = "vrije-dag";
 let activeRequestsView = "form";
+let activePlannerRequestTypeFilter = "";
 let vrijeDagForm = {
   employeeName: "",
   type: "vrij",
@@ -15313,6 +15316,10 @@ function getRequestStatusFilterValue() {
   return requestStatusFilter?.value || "";
 }
 
+function getPlannerRequestTypeFilterValue() {
+  return plannerRequestTypeFilter?.value || activePlannerRequestTypeFilter || "";
+}
+
 function matchesRequestStatusFilter(request) {
   return matchesRequestStatusFilterHelper(getRequestStatusFilterValue(), request, getRequestDisplayStatus);
 }
@@ -15381,6 +15388,193 @@ function renderRequestsContext() {
 
 function getPlannerRequestSummaryCounts() {
   return getPlannerRequestSummaryCountsHelper(timeOffRequests, swapRequests);
+}
+
+function isDeletedRequest(request) {
+  return Boolean(request?.deletedAt || request?.deleted_at);
+}
+
+function getPlannerRequestTypeKey(request, requestType) {
+  if (requestType === "swap") {
+    return "swap";
+  }
+
+  if (request?.type === "vakantie") {
+    return "vacation";
+  }
+
+  if (request?.type === "ziek") {
+    return "sick";
+  }
+
+  return "free";
+}
+
+function getPlannerRequestTypeLabel(request, requestType) {
+  if (requestType === "swap") {
+    return "Ruilverzoek";
+  }
+
+  return getAbsenceTypeLabel(request?.type);
+}
+
+function getPlannerRequestDateText(request, requestType) {
+  return requestType === "swap"
+    ? formatDate(request.date)
+    : getTimeOffDisplayRange(request);
+}
+
+function getPlannerRequestSortDate(request, requestType) {
+  return requestType === "swap" ? (request.date || "") : getTimeOffStartDate(request);
+}
+
+function getPlannerRequestDescription(request, requestType) {
+  if (requestType === "swap") {
+    const targetText = request.targetEmployeeName ? `naar ${request.targetEmployeeName}` : "open aangeboden";
+    return `${request.shiftName || "Dienst"} ${request.startTime || ""} - ${request.endTime || ""} (${targetText})`;
+  }
+
+  return request.reason || getAbsenceTypeLabel(request.type);
+}
+
+function getPlannerRequestInboxItems() {
+  const typeFilter = getPlannerRequestTypeFilterValue();
+  const { visibleTimeOffRequests, visibleSwapRequests } = getVisibleRequestSources();
+  const timeOffItems = visibleTimeOffRequests
+    .filter((request) => !isDeletedRequest(request))
+    .filter((request) => matchesRequestStatusFilter(request))
+    .map((request) => ({
+      request,
+      requestType: "timeoff",
+      typeKey: getPlannerRequestTypeKey(request, "timeoff")
+    }));
+  const swapItems = visibleSwapRequests
+    .filter((request) => !isDeletedRequest(request))
+    .filter((request) => matchesRequestStatusFilter(request))
+    .map((request) => ({
+      request,
+      requestType: "swap",
+      typeKey: "swap"
+    }));
+
+  return [...timeOffItems, ...swapItems]
+    .filter((item) => !typeFilter || item.typeKey === typeFilter)
+    .sort(sortPlannerRequestInboxItems);
+}
+
+function sortPlannerRequestInboxItems(itemA, itemB) {
+  const priorityMap = { overdue: 0, waiting: 1, open: 2, approved: 3, rejected: 4 };
+  const statusA = getRequestDisplayStatus(itemA.request);
+  const statusB = getRequestDisplayStatus(itemB.request);
+  const statusCompare = (priorityMap[statusA] ?? 9) - (priorityMap[statusB] ?? 9);
+
+  if (statusCompare !== 0) {
+    return statusCompare;
+  }
+
+  return getPlannerRequestSortDate(itemA.request, itemA.requestType)
+    .localeCompare(getPlannerRequestSortDate(itemB.request, itemB.requestType));
+}
+
+function renderPlannerRequestInbox() {
+  if (!plannerRequestsInbox) {
+    return;
+  }
+
+  if (!isPlannerRole()) {
+    setClassName(plannerRequestsInbox, "planner-request-inbox request-list hidden");
+    plannerRequestsInbox.innerHTML = "";
+    return;
+  }
+
+  const items = getPlannerRequestInboxItems();
+
+  if (items.length === 0) {
+    setClassName(plannerRequestsInbox, "planner-request-inbox request-list empty");
+    plannerRequestsInbox.innerHTML = `
+      <div class="planner-request-inbox-empty">
+        Geen aanvragen gevonden.
+      </div>
+    `;
+    return;
+  }
+
+  setClassName(plannerRequestsInbox, "planner-request-inbox request-list");
+  plannerRequestsInbox.innerHTML = `
+    <div class="planner-request-inbox-head" aria-hidden="true">
+      <span>Datum</span>
+      <span>Medewerker</span>
+      <span>Type</span>
+      <span>Omschrijving</span>
+      <span>Status</span>
+      <span>Toelichting</span>
+      <span>Acties</span>
+    </div>
+    ${items.map(renderPlannerRequestInboxItem).join("")}
+  `;
+}
+
+function renderPlannerRequestInboxItem(item) {
+  const { request, requestType } = item;
+  const displayStatus = getRequestDisplayStatus(request);
+  const statusLabel = getRequestDisplayLabel(request);
+  const typeLabel = getPlannerRequestTypeLabel(request, requestType);
+  const dateText = getPlannerRequestDateText(request, requestType);
+  const description = getPlannerRequestDescription(request, requestType);
+  const isOpen = request.status === "open";
+  const isOverdue = displayStatus === "overdue";
+  const replacementField = requestType === "swap" && isOpen && !request.targetEmployeeName
+    ? `
+      <label class="planner-request-inline-field planner-request-replacement">
+        <span>Vervanger</span>
+        <select data-request-replacement-select="${request.id}">
+          <option value="">Kies bevoegde medewerker</option>
+          ${buildEmployeeOptions(getSwapReplacementCandidates(request))}
+        </select>
+      </label>
+    `
+    : "";
+  const noteField = isOpen
+    ? `
+      <label class="planner-request-inline-field planner-request-note-field">
+        <span>Korte toelichting</span>
+        <input type="text" maxlength="200" value="${request.managerNote || ""}" data-request-note-input placeholder="Korte toelichting">
+      </label>
+    `
+    : (request.managerNote ? `<div class="planner-request-existing-note"><strong>Opmerking:</strong> ${request.managerNote}</div>` : "");
+  const actions = isOpen
+    ? `
+      <div class="actions planner-request-actions planner-request-inbox-actions">
+        <button type="button" class="small" data-request-type="${requestType}" data-request-action="approve" data-request-id="${request.id}">Goedkeuren</button>
+        <button type="button" class="small warning" data-request-type="${requestType}" data-request-action="reject" data-request-id="${request.id}">Afwijzen</button>
+        <button type="button" class="small secondary" data-request-type="${requestType}" data-request-action="note" data-request-id="${request.id}">Opmerking</button>
+        ${requestType === "swap" && !request.targetEmployeeName ? `<button type="button" class="small secondary" data-request-type="swap" data-request-action="assign-replacement" data-request-id="${request.id}">Vervanger kiezen</button>` : ""}
+      </div>
+    `
+    : "";
+
+  return `
+    <article class="request-card planner-request-card planner-request-inbox-item is-${displayStatus}${requestType === "timeoff" ? ` absence-${getAbsenceCardClass(request.type)}` : ""}">
+      <div class="planner-request-inbox-grid">
+        <div class="planner-request-date" title="${dateText}">${dateText}</div>
+        <strong class="planner-request-name">${request.employeeName}</strong>
+        <div class="planner-request-type">${typeLabel}</div>
+        <div class="planner-request-description" title="${description}">${description}</div>
+        <div class="planner-request-status-stack">
+          <span class="status-pill status-${displayStatus}">${statusLabel}</span>
+          ${isOverdue ? `<span class="planner-request-overdue-badge">48+ uur open</span>` : ""}
+        </div>
+        <div class="planner-request-note-area">
+          ${replacementField}
+          ${noteField}
+        </div>
+        ${actions}
+      </div>
+      ${renderRequestMailStatus(request, requestType === "swap" ? getSwapMailStatusText : getTimeOffMailStatusText)}
+      ${getRequestRosterEffectText(request, requestType) ? `<div class="request-impact">${getRequestRosterEffectText(request, requestType)}</div>` : ""}
+      ${isOpen && getRequestAttentionText(request) ? `<div class="request-impact request-attention-note">${getRequestAttentionText(request)}</div>` : ""}
+    </article>
+  `;
 }
 
 function renderPlannerRequestCards(target, requests, emptyText, requestType) {
@@ -18049,24 +18243,13 @@ function renderTimeOffRequests() {
   };
 
   if (isPlannerRole()) {
-    renderPlannerRequestCards(
-      plannerFreeRequestsContainer,
-      sortedRequests.filter((request) => request.type === "vrij"),
-      "Nog geen vrije dagen.",
-      "timeoff"
-    );
-    renderPlannerRequestCards(
-      plannerVacationRequestsContainer,
-      sortedRequests.filter((request) => request.type === "vakantie"),
-      "Nog geen vakantieaanvragen.",
-      "timeoff"
-    );
-    renderPlannerRequestCards(
-      plannerSickRequestsContainer,
-      sortedRequests.filter((request) => request.type === "ziek"),
-      "Nog geen ziekmeldingen.",
-      "timeoff"
-    );
+    renderPlannerRequestInbox();
+    [plannerFreeRequestsContainer, plannerVacationRequestsContainer, plannerSickRequestsContainer].forEach((target) => {
+      if (target) {
+        setClassName(target, "request-list hidden");
+        target.innerHTML = "";
+      }
+    });
     if (openTimeOffRequestsContainer) {
       setClassName(openTimeOffRequestsContainer, "request-list hidden");
       openTimeOffRequestsContainer.innerHTML = "";
@@ -18168,12 +18351,11 @@ function renderSwapRequests() {
   };
 
   if (isPlannerRole()) {
-    renderPlannerRequestCards(
-      plannerSwapRequestsContainer,
-      sortedRequests,
-      "Nog geen ruilverzoeken.",
-      "swap"
-    );
+    renderPlannerRequestInbox();
+    if (plannerSwapRequestsContainer) {
+      setClassName(plannerSwapRequestsContainer, "request-list hidden");
+      plannerSwapRequestsContainer.innerHTML = "";
+    }
     if (openSwapRequestsContainer) {
       setClassName(openSwapRequestsContainer, "request-list hidden");
       openSwapRequestsContainer.innerHTML = "";
@@ -18424,24 +18606,25 @@ function renderRequestsOpenSummary() {
 
   if (isPlannerRole()) {
     const summaryCounts = getPlannerRequestSummaryCounts();
+    const activeTypeFilter = getPlannerRequestTypeFilterValue();
     setClassName(requestsOpenSummary, "planner-request-summary-row");
     requestsOpenSummary.innerHTML = `
-      <article class="planner-summary-chip">
+      <button type="button" class="planner-summary-chip planner-summary-filter${activeTypeFilter === "free" ? " active" : ""}" data-planner-request-filter="free">
         <span>Open vrije dagen</span>
         <strong>${summaryCounts.free}</strong>
-      </article>
-      <article class="planner-summary-chip">
+      </button>
+      <button type="button" class="planner-summary-chip planner-summary-filter${activeTypeFilter === "sick" ? " active" : ""}" data-planner-request-filter="sick">
         <span>Open ziekmeldingen</span>
         <strong>${summaryCounts.sick}</strong>
-      </article>
-      <article class="planner-summary-chip">
+      </button>
+      <button type="button" class="planner-summary-chip planner-summary-filter${activeTypeFilter === "swap" ? " active" : ""}" data-planner-request-filter="swap">
         <span>Open ruilverzoeken</span>
         <strong>${summaryCounts.swaps}</strong>
-      </article>
-      <article class="planner-summary-chip">
+      </button>
+      <button type="button" class="planner-summary-chip planner-summary-filter${activeTypeFilter === "vacation" ? " active" : ""}" data-planner-request-filter="vacation">
         <span>Open vakantieaanvragen</span>
         <strong>${summaryCounts.vacation}</strong>
-      </article>
+      </button>
     `;
   } else {
     setClassName(requestsOpenSummary, "dashboard-grid");
@@ -21688,6 +21871,225 @@ function withdrawSwapRequest(request) {
   return true;
 }
 
+function handlePlannerInboxTimeOffAction(button) {
+  const request = timeOffRequests.find((item) => item.id === button.dataset.requestId);
+
+  if (!request) {
+    showMessage("De aanvraag is niet gevonden.", "error");
+    return;
+  }
+
+  if (!isPlannerRole()) {
+    showMessage("Alleen planner of directie kan aanvragen goedkeuren of afwijzen.", "error");
+    return;
+  }
+
+  if (!ensureDateRangeActionAllowed(getTimeOffStartDate(request), getTimeOffEndDate(request), {
+    actionLabel: "aanvragen te verwerken",
+    blockPlannerWhenLocked: true
+  })) {
+    return;
+  }
+
+  if (button.dataset.requestAction === "note") {
+    request.managerNote = getPlannerRequestNoteFromButton(button);
+    request.updatedAt = getNowIsoString();
+    saveTimeOffRequests();
+    persistProtectedChange({
+      reason: `Opmerking bijgewerkt bij afwezigheidsaanvraag: ${request.employeeName} ${request.date}`,
+      scope: "request",
+      action: "timeoff-note-updated",
+      message: `Opmerking opgeslagen voor ${getAbsenceTypeLabel(request.type).toLowerCase()} van ${request.employeeName}.`,
+      details: {
+        requestId: request.id,
+        employeeName: request.employeeName,
+        date: request.date,
+        type: request.type,
+        managerNote: request.managerNote || ""
+      }
+    });
+    render();
+    showMessage("Opmerking opgeslagen.", "success");
+    return;
+  }
+
+  if (button.dataset.requestAction === "approve") {
+    const managerNote = getPlannerRequestNoteFromButton(button);
+    const scheduledEntries = entries.filter((entry) =>
+      entry.name === request.employeeName &&
+      requestIncludesDate(request, entry.day)
+    );
+    const absenceLabel = getAbsenceTypeLabel(request.type);
+    let approvalMessage = `${absenceLabel} is goedgekeurd en direct zichtbaar in het rooster.`;
+
+    if (scheduledEntries.length > 0) {
+      const removedEntries = applyApprovedTimeOffToRoster(request);
+      const scheduleText = removedEntries.map((entry) => `${getShiftName(entry)} (${entry.startTime} - ${entry.endTime})`).join(", ");
+      approvalMessage = `${absenceLabel} is goedgekeurd. ${removedEntries.length} dienst(en) zijn vrijgemaakt in het rooster: ${scheduleText}.`;
+    }
+
+    request.status = "approved";
+    request.managerNote = managerNote;
+    request.updatedAt = getNowIsoString();
+    registerTimeOffMailNotification(request, "approved", [request.employeeName], { notifyUser: true });
+    saveTimeOffRequests();
+    persistProtectedChange({
+      reason: `Afwezigheidsaanvraag goedgekeurd: ${request.employeeName} ${request.date}`,
+      scope: "request",
+      action: "timeoff-approved",
+      message: `${getAbsenceTypeLabel(request.type)} goedgekeurd voor ${request.employeeName}.`,
+      details: {
+        requestId: request.id,
+        employeeName: request.employeeName,
+        date: request.date,
+        type: request.type,
+        managerNote
+      }
+    });
+    render();
+    showMessage(approvalMessage, "success");
+    return;
+  }
+
+  request.status = "rejected";
+  request.managerNote = getPlannerRequestNoteFromButton(button);
+  request.updatedAt = getNowIsoString();
+  registerTimeOffMailNotification(request, "rejected", [request.employeeName], { notifyUser: true });
+  saveTimeOffRequests();
+  persistProtectedChange({
+    reason: `Afwezigheidsaanvraag afgewezen: ${request.employeeName} ${request.date}`,
+    scope: "request",
+    action: "timeoff-rejected",
+    message: `${getAbsenceTypeLabel(request.type)} afgewezen voor ${request.employeeName}.`,
+    details: {
+      requestId: request.id,
+      employeeName: request.employeeName,
+      date: request.date,
+      type: request.type,
+      managerNote: request.managerNote || ""
+    }
+  });
+  render();
+  showDeletedMessage("Afwezigheidsaanvraag afgewezen.");
+}
+
+function handlePlannerInboxSwapAction(button) {
+  const request = swapRequests.find((item) => item.id === button.dataset.requestId);
+
+  if (!request) {
+    showMessage("Het ruilverzoek is niet gevonden.", "error");
+    return;
+  }
+
+  if (!isPlannerRole()) {
+    showMessage("Alleen planner of directie kan ruilverzoeken goedkeuren of afwijzen.", "error");
+    return;
+  }
+
+  if (!ensureWeekActionAllowed(getWeekValueFromDate(request.date), {
+    actionLabel: "ruilverzoeken te verwerken",
+    blockPlannerWhenLocked: true
+  })) {
+    return;
+  }
+
+  if (button.dataset.requestAction === "note") {
+    request.managerNote = getPlannerRequestNoteFromButton(button);
+    request.updatedAt = getNowIsoString();
+    saveSwapRequests();
+    persistProtectedChange({
+      reason: `Opmerking bijgewerkt bij ruilverzoek: ${request.employeeName} ${request.date}`,
+      scope: "request",
+      action: "swap-note-updated",
+      message: `Opmerking opgeslagen voor ruilverzoek van ${request.employeeName}.`,
+      details: {
+        requestId: request.id,
+        employeeName: request.employeeName,
+        date: request.date,
+        shiftName: request.shiftName,
+        managerNote: request.managerNote || ""
+      }
+    });
+    render();
+    showMessage("Opmerking opgeslagen.", "success");
+    return;
+  }
+
+  if (button.dataset.requestAction === "assign-replacement") {
+    const replacementSelect = button.closest(".request-card")?.querySelector(`[data-request-replacement-select="${request.id}"]`);
+    const selectedReplacement = replacementSelect?.value || "";
+
+    if (!selectedReplacement) {
+      showMessage("Kies eerst een vervanger voor dit ruilverzoek.", "warning");
+      return;
+    }
+
+    const approvalIssue = getSwapApprovalIssue(request, selectedReplacement);
+
+    if (approvalIssue) {
+      showMessage(approvalIssue, "error");
+      render();
+      return;
+    }
+
+    request.targetEmployeeName = selectedReplacement;
+    request.managerNote = getPlannerRequestNoteFromButton(button);
+  }
+
+  if (button.dataset.requestAction === "reject") {
+    request.managerNote = getPlannerRequestNoteFromButton(button);
+    request.status = "rejected";
+    request.updatedAt = getNowIsoString();
+    registerSwapMailNotification(request, "rejected", [request.employeeName, request.targetEmployeeName], { notifyUser: true });
+    saveSwapRequests();
+    persistProtectedChange({
+      reason: `Ruilverzoek afgewezen: ${request.employeeName} ${request.date}`,
+      scope: "request",
+      action: "swap-rejected",
+      message: `Ruilverzoek afgewezen voor ${request.employeeName}.`,
+      details: {
+        requestId: request.id,
+        employeeName: request.employeeName,
+        date: request.date,
+        shiftName: request.shiftName,
+        managerNote: request.managerNote || ""
+      }
+    });
+    render();
+    showDeletedMessage("Ruilverzoek afgewezen.");
+    return;
+  }
+
+  if (!request.targetEmployeeName) {
+    showMessage("Dit verzoek staat nog open zonder reactie. Kies een vervanger of sluit het verzoek af.", "error");
+    return;
+  }
+
+  const approvalIssue = getSwapApprovalIssue(request, request.targetEmployeeName);
+
+  if (approvalIssue) {
+    showMessage(approvalIssue, "error");
+    render();
+    return;
+  }
+
+  if (!ensureWeekActionAllowed(getWeekValueFromDate(request.date), {
+    actionLabel: "een ruil goed te keuren",
+    blockPlannerWhenLocked: true
+  })) {
+    return;
+  }
+
+  const plannerNote = getPlannerRequestNoteFromButton(button) || (button.dataset.requestAction === "assign-replacement" ? "Handmatig door planner ingevuld" : "");
+  finalizeApprovedSwapRequest(request, {
+    managerNote: plannerNote,
+    autoApproved: false,
+    successMessage: button.dataset.requestAction === "assign-replacement" ? "Vervanger gekozen en rooster bijgewerkt." : "Rooster bijgewerkt.",
+    persistMessage: `Ruilverzoek goedgekeurd voor ${request.employeeName}.`,
+    action: "swap-approved"
+  });
+}
+
 requestsOpenCards?.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-request-action]");
 
@@ -24859,10 +25261,50 @@ requestViewMineButton?.addEventListener("click", () => {
   setActiveRequestsView("mine");
 });
 
+requestsOpenSummary?.addEventListener("click", (event) => {
+  const filterButton = event.target.closest("[data-planner-request-filter]");
+
+  if (!filterButton || !isPlannerRole()) {
+    return;
+  }
+
+  activePlannerRequestTypeFilter = filterButton.dataset.plannerRequestFilter || "";
+  if (plannerRequestTypeFilter) {
+    plannerRequestTypeFilter.value = activePlannerRequestTypeFilter;
+  }
+  renderRequestsOpenSummary();
+  renderTimeOffRequests();
+  renderSwapRequests();
+});
+
+plannerRequestTypeFilter?.addEventListener("change", () => {
+  activePlannerRequestTypeFilter = plannerRequestTypeFilter.value || "";
+  renderRequestsOpenSummary();
+  renderTimeOffRequests();
+  renderSwapRequests();
+});
+
 requestStatusFilter?.addEventListener("change", () => {
   renderRequestsOpenSummary();
   renderTimeOffRequests();
   renderSwapRequests();
+});
+
+plannerRequestsInbox?.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-request-action]");
+
+  if (!button || !isPlannerRole()) {
+    return;
+  }
+
+  if (button.dataset.requestType === "timeoff") {
+    handlePlannerInboxTimeOffAction(button);
+    return;
+  }
+
+  if (button.dataset.requestType === "swap") {
+    handlePlannerInboxSwapAction(button);
+  }
 });
 
 mobileNavButtons.forEach((button) => {

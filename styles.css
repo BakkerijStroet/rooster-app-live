@@ -5728,6 +5728,17 @@ button.hours-reminder-banner {
   box-shadow: 0 4px 14px rgba(61, 42, 17, 0.04);
 }
 
+.planner-summary-filter {
+  text-align: left;
+  cursor: pointer;
+}
+
+.planner-summary-filter.active,
+.planner-summary-filter:hover {
+  border-color: rgba(207, 121, 45, 0.4);
+  background: #fff4e4;
+}
+
 .planner-summary-chip span {
   color: var(--muted);
   font-size: 12px;
@@ -6074,6 +6085,102 @@ button.hours-reminder-banner {
   min-width: 0;
 }
 
+.planner-request-inbox {
+  width: 100%;
+  gap: 8px;
+}
+
+.planner-request-inbox-head,
+.planner-request-inbox-grid {
+  display: grid;
+  grid-template-columns: minmax(90px, 0.75fr) minmax(105px, 0.85fr) minmax(90px, 0.7fr) minmax(140px, 1.4fr) minmax(105px, 0.85fr) minmax(150px, 1.15fr) minmax(180px, 1.15fr);
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.planner-request-inbox-head {
+  padding: 0 12px 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.planner-request-inbox-item {
+  padding: 10px 12px;
+}
+
+.planner-request-date,
+.planner-request-type,
+.planner-request-description {
+  min-width: 0;
+  color: #6a6153;
+  font-size: 13px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.planner-request-date,
+.planner-request-description {
+  white-space: nowrap;
+}
+
+.planner-request-status-stack,
+.planner-request-note-area {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.planner-request-overdue-badge {
+  width: max-content;
+  max-width: 100%;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #fff0ed;
+  border: 1px solid #e1afa6;
+  color: #8f3b2f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.planner-request-inline-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.planner-request-inline-field span {
+  color: #6a6153;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.planner-request-inline-field input,
+.planner-request-inline-field select {
+  width: 100%;
+  min-height: 36px;
+}
+
+.planner-request-existing-note {
+  color: #6a6153;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.planner-request-inbox-actions {
+  justify-content: flex-start;
+}
+
+.planner-request-inbox-empty {
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  color: var(--muted);
+  background: #fffdfa;
+}
+
 .request-status-overview-panel {
   display: none !important;
 }
@@ -6086,15 +6193,12 @@ body[data-role="planner"] [data-panel="requests"] .employee-request-groups {
   display: none !important;
 }
 
-body[data-role="planner"] [data-panel="requests"] .planner-request-sections {
-  display: grid;
-}
-
+body[data-role="employee"] #plannerRequestsInbox,
+body[data-role="employee"] .planner-request-type-control,
+body[data-role="planner"] [data-panel="requests"] .planner-request-sections,
 body[data-role="planner"] #requestTimeOffPanel,
 body[data-role="planner"] #requestSwapPanel {
-  display: grid;
-  gap: 12px;
-  align-content: start;
+  display: none !important;
 }
 
 body[data-role="planner"] [data-panel="requests"][data-slot="top"] {
@@ -6836,6 +6940,31 @@ button,
     min-height: 50px;
     max-width: 100%;
     white-space: normal;
+  }
+
+  .planner-request-inbox-head {
+    display: none;
+  }
+
+  .planner-request-inbox-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .planner-request-inbox-item {
+    padding: 12px;
+  }
+
+  .planner-request-date,
+  .planner-request-type,
+  .planner-request-description {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .planner-request-inbox-actions {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   #requestSwapComposer,

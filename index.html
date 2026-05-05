@@ -687,6 +687,16 @@
             <p class="panel-note">Overzicht van afwezigheid en ruilverzoeken.</p>
           </div>
           <div class="view-toolbar director-screen-toolbar">
+            <label class="week-select planner-request-type-control">
+              <span>Type</span>
+              <select id="plannerRequestTypeFilter">
+                <option value="">Alles</option>
+                <option value="free">Vrije dagen</option>
+                <option value="vacation">Vakantie</option>
+                <option value="sick">Ziekmeldingen</option>
+                <option value="swap">Ruilverzoeken</option>
+              </select>
+            </label>
             <label class="week-select">
               <span>Status</span>
               <select id="requestStatusFilter">
@@ -709,6 +719,7 @@
           <button type="button" id="requestTypeSwapButton" class="request-switch-button">Dienst ruilen</button>
         </div>
         <div id="requestsOpenSummary" class="dashboard-grid"></div>
+        <div id="plannerRequestsInbox" class="planner-request-inbox request-list empty">Geen aanvragen gevonden.</div>
         <div id="requestsEmployeeBadge" class="employee-context-badge role-employee-summary request-employee-summary">
           <span>Mijn aanvragen</span>
           <strong>Geen medewerker gekoppeld</strong>
