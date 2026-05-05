@@ -646,38 +646,42 @@
             <h2>Uren controleren</h2>
             <p class="panel-note">Controle van ingediende urenregistraties per week.</p>
           </div>
-          <div class="view-toolbar director-screen-toolbar">
-            <div class="week-switcher compact-actions hours-control-week-actions" aria-label="Weeknavigatie uren controleren">
+          <div class="view-toolbar director-screen-toolbar hours-control-toolbar">
+            <div class="hours-control-toolbar-group week-switcher compact-actions hours-control-week-actions" aria-label="Weeknavigatie uren controleren">
               <button type="button" id="approvalPreviousWeekButton" class="secondary">Vorige week</button>
               <button type="button" id="approvalCurrentWeekButton" class="secondary">Deze week</button>
               <button type="button" id="approvalNextWeekButton" class="secondary">Volgende week</button>
             </div>
-            <label class="week-select">
-              <span>Week</span>
-              <input type="week" id="approvalWeek">
-            </label>
-            <label class="week-select">
-              <span>Medewerker</span>
-              <select id="approvalEmployee">
-                <option value="">Alle medewerkers</option>
-              </select>
-            </label>
-            <label class="week-select">
-              <span>Export</span>
-              <select id="hoursExportPeriod">
-                <option value="week">Per week</option>
-                <option value="month">Per maand</option>
-              </select>
-            </label>
-            <label class="week-select" id="hoursExportWeekLabel">
-              <span>Exportweek</span>
-              <input type="week" id="hoursExportWeek">
-            </label>
-            <label class="week-select hidden" id="hoursExportMonthLabel">
-              <span>Exportmaand</span>
-              <input type="month" id="hoursExportMonth">
-            </label>
-            <div class="compact-actions">
+            <div class="hours-control-toolbar-group">
+              <label class="week-select">
+                <span>Week</span>
+                <input type="week" id="approvalWeek">
+              </label>
+              <label class="week-select">
+                <span>Medewerker</span>
+                <select id="approvalEmployee">
+                  <option value="">Alle medewerkers</option>
+                </select>
+              </label>
+            </div>
+            <div class="hours-control-toolbar-group">
+              <label class="week-select">
+                <span>Export</span>
+                <select id="hoursExportPeriod">
+                  <option value="week">Per week</option>
+                  <option value="month">Per maand</option>
+                </select>
+              </label>
+              <label class="week-select" id="hoursExportWeekLabel">
+                <span>Exportweek</span>
+                <input type="week" id="hoursExportWeek">
+              </label>
+              <label class="week-select hidden" id="hoursExportMonthLabel">
+                <span>Exportmaand</span>
+                <input type="month" id="hoursExportMonth">
+              </label>
+            </div>
+            <div class="hours-control-toolbar-group compact-actions">
               <button type="button" id="hoursExportButton" class="secondary">Exporteer uren CSV</button>
             </div>
           </div>

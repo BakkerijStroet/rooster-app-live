@@ -3375,12 +3375,56 @@ body[data-role="employee"][data-employee-locked="true"] .director-screen-toolbar
 }
 
 .hours-approval-panel {
-  gap: 10px;
+  gap: 8px;
+  align-content: start;
 }
 
-.hours-approval-panel .director-screen-toolbar {
-  grid-template-columns: repeat(auto-fit, minmax(180px, max-content));
+.hours-approval-panel .director-screen-header {
+  display: grid;
+  grid-template-columns: 1fr !important;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.hours-approval-panel .hours-control-toolbar {
+  display: flex;
+  flex-wrap: wrap;
   align-items: end;
+  justify-content: flex-start !important;
+  justify-items: start !important;
+  gap: 8px 12px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fffaf1;
+}
+
+.hours-control-toolbar-row,
+.hours-control-toolbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hours-control-toolbar .week-select {
+  margin: 0;
+  min-width: 150px;
+}
+
+.hours-control-toolbar .week-select select,
+.hours-control-toolbar .week-select input {
+  min-height: 36px;
+}
+
+.hours-control-toolbar #approvalEmployee {
+  min-width: 190px;
+}
+
+.hours-control-toolbar #hoursExportButton {
+  min-height: 36px;
 }
 
 .hours-control-week-actions {
@@ -3389,7 +3433,8 @@ body[data-role="employee"][data-employee-locked="true"] .director-screen-toolbar
 
 .hours-control-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
+  margin-top: 0;
 }
 
 .hours-control-status-card,
