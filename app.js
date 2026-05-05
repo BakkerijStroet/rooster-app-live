@@ -7720,12 +7720,12 @@ function updateLoginRoleState() {
   clearLoginError();
   clearPlannerPinInput();
   loginEmployeeLabel.classList.toggle("hidden", !isEmployeeLogin);
-  loginPlannerPinLabel?.classList.toggle("hidden", isEmployeeLogin);
+  loginPlannerPinLabel?.classList.remove("hidden");
   if (loginPlannerPinLabel) {
-    loginPlannerPinLabel.firstChild.textContent = isEmployeeLogin ? "Medewerker pincode" : "Planner pincode";
+    loginPlannerPinLabel.firstChild.textContent = isEmployeeLogin ? "Pincode" : "Planner pincode";
   }
   if (loginPlannerPinInput) {
-    loginPlannerPinInput.placeholder = isEmployeeLogin ? "Voer medewerker pincode in" : "Voer pincode in";
+    loginPlannerPinInput.placeholder = isEmployeeLogin ? "Voer pincode in" : "Voer pincode in";
   }
   loginConfirmButton.textContent = isEmployeeLogin ? "Inloggen als medewerker" : "Inloggen als planner";
 }
