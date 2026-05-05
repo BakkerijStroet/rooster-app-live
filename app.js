@@ -259,6 +259,7 @@ const preferencesStorageKey = "urenrooster-preferences";
 const timeOffStorageKey = "urenrooster-time-off-requests";
 const swapStorageKey = "urenrooster-swap-requests";
 const workLogStorageKey = "urenrooster-work-logs";
+const workLogApiEndpoint = "/api/work-logs";
 const employeePermissionsStorageKey = "urenrooster-employee-permissions";
 const employeeStandardShiftStorageKey = "urenrooster-employee-standard-shifts";
 const employeeShiftPreferenceStorageKey = "urenrooster-employee-shift-preferences";
@@ -1150,10 +1151,224 @@ function loadWorkLogs() {
   }
 }
 
-function saveWorkLogs() {
-  replaceArrayContents(workLogs, sanitizeWorkLogsForStorage(workLogs));
+function persistWorkLogsToLocalStorage() {
   safeSetStorageItem(getScopedStorageKey(workLogStorageKey), JSON.stringify(workLogs), "urenregistratie");
 }
+
+function saveWorkLogs() {
+  replaceArrayContents(workLogs, sanitizeWorkLogsForStorage(workLogs));
+  persistWorkLogsToLocalStorage();
+  queueWorkLogCentralSave();
+}
+
+let workLogCentralSyncTimer = null;
+let workLogCentralSyncInFlight = false;
+let workLogCentralSyncPending = false;
+let workLogCentralSyncLoaded = false;
+let lastWorkLogCentralSyncError = null;
+
+function isWorkLogCentralSyncEnabled() {
+  return currentDataMode === "live" && typeof fetch === "function";
+}
+
+function getWorkLogComparableTimestamp(log) {
+  const candidates = [
+    log?.updatedAt,
+    log?.submittedAt,
+    Array.isArray(log?.auditTrail) && log.auditTrail.length
+      ? log.auditTrail[log.auditTrail.length - 1]?.at
+      : ""
+  ];
+
+  for (const value of candidates) {
+    const parsed = Date.parse(value || "");
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return 0;
+}
+
+function serializeWorkLogsForComparison(logs) {
+  return JSON.stringify(sanitizeWorkLogsForStorage(logs).slice().sort((logA, logB) => logA.id.localeCompare(logB.id)));
+}
+
+function mergeWorkLogCollections(localLogs, centralLogs) {
+  const mergedById = new Map();
+
+  sanitizeWorkLogsForStorage(localLogs).forEach((log) => {
+    mergedById.set(log.id, log);
+  });
+
+  sanitizeWorkLogsForStorage(centralLogs).forEach((centralLog) => {
+    const localLog = mergedById.get(centralLog.id);
+    if (!localLog || getWorkLogComparableTimestamp(centralLog) > getWorkLogComparableTimestamp(localLog)) {
+      mergedById.set(centralLog.id, centralLog);
+    }
+  });
+
+  return [...mergedById.values()].sort((logA, logB) =>
+    logA.day.localeCompare(logB.day) ||
+    logA.employeeName.localeCompare(logB.employeeName, "nl") ||
+    logA.plannedStart.localeCompare(logB.plannedStart) ||
+    logA.shiftName.localeCompare(logB.shiftName, "nl")
+  );
+}
+
+function reportWorkLogCentralSyncError(action, error) {
+  lastWorkLogCentralSyncError = {
+    action,
+    mode: currentDataMode,
+    endpoint: workLogApiEndpoint,
+    localCount: workLogs.length,
+    message: error instanceof Error ? error.message : String(error),
+    at: new Date().toISOString()
+  };
+  window.lastWorkLogCentralSyncError = lastWorkLogCentralSyncError;
+  console.warn("[workLogs] Centrale sync mislukt; localStorage blijft actief.", lastWorkLogCentralSyncError, error);
+}
+
+async function fetchCentralWorkLogs() {
+  const response = await fetch(`${workLogApiEndpoint}?mode=${encodeURIComponent(currentDataMode)}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json"
+    },
+    cache: "no-store"
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || payload?.success === false) {
+    throw new Error(payload?.message || "Centraal laden van urenregistraties is mislukt.");
+  }
+
+  return Array.isArray(payload?.workLogs) ? payload.workLogs : [];
+}
+
+async function sendWorkLogsToCentral(sourceLogs = workLogs) {
+  if (!isWorkLogCentralSyncEnabled()) {
+    return false;
+  }
+
+  const response = await fetch(workLogApiEndpoint, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify({
+      mode: currentDataMode,
+      workLogs: sanitizeWorkLogsForStorage(sourceLogs)
+    })
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || payload?.success === false) {
+    throw new Error(payload?.message || "Centraal opslaan van urenregistraties is mislukt.");
+  }
+
+  return true;
+}
+
+function queueWorkLogCentralSave() {
+  if (!isWorkLogCentralSyncEnabled()) {
+    return;
+  }
+
+  if (workLogCentralSyncTimer) {
+    clearTimeout(workLogCentralSyncTimer);
+  }
+
+  workLogCentralSyncTimer = setTimeout(() => {
+    workLogCentralSyncTimer = null;
+    syncWorkLogsToCentral();
+  }, 400);
+}
+
+async function syncWorkLogsToCentral() {
+  if (!isWorkLogCentralSyncEnabled()) {
+    return false;
+  }
+
+  if (workLogCentralSyncInFlight) {
+    workLogCentralSyncPending = true;
+    return false;
+  }
+
+  workLogCentralSyncInFlight = true;
+
+  try {
+    await sendWorkLogsToCentral(workLogs);
+    lastWorkLogCentralSyncError = null;
+    window.lastWorkLogCentralSyncError = null;
+    return true;
+  } catch (error) {
+    reportWorkLogCentralSyncError("save", error);
+    return false;
+  } finally {
+    workLogCentralSyncInFlight = false;
+    if (workLogCentralSyncPending) {
+      workLogCentralSyncPending = false;
+      queueWorkLogCentralSave();
+    }
+  }
+}
+
+async function syncWorkLogsFromCentral() {
+  if (!isWorkLogCentralSyncEnabled() || workLogCentralSyncLoaded) {
+    return;
+  }
+
+  workLogCentralSyncLoaded = true;
+  const localBeforeSync = sanitizeWorkLogsForStorage(workLogs);
+
+  try {
+    const centralLogs = sanitizeWorkLogsForStorage(await fetchCentralWorkLogs());
+    const mergedLogs = mergeWorkLogCollections(localBeforeSync, centralLogs);
+    const localSignature = serializeWorkLogsForComparison(localBeforeSync);
+    const centralSignature = serializeWorkLogsForComparison(centralLogs);
+    const mergedSignature = serializeWorkLogsForComparison(mergedLogs);
+
+    if (mergedSignature !== localSignature) {
+      replaceArrayContents(workLogs, mergedLogs);
+      persistWorkLogsToLocalStorage();
+      renderMyHours();
+      renderHoursApproval();
+      renderDashboard();
+    }
+
+    if (mergedSignature !== centralSignature) {
+      queueWorkLogCentralSave();
+    }
+  } catch (error) {
+    reportWorkLogCentralSyncError("load", error);
+  }
+}
+
+async function migrateLocalWorkLogsToCentral() {
+  const localLogs = sanitizeWorkLogsForStorage(loadWorkLogs());
+
+  if (!localLogs.length) {
+    console.info("[workLogs] Geen lokale urenregistraties gevonden om te migreren.");
+    return { success: true, migratedCount: 0 };
+  }
+
+  try {
+    await sendWorkLogsToCentral(localLogs);
+    lastWorkLogCentralSyncError = null;
+    window.lastWorkLogCentralSyncError = null;
+    console.info(`[workLogs] ${localLogs.length} lokale urenregistraties naar Supabase gestuurd.`);
+    return { success: true, migratedCount: localLogs.length };
+  } catch (error) {
+    reportWorkLogCentralSyncError("migrate", error);
+    return { success: false, migratedCount: 0, error };
+  }
+}
+
+window.migrateLocalWorkLogsToCentral = migrateLocalWorkLogsToCentral;
 
 const {
   formatDateTime = function fallbackFormatDateTime(value) {
@@ -22437,7 +22652,7 @@ applySavedPreferences();
 activeTab = getDefaultTabForCurrentRole();
 updateTabVisibility();
 restoreSessionState({ resetToDefaultTab: true, resetWeekToCurrent: true });
-
+syncWorkLogsFromCentral();
 
 
 
