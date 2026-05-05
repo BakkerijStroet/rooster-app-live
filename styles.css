@@ -1526,6 +1526,72 @@ body[data-role="employee"] [data-panel="my-hours"] .totals.hidden {
   display: none !important;
 }
 
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-choice-grid,
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-history-list,
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-history-detail {
+  display: grid;
+  gap: 10px;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-choice-card,
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-history-item,
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-history-card {
+  border: 1px solid rgba(138, 85, 54, 0.12);
+  border-radius: 16px;
+  background: #fff;
+  color: var(--text);
+  padding: 14px;
+  text-align: left;
+  box-shadow: 0 6px 18px rgba(74, 52, 32, 0.05);
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-choice-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  align-items: center;
+  width: 100%;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-choice-card span {
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgba(242, 140, 40, 0.14);
+  color: var(--accent-strong);
+  font-weight: 800;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-choice-card small,
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-history-item small,
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-history-item em,
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-history-card span {
+  color: var(--muted);
+  font-size: 13px;
+  font-style: normal;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-history-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  align-items: center;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-history-item span,
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-history-card {
+  display: grid;
+  gap: 4px;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-back-button {
+  width: fit-content;
+}
+
 body[data-role="employee"] [data-panel="my-hours"] .hours-missing-block {
   gap: 8px;
 }
