@@ -1189,6 +1189,55 @@ body[data-role="employee"] [data-panel="week-current"] .employee-roster-actions 
   display: grid;
 }
 
+@media (max-width: 640px) {
+  body[data-role="employee"] [data-panel="week-current"] .employee-mobile-roster-days,
+  body[data-role="employee"] [data-panel="week-current"] .employee-mobile-roster-detail {
+    display: grid;
+    gap: 10px;
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .employee-mobile-roster-day {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 14px;
+    border: 1px solid rgba(138, 85, 54, 0.1);
+    border-radius: 16px;
+    background: #fff;
+    color: var(--text);
+    text-align: left;
+    box-shadow: 0 6px 18px rgba(74, 52, 32, 0.06);
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .employee-mobile-roster-day.is-today {
+    border-color: rgba(242, 140, 40, 0.34);
+    background: linear-gradient(180deg, #fff8f1 0%, #fff 100%);
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .employee-mobile-roster-day strong,
+  body[data-role="employee"] [data-panel="week-current"] .employee-mobile-roster-day small {
+    display: block;
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .employee-mobile-roster-day strong {
+    font-size: 17px;
+    line-height: 1.2;
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .employee-mobile-roster-day small,
+  body[data-role="employee"] [data-panel="week-current"] .employee-mobile-roster-day em {
+    color: var(--muted);
+    font-size: 14px;
+    font-style: normal;
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .employee-mobile-roster-back {
+    width: 100%;
+  }
+}
+
 body[data-role="employee"] [data-panel="week-current"] .mobile-day-card {
   padding: 10px 12px;
   gap: 8px;

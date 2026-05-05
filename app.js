@@ -4620,6 +4620,7 @@ let editIndex = null;
 let editingShiftId = null;
 let activeTab = "week-current";
 let activeEmployeeWeekView = "today";
+let selectedMobileRosterDate = "";
 let activeRole = preferences.lastRole === "employee" ? "employee" : "planner";
 const sessionState = {
   isAuthenticated: false,
@@ -9468,7 +9469,8 @@ function formatEmployeeWeekLabel(weekValue) {
 function renderEmployeeRosterDayCard(day, entriesForDay, approvedRequestsForDay, title, options = {}) {
   const {
     showEmployeeName = false,
-    subtitle = ""
+    subtitle = "",
+    emptyText = ""
   } = options;
   const sortedEntries = [...entriesForDay].sort((entryA, entryB) =>
     entryA.startTime.localeCompare(entryB.startTime) ||
@@ -9505,7 +9507,7 @@ function renderEmployeeRosterDayCard(day, entriesForDay, approvedRequestsForDay,
               <span>${entry.startTime} - ${entry.endTime}</span>
             </div>
           `).join("")
-          : `<div class="employee-roster-empty">${approvedAbsenceLabel || (isClosedPlannerDay(day) ? "Gesloten" : "Geen dienst")}</div>`}
+          : `<div class="employee-roster-empty">${approvedAbsenceLabel || emptyText || (isClosedPlannerDay(day) ? "Gesloten" : "Geen dienst")}</div>`}
       </div>
       ${canCompleteToday ? `
         <div class="employee-roster-actions">
@@ -17990,6 +17992,7 @@ function renderSchedule() {
     scheduleBoard.dataset.employeeView = activeEmployeeWeekView;
 
     if (activeEmployeeWeekView === "today") {
+      selectedMobileRosterDate = "";
       const todayDate = getTodayDateValue();
       const todayEntries = employeeRosterEntries
         .filter((entry) => entry.day === todayDate)
@@ -18005,6 +18008,63 @@ function renderSchedule() {
           </section>
         `;
         return;
+    }
+
+    if (!weekDates.includes(selectedMobileRosterDate)) {
+      selectedMobileRosterDate = "";
+    }
+
+    if (mobileMediaQuery.matches) {
+      if (selectedMobileRosterDate) {
+        const selectedDayEntries = employeeRosterEntries.filter((entry) => entry.day === selectedMobileRosterDate);
+        const selectedDayRequests = approvedTimeOffRequests.filter((request) => requestIncludesDate(request, selectedMobileRosterDate));
+
+        scheduleBoard.innerHTML = `
+          <section class="employee-mobile-roster-detail">
+            <button type="button" class="secondary employee-mobile-roster-back" data-mobile-roster-back>
+              Terug naar weekoverzicht
+            </button>
+            ${renderEmployeeRosterDayCard(
+              selectedMobileRosterDate,
+              selectedDayEntries,
+              selectedDayRequests,
+              selectedMobileRosterDate === getTodayDateValue() ? `Vandaag - ${formatWeekday(selectedMobileRosterDate)}` : formatWeekday(selectedMobileRosterDate),
+              {
+                showEmployeeName: true,
+                subtitle: formatDate(selectedMobileRosterDate),
+                emptyText: "Geen dienst gepland"
+              }
+            )}
+          </section>
+        `;
+        return;
+      }
+
+      scheduleBoard.innerHTML = `
+        <section class="employee-mobile-roster-days" aria-label="Kies een dag">
+          ${weekDates.map((day) => {
+            const dayEntries = employeeRosterEntries.filter((entry) => entry.day === day);
+            const dayRequests = approvedTimeOffRequests.filter((request) => requestIncludesDate(request, day));
+            const isTodayButton = day === getTodayDateValue();
+            const statusText = dayEntries.length
+              ? `${dayEntries.length} dienst${dayEntries.length === 1 ? "" : "en"}`
+              : dayRequests.length
+                ? dayRequests.map((request) => getApprovedAbsenceLabel(request)).join(", ")
+                : "Geen dienst gepland";
+
+            return `
+              <button type="button" class="employee-mobile-roster-day ${isTodayButton ? "is-today" : ""}" data-mobile-roster-day="${day}">
+                <span>
+                  <strong>${isTodayButton ? "Vandaag" : formatWeekday(day)}</strong>
+                  <small>${formatDate(day)}</small>
+                </span>
+                <em>${statusText}</em>
+              </button>
+            `;
+          }).join("")}
+        </section>
+      `;
+      return;
     }
 
     scheduleBoard.innerHTML = `
@@ -20032,6 +20092,22 @@ scheduleBoard.addEventListener("click", (event) => {
 
   if (hoursButton?.dataset.goHoursDate) {
     openHoursForDate(hoursButton.dataset.goHoursDate);
+    return;
+  }
+
+  const mobileRosterBackButton = event.target.closest("[data-mobile-roster-back]");
+
+  if (mobileRosterBackButton && !isPlannerRole()) {
+    selectedMobileRosterDate = "";
+    renderSchedule();
+    return;
+  }
+
+  const mobileRosterDayButton = event.target.closest("[data-mobile-roster-day]");
+
+  if (mobileRosterDayButton?.dataset.mobileRosterDay && !isPlannerRole()) {
+    selectedMobileRosterDate = mobileRosterDayButton.dataset.mobileRosterDay;
+    renderSchedule();
     return;
   }
 
@@ -23780,6 +23856,7 @@ previousWeekButton.addEventListener("click", () => {
   hoursWeekInput.value = previousWeek;
   if (!isPlannerRole()) {
     activeEmployeeWeekView = "week";
+    selectedMobileRosterDate = "";
   }
   render();
 });
@@ -23789,6 +23866,7 @@ todayWeekButton.addEventListener("click", () => {
   weekFilterInput.value = currentWeek;
   weekInput.value = currentWeek;
   hoursWeekInput.value = currentWeek;
+  selectedMobileRosterDate = "";
   render();
 });
 
@@ -23799,6 +23877,7 @@ nextWeekButton.addEventListener("click", () => {
   hoursWeekInput.value = nextWeek;
   if (!isPlannerRole()) {
     activeEmployeeWeekView = "week";
+    selectedMobileRosterDate = "";
   }
   render();
 });
@@ -23813,6 +23892,7 @@ employeeTodayViewButton?.addEventListener("click", () => {
   weekInput.value = currentWeek;
   hoursWeekInput.value = currentWeek;
   activeEmployeeWeekView = "today";
+  selectedMobileRosterDate = "";
   render();
 });
 
@@ -23822,6 +23902,7 @@ employeeWeekViewButton?.addEventListener("click", () => {
   }
 
   activeEmployeeWeekView = "week";
+  selectedMobileRosterDate = "";
   render();
 });
 
