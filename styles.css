@@ -7748,10 +7748,15 @@ body #switchUserButton.session-logout-button:not(.hidden) {
   position: fixed;
   top: 14px;
   right: 14px;
+  left: auto;
   z-index: 5600;
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
+  width: auto !important;
+  max-width: max-content !important;
+  min-width: 0;
+  height: auto;
   min-height: 36px;
   padding: 8px 12px;
   border-radius: 999px;
