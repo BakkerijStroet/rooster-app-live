@@ -268,6 +268,8 @@ const employeeMetaStorageKey = "urenrooster-employee-meta";
 const auditLogStorageKey = "urenrooster-audit-log";
 const backupStorageKey = "urenrooster-backups";
 const mailSettingsStorageKey = "urenrooster-mail-settings";
+const EMPLOYEE_DATA_SAFETY_BACKUP_REASON = "Automatische veiligheidsbackup medewerkerdata";
+let lastEmployeeDataSafetyBackupSignature = "";
 
 const { setClassName = function fallbackSetClassName(element, value) {
   if (!element) {
@@ -3522,26 +3524,45 @@ function loadEmployeeMeta() {
   try {
     const parsedMeta = JSON.parse(savedMeta);
     const normalized = {};
+    const parsedMetaSource = parsedMeta && typeof parsedMeta === "object" ? parsedMeta : {};
     const hasExplicitMailTestUser = employees.some((employeeName) =>
-      Object.prototype.hasOwnProperty.call(parsedMeta?.[employeeName] || {}, "mailTestUser")
+      Object.prototype.hasOwnProperty.call(parsedMetaSource?.[employeeName] || {}, "mailTestUser")
     );
 
     employees.forEach((employeeName) => {
-      const currentMeta = parsedMeta?.[employeeName];
+      const currentMeta = parsedMetaSource?.[employeeName] && typeof parsedMetaSource[employeeName] === "object"
+        ? parsedMetaSource[employeeName]
+        : {};
       normalized[employeeName] = {
-        status: normalizeEmployeeStatus(currentMeta?.status),
-        role: normalizeEmployeeAppRole(currentMeta?.role || getDefaultEmployeeAppRole(employeeName)),
-        contractHours: normalizeContractHours(currentMeta?.contractHours ?? getConfiguredEmployeeContractHours()[employeeName] ?? 0),
-        email: normalizeEmployeeEmail(currentMeta?.email),
-        loginPin: normalizeEmployeeLoginPin(currentMeta?.loginPin),
-        mailTestUser: hasExplicitMailTestUser ? Boolean(currentMeta?.mailTestUser) : employeeName === "Twan",
-        lastTestMailAt: typeof currentMeta?.lastTestMailAt === "string" ? currentMeta.lastTestMailAt : "",
-        lastTestMailStatus: typeof currentMeta?.lastTestMailStatus === "string" ? currentMeta.lastTestMailStatus : "",
-        lastTestMailMessage: typeof currentMeta?.lastTestMailMessage === "string" ? currentMeta.lastTestMailMessage : "",
-        updatedAt: typeof currentMeta?.updatedAt === "string" ? currentMeta.updatedAt : "",
-        updatedByRole: currentMeta?.updatedByRole === "planner" ? "planner" : (currentMeta?.updatedByRole === "employee" ? "employee" : ""),
-        updatedByName: typeof currentMeta?.updatedByName === "string" ? currentMeta.updatedByName : ""
+        ...getEmployeeStatusMetaDefaults(),
+        ...currentMeta,
+        status: Object.prototype.hasOwnProperty.call(currentMeta, "status")
+          ? currentMeta.status
+          : getEmployeeStatusMetaDefaults().status,
+        role: Object.prototype.hasOwnProperty.call(currentMeta, "role")
+          ? currentMeta.role
+          : getDefaultEmployeeAppRole(employeeName),
+        contractHours: Object.prototype.hasOwnProperty.call(currentMeta, "contractHours")
+          ? currentMeta.contractHours
+          : normalizeContractHours(getConfiguredEmployeeContractHours()[employeeName] ?? 0),
+        email: Object.prototype.hasOwnProperty.call(currentMeta, "email") ? currentMeta.email : "",
+        loginPin: Object.prototype.hasOwnProperty.call(currentMeta, "loginPin") ? currentMeta.loginPin : "",
+        mailTestUser: Object.prototype.hasOwnProperty.call(currentMeta, "mailTestUser")
+          ? currentMeta.mailTestUser
+          : (!hasExplicitMailTestUser && employeeName === "Twan"),
+        lastTestMailAt: Object.prototype.hasOwnProperty.call(currentMeta, "lastTestMailAt") ? currentMeta.lastTestMailAt : "",
+        lastTestMailStatus: Object.prototype.hasOwnProperty.call(currentMeta, "lastTestMailStatus") ? currentMeta.lastTestMailStatus : "",
+        lastTestMailMessage: Object.prototype.hasOwnProperty.call(currentMeta, "lastTestMailMessage") ? currentMeta.lastTestMailMessage : "",
+        updatedAt: Object.prototype.hasOwnProperty.call(currentMeta, "updatedAt") ? currentMeta.updatedAt : "",
+        updatedByRole: Object.prototype.hasOwnProperty.call(currentMeta, "updatedByRole") ? currentMeta.updatedByRole : "",
+        updatedByName: Object.prototype.hasOwnProperty.call(currentMeta, "updatedByName") ? currentMeta.updatedByName : ""
       };
+    });
+
+    Object.keys(parsedMetaSource).forEach((employeeName) => {
+      if (!Object.prototype.hasOwnProperty.call(normalized, employeeName)) {
+        normalized[employeeName] = structuredClone(parsedMetaSource[employeeName]);
+      }
     });
 
     return normalized;
@@ -4156,79 +4177,112 @@ function getEmployeeBaseRosterProfile(employeeName) {
   }
 }
 
+function hasMeaningfulEmployeeMetaData(sourceMeta = employeeMeta) {
+  return Object.values(sourceMeta || {}).some((meta) => {
+    if (!meta || typeof meta !== "object") {
+      return false;
+    }
+
+    return Boolean(
+      meta.email ||
+      meta.loginPin ||
+      normalizeContractHours(meta.contractHours) > 0 ||
+      (meta.role && meta.role !== "employee") ||
+      (meta.status && meta.status !== "active") ||
+      meta.mailTestUser
+    );
+  });
+}
+
+function hasMeaningfulEmployeePermissionsData(sourcePermissions = employeePermissions) {
+  return Object.values(sourcePermissions || {}).some((permissionMap) =>
+    permissionMap &&
+    typeof permissionMap === "object" &&
+    Object.values(permissionMap).some((value) => typeof value === "boolean")
+  );
+}
+
+function hasEmployeeDataToProtect() {
+  return hasMeaningfulEmployeeMetaData(employeeMeta) || hasMeaningfulEmployeePermissionsData(employeePermissions);
+}
+
+function warnAboutEmptyEmployeeDataStore(kind) {
+  console.warn(`[medewerkerdata] ${kind} is leeg terwijl er medewerkers bestaan. Defaults worden alleen in geheugen aangevuld; bestaande opslag wordt niet stil overschreven.`);
+}
+
+function createEmployeeDataSafetyBackupIfNeeded(reasonDetail = "") {
+  if (!employees.length || !hasEmployeeDataToProtect()) {
+    return false;
+  }
+
+  const signature = JSON.stringify({
+    employeeMeta,
+    employeePermissions
+  });
+
+  if (signature === lastEmployeeDataSafetyBackupSignature) {
+    return false;
+  }
+
+  lastEmployeeDataSafetyBackupSignature = signature;
+  createBackupSnapshot(EMPLOYEE_DATA_SAFETY_BACKUP_REASON, {
+    type: "employee-data-safety-sync",
+    reasonDetail
+  });
+  return true;
+}
+
 function syncEmployeeMeta() {
   let changed = false;
+  const nextEmployeeMeta = structuredClone(employeeMeta);
   const configuredContractHours = getConfiguredEmployeeContractHours();
+  const hadMetaKeys = Object.keys(employeeMeta).length > 0;
+
+  if (employees.length > 0 && !hadMetaKeys) {
+    warnAboutEmptyEmployeeDataStore("employeeMeta");
+  }
 
   employees.forEach((employeeName) => {
-    if (!employeeMeta[employeeName]) {
-      employeeMeta[employeeName] = {
+    const currentMeta = nextEmployeeMeta[employeeName];
+
+    if (!currentMeta || typeof currentMeta !== "object") {
+      nextEmployeeMeta[employeeName] = {
         ...getEmployeeStatusMetaDefaults(),
         contractHours: normalizeContractHours(configuredContractHours[employeeName] ?? 0)
       };
       changed = true;
     } else {
-      const normalizedStatus = normalizeEmployeeStatus(employeeMeta[employeeName].status);
-      const normalizedContractHours = normalizeContractHours(
-        employeeMeta[employeeName].contractHours ?? configuredContractHours[employeeName] ?? 0
-      );
-      const normalizedEmail = normalizeEmployeeEmail(employeeMeta[employeeName].email);
-      const normalizedLoginPin = normalizeEmployeeLoginPin(employeeMeta[employeeName].loginPin);
-      const normalizedMailTestUser = Boolean(employeeMeta[employeeName].mailTestUser);
-      const normalizedLastTestMailAt = typeof employeeMeta[employeeName].lastTestMailAt === "string" ? employeeMeta[employeeName].lastTestMailAt : "";
-      const normalizedLastTestMailStatus = typeof employeeMeta[employeeName].lastTestMailStatus === "string" ? employeeMeta[employeeName].lastTestMailStatus : "";
-      const normalizedLastTestMailMessage = typeof employeeMeta[employeeName].lastTestMailMessage === "string" ? employeeMeta[employeeName].lastTestMailMessage : "";
+      const defaults = {
+        ...getEmployeeStatusMetaDefaults(),
+        contractHours: normalizeContractHours(configuredContractHours[employeeName] ?? 0),
+        email: "",
+        loginPin: "",
+        mailTestUser: false,
+        lastTestMailAt: "",
+        lastTestMailStatus: "",
+        lastTestMailMessage: "",
+        updatedAt: "",
+        updatedByRole: "",
+        updatedByName: ""
+      };
 
-      if (employeeMeta[employeeName].status !== normalizedStatus) {
-        employeeMeta[employeeName].status = normalizedStatus;
-        changed = true;
-      }
-
-      if (employeeMeta[employeeName].contractHours !== normalizedContractHours) {
-        employeeMeta[employeeName].contractHours = normalizedContractHours;
-        changed = true;
-      }
-
-      if (employeeMeta[employeeName].email !== normalizedEmail) {
-        employeeMeta[employeeName].email = normalizedEmail;
-        changed = true;
-      }
-
-      if (employeeMeta[employeeName].loginPin !== normalizedLoginPin) {
-        employeeMeta[employeeName].loginPin = normalizedLoginPin;
-        changed = true;
-      }
-
-      if (employeeMeta[employeeName].mailTestUser !== normalizedMailTestUser) {
-        employeeMeta[employeeName].mailTestUser = normalizedMailTestUser;
-        changed = true;
-      }
-
-      if (employeeMeta[employeeName].lastTestMailAt !== normalizedLastTestMailAt) {
-        employeeMeta[employeeName].lastTestMailAt = normalizedLastTestMailAt;
-        changed = true;
-      }
-
-      if (employeeMeta[employeeName].lastTestMailStatus !== normalizedLastTestMailStatus) {
-        employeeMeta[employeeName].lastTestMailStatus = normalizedLastTestMailStatus;
-        changed = true;
-      }
-
-      if (employeeMeta[employeeName].lastTestMailMessage !== normalizedLastTestMailMessage) {
-        employeeMeta[employeeName].lastTestMailMessage = normalizedLastTestMailMessage;
-        changed = true;
-      }
-    }
-  });
-
-  Object.keys(employeeMeta).forEach((employeeName) => {
-    if (!employees.includes(employeeName)) {
-      delete employeeMeta[employeeName];
-      changed = true;
+      Object.entries(defaults).forEach(([key, defaultValue]) => {
+        if (!Object.prototype.hasOwnProperty.call(currentMeta, key)) {
+          currentMeta[key] = defaultValue;
+          changed = true;
+        }
+      });
     }
   });
 
   if (changed) {
+    createEmployeeDataSafetyBackupIfNeeded("syncEmployeeMeta");
+    replaceObjectContents(employeeMeta, nextEmployeeMeta);
+
+    if (!hadMetaKeys) {
+      return;
+    }
+
     saveEmployeeMeta();
   }
 }
@@ -4405,12 +4459,11 @@ function getPermissionShiftDescriptors() {
 }
 
 function loadEmployeePermissions() {
-  const allShiftNames = getPermissionShiftDescriptors().map((shift) => shift.name);
   const savedPermissions = localStorage.getItem(getScopedStorageKey(employeePermissionsStorageKey));
   const defaultPermissions = {};
 
   employees.forEach((employee) => {
-    defaultPermissions[employee] = Object.fromEntries(allShiftNames.map((shiftName) => [shiftName, true]));
+    defaultPermissions[employee] = {};
   });
 
   if (!savedPermissions) {
@@ -4419,14 +4472,16 @@ function loadEmployeePermissions() {
 
   try {
     const parsedPermissions = JSON.parse(savedPermissions);
-    const normalizedPermissions = {};
+    const normalizedPermissions = parsedPermissions && typeof parsedPermissions === "object"
+      ? structuredClone(parsedPermissions)
+      : {};
 
     employees.forEach((employee) => {
-      const employeePermissionsMap = parsedPermissions?.[employee];
-      normalizedPermissions[employee] = Object.fromEntries(allShiftNames.map((shiftName) => [
-        shiftName,
-        typeof employeePermissionsMap?.[shiftName] === "boolean" ? employeePermissionsMap[shiftName] : true
-      ]));
+      const employeePermissionsMap = normalizedPermissions?.[employee];
+
+      if (!employeePermissionsMap || typeof employeePermissionsMap !== "object") {
+        normalizedPermissions[employee] = {};
+      }
     });
 
     return normalizedPermissions;
@@ -4684,38 +4739,31 @@ function saveEmployeeCustomRosters() {
 }
 
 function syncEmployeePermissions() {
-  const allShiftNames = getPermissionShiftDescriptors().map((shift) => shift.name);
   let changed = false;
+  const nextEmployeePermissions = structuredClone(employeePermissions);
+  const hadPermissionKeys = Object.keys(employeePermissions).length > 0;
 
-  Object.keys(employeePermissions).forEach((employeeName) => {
-    if (!employees.includes(employeeName)) {
-      delete employeePermissions[employeeName];
-      changed = true;
-    }
-  });
+  if (employees.length > 0 && !hadPermissionKeys) {
+    warnAboutEmptyEmployeeDataStore("employeePermissions");
+  }
 
   employees.forEach((employeeName) => {
-    const currentPermissions = employeePermissions[employeeName];
+    const currentPermissions = nextEmployeePermissions[employeeName];
 
     if (!currentPermissions || typeof currentPermissions !== "object") {
-      employeePermissions[employeeName] = Object.fromEntries(allShiftNames.map((shiftName) => [shiftName, true]));
-      changed = true;
-      return;
-    }
-
-    const nextPermissions = {};
-
-    allShiftNames.forEach((shiftName) => {
-      nextPermissions[shiftName] = typeof currentPermissions[shiftName] === "boolean" ? currentPermissions[shiftName] : true;
-    });
-
-    if (JSON.stringify(nextPermissions) !== JSON.stringify(currentPermissions)) {
-      employeePermissions[employeeName] = nextPermissions;
+      nextEmployeePermissions[employeeName] = {};
       changed = true;
     }
   });
 
   if (changed) {
+    createEmployeeDataSafetyBackupIfNeeded("syncEmployeePermissions");
+    replaceObjectContents(employeePermissions, nextEmployeePermissions);
+
+    if (!hadPermissionKeys) {
+      return;
+    }
+
     saveEmployeePermissions();
   }
 }
