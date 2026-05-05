@@ -9705,15 +9705,41 @@ function formatEmployeeWeekLabel(weekValue) {
 
 function getRosterDepartmentForEntry(entry) {
   const shiftName = getShiftName(entry).toLowerCase();
-  const shopKeywords = ["brood", "verkoop", "inpak", "winkel"];
 
-  return shopKeywords.some((keyword) => shiftName.includes(keyword))
-    ? "shop"
-    : "bakery";
+  return shiftName.includes("winkel") ? "shop" : "bakery";
+}
+
+function getRosterShiftSortOrder(entry) {
+  const shiftName = getShiftName(entry).toLowerCase();
+  const shopMatch = shiftName.match(/winkeldienst\s*(\d+)/i);
+
+  if (shopMatch) {
+    return 200 + Number(shopMatch[1]);
+  }
+
+  if (shiftName.includes("winkel")) return 200;
+  if (shiftName.includes("draai")) return 10;
+  if (shiftName.includes("oven")) return 20;
+  if (shiftName.includes("brood")) return 30;
+  if (shiftName.includes("banket")) return 40;
+  if (shiftName.includes("productie")) return 50;
+  if (shiftName.includes("inpak")) return 60;
+  if (shiftName.includes("bezorg")) return 90;
+
+  return 80;
+}
+
+function sortRosterEntriesForDisplay(entriesForDay) {
+  return [...entriesForDay].sort((entryA, entryB) =>
+    getRosterShiftSortOrder(entryA) - getRosterShiftSortOrder(entryB) ||
+    (entryA.startTime || "").localeCompare(entryB.startTime || "") ||
+    (entryA.name || "").localeCompare(entryB.name || "", "nl") ||
+    getShiftName(entryA).localeCompare(getShiftName(entryB), "nl")
+  );
 }
 
 function groupEntriesByDepartment(entriesForDay) {
-  return entriesForDay.reduce((groups, entry) => {
+  return sortRosterEntriesForDisplay(entriesForDay).reduce((groups, entry) => {
     groups[getRosterDepartmentForEntry(entry)].push(entry);
     return groups;
   }, {
@@ -9722,7 +9748,11 @@ function groupEntriesByDepartment(entriesForDay) {
   });
 }
 
-function renderMobileTodayRosterGroup(title, groupEntries, groupType) {
+function renderMobileTodayRosterGroup(title, groupEntries, groupType, options = {}) {
+  const {
+    showEmployeeName = true
+  } = options;
+
   if (!groupEntries.length) {
     return "";
   }
@@ -9732,8 +9762,8 @@ function renderMobileTodayRosterGroup(title, groupEntries, groupType) {
       <h3 class="roster-group-title">${groupType === "shop" ? "🏪" : "🥖"} ${title}</h3>
       <div class="roster-group-list">
         ${groupEntries.map((entry) => `
-          <div class="roster-row">
-            <span class="roster-row-name">${entry.name}</span>
+          <div class="roster-row ${showEmployeeName ? "" : "roster-row--no-name"}">
+            ${showEmployeeName ? `<span class="roster-row-name">${entry.name}</span>` : ""}
             <strong class="roster-row-shift">${getShiftName(entry)}</strong>
             <span class="roster-row-time">${entry.startTime}-${entry.endTime}</span>
           </div>
@@ -9743,12 +9773,13 @@ function renderMobileTodayRosterGroup(title, groupEntries, groupType) {
   `;
 }
 
-function renderMobileTodayGroupedRoster(day, entriesForDay, approvedRequestsForDay) {
-  const sortedEntries = [...entriesForDay].sort((entryA, entryB) =>
-    entryA.startTime.localeCompare(entryB.startTime) ||
-    getShiftName(entryA).localeCompare(getShiftName(entryB), "nl") ||
-    entryA.name.localeCompare(entryB.name, "nl")
-  );
+function renderMobileGroupedRosterDayCard(day, entriesForDay, approvedRequestsForDay, title, options = {}) {
+  const {
+    showEmployeeName = true,
+    subtitle = "",
+    emptyText = ""
+  } = options;
+  const sortedEntries = sortRosterEntriesForDisplay(entriesForDay);
   const groupedEntries = groupEntriesByDepartment(sortedEntries);
   const approvedAbsenceLabel = approvedRequestsForDay.length
     ? approvedRequestsForDay.map((request) => getApprovedAbsenceLabel(request)).join(", ")
@@ -9760,18 +9791,18 @@ function renderMobileTodayGroupedRoster(day, entriesForDay, approvedRequestsForD
   const canCompleteToday = sortedEntries.length > 0 && !dayStatus;
 
   return `
-    <article class="employee-roster-day-card employee-roster-day-card--compact-today">
+    <article class="employee-roster-day-card employee-roster-day-card--compact-mobile">
       <div class="employee-roster-day-head">
         <div>
-          <strong>Vandaag - ${formatWeekday(day)}</strong>
-          <span>${formatDate(day)}</span>
+          <strong>${title}</strong>
+          <span>${subtitle || formatDate(day)}</span>
         </div>
         ${statusMarkup}
       </div>
       <div class="roster-groups">
         ${sortedEntries.length
-          ? `${renderMobileTodayRosterGroup("Bakkerij", groupedEntries.bakery, "bakery")}${renderMobileTodayRosterGroup("Winkel", groupedEntries.shop, "shop")}`
-          : `<div class="employee-roster-empty">${approvedAbsenceLabel || (isClosedPlannerDay(day) ? "Gesloten" : "Geen dienst")}</div>`}
+          ? `${renderMobileTodayRosterGroup("Bakkerij", groupedEntries.bakery, "bakery", { showEmployeeName })}${renderMobileTodayRosterGroup("Winkel", groupedEntries.shop, "shop", { showEmployeeName })}`
+          : `<div class="employee-roster-empty">${approvedAbsenceLabel || emptyText || (isClosedPlannerDay(day) ? "Gesloten" : "Geen dienst")}</div>`}
       </div>
       ${canCompleteToday ? `
         <div class="employee-roster-actions">
@@ -9782,6 +9813,13 @@ function renderMobileTodayGroupedRoster(day, entriesForDay, approvedRequestsForD
       ` : ""}
     </article>
   `;
+}
+
+function renderMobileTodayGroupedRoster(day, entriesForDay, approvedRequestsForDay) {
+  return renderMobileGroupedRosterDayCard(day, entriesForDay, approvedRequestsForDay, `Vandaag - ${formatWeekday(day)}`, {
+    showEmployeeName: true,
+    subtitle: formatDate(day)
+  });
 }
 
 function renderEmployeeRosterDayCard(day, entriesForDay, approvedRequestsForDay, title, options = {}) {
@@ -18430,7 +18468,7 @@ function renderSchedule() {
             <button type="button" class="secondary employee-mobile-roster-back" data-mobile-roster-back>
               Terug naar weekoverzicht
             </button>
-            ${renderEmployeeRosterDayCard(
+            ${renderMobileGroupedRosterDayCard(
               selectedMobileRosterDate,
               selectedDayEntries,
               selectedDayRequests,
@@ -18666,7 +18704,7 @@ function renderMySchedule() {
           <button type="button" class="secondary my-schedule-mobile-back" data-my-schedule-mobile-back>
             Terug naar week
           </button>
-          ${renderEmployeeRosterDayCard(
+          ${renderMobileGroupedRosterDayCard(
             selectedMyScheduleMobileDate,
             selectedDayEntries,
             selectedDayRequests,
