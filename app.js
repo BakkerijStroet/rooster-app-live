@@ -935,6 +935,7 @@ function logoutCurrentSession({ showMessageAfterLogout = false } = {}) {
     dataMode: currentDataMode
   }, { persist: true, dataMode: currentDataMode });
   resetScopedEmployeeSelectors();
+  resetMyHoursChoiceState();
   activeTab = getDefaultTabForCurrentRole();
   syncStartWeekToCurrent();
   render();
@@ -8535,7 +8536,7 @@ function renderMyHoursChoiceMenu({ plannedTodayEntries, missingPastDays, employe
         <strong>Uren vandaag doorgeven</strong>
         <small>${plannedTodayEntries.length ? `${plannedTodayEntries.length} dienst${plannedTodayEntries.length === 1 ? "" : "en"} vandaag` : "Geen dienst vandaag"}</small>
       </button>
-      <button type="button" class="my-hours-choice-card" data-my-hours-choice="history">
+      <button type="button" class="my-hours-choice-card" data-my-hours-choice="worked">
         <span>2</span>
         <strong>Mijn gewerkte uren</strong>
         <small>${submittedCount ? `${submittedCount} registratie${submittedCount === 1 ? "" : "s"} terugkijken` : `${missingPastDays.length} open dag${missingPastDays.length === 1 ? "" : "en"}`}</small>
@@ -8644,7 +8645,7 @@ function renderMyWorkedHoursDetail(employeeName, day, employeeEntries) {
 
   return `
     <div class="my-hours-history-detail">
-      <button type="button" class="secondary my-hours-back-button" data-my-hours-choice="history">
+      <button type="button" class="secondary my-hours-back-button" data-my-hours-choice="worked">
         Terug naar mijn gewerkte uren
       </button>
       ${dayEntries.map((entry) => {
@@ -15896,10 +15897,6 @@ function setActiveTab(tabName, options = {}) {
     hoursWeekInput.value = nextWeek;
   }
 
-  if (normalizedTabName === "my-hours" && !isPlannerRole() && !options.preserveMyHoursSection) {
-    resetMyHoursChoiceState();
-  }
-
   if (normalizedTabName === "requests") {
     activeRequestType = "vrije-dag";
     activeRequestComposer = "free";
@@ -18893,7 +18890,7 @@ function renderMyHours() {
       button.setAttribute("aria-pressed", resolvedSection === section ? "true" : "false");
     });
 
-    if (resolvedChoice === "history") {
+    if (resolvedChoice === "worked") {
       setClassName(myHoursHighlight, "hours-highlight");
       myHoursHighlight.innerHTML = `
         <span class="hours-section-kicker">Mijn gewerkte uren</span>
@@ -18907,7 +18904,7 @@ function renderMyHours() {
       return;
     }
 
-    if (resolvedChoice === "history-detail") {
+    if (resolvedChoice === "worked-detail") {
       setClassName(myHoursHighlight, "hours-highlight");
       myHoursHighlight.innerHTML = `
         <span class="hours-section-kicker">Mijn gewerkte uren</span>
@@ -21700,7 +21697,7 @@ myHoursRegistrations?.addEventListener("click", (event) => {
     hoursWeekInput.value = getWeekValueFromDate(targetDate) || getCurrentWeekValue();
     preferences.lastHoursDate = targetDate;
     preferences.lastHoursWeek = hoursWeekInput?.value || getCurrentWeekValue();
-    activeMyHoursChoice = "history-detail";
+    activeMyHoursChoice = "worked-detail";
     activeMobileWorkLogId = "";
     savePreferences();
     renderMyHours();
@@ -24031,6 +24028,7 @@ portalEmployeeSelect.addEventListener("change", () => {
     if (!ownEmployeeName) {
       portalEmployeeSelect.value = "";
       resetMyScheduleRosterState();
+      resetMyHoursChoiceState();
       renderMySchedule();
       return;
     }
@@ -24041,6 +24039,7 @@ portalEmployeeSelect.addEventListener("change", () => {
     }
 
     resetMyScheduleRosterState();
+    resetMyHoursChoiceState();
   }
 
   preferences.lastPortalEmployee = portalEmployeeSelect.value || "";
