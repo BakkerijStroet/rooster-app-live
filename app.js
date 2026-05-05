@@ -4745,7 +4745,7 @@ const mobileMediaQuery = window.matchMedia("(max-width: 640px)");
 let messageTimeoutId = null;
 let activeMessageState = null;
 let queuedMessageStates = [];
-const plannerAllowedTabs = ["dashboard", "week-current", "week-next", "schedule-planning", "hours-approval", "requests", "employees", "services", "planning", "backup"];
+const plannerAllowedTabs = ["dashboard", "week-current", "schedule-planning", "hours-approval", "requests", "employees", "services", "planning", "backup"];
 const employeeAllowedTabs = ["week-current", "my-schedule", "my-hours", "requests"];
 let planningDataRevision = 0;
 let requestDataRevision = 0;
@@ -15999,12 +15999,12 @@ function updateWeekViewTitle() {
   const selectedWeek = weekFilterInput.value || currentWeek;
 
   if (selectedWeek === currentWeek) {
-    weekViewTitle.textContent = "Rooster deze week";
+    weekViewTitle.textContent = "Rooster";
     return;
   }
 
   if (selectedWeek === getNextWeekValue(currentWeek)) {
-    weekViewTitle.textContent = "Volgende week";
+    weekViewTitle.textContent = "Rooster volgende week";
     return;
   }
 
@@ -16150,6 +16150,10 @@ function getNormalizedTabName(tabName) {
     return getDefaultTabForCurrentRole();
   }
 
+  if (nextTabName === "week-next") {
+    return "week-current";
+  }
+
   const hasMatchingButton = navTabs.some((button) => button.dataset.tab === nextTabName) ||
     mobileNavButtons.some((button) => button.dataset.goTab === nextTabName) ||
     quickLinks.some((button) => button.dataset.goTab === nextTabName);
@@ -16264,6 +16268,10 @@ function setActiveTab(tabName, options = {}) {
 function isDefaultFreeDay(dateValue) {
   const weekday = new Date(`${dateValue}T00:00:00`).getDay();
   return weekday === 0 || weekday === 1;
+}
+
+function shouldRenderPlannerOpenShiftsForDay(dateValue) {
+  return !isDefaultFreeDay(dateValue);
 }
 
 function findConflict(name, day, startTime, endTime, ignoredIndex = editIndex) {
@@ -18734,6 +18742,7 @@ function renderSchedule() {
   delete scheduleBoard.dataset.employeeView;
 
   const hasWeekPlannerShifts = showOpenPlannerSections && getWeekDates(selectedWeek).some((day) =>
+    shouldRenderPlannerOpenShiftsForDay(day) &&
     getDayPlannerShifts(day).some((shift) => !isOptionalShift(shift))
   );
   const employeeNames = [...new Set([
@@ -18789,7 +18798,7 @@ function renderSchedule() {
           `;
 
           return renderCompactWeekRosterDayCard(day, plannerEntriesForMobileDay, {
-            includeOpenShifts: showOpenPlannerSections && !plannerDeviationOnlyActive,
+            includeOpenShifts: showOpenPlannerSections && !plannerDeviationOnlyActive && shouldRenderPlannerOpenShiftsForDay(day),
             approvedAbsences: dayTimeOff,
             extraClassName: `mobile-day-card ${isDefaultFreeDay(day) ? "free-day-card" : ""} ${getRecognizedSpecialDayInfo(day) ? "has-special-day" : ""} ${getRelativeDayState(day) ? `is-${getRelativeDayState(day)}` : ""} is-${coverageStatus}`,
             extraBottomMarkup: plannerMobileBottomMarkup
@@ -18805,17 +18814,13 @@ function renderSchedule() {
   const plannerEntriesForBoard = plannerDeviationOnlyActive
     ? getDeviationOnlyEntries(visibleEntries, weekDates)
     : visibleEntries;
-  const plannerVisibleWeekDates = weekDates.filter((day) => {
-    const weekday = new Date(`${day}T00:00:00`).getDay();
-    return weekday !== 0 && weekday !== 1;
-  });
   setClassName(scheduleBoard, "schedule-board");
   scheduleBoard.innerHTML = `
     <p class="week-note">Weekrooster week ${selectedWeek.replace("-W", " - ")}</p>
     ${employeeWeekFocusMarkup}
     <section class="planning-week-grid week-roster-compact-grid">
-      ${plannerVisibleWeekDates.map((day) => renderCompactWeekRosterDayCard(day, plannerEntriesForBoard, {
-        includeOpenShifts: showOpenPlannerSections && !plannerDeviationOnlyActive,
+      ${weekDates.map((day) => renderCompactWeekRosterDayCard(day, plannerEntriesForBoard, {
+        includeOpenShifts: showOpenPlannerSections && !plannerDeviationOnlyActive && shouldRenderPlannerOpenShiftsForDay(day),
         approvedAbsences: approvedTimeOffRequests
           .filter((request) => requestIncludesDate(request, day))
           .sort((requestA, requestB) => requestA.employeeName.localeCompare(requestB.employeeName, "nl"))

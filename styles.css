@@ -7743,11 +7743,6 @@ button,
   align-items: stretch;
 }
 
-.week-roster-compact-grid {
-  grid-template-columns: repeat(5, minmax(180px, 1fr));
-  gap: 0.6rem;
-}
-
 .planning-day-card {
   display: grid;
   grid-template-rows: auto 1fr;
