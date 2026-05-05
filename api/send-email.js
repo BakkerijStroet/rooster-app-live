@@ -1,5 +1,9 @@
 "use strict";
 
+const FIXED_TEST_RECIPIENT = "info@bakkerijstroet.nl";
+const TEST_MAIL_SUBJECT = "Test mail Roosterapp";
+const TEST_MAIL_MESSAGE = "Dit is een testmail vanuit de Roosterapp.";
+
 
 
 function normalizeEmailList(input) {
@@ -27,6 +31,34 @@ function normalizeSenderConfig({ fromName, fromEmail, fallbackFromName, fallback
   };
 }
 
+function normalizeMessageValue(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function buildMailPlan(payload) {
+  const isTestMode = payload?.testMode === true;
+  const forceTestRecipient = payload?.forceTestRecipient === true;
+  const recipients = isTestMode || forceTestRecipient
+    ? [FIXED_TEST_RECIPIENT]
+    : normalizeEmailList(payload?.to);
+  const rawSubject = normalizeMessageValue(payload?.subject);
+  const rawMessage = normalizeMessageValue(payload?.message);
+  const subject = isTestMode
+    ? (rawSubject || TEST_MAIL_SUBJECT)
+    : forceTestRecipient && rawSubject && !rawSubject.startsWith("[TEST]")
+      ? `[TEST] ${rawSubject}`
+      : rawSubject;
+  const message = isTestMode ? (rawMessage || TEST_MAIL_MESSAGE) : rawMessage;
+
+  return {
+    recipients,
+    subject,
+    message,
+    isTestMode,
+    forceTestRecipient
+  };
+}
+
 async function handler(req, res) {
   if (req.method !== "POST") {
     res.statusCode = 405;
@@ -51,7 +83,7 @@ async function handler(req, res) {
   let result;
 
   try {
-    const recipients = normalizeEmailList(effectivePayload?.to);
+    const mailPlan = buildMailPlan(effectivePayload);
     const senderConfig = normalizeSenderConfig({
       fromName: effectivePayload?.fromName,
       fromEmail: effectivePayload?.fromEmail,
@@ -65,7 +97,7 @@ async function handler(req, res) {
         statusCode: 500,
         error: "RESEND_API_KEY ontbreekt."
       };
-    } else if (!recipients.length) {
+    } else if (!mailPlan.recipients.length) {
       result = {
         ok: false,
         statusCode: 400,
@@ -77,7 +109,7 @@ async function handler(req, res) {
         statusCode: 400,
         error: "Serverfunctie mist afzenderinstellingen."
       };
-    } else if (!effectivePayload?.subject || !effectivePayload?.message) {
+    } else if (!mailPlan.subject || !mailPlan.message) {
       result = {
         ok: false,
         statusCode: 400,
@@ -92,9 +124,9 @@ async function handler(req, res) {
         },
         body: JSON.stringify({
           from: `${senderConfig.fromName} <${senderConfig.fromEmail}>`,
-          to: recipients,
-          subject: String(effectivePayload.subject).trim(),
-          text: String(effectivePayload.message).trim()
+          to: mailPlan.recipients,
+          subject: mailPlan.subject,
+          text: mailPlan.message
         })
       });
 
@@ -109,7 +141,7 @@ async function handler(req, res) {
         console.error("[resend] api/send-email:response-error", {
           status: resendResponse.status,
           hasFromAddress: Boolean(senderConfig.fromEmail),
-          hasToAddress: recipients.length > 0,
+          hasToAddress: mailPlan.recipients.length > 0,
           resendErrorText
         });
         result = {
@@ -123,7 +155,9 @@ async function handler(req, res) {
         result = {
           ok: true,
           statusCode: 200,
-          id: typeof resendPayload?.id === "string" ? resendPayload.id : ""
+          id: typeof resendPayload?.id === "string" ? resendPayload.id : "",
+          recipients: mailPlan.recipients,
+          testMode: mailPlan.isTestMode || mailPlan.forceTestRecipient
         };
       }
     }
@@ -150,8 +184,11 @@ async function handler(req, res) {
     result.ok
       ? {
           success: true,
-          message: "Mail verzonden",
-          id: result.id || ""
+          message: result.testMode && Array.isArray(result.recipients) && result.recipients.length
+            ? `Mail verzonden naar ${result.recipients.join(", ")} (testmodus)`
+            : "Mail verzonden",
+          id: result.id || "",
+          recipients: result.recipients || []
         }
       : {
           success: false,
