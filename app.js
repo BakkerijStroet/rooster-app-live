@@ -14479,12 +14479,19 @@ async function sendEmployeeHoursReminderEmail(to, context = {}) {
   return sendTemplatedEmail(to, "employeeHoursReminder", context);
 }
 
-function updateMailLogEntry(request, mailEntry, patch = {}, persist = null) {
-  if (!request || !mailEntry || !Array.isArray(request.mailLog)) {
+function updateMailLogEntry(request, mailEntry, patch = {}, persist = null, resolveCurrentRequest = null) {
+  const currentRequest = typeof resolveCurrentRequest === "function"
+    ? resolveCurrentRequest(request, mailEntry)
+    : null;
+  const targetRequest = currentRequest && Array.isArray(currentRequest.mailLog)
+    ? currentRequest
+    : request;
+
+  if (!targetRequest || !mailEntry || !Array.isArray(targetRequest.mailLog)) {
     return;
   }
 
-  const targetEntry = request.mailLog.find((item) => item === mailEntry || (
+  const targetEntry = targetRequest.mailLog.find((item) => item === mailEntry || (
     item.type === mailEntry.type &&
     item.at === mailEntry.at &&
     item.periodKey === mailEntry.periodKey
@@ -14495,7 +14502,7 @@ function updateMailLogEntry(request, mailEntry, patch = {}, persist = null) {
   }
 
   Object.assign(targetEntry, patch);
-  request.updatedAt = getNowIsoString();
+  targetRequest.updatedAt = getNowIsoString();
 
   if (typeof persist === "function") {
     persist();
@@ -14512,6 +14519,7 @@ function queueRequestMailDelivery(request, mailEntry, options = {}) {
     messageBuilder = () => "Er is een update.",
     templateKeyBuilder = null,
     persist = null,
+    resolveCurrentRequest = null,
     onStatusChange = null,
     notifyUser = false,
     notifySuccessMessage = getAppMailSentMessage(),
@@ -14527,7 +14535,7 @@ function queueRequestMailDelivery(request, mailEntry, options = {}) {
     .filter(Boolean);
 
   if (!recipientEmails.length) {
-    updateMailLogEntry(request, mailEntry, { status: "missing-email", error: "Geen e-mailadres ingesteld" }, persist);
+    updateMailLogEntry(request, mailEntry, { status: "missing-email", error: "Geen e-mailadres ingesteld" }, persist, resolveCurrentRequest);
     if (typeof onStatusChange === "function") {
       onStatusChange(request, mailEntry);
     }
@@ -14554,7 +14562,7 @@ function queueRequestMailDelivery(request, mailEntry, options = {}) {
         status: "sent",
         messageId: result.id || "",
         error: ""
-      }, persist);
+      }, persist, resolveCurrentRequest);
       if (typeof onStatusChange === "function") {
         onStatusChange(request, mailEntry);
       }
@@ -14568,7 +14576,7 @@ function queueRequestMailDelivery(request, mailEntry, options = {}) {
       status: result.error === "Lokale preview zonder serverroute." ? "local-preview" : "failed",
       messageId: "",
       error: result.error || "Verzenden mislukt."
-    }, persist);
+    }, persist, resolveCurrentRequest);
     if (typeof onStatusChange === "function") {
       onStatusChange(request, mailEntry);
     }
@@ -14588,6 +14596,7 @@ function registerRequestMailNotification(request, type, employeeNames = [], opti
   const messageBuilder = typeof options.messageBuilder === "function" ? options.messageBuilder : (() => "Er is een update.");
   const persist = typeof options.persist === "function" ? options.persist : null;
   const onStatusChange = typeof options.onStatusChange === "function" ? options.onStatusChange : null;
+  const resolveCurrentRequest = typeof options.resolveCurrentRequest === "function" ? options.resolveCurrentRequest : null;
   const notifyUser = options.notifyUser === true;
   const notifySuccessMessage = typeof options.notifySuccessMessage === "string" ? options.notifySuccessMessage : getAppMailSentMessage();
   const notifyErrorMessage = typeof options.notifyErrorMessage === "string" ? options.notifyErrorMessage : "";
@@ -14630,6 +14639,7 @@ function registerRequestMailNotification(request, type, employeeNames = [], opti
     subjectBuilder,
     messageBuilder,
     persist,
+    resolveCurrentRequest,
     onStatusChange,
     notifyUser,
     notifySuccessMessage,
@@ -14644,6 +14654,7 @@ function registerSwapMailNotification(request, type, employeeNames = [], options
     subjectBuilder: getSwapMailSubject,
     messageBuilder: (_, currentType) => getSwapMailTemplateText(currentType),
     persist: saveSwapRequests,
+    resolveCurrentRequest: (currentRequest) => swapRequests.find((item) => item.id === currentRequest?.id),
     onStatusChange: () => render()
   });
 }
@@ -14801,6 +14812,7 @@ function registerTimeOffMailNotification(request, type, employeeNames = [], opti
     subjectBuilder: getTimeOffMailSubject,
     messageBuilder: (currentRequest, currentType) => getTimeOffMailTemplateText(currentRequest, currentType),
     persist: saveTimeOffRequests,
+    resolveCurrentRequest: (currentRequest) => timeOffRequests.find((item) => item.id === currentRequest?.id),
     onStatusChange: () => render()
   });
 }
@@ -15584,7 +15596,9 @@ function renderRequestsOpenCards() {
       getRequestDisplayLabel,
       getAbsenceCardClass,
       formatDate,
-      formatDateTime
+      formatDateTime,
+      getTimeOffMailStatusText,
+      getSwapMailStatusText
     }
   });
 
@@ -15608,6 +15622,11 @@ function renderRequestsOpenCards() {
       </div>
       <div class="request-meta">${card.meta}</div>
       ${(card.details || []).map((detail) => `<div class="request-meta">${detail}</div>`).join("")}
+      ${card.canWithdraw ? `
+        <div class="actions">
+          <button type="button" class="small warning" data-request-type="${card.requestType}" data-request-action="delete" data-request-id="${card.requestId}">Intrekken</button>
+        </div>
+      ` : ""}
     </article>
   `).join("")}
   `;
@@ -21377,6 +21396,105 @@ scheduleBoard.addEventListener("keydown", (event) => {
   }
 });
 
+function withdrawTimeOffRequest(request) {
+  if (!request) {
+    showMessage("De aanvraag is niet gevonden.", "error");
+    return false;
+  }
+
+  if (!ensureOwnRequestAction(request.employeeName, "het intrekken van deze aanvraag")) {
+    return false;
+  }
+
+  if (!ensureEmployeeDateRangeEditable(getTimeOffStartDate(request), getTimeOffEndDate(request), "deze aanvraag in te trekken")) {
+    return false;
+  }
+
+  const requestIndex = timeOffRequests.findIndex((item) => item.id === request.id);
+
+  if (requestIndex === -1) {
+    showMessage("De aanvraag is niet gevonden.", "error");
+    return false;
+  }
+
+  timeOffRequests.splice(requestIndex, 1);
+  saveTimeOffRequests();
+  markRequestsDeletedCentrally({ timeOff: [request.id] });
+  persistProtectedChange({
+    reason: `Afwezigheidsaanvraag ingetrokken: ${request.employeeName} ${request.date}`,
+    scope: "request",
+    action: "timeoff-deleted",
+    message: `Afwezigheidsaanvraag ingetrokken voor ${request.employeeName}.`,
+    details: {
+      requestId: request.id,
+      employeeName: request.employeeName,
+      date: request.date,
+      type: request.type
+    }
+  });
+  render();
+  showDeletedMessage("Aanvraag ingetrokken.");
+  return true;
+}
+
+function withdrawSwapRequest(request) {
+  if (!request) {
+    showMessage("Het ruilverzoek is niet gevonden.", "error");
+    return false;
+  }
+
+  if (!ensureOwnRequestAction(request.employeeName, "het intrekken van dit ruilverzoek")) {
+    return false;
+  }
+
+  if (!ensureEmployeeWeekEditable(request.date, "dit ruilverzoek in te trekken")) {
+    return false;
+  }
+
+  const requestIndex = swapRequests.findIndex((item) => item.id === request.id);
+
+  if (requestIndex === -1) {
+    showMessage("Het ruilverzoek is niet gevonden.", "error");
+    return false;
+  }
+
+  swapRequests.splice(requestIndex, 1);
+  saveSwapRequests();
+  markRequestsDeletedCentrally({ swap: [request.id] });
+  persistProtectedChange({
+    reason: `Ruilverzoek ingetrokken: ${request.employeeName} ${request.date}`,
+    scope: "request",
+    action: "swap-deleted",
+    message: `Ruilverzoek ingetrokken voor ${request.employeeName}.`,
+    details: {
+      requestId: request.id,
+      employeeName: request.employeeName,
+      date: request.date,
+      shiftName: request.shiftName
+    }
+  });
+  render();
+  showDeletedMessage("Aanvraag ingetrokken.");
+  return true;
+}
+
+requestsOpenCards?.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-request-action]");
+
+  if (!button || button.dataset.requestAction !== "delete") {
+    return;
+  }
+
+  if (button.dataset.requestType === "timeoff") {
+    withdrawTimeOffRequest(timeOffRequests.find((item) => item.id === button.dataset.requestId));
+    return;
+  }
+
+  if (button.dataset.requestType === "swap") {
+    withdrawSwapRequest(swapRequests.find((item) => item.id === button.dataset.requestId));
+  }
+});
+
 timeOffRequestsContainer.addEventListener("click", (event) => {
   const button = event.target.closest("button");
 
@@ -21419,33 +21537,8 @@ timeOffRequestsContainer.addEventListener("click", (event) => {
     return;
   }
 
-    if (button.dataset.requestAction === "delete") {
-    if (!ensureOwnRequestAction(request.employeeName, "het intrekken van deze aanvraag")) {
-      return;
-    }
-
-    if (!ensureEmployeeDateRangeEditable(getTimeOffStartDate(request), getTimeOffEndDate(request), "deze aanvraag in te trekken")) {
-      return;
-    }
-
-    const requestIndex = timeOffRequests.findIndex((item) => item.id === request.id);
-    timeOffRequests.splice(requestIndex, 1);
-    saveTimeOffRequests();
-    markRequestsDeletedCentrally({ timeOff: [request.id] });
-    persistProtectedChange({
-      reason: `Afwezigheidsaanvraag ingetrokken: ${request.employeeName} ${request.date}`,
-      scope: "request",
-      action: "timeoff-deleted",
-      message: `Afwezigheidsaanvraag ingetrokken voor ${request.employeeName}.`,
-      details: {
-        requestId: request.id,
-        employeeName: request.employeeName,
-        date: request.date,
-        type: request.type
-      }
-    });
-    render();
-    showDeletedMessage("Afwezigheidsaanvraag ingetrokken.");
+  if (button.dataset.requestAction === "delete") {
+    withdrawTimeOffRequest(request);
     return;
   }
 
@@ -21583,34 +21676,9 @@ swapRequestsContainer.addEventListener("click", (event) => {
   }
 
   if (button.dataset.requestAction === "delete") {
-    if (!ensureOwnRequestAction(request.employeeName, "het intrekken van dit ruilverzoek")) {
-      return;
-    }
-
-    if (!ensureEmployeeWeekEditable(request.date, "dit ruilverzoek in te trekken")) {
-      return;
-    }
-
-    const requestIndex = swapRequests.findIndex((item) => item.id === request.id);
-    swapRequests.splice(requestIndex, 1);
-    saveSwapRequests();
-    markRequestsDeletedCentrally({ swap: [request.id] });
-    persistProtectedChange({
-      reason: `Ruilverzoek ingetrokken: ${request.employeeName} ${request.date}`,
-      scope: "request",
-      action: "swap-deleted",
-      message: `Ruilverzoek ingetrokken voor ${request.employeeName}.`,
-      details: {
-        requestId: request.id,
-        employeeName: request.employeeName,
-        date: request.date,
-        shiftName: request.shiftName
-      }
-    });
-    render();
-      showMessage("Het ruilverzoek is ingetrokken.", "success");
-      return;
-    }
+    withdrawSwapRequest(request);
+    return;
+  }
 
     if (button.dataset.requestAction === "escalate") {
       escalateSwapRequestToPlanner(request, {
@@ -22674,6 +22742,53 @@ employeeListCard?.addEventListener("click", (event) => {
   renderEmployeeEditorDetails();
 });
 
+function findOpenTimeOffDuplicateRequest(employeeName, startDate, endDate, excludedRequestId = "") {
+  if (!employeeName || !startDate) {
+    return null;
+  }
+
+  const normalizedEndDate = endDate || startDate;
+  return timeOffRequests.find((request) =>
+    request.id !== excludedRequestId &&
+    request.employeeName === employeeName &&
+    request.status === "open" &&
+    requestOverlapsRange(request, startDate, normalizedEndDate)
+  ) || null;
+}
+
+function showTimeOffDuplicateMessage(employeeName, startDate, endDate, excludedRequestId = "") {
+  const duplicateRequest = findOpenTimeOffDuplicateRequest(employeeName, startDate, endDate, excludedRequestId);
+
+  if (!duplicateRequest) {
+    return false;
+  }
+
+  showMessage(
+    isPlannerRole()
+      ? "Voor deze medewerker staat al een open afwezigheidsaanvraag in deze periode."
+      : "Je hebt voor deze datum al een aanvraag openstaan.",
+    "error"
+  );
+  return true;
+}
+
+function checkTimeOffDuplicateForComposer(composer = activeRequestComposer) {
+  syncTimeOffFormStateFromFields(composer);
+  const formState = getRequestComposerState(composer);
+  const employeeName = !isPlannerRole()
+    ? getEmployeeIdentity()
+    : formState.employeeName;
+  const type = formState.type || getComposerTimeOffType(composer);
+  const startDate = type === "vakantie" ? formState.startDate : formState.date;
+  const endDate = type === "vakantie" ? (formState.endDate || startDate) : startDate;
+
+  if (!employeeName || !startDate) {
+    return false;
+  }
+
+  return showTimeOffDuplicateMessage(employeeName, startDate, endDate, editingTimeOffId);
+}
+
 function submitTimeOffRequest(composer) {
   const ownEmployeeName = !isPlannerRole() ? getOwnEmployeeNameOrWarn() : "";
 
@@ -22714,13 +22829,7 @@ function submitTimeOffRequest(composer) {
     return;
   }
 
-  if (timeOffRequests.some((request) =>
-    request.id !== editingTimeOffId &&
-    request.employeeName === employeeName &&
-    request.status === "open" &&
-    requestOverlapsRange(request, startDate, endDate)
-  )) {
-    showMessage("Voor deze medewerker staat al een open afwezigheidsaanvraag in deze periode.", "error");
+  if (showTimeOffDuplicateMessage(employeeName, startDate, endDate, editingTimeOffId)) {
     return;
   }
 
@@ -22787,7 +22896,11 @@ function submitTimeOffRequest(composer) {
     preserveEmployee: !isPlannerRole()
   });
   render();
-  showToast("Aanvraag verzonden");
+  showMessage("Aanvraag ingediend.", "success");
+  const latestMail = currentTimeOffRequest ? getLatestRequestMailNotification(currentTimeOffRequest) : null;
+  if (latestMail?.status === "queued") {
+    showMessage("Mailbevestiging wordt verzonden.", "success");
+  }
 }
 
 submitFreeDayButton?.addEventListener("click", () => {
@@ -24125,6 +24238,7 @@ freeDayEmployeeSelect?.addEventListener("change", () => {
 
 freeDayDateInput?.addEventListener("input", () => {
   syncTimeOffFormStateFromFields("free");
+  checkTimeOffDuplicateForComposer("free");
 });
 
 freeDayReasonInput?.addEventListener("input", () => {
@@ -24137,10 +24251,12 @@ vacationEmployeeSelect?.addEventListener("change", () => {
 
 vacationStartDateInput?.addEventListener("input", () => {
   syncTimeOffFormStateFromFields("vacation");
+  checkTimeOffDuplicateForComposer("vacation");
 });
 
 vacationEndDateInput?.addEventListener("input", () => {
   syncTimeOffFormStateFromFields("vacation");
+  checkTimeOffDuplicateForComposer("vacation");
 });
 
 vacationReasonInput?.addEventListener("input", () => {
@@ -24153,6 +24269,7 @@ sickEmployeeSelect?.addEventListener("change", () => {
 
 sickDateInput?.addEventListener("input", () => {
   syncTimeOffFormStateFromFields("sick");
+  checkTimeOffDuplicateForComposer("sick");
 });
 
 sickReasonInput?.addEventListener("input", () => {

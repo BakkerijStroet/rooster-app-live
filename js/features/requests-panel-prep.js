@@ -111,24 +111,34 @@
     return [
       ...visibleTimeOffRequests.filter((request) => !isDeletedRequest(request)).map((request) => {
         const createdText = getEmployeeRequestCreatedText(request, helpers);
+        const mailStatusText = typeof helpers.getTimeOffMailStatusText === "function"
+          ? helpers.getTimeOffMailStatusText(request)
+          : "";
 
         return {
-          type: "Verlofaanvraag",
+          type: helpers.getAbsenceTypeLabel(request.type),
           meta: `${helpers.getAbsenceTypeLabel(request.type)} · ${helpers.getTimeOffDisplayRange(request)}`,
           details: [
             request.reason ? `Reden: ${request.reason}` : "",
             request.managerNote ? `Opmerking: ${request.managerNote}` : "",
+            mailStatusText ? `Mail: ${mailStatusText}` : "",
             createdText
           ].filter(Boolean),
           status: helpers.getRequestDisplayStatus(request),
           statusClass: getEmployeeRequestStatusClass(request),
           label: helpers.getRequestDisplayLabel(request),
           typeClass: `absence-${helpers.getAbsenceCardClass(request.type)}`,
+          requestType: "timeoff",
+          requestId: request.id,
+          canWithdraw: request.status === "open",
           sortDate: request.updatedAt || request.createdAt || request.date || ""
         };
       }),
       ...visibleSwapRequests.filter((request) => !isDeletedRequest(request)).map((request) => {
         const createdText = getEmployeeRequestCreatedText(request, helpers);
+        const mailStatusText = typeof helpers.getSwapMailStatusText === "function"
+          ? helpers.getSwapMailStatusText(request)
+          : "";
         const targetText = request.targetEmployeeName
           ? `Naar: ${request.targetEmployeeName}`
           : "Open aangeboden";
@@ -139,12 +149,16 @@
           details: [
             targetText,
             request.managerNote ? `Opmerking: ${request.managerNote}` : "",
+            mailStatusText ? `Mail: ${mailStatusText}` : "",
             createdText
           ].filter(Boolean),
           status: helpers.getRequestDisplayStatus(request),
           statusClass: getEmployeeRequestStatusClass(request),
           label: helpers.getRequestDisplayLabel(request),
           typeClass: "",
+          requestType: "swap",
+          requestId: request.id,
+          canWithdraw: request.status === "open",
           sortDate: request.updatedAt || request.createdAt || request.date || ""
         };
       })

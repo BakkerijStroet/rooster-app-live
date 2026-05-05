@@ -954,7 +954,6 @@ body[data-role="employee"] [data-panel="hours-approval"] {
 body[data-role="employee"] [data-panel="requests"] .view-header,
 body[data-role="employee"] #requestsOpenSummary,
 body[data-role="employee"] #requestsEmployeeBadge,
-body[data-role="employee"] #requestsOpenCards,
 body[data-role="employee"] [data-panel="requests"][data-slot="bottom"],
 body[data-role="employee"] #requestOpenNote,
 body[data-role="employee"] #requestHandledNote,
