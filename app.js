@@ -159,6 +159,8 @@ const requestTypeFreeButton = document.getElementById("requestTypeFreeButton");
 const requestTypeVacationButton = document.getElementById("requestTypeVacationButton");
 const requestTypeSickButton = document.getElementById("requestTypeSickButton");
 const requestTypeSwapButton = document.getElementById("requestTypeSwapButton");
+const requestViewFormButton = document.getElementById("requestViewFormButton");
+const requestViewMineButton = document.getElementById("requestViewMineButton");
 const requestFreeComposer = document.getElementById("requestFreeComposer");
 const requestVacationComposer = document.getElementById("requestVacationComposer");
 const requestSickComposer = document.getElementById("requestSickComposer");
@@ -4701,6 +4703,7 @@ let editingTimeOffId = null;
 let editingSwapId = null;
 let activeRequestComposer = "";
 let activeRequestType = "vrije-dag";
+let activeRequestsView = "form";
 let vrijeDagForm = {
   employeeName: "",
   type: "vrij",
@@ -14757,6 +14760,90 @@ function getRequestMailStatusText(request, options = {}) {
   return `${actionLabel} ${templateTextGetter(request, latestMail.type)}`.trim();
 }
 
+function getMailLogStatusBadgeViewModel(mailEntry) {
+  if (!mailEntry) {
+    return null;
+  }
+
+  const status = mailEntry.status === "error" ? "failed" : mailEntry.status;
+  const timestamp = mailEntry.sentAt || mailEntry.updatedAt || mailEntry.at || "";
+  const sentText = timestamp ? formatDateTime(timestamp) : "";
+
+  if (status === "queued") {
+    return {
+      icon: "⏳",
+      label: "Mail wordt verzonden",
+      className: "mail-status-badge mail-status-badge--queued",
+      title: "Mail staat klaar om verzonden te worden"
+    };
+  }
+
+  if (status === "sent") {
+    return {
+      icon: "✅",
+      label: "Mail verzonden",
+      className: "mail-status-badge mail-status-badge--sent",
+      title: sentText ? `Mail verzonden op ${sentText}` : "Mail verzonden"
+    };
+  }
+
+  if (status === "failed") {
+    const errorText = mailEntry.error || "onbekende fout";
+    return {
+      icon: "⚠️",
+      label: "Mail mislukt",
+      className: "mail-status-badge mail-status-badge--failed",
+      title: `Mail verzenden mislukt: ${errorText}`
+    };
+  }
+
+  if (status === "missing-email" || status === "config-missing" || status === "local-preview") {
+    return {
+      icon: "⚠️",
+      label: "Mail niet verzonden",
+      className: "mail-status-badge mail-status-badge--failed",
+      title: mailEntry.error || "Mail verzenden mislukt"
+    };
+  }
+
+  return null;
+}
+
+function escapeHtmlAttribute(value = "") {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function renderMailLogStatusBadge(mailEntry) {
+  const viewModel = getMailLogStatusBadgeViewModel(mailEntry);
+
+  if (!viewModel) {
+    return "";
+  }
+
+  const title = escapeHtmlAttribute(viewModel.title);
+
+  return `<span class="${viewModel.className}" title="${title}" aria-label="${title}">
+    <span class="mail-status-badge-icon" aria-hidden="true">${viewModel.icon}</span>
+    <span>${viewModel.label}</span>
+  </span>`;
+}
+
+function renderRequestMailStatus(request, statusTextGetter) {
+  const mailEntry = getLatestRequestMailNotification(request);
+  const badge = renderMailLogStatusBadge(mailEntry);
+  const statusText = typeof statusTextGetter === "function" ? statusTextGetter(request) : "";
+
+  if (!badge && !statusText) {
+    return "";
+  }
+
+  return `<div class="request-impact request-mail-status"><strong>Mail:</strong> ${badge || ""}${statusText ? `<span class="request-mail-status-text">${statusText}</span>` : ""}</div>`;
+}
+
 function syncSwapReminderNotifications(requests = swapRequests) {
   let changed = false;
 
@@ -15578,9 +15665,18 @@ function activateRequestType(nextType, options = {}) {
   activeRequestType = normalizedType;
   activateRequestComposer(getComposerFromRequestType(normalizedType), options);
 }
+
+function setActiveRequestsView(nextView = "form") {
+  activeRequestsView = nextView === "mine" ? "mine" : "form";
+  renderRequestComposerState();
+}
+
 function renderRequestsOpenCards() {
   if (isPlannerRole()) {
     setClassName(requestsOpenCards, "request-list hidden");
+    if (requestsOpenCards) {
+      requestsOpenCards.hidden = true;
+    }
     requestsOpenCards.innerHTML = "";
     return;
   }
@@ -15598,12 +15694,16 @@ function renderRequestsOpenCards() {
       formatDate,
       formatDateTime,
       getTimeOffMailStatusText,
-      getSwapMailStatusText
+      getSwapMailStatusText,
+      renderRequestMailStatus
     }
   });
 
   if (!ownCards.length) {
     setClassName(requestsOpenCards, "request-list request-list-compact empty");
+    if (requestsOpenCards) {
+      requestsOpenCards.hidden = activeRequestsView !== "mine";
+    }
     requestsOpenCards.innerHTML = `
       <div class="request-mini-heading">Mijn aanvragen</div>
       <div class="request-mini-empty">Je hebt nog geen aanvragen.</div>
@@ -15612,6 +15712,9 @@ function renderRequestsOpenCards() {
   }
 
   setClassName(requestsOpenCards, "request-list request-list-compact");
+  if (requestsOpenCards) {
+    requestsOpenCards.hidden = activeRequestsView !== "mine";
+  }
   requestsOpenCards.innerHTML = `
     <div class="request-mini-heading">Mijn aanvragen</div>
     ${ownCards.map((card) => `
@@ -15638,6 +15741,8 @@ function renderRequestComposerState() {
   activeRequestType = getRequestTypeFromComposer(normalizedComposer);
   applyActiveRequestComposerStateToFields();
   const isEmployee = !isPlannerRole();
+  const showEmployeeForms = !isEmployee || activeRequestsView === "form";
+  const showEmployeeRequests = isEmployee && activeRequestsView === "mine";
   const requestEmployeeLabels = [
     requestFreeComposer?.querySelector(".employee-picker-control"),
     requestVacationComposer?.querySelector(".employee-picker-control"),
@@ -15650,8 +15755,11 @@ function renderRequestComposerState() {
   requestTypeVacationButton?.classList.toggle("active", activeRequestType === "vakantie");
   requestTypeSickButton?.classList.toggle("active", activeRequestType === "ziekmelding");
   requestTypeSwapButton?.classList.toggle("active", activeRequestType === "ruilen");
+  requestViewFormButton?.classList.toggle("active", !isEmployee || activeRequestsView === "form");
+  requestViewMineButton?.classList.toggle("active", isEmployee && activeRequestsView === "mine");
   if (requestsTopPanel) {
     requestsTopPanel.dataset.activeTab = activeRequestType;
+    requestsTopPanel.dataset.activeRequestsView = activeRequestsView;
   }
   if (swapDateLabel) {
     swapDateLabel.classList.toggle("hidden", isEmployee);
@@ -15662,21 +15770,21 @@ function renderRequestComposerState() {
     label.hidden = isEmployee;
   });
 
-  requestFreeComposer?.classList.toggle("hidden", activeRequestType !== "vrije-dag");
-  requestVacationComposer?.classList.toggle("hidden", activeRequestType !== "vakantie");
-  requestSickComposer?.classList.toggle("hidden", activeRequestType !== "ziekmelding");
-  requestSwapComposer?.classList.toggle("hidden", activeRequestType !== "ruilen");
+  requestFreeComposer?.classList.toggle("hidden", !showEmployeeForms || activeRequestType !== "vrije-dag");
+  requestVacationComposer?.classList.toggle("hidden", !showEmployeeForms || activeRequestType !== "vakantie");
+  requestSickComposer?.classList.toggle("hidden", !showEmployeeForms || activeRequestType !== "ziekmelding");
+  requestSwapComposer?.classList.toggle("hidden", !showEmployeeForms || activeRequestType !== "ruilen");
   if (requestFreeComposer) {
-    requestFreeComposer.hidden = activeRequestType !== "vrije-dag";
+    requestFreeComposer.hidden = !showEmployeeForms || activeRequestType !== "vrije-dag";
   }
   if (requestVacationComposer) {
-    requestVacationComposer.hidden = activeRequestType !== "vakantie";
+    requestVacationComposer.hidden = !showEmployeeForms || activeRequestType !== "vakantie";
   }
   if (requestSickComposer) {
-    requestSickComposer.hidden = activeRequestType !== "ziekmelding";
+    requestSickComposer.hidden = !showEmployeeForms || activeRequestType !== "ziekmelding";
   }
   if (requestSwapComposer) {
-    requestSwapComposer.hidden = activeRequestType !== "ruilen";
+    requestSwapComposer.hidden = !showEmployeeForms || activeRequestType !== "ruilen";
   }
 
   if (isEmployee) {
@@ -15688,9 +15796,9 @@ function renderRequestComposerState() {
     if (requestsEmployeeBadge) {
       requestsEmployeeBadge.hidden = true;
     }
-    requestsOpenCards?.classList.remove("hidden");
+    requestsOpenCards?.classList.toggle("hidden", !showEmployeeRequests);
     if (requestsOpenCards) {
-      requestsOpenCards.hidden = false;
+      requestsOpenCards.hidden = !showEmployeeRequests;
     }
     if (requestTimeOffPanel) {
       requestTimeOffPanel.classList.toggle("hidden", true);
@@ -15724,17 +15832,17 @@ function renderRequestComposerState() {
   }
 
   if (!isMobileView()) {
-    requestFreeComposer?.classList.toggle("request-form-hidden-mobile", activeRequestType !== "vrije-dag");
-    requestVacationComposer?.classList.toggle("request-form-hidden-mobile", activeRequestType !== "vakantie");
-    requestSickComposer?.classList.toggle("request-form-hidden-mobile", activeRequestType !== "ziekmelding");
-    requestSwapComposer?.classList.toggle("request-form-hidden-mobile", activeRequestType !== "ruilen");
+    requestFreeComposer?.classList.toggle("request-form-hidden-mobile", !showEmployeeForms || activeRequestType !== "vrije-dag");
+    requestVacationComposer?.classList.toggle("request-form-hidden-mobile", !showEmployeeForms || activeRequestType !== "vakantie");
+    requestSickComposer?.classList.toggle("request-form-hidden-mobile", !showEmployeeForms || activeRequestType !== "ziekmelding");
+    requestSwapComposer?.classList.toggle("request-form-hidden-mobile", !showEmployeeForms || activeRequestType !== "ruilen");
     return;
   }
 
-  requestFreeComposer?.classList.toggle("request-form-hidden-mobile", activeRequestType !== "vrije-dag");
-  requestVacationComposer?.classList.toggle("request-form-hidden-mobile", activeRequestType !== "vakantie");
-  requestSickComposer?.classList.toggle("request-form-hidden-mobile", activeRequestType !== "ziekmelding");
-  requestSwapComposer?.classList.toggle("request-form-hidden-mobile", activeRequestType !== "ruilen");
+  requestFreeComposer?.classList.toggle("request-form-hidden-mobile", !showEmployeeForms || activeRequestType !== "vrije-dag");
+  requestVacationComposer?.classList.toggle("request-form-hidden-mobile", !showEmployeeForms || activeRequestType !== "vakantie");
+  requestSickComposer?.classList.toggle("request-form-hidden-mobile", !showEmployeeForms || activeRequestType !== "ziekmelding");
+  requestSwapComposer?.classList.toggle("request-form-hidden-mobile", !showEmployeeForms || activeRequestType !== "ruilen");
 }
 
 function isEntryOutsideFixedRoster(entry) {
@@ -17800,7 +17908,7 @@ function renderTimeOffRequests() {
         <div class="request-meta">${getTimeOffDisplayRange(request)}${request.reason ? ` - ${request.reason}` : ""}</div>
         <div class="request-impact">${getRequestRosterEffectText(request, "timeoff")}</div>
         ${request.status === "open" && getRequestAttentionText(request) ? `<div class="request-impact request-attention-note">${getRequestAttentionText(request)}</div>` : ""}
-        ${getTimeOffMailStatusText(request) ? `<div class="request-impact"><strong>Mail:</strong> ${getTimeOffMailStatusText(request)}</div>` : ""}
+        ${renderRequestMailStatus(request, getTimeOffMailStatusText)}
         ${request.managerNote ? `<div class="request-impact"><strong>Opmerking:</strong> ${request.managerNote}</div>` : ""}
         ${request.status === "open" && isPlannerRole() ? `
           <label class="request-note-field">
@@ -17906,7 +18014,7 @@ function renderSwapRequests() {
           <div class="request-impact">${getRequestRosterEffectText(request, "swap")}</div>
           ${request.escalatedToPlanner ? `<div class="request-impact request-attention-note">Directie is gevraagd om mee te kijken naar deze ruil.</div>` : ""}
           ${request.status === "open" && getRequestAttentionText(request) ? `<div class="request-impact request-attention-note">${getRequestAttentionText(request)}</div>` : ""}
-          ${getSwapMailStatusText(request) ? `<div class="request-impact"><strong>Mail:</strong> ${getSwapMailStatusText(request)}</div>` : ""}
+          ${renderRequestMailStatus(request, getSwapMailStatusText)}
           ${request.managerNote ? `<div class="request-impact"><strong>Opmerking:</strong> ${request.managerNote}</div>` : ""}
           ${request.status === "open" && isPlannerRole() ? `
           ${!request.targetEmployeeName ? `
@@ -22895,6 +23003,9 @@ function submitTimeOffRequest(composer) {
     nextComposer: composer,
     preserveEmployee: !isPlannerRole()
   });
+  if (!isPlannerRole()) {
+    activeRequestsView = "mine";
+  }
   render();
   showMessage("Aanvraag ingediend.", "success");
   const latestMail = currentTimeOffRequest ? getLatestRequestMailNotification(currentTimeOffRequest) : null;
@@ -23085,8 +23196,15 @@ submitSwapButton.addEventListener("click", () => {
     }
   });
   resetSwapComposer({ preserveEmployee: !isPlannerRole() });
+    if (!isPlannerRole()) {
+      activeRequestsView = "mine";
+    }
     render();
-    showToast("Aanvraag verzonden");
+    showMessage("Aanvraag ingediend.", "success");
+    const latestMail = currentRequest ? getLatestRequestMailNotification(currentRequest) : null;
+    if (latestMail?.status === "queued") {
+      showMessage("Mailbevestiging wordt verzonden.", "success");
+    }
   });
 
 removeEmployeeButton?.addEventListener("click", () => {
@@ -24595,6 +24713,14 @@ requestTypeSickButton?.addEventListener("click", () => {
 
 requestTypeSwapButton?.addEventListener("click", () => {
   activateRequestType("ruilen");
+});
+
+requestViewFormButton?.addEventListener("click", () => {
+  setActiveRequestsView("form");
+});
+
+requestViewMineButton?.addEventListener("click", () => {
+  setActiveRequestsView("mine");
 });
 
 requestStatusFilter?.addEventListener("change", () => {

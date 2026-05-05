@@ -114,6 +114,9 @@
         const mailStatusText = typeof helpers.getTimeOffMailStatusText === "function"
           ? helpers.getTimeOffMailStatusText(request)
           : "";
+        const mailStatusHtml = typeof helpers.renderRequestMailStatus === "function"
+          ? helpers.renderRequestMailStatus(request, helpers.getTimeOffMailStatusText)
+          : (mailStatusText ? `Mail: ${mailStatusText}` : "");
 
         return {
           type: helpers.getAbsenceTypeLabel(request.type),
@@ -121,7 +124,7 @@
           details: [
             request.reason ? `Reden: ${request.reason}` : "",
             request.managerNote ? `Opmerking: ${request.managerNote}` : "",
-            mailStatusText ? `Mail: ${mailStatusText}` : "",
+            mailStatusHtml,
             createdText
           ].filter(Boolean),
           status: helpers.getRequestDisplayStatus(request),
@@ -139,6 +142,9 @@
         const mailStatusText = typeof helpers.getSwapMailStatusText === "function"
           ? helpers.getSwapMailStatusText(request)
           : "";
+        const mailStatusHtml = typeof helpers.renderRequestMailStatus === "function"
+          ? helpers.renderRequestMailStatus(request, helpers.getSwapMailStatusText)
+          : (mailStatusText ? `Mail: ${mailStatusText}` : "");
         const targetText = request.targetEmployeeName
           ? `Naar: ${request.targetEmployeeName}`
           : "Open aangeboden";
@@ -149,7 +155,7 @@
           details: [
             targetText,
             request.managerNote ? `Opmerking: ${request.managerNote}` : "",
-            mailStatusText ? `Mail: ${mailStatusText}` : "",
+            mailStatusHtml,
             createdText
           ].filter(Boolean),
           status: helpers.getRequestDisplayStatus(request),
