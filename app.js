@@ -3432,7 +3432,6 @@ let autoFillPreviewEntries = [];
 let undoState = null;
 let pendingPlannerFocus = null;
 let planningOverviewExpandedWeek = "";
-let planningOverviewEditingShiftKey = "";
 const mobileMediaQuery = window.matchMedia("(max-width: 640px)");
 let messageTimeoutId = null;
 let activeMessageState = null;
@@ -11684,20 +11683,6 @@ function getSchedulePlanningWeekData(weekValue, sourceEntries = entries) {
   });
 }
 
-function getSelectedSchedulePlanningWeek() {
-  const candidateWeek = planningOverviewMonthInput?.value || weekInput.value || weekFilterInput.value || getCurrentWeekValue();
-
-  if (/^\d{4}-W\d{2}$/.test(String(candidateWeek || ""))) {
-    return candidateWeek;
-  }
-
-  if (/^\d{4}-\d{2}$/.test(String(candidateWeek || ""))) {
-    return getWeeksForMonth(candidateWeek)[0] || getCurrentWeekValue();
-  }
-
-  return getCurrentWeekValue();
-}
-
 function renderSchedulePlanningWeekShiftDetails(week) {
   const openItemsByDay = (week?.openItems || []).reduce((groups, item) => {
     groups[item.day] = groups[item.day] || [];
@@ -11709,116 +11694,35 @@ function renderSchedulePlanningWeekShiftDetails(week) {
   if (!openDays.length) {
     return `
       <div class="planning-overview-details">
-        <span class="planning-overview-tag">Geen open diensten</span>
+        <div class="planning-overview-detail-block">
+          <strong>Open diensten</strong>
+          <div class="planning-overview-tags">
+            <span class="planning-overview-tag">Geen open diensten</span>
+          </div>
+        </div>
       </div>
     `;
   }
+
+  const dayBlocks = openDays.map((day) => `
+    <div class="planning-overview-detail-block">
+      <strong>${formatWeekday(day)} · ${formatDate(day)}</strong>
+      <div class="planning-overview-tags">
+        ${openItemsByDay[day]
+          .sort((shiftA, shiftB) => shiftA.startTime.localeCompare(shiftB.startTime) || shiftA.name.localeCompare(shiftB.name, "nl"))
+          .map((shift) => `
+            <span class="planning-overview-tag is-open">
+              ${shift.name} · ${shift.startTime}-${shift.endTime}
+            </span>
+          `).join("")}
+      </div>
+    </div>
+  `).join("");
 
   return `
     <div class="planning-overview-details">
-      ${openDays.map((day) => `
-        <span class="planning-overview-tag is-open">
-          ${formatWeekday(day)} · ${openItemsByDay[day].length} open
-        </span>
-      `).join("")}
+      ${dayBlocks}
     </div>
-  `;
-}
-
-function getPlanningOverviewShiftOptions(shift, day, existingEntry) {
-  const ignoredIndex = existingEntry ? entries.indexOf(existingEntry) : null;
-  const suitableEmployees = getSuitableEmployeesForShift(shift, day, shift.startTime, shift.endTime, ignoredIndex);
-  const currentEmployee = existingEntry?.name || "";
-  const currentEmployeeIsAuthorized = currentEmployee && isEmployeeAuthorizedForShift(currentEmployee, shift.name);
-  const optionEmployees = currentEmployeeIsAuthorized && !suitableEmployees.includes(currentEmployee)
-    ? [currentEmployee, ...suitableEmployees]
-    : suitableEmployees;
-  const authorizedCount = getAuthorizedEmployeesForShift(shift.name).length;
-
-  return {
-    suitableEmployees,
-    authorizedCount,
-    markup: `
-      <select
-        class="planning-shift-select"
-        data-planning-assign-day="${day}"
-        data-planning-assign-shift="${shift.id || shift.name}"
-        aria-label="Medewerker kiezen voor ${shift.name} op ${formatDate(day)}"
-      >
-        <option value="">${authorizedCount ? "Kies medewerker" : "Geen bevoegde medewerker"}</option>
-        ${optionEmployees.map((employeeName) => `
-          <option value="${employeeName}" ${employeeName === currentEmployee ? "selected" : ""}>${employeeName}</option>
-        `).join("")}
-      </select>
-    `
-  };
-}
-
-function getPlanningOverviewShiftKey(day, shift) {
-  return `${day}|${shift?.id || shift?.name || ""}`;
-}
-
-function getPlanningOverviewShiftTooltip(employeeName, selectedWeek, sourceEntries = entries) {
-  if (!employeeName) {
-    return "Klik om een medewerker te kiezen.";
-  }
-
-  const contractHours = getEmployeeContractHours(employeeName);
-  const plannedHours = getEmployeeWeekHours(employeeName, selectedWeek, sourceEntries);
-  const contractText = contractHours > 0 ? `Contract ${formatHours(contractHours)}` : "Geen contracturen";
-
-  return `${employeeName} · ${contractText} · Gepland ${formatHours(plannedHours)}`;
-}
-
-function renderSchedulePlanningDayCard(day, sourceEntries = entries) {
-  const selectedWeek = getWeekValueFromDate(day) || getSelectedSchedulePlanningWeek();
-  const shifts = getRequiredDayPlannerShifts(day)
-    .sort((shiftA, shiftB) => shiftA.startTime.localeCompare(shiftB.startTime) || shiftA.name.localeCompare(shiftB.name, "nl"));
-  const shiftRows = shifts.map((shift) => {
-    const existingEntry = getEntryForShiftOnDate(day, shift, sourceEntries);
-    const { suitableEmployees, markup } = getPlanningOverviewShiftOptions(shift, day, existingEntry);
-    const shiftKey = getPlanningOverviewShiftKey(day, shift);
-    const isEditing = planningOverviewEditingShiftKey === shiftKey;
-    const employeeName = existingEntry?.name || "";
-    const tooltip = getPlanningOverviewShiftTooltip(employeeName, selectedWeek, sourceEntries);
-
-    return `
-      <button
-        type="button"
-        class="planning-shift-line ${existingEntry ? "is-filled" : "is-open"}"
-        data-planning-edit-day="${day}"
-        data-planning-edit-shift="${shift.id || shift.name}"
-        title="${tooltip}"
-      >
-        <span class="planning-shift-time">${shift.startTime}-${shift.endTime}</span>
-        <span class="planning-shift-name">${shift.name}</span>
-        <span class="planning-shift-employee">${employeeName || "OPEN"}</span>
-      </button>
-      ${isEditing ? `
-        <div class="planning-shift-editor">
-          ${markup}
-          <small>${suitableEmployees.length ? `${suitableEmployees.length} geschikte medewerkers` : "Geen bevoegde medewerker"}</small>
-          <button type="button" class="secondary" data-planning-edit-cancel>Sluiten</button>
-        </div>
-      ` : ""}
-    `;
-  }).join("");
-  const filledCount = shifts.filter((shift) => getEntryForShiftOnDate(day, shift, sourceEntries)).length;
-  const openCount = Math.max(0, shifts.length - filledCount);
-  const stateClass = !shifts.length ? "is-closed" : (openCount > 0 ? "is-open" : "is-complete");
-
-  return `
-    <article class="planning-day-card ${stateClass}">
-      <header class="planning-day-header">
-        <div>
-          <strong>${formatWeekday(day)}</strong>
-          <span>${formatDate(day)}</span>
-        </div>
-      </header>
-      <div class="planning-shift-lines">
-        ${shiftRows || `<div class="planning-shift-empty">Geen diensten deze dag.</div>`}
-      </div>
-    </article>
   `;
 }
 
@@ -11942,59 +11846,88 @@ function renderSchedulePlanningOverview() {
     return;
   }
 
-  const selectedWeek = getSelectedSchedulePlanningWeek();
+  const referenceMonth = planningOverviewMonthInput?.value || getCurrentMonthValue();
   if (planningOverviewMonthInput && !planningOverviewMonthInput.value) {
-    planningOverviewMonthInput.value = selectedWeek;
+    planningOverviewMonthInput.value = referenceMonth;
   }
-  syncSelectedWeekControls(selectedWeek);
 
-  const week = getSchedulePlanningWeekData(selectedWeek, entries);
-  const weekDates = getWeekDates(selectedWeek);
-  const openCount = week.openCount;
-  const hasActiveProposal = autoFillPreviewEntries.some((entry) => getWeekValueFromDate(entry.day) === selectedWeek);
+  const weekRows = getWeeksForMonth(referenceMonth).map((weekValue) => getSchedulePlanningWeekData(weekValue, entries));
+  const openWeeks = weekRows.filter((week) => week.openCount > 0 && week.status.key !== "locked");
+  const totalFilled = weekRows.reduce((total, week) => total + week.weekEntries.length, 0);
+  const totalOpen = weekRows.reduce((total, week) => total + week.openCount, 0);
+  const attentionWeeks = weekRows.filter((week) =>
+    week.openCount > 0 ||
+    week.replacementCount > 0 ||
+    week.deviationCount > 0 ||
+    week.contractImbalanceCount > 0
+  );
+  const attentionPreview = attentionWeeks.slice(0, 6).map((week) => formatWeekLabel(week.weekValue));
 
   if (planningOverviewTitle) {
-    planningOverviewTitle.textContent = `Rooster inplannen ${formatWeekLabel(selectedWeek)}`;
+    planningOverviewTitle.textContent = `Rooster inplannen ${getMonthLabel(referenceMonth) || referenceMonth}`;
   }
 
   if (planningOverviewAutoButton) {
-    planningOverviewAutoButton.disabled = openCount === 0 || week.status.key === "locked";
-    planningOverviewAutoButton.textContent = openCount === 0
-      ? "Geen open diensten"
-      : "Voorstel maken";
+    planningOverviewAutoButton.disabled = openWeeks.length === 0;
+    planningOverviewAutoButton.textContent = openWeeks.length === 0
+      ? "Geen open weken"
+      : "Automatisch roosteren";
   }
 
   if (planningOverviewSummary) {
     setClassName(planningOverviewSummary, "planning-overview-summary");
     planningOverviewSummary.innerHTML = `
-      <section class="planning-week-bar">
-        <div class="planning-week-copy">
-          <strong>${formatWeekLabel(selectedWeek)}</strong>
-          <span>${week.periodLabel}</span>
-        </div>
-        <div class="planning-week-nav">
-          <button type="button" class="secondary" data-planning-week-nav="previous">Vorige</button>
-          <button type="button" class="secondary" data-planning-week-nav="current">Deze</button>
-          <button type="button" class="secondary" data-planning-week-nav="next">Volgende</button>
-        </div>
-        <div class="planning-week-actions">
-          <button type="button" class="secondary" data-planning-action="smart-plan" data-week-value="${selectedWeek}" ${openCount === 0 || week.status.key === "locked" ? "disabled" : ""}>Voorstel maken</button>
-          ${hasActiveProposal ? `<button type="button" class="secondary" data-planning-action="proposal-review" data-week-value="${selectedWeek}">Voorstel controleren</button>` : ""}
-        </div>
-      </section>
+      <article class="planning-overview-summary-card">
+        <strong>Ingevuld</strong>
+        <span>${totalFilled}</span>
+      </article>
+      <article class="planning-overview-summary-card ${totalOpen > 0 ? "is-warning" : "is-complete"}">
+        <strong>Open</strong>
+        <span>${totalOpen}</span>
+      </article>
+      <article class="planning-overview-summary-card ${attentionWeeks.length > 0 ? "is-warning" : "is-complete"}">
+        <strong>Aandacht</strong>
+        <span>${attentionWeeks.length ? `${attentionWeeks.length} week${attentionWeeks.length === 1 ? "" : "en"}` : "Geen"}</span>
+      </article>
     `;
   }
 
-  renderPlanningProposalReview(hasActiveProposal ? selectedWeek : "");
+  const proposalWeek = autoFillPreviewEntries.length
+    ? getWeekValueFromDate(autoFillPreviewEntries[0]?.day || "") || weekFilterInput.value || weekInput.value || ""
+    : "";
+  renderPlanningProposalReview(proposalWeek);
 
-  setClassName(planningOverviewList, `planning-overview-list${weekDates.length ? "" : " empty"}`);
-  planningOverviewList.innerHTML = weekDates.length
+  setClassName(planningOverviewList, `planning-overview-list${weekRows.length ? "" : " empty"}`);
+  planningOverviewList.innerHTML = weekRows.length
     ? `
-      <div class="planning-week-grid">
-        ${weekDates.map((day) => renderSchedulePlanningDayCard(day, entries)).join("")}
+      <div class="planning-overview-header" aria-hidden="true">
+        <span>Week</span>
+        <span>Periode</span>
+        <span>Status</span>
+        <span>Open</span>
+        <span>Acties</span>
       </div>
+      ${weekRows.map((week) => {
+        return `
+          <article class="planning-overview-row ${week.status.className}" data-planning-week="${week.weekValue}">
+            <div class="planning-overview-week">${formatWeekLabel(week.weekValue)}</div>
+            <div class="planning-overview-period">${week.periodLabel}</div>
+            <div class="planning-overview-status-cell">
+              <span class="planning-overview-status ${week.status.className}">${week.status.label}</span>
+            </div>
+            <div class="planning-overview-open-cell">
+              <span class="planning-overview-metric is-open-count">${week.openCount}</span>
+            </div>
+            <div class="planning-overview-actions">
+              <button type="button" class="secondary" data-planning-action="open-week" data-week-value="${week.weekValue}">Open week</button>
+              <button type="button" class="secondary" data-planning-action="smart-plan" data-week-value="${week.weekValue}" ${week.status.key === "locked" ? "disabled" : ""}>Vul week automatisch (voorstel)</button>
+            </div>
+            ${renderSchedulePlanningWeekShiftDetails(week)}
+          </article>
+        `;
+      }).join("")}
     `
-    : "Geen week beschikbaar.";
+    : "Geen weken beschikbaar voor deze maand.";
 }
 
 function getWeekReviewStatusMeta(status) {
@@ -21336,30 +21269,27 @@ exportButton.addEventListener("click", () => {
 
 planningOverviewAutoButton?.addEventListener("click", () => {
   if (!isPlannerRole()) {
-    showMessage("Alleen planner of directie kan een voorstel maken.", "error");
+    showMessage("Alleen planner of directie kan een maand automatisch roosteren.", "error");
     return;
   }
 
-  const selectedWeek = getSelectedSchedulePlanningWeek();
-  syncSelectedWeekControls(selectedWeek);
-  autoFillWeekSchedule(selectedWeek);
+  const selectedMonth = planningOverviewMonthInput?.value || getCurrentMonthValue();
+  const openWeeks = getWeeksForMonth(selectedMonth)
+    .map((weekValue) => getSchedulePlanningWeekData(weekValue, entries))
+    .filter((week) => week.openCount > 0 && week.status.key !== "locked")
+    .map((week) => week.weekValue);
+
+  autoPlanWeeksDirectly(openWeeks, {
+    summaryLabel: `Maand automatisch geroosterd (${selectedMonth})`
+  });
 });
 
 planningOverviewRefreshButton?.addEventListener("click", () => {
-  const currentWeek = getCurrentWeekValue();
-
-  if (planningOverviewMonthInput) {
-    planningOverviewMonthInput.value = currentWeek;
-  }
-
-  syncSelectedWeekControls(currentWeek);
   render();
-  showMessage("Deze week geopend.", "success");
+  showMessage("Maandoverzicht ververst.", "success");
 });
 
 planningOverviewMonthInput?.addEventListener("change", () => {
-  const selectedWeek = getSelectedSchedulePlanningWeek();
-  syncSelectedWeekControls(selectedWeek);
   renderSchedulePlanningOverview();
 });
 
@@ -21549,78 +21479,10 @@ planningProposalReview?.addEventListener("click", (event) => {
   }
 });
 
-planningOverviewSummary?.addEventListener("click", (event) => {
-  const weekNavButton = event.target.closest("[data-planning-week-nav]");
-  const actionButton = event.target.closest("[data-planning-action][data-week-value]");
-
-  if (!isPlannerRole()) {
-    return;
-  }
-
-  if (weekNavButton) {
-    const currentWeek = getSelectedSchedulePlanningWeek();
-    const direction = weekNavButton.dataset.planningWeekNav || "";
-    const nextWeek = direction === "previous"
-      ? getPreviousWeekValue(currentWeek)
-      : direction === "next"
-        ? getNextWeekValue(currentWeek)
-        : getCurrentWeekValue();
-
-    if (planningOverviewMonthInput) {
-      planningOverviewMonthInput.value = nextWeek;
-    }
-
-    syncSelectedWeekControls(nextWeek);
-    renderSchedulePlanningOverview();
-    return;
-  }
-
-  if (!actionButton) {
-    return;
-  }
-
-  const weekValue = actionButton.dataset.weekValue || "";
-  const action = actionButton.dataset.planningAction || "";
-
-  if (!/^\d{4}-W\d{2}$/.test(weekValue)) {
-    return;
-  }
-
-  if (action === "smart-plan") {
-    syncSelectedWeekControls(weekValue);
-    autoFillWeekSchedule(weekValue);
-    return;
-  }
-
-  if (action === "proposal-review") {
-    planningProposalReview?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-});
-
 planningOverviewList?.addEventListener("click", (event) => {
-  const editButton = event.target.closest("[data-planning-edit-day][data-planning-edit-shift]");
-  const cancelButton = event.target.closest("[data-planning-edit-cancel]");
   const button = event.target.closest("[data-planning-action][data-week-value]");
 
-  if (!isPlannerRole()) {
-    return;
-  }
-
-  if (cancelButton) {
-    planningOverviewEditingShiftKey = "";
-    renderSchedulePlanningOverview();
-    return;
-  }
-
-  if (editButton) {
-    const day = editButton.dataset.planningEditDay || "";
-    const shiftId = editButton.dataset.planningEditShift || "";
-    planningOverviewEditingShiftKey = planningOverviewEditingShiftKey === `${day}|${shiftId}` ? "" : `${day}|${shiftId}`;
-    renderSchedulePlanningOverview();
-    return;
-  }
-
-  if (!button) {
+  if (!button || !isPlannerRole()) {
     return;
   }
 
@@ -21646,31 +21508,6 @@ planningOverviewList?.addEventListener("click", (event) => {
   if (action === "smart-plan") {
     syncSelectedWeekControls(weekValue);
     autoFillWeekSchedule(weekValue);
-  }
-});
-
-planningOverviewList?.addEventListener("change", (event) => {
-  const select = event.target.closest("[data-planning-assign-day][data-planning-assign-shift]");
-
-  if (!select || !isPlannerRole()) {
-    return;
-  }
-
-  const selectedDate = select.dataset.planningAssignDay || "";
-  const shiftId = select.dataset.planningAssignShift || "";
-  const shift = getRequiredDayPlannerShifts(selectedDate).find((candidate) =>
-    (candidate.id || candidate.name) === shiftId
-  );
-
-  if (!selectedDate || !shift) {
-    renderSchedulePlanningOverview();
-    return;
-  }
-
-  planningOverviewEditingShiftKey = "";
-
-  if (saveSingleDayPlannerShift(selectedDate, shift, select.value || "")) {
-    showMessage(select.value ? "Dienst bijgewerkt." : "Dienst leeggemaakt.", "success");
   }
 });
 
