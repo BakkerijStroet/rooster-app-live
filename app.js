@@ -250,6 +250,7 @@ const autoFillShopDayButton = document.getElementById("autoFillShopDayButton");
 const saveDayPlannerButton = document.getElementById("saveDayPlannerButton");
 const appShell = document.querySelector(".app-shell");
 const storageKey = "urenrooster-entries";
+const planningEntriesApiEndpoint = "/api/planning-entries";
 const employeeStorageKey = "urenrooster-employees";
 const shiftStorageKey = "urenrooster-shifts";
 const shiftCatalogVersionKey = "urenrooster-shift-catalog-version";
@@ -366,6 +367,35 @@ function sanitizeEntriesForStorage(sourceEntries = entries) {
   });
 
   return uniqueEntries;
+}
+
+function getPlanningEntrySyncId(entry) {
+  const normalizedEntry = entry && typeof entry === "object" ? {
+    ...entry,
+    name: typeof entry.name === "string" ? entry.name.trim() : "",
+    day: typeof entry.day === "string" ? entry.day : "",
+    startTime: typeof entry.startTime === "string" ? entry.startTime : "",
+    endTime: typeof entry.endTime === "string" ? entry.endTime : "",
+    shiftId: typeof entry.shiftId === "string" ? entry.shiftId : "",
+    shiftName: typeof entry.shiftName === "string" ? entry.shiftName.trim() : "",
+    replacementFor: typeof entry.replacementFor === "string" ? entry.replacementFor.trim() : "",
+    proposed: Boolean(entry.proposed)
+  } : null;
+
+  if (!normalizedEntry?.name || !normalizedEntry.day || !normalizedEntry.startTime || !normalizedEntry.endTime) {
+    return "";
+  }
+
+  return [
+    normalizedEntry.name.toLowerCase(),
+    normalizedEntry.day,
+    normalizedEntry.startTime,
+    normalizedEntry.endTime,
+    normalizedEntry.shiftId.toLowerCase(),
+    normalizedEntry.shiftName.toLowerCase(),
+    normalizedEntry.replacementFor.toLowerCase(),
+    normalizedEntry.proposed ? "1" : "0"
+  ].join("|");
 }
 
 function sanitizeTimeOffRequestsForStorage(sourceRequests = timeOffRequests) {
@@ -912,6 +942,7 @@ function saveEntries() {
   derivedDataCache.filteredEntriesKey = "";
   replaceArrayContents(entries, sanitizeEntriesForStorage(entries));
   safeSetStorageItem(getScopedStorageKey(storageKey), JSON.stringify(entries), "rooster");
+  queuePlanningEntriesCentralSave();
 }
 
 function cloneEntriesState(sourceEntries) {
@@ -1701,6 +1732,219 @@ async function migrateLocalEmployeeDataToCentral() {
 }
 
 window.migrateLocalEmployeeDataToCentral = migrateLocalEmployeeDataToCentral;
+
+let planningEntriesCentralSyncTimer = null;
+let planningEntriesCentralSyncInFlight = false;
+let planningEntriesCentralSyncPending = false;
+let planningEntriesCentralSyncLoaded = false;
+let lastPlanningEntriesCentralSyncError = null;
+
+function isPlanningEntriesCentralSyncEnabled() {
+  return currentDataMode === "live" && typeof fetch === "function";
+}
+
+function getPlanningEntriesSnapshot(sourceEntries = entries) {
+  return sanitizeEntriesForStorage(sourceEntries);
+}
+
+function persistPlanningEntriesToLocalStorage() {
+  safeSetStorageItem(getScopedStorageKey(storageKey), JSON.stringify(sanitizeEntriesForStorage(entries)), "rooster");
+}
+
+function serializePlanningEntriesForComparison(sourceEntries) {
+  return JSON.stringify(
+    sanitizeEntriesForStorage(sourceEntries)
+      .slice()
+      .sort((entryA, entryB) => getPlanningEntrySyncId(entryA).localeCompare(getPlanningEntrySyncId(entryB)))
+  );
+}
+
+function mergePlanningEntryCollections(localEntries = [], centralEntries = []) {
+  const mergedById = new Map();
+
+  sanitizeEntriesForStorage(localEntries).forEach((entry) => {
+    const entryId = getPlanningEntrySyncId(entry);
+
+    if (entryId) {
+      mergedById.set(entryId, entry);
+    }
+  });
+
+  sanitizeEntriesForStorage(centralEntries).forEach((centralEntry) => {
+    const entryId = getPlanningEntrySyncId(centralEntry);
+
+    if (entryId && !mergedById.has(entryId)) {
+      mergedById.set(entryId, centralEntry);
+    }
+  });
+
+  return [...mergedById.values()].sort((entryA, entryB) =>
+    entryA.day.localeCompare(entryB.day) ||
+    entryA.startTime.localeCompare(entryB.startTime) ||
+    entryA.name.localeCompare(entryB.name, "nl") ||
+    (entryA.shiftName || "").localeCompare(entryB.shiftName || "", "nl")
+  );
+}
+
+function reportPlanningEntriesCentralSyncError(action, error) {
+  lastPlanningEntriesCentralSyncError = {
+    action,
+    mode: currentDataMode,
+    endpoint: planningEntriesApiEndpoint,
+    entryCount: entries.length,
+    message: error instanceof Error ? error.message : String(error),
+    at: new Date().toISOString()
+  };
+  window.lastPlanningEntriesCentralSyncError = lastPlanningEntriesCentralSyncError;
+  console.warn("[planningEntries] Centrale sync mislukt; localStorage blijft actief.", lastPlanningEntriesCentralSyncError, error);
+}
+
+async function fetchCentralPlanningEntries() {
+  const response = await fetch(`${planningEntriesApiEndpoint}?mode=${encodeURIComponent(currentDataMode)}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json"
+    },
+    cache: "no-store"
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || payload?.success === false) {
+    throw new Error(payload?.message || "Centraal laden van roosterregels is mislukt.");
+  }
+
+  return Array.isArray(payload?.entries) ? sanitizeEntriesForStorage(payload.entries) : [];
+}
+
+async function sendPlanningEntriesToCentral(sourceEntries = entries) {
+  if (!isPlanningEntriesCentralSyncEnabled()) {
+    return false;
+  }
+
+  const response = await fetch(planningEntriesApiEndpoint, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify({
+      mode: currentDataMode,
+      entries: getPlanningEntriesSnapshot(sourceEntries)
+    })
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || payload?.success === false) {
+    throw new Error(payload?.message || "Centraal opslaan van roosterregels is mislukt.");
+  }
+
+  return true;
+}
+
+function queuePlanningEntriesCentralSave() {
+  if (!isPlanningEntriesCentralSyncEnabled() || !planningEntriesCentralSyncLoaded) {
+    return;
+  }
+
+  if (planningEntriesCentralSyncTimer) {
+    clearTimeout(planningEntriesCentralSyncTimer);
+  }
+
+  planningEntriesCentralSyncTimer = setTimeout(() => {
+    planningEntriesCentralSyncTimer = null;
+    syncPlanningEntriesToCentral();
+  }, 500);
+}
+
+async function syncPlanningEntriesToCentral() {
+  if (!isPlanningEntriesCentralSyncEnabled()) {
+    return false;
+  }
+
+  if (planningEntriesCentralSyncInFlight) {
+    planningEntriesCentralSyncPending = true;
+    return false;
+  }
+
+  planningEntriesCentralSyncInFlight = true;
+
+  try {
+    await sendPlanningEntriesToCentral(entries);
+    lastPlanningEntriesCentralSyncError = null;
+    window.lastPlanningEntriesCentralSyncError = null;
+    return true;
+  } catch (error) {
+    reportPlanningEntriesCentralSyncError("save", error);
+    return false;
+  } finally {
+    planningEntriesCentralSyncInFlight = false;
+    if (planningEntriesCentralSyncPending) {
+      planningEntriesCentralSyncPending = false;
+      queuePlanningEntriesCentralSave();
+    }
+  }
+}
+
+async function syncPlanningEntriesFromCentral() {
+  if (!isPlanningEntriesCentralSyncEnabled() || planningEntriesCentralSyncLoaded) {
+    return;
+  }
+
+  planningEntriesCentralSyncLoaded = true;
+  const localBeforeSync = getPlanningEntriesSnapshot();
+
+  try {
+    const centralEntries = await fetchCentralPlanningEntries();
+    const mergedEntries = mergePlanningEntryCollections(localBeforeSync, centralEntries);
+    const localSignature = serializePlanningEntriesForComparison(localBeforeSync);
+    const centralSignature = serializePlanningEntriesForComparison(centralEntries);
+    const mergedSignature = serializePlanningEntriesForComparison(mergedEntries);
+
+    if (mergedSignature !== localSignature) {
+      replaceArrayContents(entries, mergedEntries);
+      planningDataRevision += 1;
+      derivedDataCache.planningEntriesKey = "";
+      derivedDataCache.visibleEntriesKey = "";
+      derivedDataCache.filteredEntriesKey = "";
+      persistPlanningEntriesToLocalStorage();
+      renderSchedule();
+      renderMySchedule();
+      renderSchedulePlanningOverview();
+      renderDashboard();
+    }
+
+    if (mergedSignature !== centralSignature) {
+      // Upsert-only: ontbrekende centrale rows worden aangevuld, verwijderingen syncen we later expliciet.
+      queuePlanningEntriesCentralSave();
+    }
+  } catch (error) {
+    reportPlanningEntriesCentralSyncError("load", error);
+  }
+}
+
+async function migrateLocalPlanningEntriesToCentral() {
+  const localEntries = getPlanningEntriesSnapshot(loadEntries());
+
+  if (!localEntries.length) {
+    console.info("[planningEntries] Geen lokale roosterregels gevonden om te migreren.");
+    return { success: true, migratedCount: 0 };
+  }
+
+  try {
+    await sendPlanningEntriesToCentral(localEntries);
+    lastPlanningEntriesCentralSyncError = null;
+    window.lastPlanningEntriesCentralSyncError = null;
+    console.info(`[planningEntries] ${localEntries.length} lokale roosterregels naar Supabase gestuurd. Delete-sync is nog niet actief.`);
+    return { success: true, migratedCount: localEntries.length };
+  } catch (error) {
+    reportPlanningEntriesCentralSyncError("migrate", error);
+    return { success: false, migratedCount: 0, error };
+  }
+}
+
+window.migrateLocalPlanningEntriesToCentral = migrateLocalPlanningEntriesToCentral;
 
 const {
   formatDateTime = function fallbackFormatDateTime(value) {
@@ -23163,6 +23407,7 @@ activeTab = getDefaultTabForCurrentRole();
 updateTabVisibility();
 restoreSessionState({ resetToDefaultTab: true, resetWeekToCurrent: true });
 syncEmployeeDataFromCentral();
+syncPlanningEntriesFromCentral();
 syncWorkLogsFromCentral();
 
 
