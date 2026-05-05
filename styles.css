@@ -7276,6 +7276,24 @@ button,
   color: #263445;
 }
 
+.week-roster-compact-grid {
+  margin-top: 0.35rem;
+}
+
+.week-roster-compact-grid .planning-shift-line:not(button) {
+  cursor: default;
+}
+
+.planning-absence-line {
+  padding: 0.2rem 0.24rem;
+  border-radius: 7px;
+  background: #eef6f2;
+  color: #1c5a49;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
 .planning-shift-editor {
   display: grid;
   gap: 0.2rem;

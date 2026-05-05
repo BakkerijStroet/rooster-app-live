@@ -11824,6 +11824,109 @@ function renderSchedulePlanningDayCard(day, sourceEntries = entries) {
   `;
 }
 
+function compareCompactRosterRows(rowA, rowB) {
+  if (rowA.isShopShift && rowB.isShopShift) {
+    return (getShopShiftNumber(rowA.shiftName) || 0) - (getShopShiftNumber(rowB.shiftName) || 0);
+  }
+
+  return rowA.startTime.localeCompare(rowB.startTime) || rowA.shiftName.localeCompare(rowB.shiftName, "nl");
+}
+
+function renderCompactWeekRosterShiftLine(row) {
+  const employeeName = row.entry?.name || "";
+  const entryIndex = Number.isInteger(row.entry?.index)
+    ? row.entry.index
+    : row.entry ? entries.indexOf(row.entry) : -1;
+  const shiftTime = `${row.startTime}-${row.endTime}`;
+  const rowClass = `planning-shift-line ${employeeName ? "is-filled" : "is-open"}`;
+
+  if (entryIndex >= 0) {
+    return `
+      <button
+        type="button"
+        class="${rowClass}"
+        data-action="edit"
+        data-index="${entryIndex}"
+        title="${employeeName} - klik om dienst te bewerken"
+      >
+        <span class="planning-shift-name">${row.shiftName}</span>
+        <span class="planning-shift-employee">${employeeName || "OPEN"}</span>
+        <span class="planning-shift-time">${shiftTime}</span>
+      </button>
+    `;
+  }
+
+  return `
+    <div class="${rowClass}" title="OPEN">
+      <span class="planning-shift-name">${row.shiftName}</span>
+      <span class="planning-shift-employee">OPEN</span>
+      <span class="planning-shift-time">${shiftTime}</span>
+    </div>
+  `;
+}
+
+function renderCompactWeekRosterDayCard(day, sourceEntries = entries, {
+  includeOpenShifts = true,
+  approvedAbsences = []
+} = {}) {
+  const requiredShifts = getRequiredDayPlannerShifts(day);
+  const dayEntries = sourceEntries.filter((entry) => entry.day === day);
+  const matchedEntries = new Set();
+  const rows = includeOpenShifts
+    ? requiredShifts.map((shift) => {
+        const entry = getEntryForShiftOnDate(day, shift, sourceEntries);
+        if (entry) {
+          matchedEntries.add(entry);
+        }
+
+        return {
+          shiftName: shift.name,
+          startTime: shift.startTime,
+          endTime: shift.endTime,
+          isShopShift: shift.isShopShift || isShopShiftName(shift.name),
+          entry
+        };
+      })
+    : [];
+
+  dayEntries.forEach((entry) => {
+    if (matchedEntries.has(entry)) {
+      return;
+    }
+
+    const matchingShift = getShiftForEntry(entry);
+    rows.push({
+      shiftName: getShiftName(entry),
+      startTime: entry.startTime || matchingShift?.startTime || "",
+      endTime: entry.endTime || matchingShift?.endTime || "",
+      isShopShift: matchingShift?.isShopShift || isShopShiftName(getShiftName(entry)),
+      entry
+    });
+  });
+
+  rows.sort(compareCompactRosterRows);
+
+  const hasOpenShifts = rows.some((row) => !row.entry);
+  const hasVisibleContent = rows.length || approvedAbsences.length;
+
+  return `
+    <article class="planning-day-card week-roster-day-card ${hasVisibleContent ? (hasOpenShifts ? "is-open-day" : "") : "is-closed"}">
+      <header class="planning-day-header">
+        <strong>${formatWeekday(day)}</strong>
+        <span>${formatDate(day)}</span>
+      </header>
+      <div class="planning-shift-lines">
+        ${rows.length ? rows.map(renderCompactWeekRosterShiftLine).join("") : `<div class="planning-shift-empty">Geen diensten</div>`}
+        ${approvedAbsences.map((request) => `
+          <div class="planning-absence-line absence-${getAbsenceCardClass(request.type)}">
+            ${request.employeeName}: ${getApprovedAbsenceLabel(request)}${request.reason ? ` - ${request.reason}` : ""}
+          </div>
+        `).join("")}
+      </div>
+    </article>
+  `;
+}
+
 function openSpecificWeekInRoster(weekValue) {
   activeTab = "week-current";
   weekFilterInput.value = weekValue;
@@ -16490,9 +16593,6 @@ function renderSchedule() {
   const selectedWeek = weekFilterInput.value;
   const roleVisibleEntriesAll = getEntriesVisibleForCurrentRole();
   const visibleEntries = getFilteredEntries(roleVisibleEntriesAll);
-  const roleVisibleEntries = roleVisibleEntriesAll.filter((entry) =>
-    getWeekValueFromDate(entry.day) === selectedWeek
-  );
   const employeeRosterEntries = getSortedEntries(entries).filter((entry) =>
     getWeekValueFromDate(entry.day) === selectedWeek
   );
@@ -16584,10 +16684,6 @@ function renderSchedule() {
     scheduleBoard.textContent = "Geen diensten of afwezigheid gevonden voor deze filters.";
     return;
   }
-  const desktopPlannerDates = weekDates.filter((day) => {
-    const weekday = getWeekdayNumberFromDate(day);
-    return (weekday >= 2 && weekday <= 6) || Boolean(getRecognizedSpecialDayInfo(day));
-  });
   if (showPlannerInsights) {
     renderWeekReviewStatus(selectedWeek);
     renderPlannerControlPanel(selectedWeek, visibleEntries);
@@ -16676,70 +16772,14 @@ function renderSchedule() {
   scheduleBoard.innerHTML = `
     <p class="week-note">Weekrooster week ${selectedWeek.replace("-W", " - ")}</p>
     ${employeeWeekFocusMarkup}
-    ${renderDesktopWeekColumns(desktopPlannerDates, (day) => {
-      const dayEntries = plannerEntriesForBoard
-        .filter((entry) => entry.day === day)
-        .sort((entryA, entryB) =>
-          entryA.startTime.localeCompare(entryB.startTime) ||
-          entryA.name.localeCompare(entryB.name, "nl") ||
-          getShiftName(entryA).localeCompare(getShiftName(entryB), "nl")
-        );
-      const dayTimeOff = approvedTimeOffRequests
-        .filter((request) => requestIncludesDate(request, day))
-        .sort((requestA, requestB) => requestA.employeeName.localeCompare(requestB.employeeName, "nl"));
-      const shopCoverage = getShopCoverageLabel(day);
-      const emptyText = plannerDeviationOnlyActive
-        ? "Geen afwijkingen"
-        : isDefaultFreeDay(day) ? "Standaard vrij" : "Geen diensten ingepland";
-      const dayStatus = getDesktopDayStatus(day);
-      const desktopPlannerStatusMarkup = isPlannerRole()
-        ? `
-            <span class="desktop-day-status ${dayStatus.className}">${dayStatus.label}</span>
-          `
-        : "";
-      const desktopPlannerMetaMarkup = isPlannerRole()
-        ? `
-            <div class="desktop-day-header-meta">
-              <span>${dayStatus.detail}</span>
-            </div>
-            ${renderDesktopDaySummary(day, dayEntries, roleVisibleEntries)}
-          `
-        : "";
-      const desktopCoverageMarkup = isPlannerRole()
-        ? `<em class="${shopCoverage.className}">${shopCoverage.text}</em>`
-        : (shopCoverage.className.includes("closed") ? '<em class="free-day-label">Winkel gesloten</em>' : "");
-      const desktopPlannerMessageMarkup = isPlannerRole() ? renderDayPlanningMessage(day) : "";
-
-      return `
-        <div class="desktop-day-header ${isDefaultFreeDay(day) ? "free-day-header" : ""}">
-              <div class="desktop-day-header-top">
-                <div class="desktop-day-header-main">
-                  <strong>${formatWeekday(day)}</strong>
-                  <span>${formatDate(day)}</span>
-                </div>
-                ${renderRelativeDayLabel(day)}
-                ${desktopPlannerStatusMarkup}
-              </div>
-              ${renderSpecialDayBadges(day, { compact: true })}
-              ${desktopPlannerMetaMarkup}
-              ${isDefaultFreeDay(day) ? '<em class="free-day-label">Vrije dag</em>' : ""}
-              ${desktopCoverageMarkup}
-          ${renderDesktopDayActions(day)}
-          ${desktopPlannerMessageMarkup}
-        </div>
-        ${renderDesktopPlannerSections({
-          day,
-          plannedEntries: dayEntries,
-          sourceEntries: roleVisibleEntries,
-          includeOpenShifts: showOpenPlannerSections && !plannerDeviationOnlyActive,
-          showEmployee: true,
-          showActions: isPlannerRole(),
-          emptyText,
-          absenceMarkup: renderDesktopAbsenceList(dayTimeOff),
-          footerMarkup: showOpenPlannerSections ? renderSuitableEmployeesHelper(day) : ""
-        })}
-      `;
-    })}
+    <section class="planning-week-grid week-roster-compact-grid">
+      ${weekDates.map((day) => renderCompactWeekRosterDayCard(day, plannerEntriesForBoard, {
+        includeOpenShifts: showOpenPlannerSections && !plannerDeviationOnlyActive,
+        approvedAbsences: approvedTimeOffRequests
+          .filter((request) => requestIncludesDate(request, day))
+          .sort((requestA, requestB) => requestA.employeeName.localeCompare(requestB.employeeName, "nl"))
+      })).join("")}
+    </section>
   `;
   applyPendingPlannerFocus();
 }
