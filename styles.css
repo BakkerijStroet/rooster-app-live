@@ -6743,6 +6743,8 @@ button,
   #timeOffForm label,
   #swapForm label {
     gap: 4px;
+    min-width: 0;
+    max-width: 100%;
   }
 
   #timeOffForm button,
@@ -6750,6 +6752,42 @@ button,
   .request-switch-button,
   .request-card .actions button {
     min-height: 50px;
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  #requestSwapComposer,
+  #requestSwapComposer *,
+  #requestTimeOffComposer,
+  #requestTimeOffComposer * {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  #requestSwapComposer select,
+  #requestSwapComposer button,
+  #requestSwapComposer input,
+  #requestTimeOffComposer select,
+  #requestTimeOffComposer button,
+  #requestTimeOffComposer input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  #requestSwapComposer select,
+  #requestSwapComposer option,
+  #swapTargetHint,
+  #swapSuggestionList,
+  #swapNoCandidateHelp,
+  #requestSwapComposer .panel-note,
+  #requestSwapComposer .request-suggestion-item {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  #swapEntry,
+  #swapTargetEmployee {
+    text-overflow: ellipsis;
   }
 
   .request-form-hidden-mobile {
