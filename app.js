@@ -109,8 +109,8 @@ const testMailButton = document.getElementById("testMailButton");
 const mailSettingsStatus = document.getElementById("mailSettingsStatus");
 const FIXED_TEST_MAIL_RECIPIENT = "info@bakkerijstroet.nl";
 // Mail safety switch: set both to true to force all app/employee mails to the fixed test recipient.
-const APP_MAIL_TEST_MODE_ENABLED = true;
-const EMPLOYEE_MAIL_TEST_MODE_ENABLED = true;
+const APP_MAIL_TEST_MODE_ENABLED = false;
+const EMPLOYEE_MAIL_TEST_MODE_ENABLED = false;
 const EMPLOYEE_MAIL_TEST_EMPLOYEE = "Twan";
 // TODO: replace this temporary local planner PIN with settings-backed or server-side auth.
 const PLANNER_LOGIN_PIN = "1234";
