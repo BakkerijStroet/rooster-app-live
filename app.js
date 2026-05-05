@@ -11775,7 +11775,13 @@ function getPlanningOverviewShiftOptions(shift, day, existingEntry) {
 
 function renderSchedulePlanningDayCard(day, sourceEntries = entries) {
   const shifts = getRequiredDayPlannerShifts(day)
-    .sort((shiftA, shiftB) => shiftA.startTime.localeCompare(shiftB.startTime) || shiftA.name.localeCompare(shiftB.name, "nl"));
+    .sort((shiftA, shiftB) => {
+      if (shiftA.isShopShift && shiftB.isShopShift) {
+        return (getShopShiftNumber(shiftA.name) || 0) - (getShopShiftNumber(shiftB.name) || 0);
+      }
+
+      return shiftA.startTime.localeCompare(shiftB.startTime) || shiftA.name.localeCompare(shiftB.name, "nl");
+    });
 
   return `
     <article class="planning-day-card ${shifts.length ? "" : "is-closed"}">
