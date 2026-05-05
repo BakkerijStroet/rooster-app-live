@@ -11596,6 +11596,49 @@ function getSchedulePlanningWeekData(weekValue, sourceEntries = entries) {
   });
 }
 
+function renderSchedulePlanningWeekShiftDetails(week) {
+  const openItemsByDay = (week?.openItems || []).reduce((groups, item) => {
+    groups[item.day] = groups[item.day] || [];
+    groups[item.day].push(item.shift);
+    return groups;
+  }, {});
+  const openDays = Object.keys(openItemsByDay).sort();
+
+  if (!openDays.length) {
+    return `
+      <div class="planning-overview-details">
+        <div class="planning-overview-detail-block">
+          <strong>Open diensten</strong>
+          <div class="planning-overview-tags">
+            <span class="planning-overview-tag">Geen open diensten</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  const dayBlocks = openDays.map((day) => `
+    <div class="planning-overview-detail-block">
+      <strong>${formatWeekday(day)} · ${formatDate(day)}</strong>
+      <div class="planning-overview-tags">
+        ${openItemsByDay[day]
+          .sort((shiftA, shiftB) => shiftA.startTime.localeCompare(shiftB.startTime) || shiftA.name.localeCompare(shiftB.name, "nl"))
+          .map((shift) => `
+            <span class="planning-overview-tag is-open">
+              ${shift.name} · ${shift.startTime}-${shift.endTime}
+            </span>
+          `).join("")}
+      </div>
+    </div>
+  `).join("");
+
+  return `
+    <div class="planning-overview-details">
+      ${dayBlocks}
+    </div>
+  `;
+}
+
 function openSpecificWeekInRoster(weekValue) {
   activeTab = "week-current";
   weekFilterInput.value = weekValue;
@@ -11792,6 +11835,7 @@ function renderSchedulePlanningOverview() {
               <button type="button" class="secondary" data-planning-action="open-week" data-week-value="${week.weekValue}">Open week</button>
               <button type="button" class="secondary" data-planning-action="smart-plan" data-week-value="${week.weekValue}" ${week.status.key === "locked" ? "disabled" : ""}>Vul week automatisch (voorstel)</button>
             </div>
+            ${renderSchedulePlanningWeekShiftDetails(week)}
           </article>
         `;
       }).join("")}

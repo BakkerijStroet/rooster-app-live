@@ -7367,7 +7367,7 @@ button,
 }
 
 .planning-overview-details {
-  display: none;
+  display: grid;
   grid-column: 1 / -1;
   gap: 0.5rem;
   padding-top: 0.1rem;
