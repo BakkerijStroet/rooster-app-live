@@ -691,6 +691,7 @@ function setCurrentDataMode(nextDataMode) {
 
   if (currentDataMode !== normalizedDataMode) {
     resetCentralSyncStateForModeSwitch();
+    resetMyScheduleRosterState();
   }
 
   currentDataMode = normalizedDataMode;
@@ -781,6 +782,12 @@ function resetScopedEmployeeSelectors() {
   swapEmployeeSelect.value = emptyEmployeeName;
 }
 
+function resetMyScheduleRosterState({ showYearOverview = true } = {}) {
+  myScheduleYearOverviewVisible = showYearOverview;
+  selectedMyScheduleMobileDate = "";
+  selectedMobileRosterDate = "";
+}
+
 function openSessionLogin({ preferredRole = activeRole, preferredEmployee = "" } = {}) {
   if (!loginOverlay) {
     return;
@@ -842,6 +849,7 @@ function startEmployeeSession(employeeName, { showStartupMessage = false } = {})
     return false;
   }
 
+  resetMyScheduleRosterState();
   applySessionSnapshot({
     isAuthenticated: true,
     role: "employee",
@@ -4668,6 +4676,8 @@ let editingShiftId = null;
 let activeTab = "week-current";
 let activeEmployeeWeekView = "today";
 let selectedMobileRosterDate = "";
+let myScheduleYearOverviewVisible = true;
+let selectedMyScheduleMobileDate = "";
 let activeRole = preferences.lastRole === "employee" ? "employee" : "planner";
 const sessionState = {
   isAuthenticated: false,
@@ -6768,6 +6778,7 @@ function reloadScopedData() {
   editingShiftId = null;
   editingTimeOffId = null;
   editingSwapId = null;
+  resetMyScheduleRosterState();
   clearUndoState();
   mergeEmployeesFromEntries();
   ensureConfiguredBakeryEmployees();
@@ -7787,6 +7798,18 @@ function getWeekDates(weekValue) {
     date.setUTCDate(weekStart.getUTCDate() + index);
     return formatDateInput(date);
   });
+}
+
+function getWeekNumber(weekValue) {
+  const match = String(weekValue || "").match(/^\d{4}-W(\d{2})$/);
+  return match ? Number(match[1]) : 0;
+}
+
+function getWeekValuesForYear(year) {
+  const weekCount = getIsoWeekCountForYear(year);
+  return Array.from({ length: weekCount }, (_, index) =>
+    `${year}-W${String(index + 1).padStart(2, "0")}`
+  );
 }
 
 function getShiftColorClass(entry) {
@@ -9564,6 +9587,67 @@ function renderEmployeeRosterDayCard(day, entriesForDay, approvedRequestsForDay,
         </div>
       ` : ""}
     </article>
+  `;
+}
+
+function renderMyScheduleYearOverview(employeeName, selectedWeek) {
+  const currentWeek = getCurrentWeekValue();
+  const year = getWeekYear(currentWeek);
+  const employeeEntries = entries.filter((entry) => entry.name === employeeName);
+  const weekValues = getWeekValuesForYear(year);
+
+  return `
+    <section class="my-schedule-year-overview">
+      <div class="my-schedule-year-head">
+        <div>
+          <h3>Jaaroverzicht ${year}</h3>
+          <p class="panel-note">Kies een week om je rooster te bekijken.</p>
+        </div>
+      </div>
+      <div class="my-schedule-year-grid" aria-label="Weken van ${year}">
+        ${weekValues.map((weekValue) => {
+          const weekDates = getWeekDates(weekValue);
+          const weekEntries = employeeEntries.filter((entry) => getWeekValueFromDate(entry.day) === weekValue);
+          const isCurrentWeek = weekValue === currentWeek;
+          const isSelectedWeek = weekValue === selectedWeek;
+          const plannedLabel = weekEntries.length
+            ? `${weekEntries.length} dienst${weekEntries.length === 1 ? "" : "en"}`
+            : "Niet gepland";
+
+          return `
+            <button type="button" class="my-schedule-week-tile ${weekEntries.length ? "is-planned" : "is-empty"} ${isCurrentWeek ? "is-current" : ""} ${isSelectedWeek ? "is-selected" : ""}" data-my-schedule-week="${weekValue}">
+              <strong>Week ${getWeekNumber(weekValue)}</strong>
+              <span>${formatDate(weekDates[0])} - ${formatDate(weekDates[6])}</span>
+              <em>${isCurrentWeek ? "Deze week · " : ""}${plannedLabel}</em>
+            </button>
+          `;
+        }).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderMyScheduleBackToYearButton() {
+  if (isPlannerRole()) {
+    return "";
+  }
+
+  return `
+    <button type="button" class="secondary my-schedule-year-back" data-my-schedule-year-back>
+      Terug naar jaaroverzicht
+    </button>
+  `;
+}
+
+function renderMyScheduleUnplannedWeek(selectedWeek) {
+  return `
+    <section class="my-schedule-week-empty">
+      ${renderMyScheduleBackToYearButton()}
+      <div class="planner-empty">
+        <strong>Week ${getWeekNumber(selectedWeek)}</strong>
+        <span>Deze week is nog niet gepland.</span>
+      </div>
+    </section>
   `;
 }
 
@@ -18257,6 +18341,13 @@ function renderMySchedule() {
     return;
   }
 
+  if (!isPlannerRole() && myScheduleYearOverviewVisible) {
+    selectedMyScheduleMobileDate = "";
+    setClassName(myScheduleBoard, "schedule-board my-schedule-year-board");
+    myScheduleBoard.innerHTML = renderMyScheduleYearOverview(employeeName, selectedWeek);
+    return;
+  }
+
   const entriesForEmployee = entries
     .filter((entry) => entry.name === employeeName && getWeekValueFromDate(entry.day) === selectedWeek)
     .sort((entryA, entryB) => entryA.day.localeCompare(entryB.day) || entryA.startTime.localeCompare(entryB.startTime));
@@ -18267,40 +18358,79 @@ function renderMySchedule() {
     requestOverlapsRange(request, weekDates[0], weekDates[6])
   );
 
-  const isEmployeeMobileView = !isPlannerRole() && isMobileView();
+  if (!isPlannerRole() && entriesForEmployee.length === 0) {
+    selectedMyScheduleMobileDate = "";
+    setClassName(myScheduleBoard, "schedule-board my-schedule-week-board empty");
+    myScheduleBoard.innerHTML = renderMyScheduleUnplannedWeek(selectedWeek);
+    return;
+  }
+
+  const isEmployeeMobileView = !isPlannerRole() && mobileMediaQuery.matches;
 
   if (isEmployeeMobileView) {
-    const plannedDays = weekDates.filter((day) => entriesForEmployee.some((entry) => entry.day === day));
+    if (!weekDates.includes(selectedMyScheduleMobileDate)) {
+      selectedMyScheduleMobileDate = "";
+    }
 
-    setClassName(myScheduleBoard, "schedule-board");
-    myScheduleBoard.innerHTML = plannedDays.length
-      ? `
-        <section class="mobile-week my-schedule-mobile-week my-schedule-simple-week">
-          ${plannedDays.map((day) => {
-            const dayEntries = entriesForEmployee
-              .filter((entry) => entry.day === day)
-              .sort((entryA, entryB) => entryA.startTime.localeCompare(entryB.startTime));
+    if (selectedMyScheduleMobileDate) {
+      const selectedDayEntries = entriesForEmployee
+        .filter((entry) => entry.day === selectedMyScheduleMobileDate)
+        .sort((entryA, entryB) => entryA.startTime.localeCompare(entryB.startTime));
+      const selectedDayRequests = approvedTimeOffRequests.filter((request) => requestIncludesDate(request, selectedMyScheduleMobileDate));
 
-            return `
-              <article class="mobile-day-card my-schedule-day-card my-schedule-simple-card ${isToday(day) ? "is-today" : ""} ${isTomorrow(day) ? "is-tomorrow" : ""}">
-                <div class="mobile-day-header my-schedule-simple-header">
-                  <strong>${formatWeekday(day)}</strong>
-                  <span>${formatDate(day)}</span>
-                </div>
-                <div class="mobile-shift-list my-schedule-simple-list">
-                  ${dayEntries.map((entry) => `
-                    <article class="shift-card my-schedule-simple-shift ${getShiftColorClass(entry)}">
-                      <div class="shift-name">${getShiftName(entry)}</div>
-                      <div class="shift-time">${entry.startTime} - ${entry.endTime}</div>
-                    </article>
-                  `).join("")}
-                </div>
-              </article>
-            `;
-          }).join("")}
+      setClassName(myScheduleBoard, "schedule-board my-schedule-week-board");
+      myScheduleBoard.innerHTML = `
+        <section class="my-schedule-mobile-detail">
+          <button type="button" class="secondary my-schedule-mobile-back" data-my-schedule-mobile-back>
+            Terug naar week
+          </button>
+          ${renderEmployeeRosterDayCard(
+            selectedMyScheduleMobileDate,
+            selectedDayEntries,
+            selectedDayRequests,
+            selectedMyScheduleMobileDate === getTodayDateValue() ? `Vandaag - ${formatWeekday(selectedMyScheduleMobileDate)}` : formatWeekday(selectedMyScheduleMobileDate),
+            {
+              showEmployeeName: false,
+              subtitle: formatDate(selectedMyScheduleMobileDate),
+              emptyText: "Geen dienst gepland"
+            }
+          )}
         </section>
-      `
-      : `<div class="planner-empty">Geen diensten in deze week.</div>`;
+      `;
+      return;
+    }
+
+    setClassName(myScheduleBoard, "schedule-board my-schedule-week-board");
+    myScheduleBoard.innerHTML = `
+      <section class="my-schedule-selected-week-head">
+        ${renderMyScheduleBackToYearButton()}
+        <div>
+          <strong>Week ${getWeekNumber(selectedWeek)}</strong>
+          <span>${formatDate(weekDates[0])} - ${formatDate(weekDates[6])}</span>
+        </div>
+      </section>
+      <section class="mobile-week my-schedule-mobile-week my-schedule-simple-week">
+        ${weekDates.map((day) => {
+          const dayEntries = entriesForEmployee
+            .filter((entry) => entry.day === day)
+            .sort((entryA, entryB) => entryA.startTime.localeCompare(entryB.startTime));
+          const statusText = dayEntries.length
+            ? `${dayEntries.length} dienst${dayEntries.length === 1 ? "" : "en"}`
+            : "Geen dienst gepland";
+          const relativeState = getRelativeDayState(day);
+
+          return `
+            <button type="button" class="my-schedule-mobile-day ${relativeState ? `is-${relativeState}` : ""}" data-my-schedule-mobile-day="${day}">
+              <span>
+                <strong>${relativeState === "today" ? "Vandaag" : formatWeekday(day)}</strong>
+                <small>${formatDate(day)}</small>
+              </span>
+              <em>${statusText}</em>
+            </button>
+          `;
+        }).join("")}
+      </section>
+    `;
   } else if (isMobileView()) {
     setClassName(myScheduleBoard, "schedule-board");
     myScheduleBoard.innerHTML = `
@@ -18348,6 +18478,15 @@ function renderMySchedule() {
   } else {
     setClassName(myScheduleBoard, "schedule-board");
     myScheduleBoard.innerHTML = `
+      ${!isPlannerRole() ? `
+        <section class="my-schedule-selected-week-head">
+          ${renderMyScheduleBackToYearButton()}
+          <div>
+            <strong>Week ${getWeekNumber(selectedWeek)}</strong>
+            <span>${formatDate(weekDates[0])} - ${formatDate(weekDates[6])}</span>
+          </div>
+        </section>
+      ` : ""}
       ${renderDesktopWeekColumns(weekDates, (day) => {
         const dayEntries = entriesForEmployee
           .filter((entry) => entry.day === day)
@@ -18370,7 +18509,7 @@ function renderMySchedule() {
             includeOpenShifts: false,
             showEmployee: false,
             showActions: false,
-            emptyText: approvedTimeOff ? approvedAbsenceLabel : isClosedDay ? "Gesloten" : "Geen dienst",
+            emptyText: approvedTimeOff ? approvedAbsenceLabel : isClosedDay ? "Gesloten" : "Geen dienst gepland",
             absenceMarkup: approvedTimeOff ? `<div class="planner-note approved absence-${getAbsenceCardClass(approvedTimeOff.type)}">${approvedAbsenceLabel}${approvedTimeOff.reason ? `: ${approvedTimeOff.reason}` : ""}</div>` : ""
           })}
         `;
@@ -21545,6 +21684,35 @@ myHoursSectionSwitch?.addEventListener("click", (event) => {
 });
 
 myScheduleBoard?.addEventListener("click", (event) => {
+  const weekButton = event.target.closest("[data-my-schedule-week]");
+
+  if (weekButton?.dataset.myScheduleWeek && !isPlannerRole()) {
+    myScheduleWeekInput.value = weekButton.dataset.myScheduleWeek;
+    resetMyScheduleRosterState({ showYearOverview: false });
+    renderMySchedule();
+    return;
+  }
+
+  if (event.target.closest("[data-my-schedule-year-back]") && !isPlannerRole()) {
+    resetMyScheduleRosterState();
+    renderMySchedule();
+    return;
+  }
+
+  const dayButton = event.target.closest("[data-my-schedule-mobile-day]");
+
+  if (dayButton?.dataset.myScheduleMobileDay && !isPlannerRole()) {
+    selectedMyScheduleMobileDate = dayButton.dataset.myScheduleMobileDay;
+    renderMySchedule();
+    return;
+  }
+
+  if (event.target.closest("[data-my-schedule-mobile-back]") && !isPlannerRole()) {
+    selectedMyScheduleMobileDate = "";
+    renderMySchedule();
+    return;
+  }
+
   const quickCompleteButton = event.target.closest("[data-complete-hours-date]");
 
   if (quickCompleteButton?.dataset.completeHoursDate) {
@@ -23592,6 +23760,7 @@ portalEmployeeSelect.addEventListener("change", () => {
 
     if (!ownEmployeeName) {
       portalEmployeeSelect.value = "";
+      resetMyScheduleRosterState();
       renderMySchedule();
       return;
     }
@@ -23600,6 +23769,8 @@ portalEmployeeSelect.addEventListener("change", () => {
       portalEmployeeSelect.value = ownEmployeeName;
       showMessage("Je kunt alleen je eigen rooster bekijken.", "error");
     }
+
+    resetMyScheduleRosterState();
   }
 
   preferences.lastPortalEmployee = portalEmployeeSelect.value || "";
@@ -23635,6 +23806,7 @@ portalNextEmployeeButton?.addEventListener("click", () => {
 });
 
 myScheduleWeekInput.addEventListener("change", () => {
+  resetMyScheduleRosterState({ showYearOverview: false });
   preferences.lastPortalWeek = myScheduleWeekInput.value || "";
   savePreferences();
   renderMySchedule();
@@ -23736,6 +23908,7 @@ hoursExportMonthInput?.addEventListener("change", () => {
 mySchedulePreviousWeekButton?.addEventListener("click", () => {
   myScheduleWeekInput.value = getPreviousWeekValue(myScheduleWeekInput.value || getCurrentWeekValue());
   preferences.lastPortalWeek = myScheduleWeekInput.value || "";
+  resetMyScheduleRosterState({ showYearOverview: false });
   savePreferences();
   renderMySchedule();
 });
@@ -23743,6 +23916,7 @@ mySchedulePreviousWeekButton?.addEventListener("click", () => {
 myScheduleCurrentWeekButton?.addEventListener("click", () => {
   myScheduleWeekInput.value = getCurrentWeekValue();
   preferences.lastPortalWeek = myScheduleWeekInput.value || "";
+  resetMyScheduleRosterState({ showYearOverview: false });
   savePreferences();
   renderMySchedule();
 });
@@ -23750,6 +23924,7 @@ myScheduleCurrentWeekButton?.addEventListener("click", () => {
 myScheduleNextWeekButton?.addEventListener("click", () => {
   myScheduleWeekInput.value = getNextWeekValue(myScheduleWeekInput.value || getCurrentWeekValue());
   preferences.lastPortalWeek = myScheduleWeekInput.value || "";
+  resetMyScheduleRosterState({ showYearOverview: false });
   savePreferences();
   renderMySchedule();
 });

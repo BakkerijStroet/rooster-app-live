@@ -1296,6 +1296,82 @@ body[data-role="employee"] [data-panel="my-schedule"] .schedule-board {
   gap: 10px;
 }
 
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-year-board,
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-board {
+  gap: 12px;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-year-overview,
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-empty,
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-mobile-detail {
+  display: grid;
+  gap: 12px;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-year-head h3 {
+  margin: 0;
+  font-size: 20px;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-year-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 8px;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile,
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-mobile-day {
+  border: 1px solid rgba(138, 85, 54, 0.14);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--text);
+  padding: 12px;
+  display: grid;
+  gap: 5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.is-planned {
+  border-color: rgba(126, 174, 130, 0.45);
+  background: #f5fbf3;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.is-current,
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-mobile-day.is-today {
+  border-color: rgba(242, 140, 40, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(242, 140, 40, 0.18);
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile strong,
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-mobile-day strong {
+  font-size: 15px;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile span,
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile em,
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-mobile-day small,
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-mobile-day em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-mobile-day span {
+  display: grid;
+  gap: 2px;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-year-back,
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-mobile-back {
+  width: fit-content;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-mobile-day {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
 body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-mobile-week {
   gap: 10px;
 }
