@@ -8224,6 +8224,64 @@ button,
     min-width: 0;
     justify-self: stretch;
   }
+
+  body[data-role="planner"] .app-panel.is-active[data-panel="backup"] {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: min(100%, 1120px);
+    align-content: start;
+  }
+
+  body[data-role="planner"] .app-panel.is-active[data-panel="backup"] .director-content-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 1.15fr);
+    gap: 20px;
+    width: 100%;
+    align-items: stretch;
+  }
+
+  body[data-role="planner"] .app-panel.is-active[data-panel="backup"] .director-content-left,
+  body[data-role="planner"] .app-panel.is-active[data-panel="backup"] .director-content-right,
+  body[data-role="planner"] .app-panel.is-active[data-panel="backup"] .capacity-card {
+    min-width: 0;
+  }
+
+  body[data-role="planner"] .app-panel.is-active[data-panel="backup"] .director-content-grid .capacity-card {
+    height: 100%;
+  }
+
+  body[data-role="planner"] .app-panel.is-active[data-panel="backup"] .director-content-right .staff-actions {
+    grid-template-columns: minmax(0, 1fr) max-content;
+    gap: 12px;
+    align-items: end;
+  }
+
+  body[data-role="planner"] .app-panel.is-active[data-panel="backup"] .director-content-right label,
+  body[data-role="planner"] .app-panel.is-active[data-panel="backup"] .director-content-right select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  body[data-role="planner"] .app-panel.is-active[data-panel="backup"] > .capacity-card {
+    display: grid;
+    gap: 12px;
+  }
+
+  body[data-role="planner"] .app-panel.is-active[data-panel="backup"] > .capacity-card .staff-actions {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 14px 16px;
+    align-items: end;
+  }
+
+  body[data-role="planner"] .app-panel.is-active[data-panel="backup"] > .capacity-card .staff-actions label,
+  body[data-role="planner"] .app-panel.is-active[data-panel="backup"] > .capacity-card .staff-actions input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  body[data-role="planner"] .app-panel.is-active[data-panel="backup"] #mailSettingsStatus,
+  body[data-role="planner"] .app-panel.is-active[data-panel="backup"] > .capacity-card .compact-actions {
+    grid-column: 1 / -1;
+  }
 }
 
 body[data-role="planner"] .container {
