@@ -1357,6 +1357,18 @@ body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-mobile-day em
   font-style: normal;
 }
 
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-selected-week-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(138, 85, 54, 0.1);
+  border-radius: 14px;
+  background: #fffaf0;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-selected-week-head div,
 body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-mobile-day span {
   display: grid;
   gap: 2px;
