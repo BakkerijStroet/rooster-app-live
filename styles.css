@@ -1462,6 +1462,7 @@ body[data-role="employee"] [data-panel="week-current"] .mobile-day-header {
 
 body[data-role="employee"] [data-panel="my-hours"] .view-header .employee-picker-control,
 body[data-role="employee"] [data-panel="my-hours"] .view-header .employee-switcher,
+body[data-role="employee"] [data-panel="my-hours"] #hoursEmployeeBadge,
 body[data-role="employee"] [data-panel="my-hours"] .view-toolbar .hours-secondary-control,
 body[data-role="employee"] [data-panel="my-hours"] .hours-day-section-head,
 body[data-role="employee"] [data-panel="my-hours"] .hours-registration-audit,
