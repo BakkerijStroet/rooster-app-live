@@ -11782,9 +11782,10 @@ function renderSchedulePlanningDayCard(day, sourceEntries = entries) {
 
       return shiftA.startTime.localeCompare(shiftB.startTime) || shiftA.name.localeCompare(shiftB.name, "nl");
     });
+  const hasOpenShifts = shifts.some((shift) => !getEntryForShiftOnDate(day, shift, sourceEntries));
 
   return `
-    <article class="planning-day-card ${shifts.length ? "" : "is-closed"}">
+    <article class="planning-day-card ${shifts.length ? (hasOpenShifts ? "is-open-day" : "") : "is-closed"}">
       <header class="planning-day-header">
         <strong>${formatWeekday(day)}</strong>
         <span>${formatDate(day)}</span>
@@ -11803,7 +11804,7 @@ function renderSchedulePlanningDayCard(day, sourceEntries = entries) {
               class="planning-shift-line ${employeeName ? "is-filled" : "is-open"}"
               data-planning-edit-day="${day}"
               data-planning-edit-shift="${shift.id || shift.name}"
-              title="${employeeName || "OPEN"}"
+              title="${employeeName ? `${employeeName} - klik om medewerker te wijzigen` : "OPEN - klik om medewerker te kiezen"}"
             >
               <span class="planning-shift-name">${shift.name}</span>
               <span class="planning-shift-employee">${employeeName || "OPEN"}</span>
