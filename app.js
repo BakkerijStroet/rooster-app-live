@@ -9703,6 +9703,87 @@ function formatEmployeeWeekLabel(weekValue) {
   });
 }
 
+function getRosterDepartmentForEntry(entry) {
+  const shiftName = getShiftName(entry).toLowerCase();
+  const shopKeywords = ["brood", "verkoop", "inpak", "winkel"];
+
+  return shopKeywords.some((keyword) => shiftName.includes(keyword))
+    ? "shop"
+    : "bakery";
+}
+
+function groupEntriesByDepartment(entriesForDay) {
+  return entriesForDay.reduce((groups, entry) => {
+    groups[getRosterDepartmentForEntry(entry)].push(entry);
+    return groups;
+  }, {
+    bakery: [],
+    shop: []
+  });
+}
+
+function renderMobileTodayRosterGroup(title, groupEntries, groupType) {
+  if (!groupEntries.length) {
+    return "";
+  }
+
+  return `
+    <section class="roster-group roster-group--${groupType}">
+      <h3 class="roster-group-title">${groupType === "shop" ? "🏪" : "🥖"} ${title}</h3>
+      <div class="roster-group-list">
+        ${groupEntries.map((entry) => `
+          <div class="roster-row">
+            <span class="roster-row-name">${entry.name}</span>
+            <strong class="roster-row-shift">${getShiftName(entry)}</strong>
+            <span class="roster-row-time">${entry.startTime}-${entry.endTime}</span>
+          </div>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderMobileTodayGroupedRoster(day, entriesForDay, approvedRequestsForDay) {
+  const sortedEntries = [...entriesForDay].sort((entryA, entryB) =>
+    entryA.startTime.localeCompare(entryB.startTime) ||
+    getShiftName(entryA).localeCompare(getShiftName(entryB), "nl") ||
+    entryA.name.localeCompare(entryB.name, "nl")
+  );
+  const groupedEntries = groupEntriesByDepartment(sortedEntries);
+  const approvedAbsenceLabel = approvedRequestsForDay.length
+    ? approvedRequestsForDay.map((request) => getApprovedAbsenceLabel(request)).join(", ")
+    : "";
+  const dayStatus = sortedEntries.length ? getDayWorkLogStatusForEntries(sortedEntries) : "";
+  const statusMarkup = dayStatus
+    ? `<span class="status-pill status-${dayStatus === "goedgekeurd" ? "approved" : dayStatus === "ingediend" ? "open" : "empty"}">${dayStatus === "goedgekeurd" ? "Goedgekeurd" : dayStatus === "ingediend" ? "Ingediend" : "Ingevuld"}</span>`
+    : "";
+  const canCompleteToday = sortedEntries.length > 0 && !dayStatus;
+
+  return `
+    <article class="employee-roster-day-card employee-roster-day-card--compact-today">
+      <div class="employee-roster-day-head">
+        <div>
+          <strong>Vandaag - ${formatWeekday(day)}</strong>
+          <span>${formatDate(day)}</span>
+        </div>
+        ${statusMarkup}
+      </div>
+      <div class="roster-groups">
+        ${sortedEntries.length
+          ? `${renderMobileTodayRosterGroup("Bakkerij", groupedEntries.bakery, "bakery")}${renderMobileTodayRosterGroup("Winkel", groupedEntries.shop, "shop")}`
+          : `<div class="employee-roster-empty">${approvedAbsenceLabel || (isClosedPlannerDay(day) ? "Gesloten" : "Geen dienst")}</div>`}
+      </div>
+      ${canCompleteToday ? `
+        <div class="employee-roster-actions">
+          <button type="button" class="secondary" data-go-hours-date="${day}">
+            Uren vandaag doorgeven
+          </button>
+        </div>
+      ` : ""}
+    </article>
+  `;
+}
+
 function renderEmployeeRosterDayCard(day, entriesForDay, approvedRequestsForDay, title, options = {}) {
   const {
     showEmployeeName = false,
@@ -18324,10 +18405,12 @@ function renderSchedule() {
 
         scheduleBoard.innerHTML = `
           <section class="employee-roster-today">
-          ${renderEmployeeRosterDayCard(todayDate, todayEntries, todayRequests, `Vandaag - ${formatWeekday(todayDate)}`, {
-            showEmployeeName: true,
-            subtitle: formatDate(todayDate)
-          })}
+          ${mobileMediaQuery.matches
+            ? renderMobileTodayGroupedRoster(todayDate, todayEntries, todayRequests)
+            : renderEmployeeRosterDayCard(todayDate, todayEntries, todayRequests, `Vandaag - ${formatWeekday(todayDate)}`, {
+              showEmployeeName: true,
+              subtitle: formatDate(todayDate)
+            })}
           </section>
         `;
         return;

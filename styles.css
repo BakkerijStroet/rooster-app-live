@@ -7144,6 +7144,70 @@ button,
     gap: 8px;
   }
 
+  body[data-role="employee"] [data-panel="week-current"] .employee-roster-day-card--compact-today {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .roster-groups,
+  body[data-role="employee"] [data-panel="week-current"] .roster-group,
+  body[data-role="employee"] [data-panel="week-current"] .roster-group-list {
+    display: grid;
+    gap: 7px;
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .roster-group {
+    padding: 9px;
+    border: 1px solid rgba(138, 85, 54, 0.1);
+    border-radius: 12px;
+    background: rgba(255, 253, 250, 0.72);
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .roster-group--bakery {
+    border-color: rgba(216, 116, 47, 0.16);
+    background: rgba(255, 248, 239, 0.78);
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .roster-group--shop {
+    border-color: rgba(88, 137, 106, 0.16);
+    background: rgba(244, 250, 246, 0.78);
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .roster-group-title {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.2;
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .roster-row {
+    display: grid;
+    grid-template-columns: minmax(62px, 0.9fr) minmax(88px, 1.2fr) auto;
+    gap: 7px;
+    align-items: baseline;
+    padding: 6px 0;
+    border-top: 1px solid rgba(138, 85, 54, 0.08);
+    font-size: 13px;
+    line-height: 1.25;
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .roster-row:first-child {
+    border-top: 0;
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .roster-row-name,
+  body[data-role="employee"] [data-panel="week-current"] .roster-row-shift {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .roster-row-time {
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
   .mobile-day-short {
     min-width: 40px;
     padding: 7px 8px;
