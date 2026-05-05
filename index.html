@@ -923,21 +923,13 @@
             <span>Week</span>
             <input type="week" id="weekFilter">
           </label>
-          <div class="week-switcher compact-actions planner-toolbar-groups">
+          <div class="week-switcher compact-actions planner-toolbar-groups planner-week-top-actions">
             <div class="planner-action-group">
               <span class="planner-action-group-label">Weeknavigatie</span>
               <div class="planner-action-group-buttons">
                 <button type="button" id="previousWeekButton" class="secondary">Vorige</button>
                 <button type="button" id="todayWeekButton" class="secondary">Deze</button>
                 <button type="button" id="nextWeekButton" class="secondary">Volgende</button>
-              </div>
-            </div>
-            <div class="planner-action-group role-planner">
-              <span class="planner-action-group-label">Modus</span>
-              <div class="planner-action-group-buttons">
-                <button type="button" id="focusModeButton" class="secondary role-planner">Focusmodus aan</button>
-                <button type="button" id="controlModeButton" class="secondary role-planner">Controlemodus aan</button>
-                <button type="button" id="deviationOnlyButton" class="secondary role-planner">Alleen afwijkingen tonen</button>
               </div>
             </div>
             <div class="planner-action-group">
@@ -950,32 +942,44 @@
           </div>
         </div>
       </div>
-      <div class="planner-toolbar-actions role-planner">
-        <div class="planner-action-group planner-action-group--primary">
-          <span class="planner-action-group-label">Belangrijkste acties</span>
-          <div class="planner-action-group-buttons">
-            <button type="button" id="showSuitableButton" class="secondary">Geschikte medewerkers</button>
-            <button type="button" id="autoFillButton" class="secondary">Automatisch roosteren</button>
-            <button type="button" id="completeReviewButton" class="secondary">Controle afronden</button>
-          </div>
-        </div>
-        <div class="planner-action-group">
-          <span class="planner-action-group-label">Voorstel</span>
-          <div class="planner-action-group-buttons">
-            <button type="button" id="applyAutoFillButton" class="secondary hidden">Voorstel toepassen</button>
-            <button type="button" id="cancelAutoFillButton" class="secondary hidden">Voorstel annuleren</button>
-            <button type="button" id="undoButton" class="secondary hidden">Ongedaan maken</button>
-          </div>
-        </div>
-        <div class="planner-action-group planner-action-group--secondary">
-          <span class="planner-action-group-label">Extra</span>
-          <div class="planner-action-group-buttons">
-            <button type="button" id="rebalanceHoursButton" class="secondary">Slim herplannen winkel</button>
-            <button type="button" id="monthBalanceButton" class="secondary">Maandbalans herstellen</button>
-          </div>
-        </div>
-      </div>
       <div id="message" class="message hidden compact-message" role="status" aria-live="polite"></div>
+      <div id="schedule-board" class="schedule-board empty">Nog geen diensten toegevoegd.</div>
+      <details class="planner-more-actions role-planner">
+        <summary>Meer acties en controle</summary>
+        <div class="planner-toolbar-actions role-planner">
+          <div class="planner-action-group role-planner">
+            <span class="planner-action-group-label">Modus</span>
+            <div class="planner-action-group-buttons">
+              <button type="button" id="focusModeButton" class="secondary role-planner">Focusmodus aan</button>
+              <button type="button" id="controlModeButton" class="secondary role-planner">Controlemodus aan</button>
+              <button type="button" id="deviationOnlyButton" class="secondary role-planner">Alleen afwijkingen tonen</button>
+            </div>
+          </div>
+          <div class="planner-action-group planner-action-group--primary">
+            <span class="planner-action-group-label">Belangrijkste acties</span>
+            <div class="planner-action-group-buttons">
+              <button type="button" id="showSuitableButton" class="secondary">Geschikte medewerkers</button>
+              <button type="button" id="autoFillButton" class="secondary">Automatisch roosteren</button>
+              <button type="button" id="completeReviewButton" class="secondary">Controle afronden</button>
+            </div>
+          </div>
+          <div class="planner-action-group">
+            <span class="planner-action-group-label">Voorstel</span>
+            <div class="planner-action-group-buttons">
+              <button type="button" id="applyAutoFillButton" class="secondary hidden">Voorstel toepassen</button>
+              <button type="button" id="cancelAutoFillButton" class="secondary hidden">Voorstel annuleren</button>
+              <button type="button" id="undoButton" class="secondary hidden">Ongedaan maken</button>
+            </div>
+          </div>
+          <div class="planner-action-group planner-action-group--secondary">
+            <span class="planner-action-group-label">Extra</span>
+            <div class="planner-action-group-buttons">
+              <button type="button" id="rebalanceHoursButton" class="secondary">Slim herplannen winkel</button>
+              <button type="button" id="monthBalanceButton" class="secondary">Maandbalans herstellen</button>
+            </div>
+          </div>
+        </div>
+      </details>
       <div class="hidden">
         <select id="employeeFilter">
           <option value="">Alle medewerkers</option>
@@ -1017,7 +1021,6 @@
         <span class="legend-item"><span class="legend-swatch replacement"></span>Vervanging</span>
         <span class="legend-item"><span class="legend-swatch stage"></span>Stage</span>
       </div>
-      <div id="schedule-board" class="schedule-board empty">Nog geen diensten toegevoegd.</div>
     </section>
 
     <section class="staff-panel role-planner app-panel aligned-view-panel director-screen-panel schedule-planning-panel" data-panel="schedule-planning">

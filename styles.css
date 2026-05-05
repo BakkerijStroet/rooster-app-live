@@ -289,6 +289,7 @@ h3 {
 .app-shell.focus-week-mode > .session-bar,
 .app-shell.focus-week-mode > .app-nav,
 .app-shell.focus-week-mode > #plannerDashboard,
+.app-shell.focus-week-mode .planner-more-actions,
 .app-shell.focus-week-mode .planner-toolbar-actions,
 .app-shell.focus-week-mode #weekStatusOverview,
 .app-shell.focus-week-mode .roster-legend,
@@ -304,7 +305,7 @@ h3 {
 }
 
 .planner-toolbar-actions {
-  margin: -4px 0 10px;
+  margin: 0;
   justify-content: flex-start;
   flex-wrap: wrap;
 }
@@ -348,6 +349,34 @@ h3 {
 
 .planner-action-group-buttons .week-select {
   max-width: 220px;
+}
+
+.planner-week-top-actions {
+  align-items: end;
+}
+
+.planner-week-top-actions .planner-action-group {
+  padding: 8px 10px;
+}
+
+.planner-more-actions {
+  margin: 10px 0 12px;
+  border: 1px solid rgba(216, 116, 47, 0.14);
+  border-radius: 14px;
+  background: #fffdf9;
+}
+
+.planner-more-actions summary {
+  cursor: pointer;
+  padding: 10px 12px;
+  color: #6b543b;
+  font-size: 13px;
+  font-weight: 800;
+  list-style-position: inside;
+}
+
+.planner-more-actions .planner-toolbar-actions {
+  padding: 0 10px 10px;
 }
 
 .planner-week-insights-grid {
