@@ -9066,6 +9066,24 @@ function getEmployeeWeekAssignmentCount(employeeName, weekValue, sourceEntries =
   ).length;
 }
 
+function compareEmployeePlanningDistribution(employeeA, employeeB, weekValue, sourceEntries = entries) {
+  const assignmentDifference = getEmployeeWeekAssignmentCount(employeeA, weekValue, sourceEntries) -
+    getEmployeeWeekAssignmentCount(employeeB, weekValue, sourceEntries);
+
+  if (assignmentDifference !== 0) {
+    return assignmentDifference;
+  }
+
+  const hoursDifference = getEmployeeWeekHours(employeeA, weekValue, sourceEntries) -
+    getEmployeeWeekHours(employeeB, weekValue, sourceEntries);
+
+  if (hoursDifference !== 0) {
+    return hoursDifference;
+  }
+
+  return 0;
+}
+
 function hasEmployeeAssignmentOnDay(employeeName, day, sourceEntries = entries, ignoredShiftName = "") {
   return sourceEntries.some((entry) =>
     entry.name === employeeName &&
@@ -10002,6 +10020,12 @@ function getAutoFillCandidateEmployees(shift, day, sourceEntries, weekValue, opt
           return contractGapDifference;
         }
 
+        const distributionDifference = compareEmployeePlanningDistribution(employeeA, employeeB, weekValue, sourceEntries);
+
+        if (distributionDifference !== 0) {
+          return distributionDifference;
+        }
+
         const saturdayPriorityDifference = getEmployeeSaturdayPlanningPriority(employeeA, shift, day, weekValue, sourceEntries) -
           getEmployeeSaturdayPlanningPriority(employeeB, shift, day, weekValue, sourceEntries);
 
@@ -10033,6 +10057,12 @@ function getAutoFillCandidateEmployees(shift, day, sourceEntries, weekValue, opt
         if (repeatStreakDifference !== 0) {
           return repeatStreakDifference;
         }
+      }
+
+      const distributionDifference = compareEmployeePlanningDistribution(employeeA, employeeB, weekValue, sourceEntries);
+
+      if (distributionDifference !== 0) {
+        return distributionDifference;
       }
 
       const preferenceDifference = (getEmployeeShiftPreference(employeeA, shift.name) || Number.MAX_SAFE_INTEGER) -
