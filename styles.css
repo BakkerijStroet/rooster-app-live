@@ -7480,7 +7480,8 @@ button,
   body[data-role="planner"] #dayPlannerPanel.app-panel.is-active {
     grid-column: 1 / 2;
     width: 100%;
-    max-width: 330px;
+    max-width: 190px;
+    overflow: hidden;
   }
 
   body[data-role="planner"] .mobile-bottom-nav {
@@ -7742,6 +7743,11 @@ button,
   align-items: stretch;
 }
 
+.week-roster-compact-grid {
+  grid-template-columns: repeat(5, minmax(180px, 1fr));
+  gap: 0.6rem;
+}
+
 .planning-day-card {
   display: grid;
   grid-template-rows: auto 1fr;
@@ -7771,13 +7777,13 @@ button,
 
 .planning-day-header strong {
   color: #2f2a23;
-  font-size: 0.76rem;
+  font-size: 0.92rem;
   text-transform: capitalize;
 }
 
 .planning-day-header span {
   color: #667085;
-  font-size: 0.62rem;
+  font-size: 0.72rem;
 }
 
 .planning-shift-lines {
@@ -7786,17 +7792,50 @@ button,
   align-content: start;
 }
 
+.planning-roster-groups,
+.planning-roster-group,
+.planning-roster-group .roster-group-list {
+  display: grid;
+  gap: 0.24rem;
+  min-width: 0;
+}
+
+.planning-roster-group {
+  padding: 0.5rem;
+  border: 1px solid rgba(138, 85, 54, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 253, 250, 0.76);
+}
+
+.planning-roster-group.roster-group--bakery {
+  border-color: rgba(216, 116, 47, 0.16);
+  background: rgba(255, 248, 239, 0.78);
+}
+
+.planning-roster-group.roster-group--shop {
+  border-color: rgba(88, 137, 106, 0.16);
+  background: rgba(244, 250, 246, 0.78);
+}
+
+.planning-roster-group .roster-group-title {
+  margin: 0;
+  color: #4d3a2b;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
 .planning-shift-line {
   appearance: none;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(42px, auto) 58px;
-  gap: 0.22rem;
+  grid-template-columns: minmax(76px, 96px) minmax(0, 1fr) 70px;
+  gap: 0.3rem;
   align-items: center;
   width: 100%;
   min-width: 0;
-  padding: 0.2rem 0.24rem;
+  padding: 0.3rem 0.38rem;
   border: 1px solid #d7e6dc;
-  border-radius: 7px;
+  border-radius: 8px;
   background: #f7fbf8;
   color: inherit;
   cursor: pointer;
@@ -7821,13 +7860,12 @@ button,
 
 .planning-shift-time {
   color: #7a6453;
-  font-size: 0.6rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-align: right;
   white-space: nowrap;
 }
 
-.planning-shift-name,
 .planning-shift-employee {
   min-width: 0;
   overflow: hidden;
@@ -7837,20 +7875,26 @@ button,
 
 .planning-shift-name {
   color: #2f2a23;
-  font-size: 0.64rem;
+  font-size: 0.76rem;
   font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
 }
 
 .planning-shift-employee {
   color: #344054;
-  font-size: 0.62rem;
+  font-size: 0.76rem;
   font-weight: 700;
-  text-align: center;
+  text-align: left;
 }
 
 .planning-shift-line.is-open .planning-shift-employee {
   display: inline-flex;
   justify-content: center;
+  justify-self: start;
   padding: 0.08rem 0.28rem;
   border-radius: 999px;
   background: #ffe3cf;
@@ -8305,6 +8349,24 @@ button,
   body[data-role="planner"] .app-panel.is-active[data-panel="backup"] .director-content-right,
   body[data-role="planner"] .app-panel.is-active[data-panel="backup"] .capacity-card {
     min-width: 0;
+  }
+
+  body[data-role="planner"] .app-shell:has(.board-card.app-panel.is-active[data-week-panel]) {
+    grid-template-columns: minmax(88px, 120px) minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  body[data-role="planner"] .app-shell:has(.board-card.app-panel.is-active[data-week-panel]) .week-form-card.app-panel.is-active,
+  body[data-role="planner"] .app-shell:has(.board-card.app-panel.is-active[data-week-panel]) #dayPlannerPanel.app-panel.is-active {
+    max-width: 120px;
+  }
+
+  body[data-role="planner"] .app-shell:has(.board-card.app-panel.is-active[data-week-panel]) .board-card.app-panel.is-active[data-week-panel] {
+    justify-self: stretch;
+    margin-left: 0;
+    padding-left: 10px;
+    width: 100%;
+    max-width: none;
   }
 
   body[data-role="planner"] .app-panel.is-active[data-panel="backup"] .director-content-grid .capacity-card {

@@ -13578,62 +13578,114 @@ function getPlanningOverviewShiftOptions(shift, day, existingEntry) {
 }
 
 function renderSchedulePlanningDayCard(day, sourceEntries = entries) {
-  const shifts = getRequiredDayPlannerShifts(day)
-    .sort((shiftA, shiftB) => {
-      if (shiftA.isShopShift && shiftB.isShopShift) {
-        return (getShopShiftNumber(shiftA.name) || 0) - (getShopShiftNumber(shiftB.name) || 0);
-      }
+  const shiftRows = getRequiredDayPlannerShifts(day)
+    .map((shift) => {
+      const existingEntry = getEntryForShiftOnDate(day, shift, sourceEntries);
+      const shiftKey = getPlanningOverviewShiftKey(day, shift);
+      const employeeName = existingEntry?.name || "";
+      const { suitableEmployees, markup } = getPlanningOverviewShiftOptions(shift, day, existingEntry);
 
-      return shiftA.startTime.localeCompare(shiftB.startTime) || shiftA.name.localeCompare(shiftB.name, "nl");
+      return {
+        shift,
+        shiftName: shift.name,
+        startTime: shift.startTime,
+        endTime: shift.endTime,
+        entry: existingEntry,
+        employeeName,
+        isEditing: planningOverviewEditingShiftKey === shiftKey,
+        markup,
+        suitableEmployees
+      };
     });
-  const hasOpenShifts = shifts.some((shift) => !getEntryForShiftOnDate(day, shift, sourceEntries));
+  shiftRows.sort(compareCompactRosterRows);
+  const groupedRows = groupEntriesByDepartment(shiftRows);
+  const hasOpenShifts = shiftRows.some((row) => !row.employeeName);
 
   return `
-    <article class="planning-day-card ${shifts.length ? (hasOpenShifts ? "is-open-day" : "") : "is-closed"}">
+    <article class="planning-day-card ${shiftRows.length ? (hasOpenShifts ? "is-open-day" : "") : "is-closed"}">
       <header class="planning-day-header">
         <strong>${formatWeekday(day)}</strong>
         <span>${formatDate(day)}</span>
       </header>
-      <div class="planning-shift-lines">
-        ${shifts.length ? shifts.map((shift) => {
-          const existingEntry = getEntryForShiftOnDate(day, shift, sourceEntries);
-          const shiftKey = getPlanningOverviewShiftKey(day, shift);
-          const employeeName = existingEntry?.name || "";
-          const { suitableEmployees, markup } = getPlanningOverviewShiftOptions(shift, day, existingEntry);
-          const isEditing = planningOverviewEditingShiftKey === shiftKey;
+      <div class="roster-groups planning-roster-groups">
+        ${shiftRows.length
+          ? `${renderSchedulePlanningRosterGroup("Bakkerij", groupedRows.bakery, "bakery", day)}${renderSchedulePlanningRosterGroup("Winkel", groupedRows.shop, "shop", day)}`
+          : `<div class="planning-shift-empty">Geen diensten</div>`}
+      </div>
+    </article>
+  `;
+}
+
+function renderSchedulePlanningRosterGroup(title, groupRows, groupType, day) {
+  if (!groupRows.length) {
+    return "";
+  }
+
+  return `
+    <section class="roster-group roster-group--${groupType} planning-roster-group">
+      <h3 class="roster-group-title">${groupType === "shop" ? "🏪" : "🥖"} ${title}</h3>
+      <div class="roster-group-list planning-shift-lines">
+        ${groupRows.map((row) => {
+          const employeeName = row.employeeName || "";
+          const shiftTime = `${row.startTime}-${row.endTime}`;
+          const displayShiftName = getCompactRosterShiftLabel(row.shiftName);
+          const titleText = employeeName
+            ? `${employeeName} - ${row.shiftName} - ${shiftTime}. Klik om medewerker te wijzigen`
+            : `OPEN - ${row.shiftName} - ${shiftTime}. Klik om medewerker te kiezen`;
+          const titleAttribute = escapeHtmlAttribute(titleText);
+          const shiftTitleAttribute = escapeHtmlAttribute(row.shiftName);
 
           return `
             <button
               type="button"
               class="planning-shift-line ${employeeName ? "is-filled" : "is-open"}"
               data-planning-edit-day="${day}"
-              data-planning-edit-shift="${shift.id || shift.name}"
-              title="${employeeName ? `${employeeName} - klik om medewerker te wijzigen` : "OPEN - klik om medewerker te kiezen"}"
+              data-planning-edit-shift="${row.shift.id || row.shift.name}"
+              title="${titleAttribute}"
             >
-              <span class="planning-shift-name">${shift.name}</span>
               <span class="planning-shift-employee">${employeeName || "OPEN"}</span>
-              <span class="planning-shift-time">${shift.startTime}-${shift.endTime}</span>
+              <span class="planning-shift-name" title="${shiftTitleAttribute}">${displayShiftName}</span>
+              <span class="planning-shift-time">${shiftTime}</span>
             </button>
-            ${isEditing ? `
+            ${row.isEditing ? `
               <div class="planning-shift-editor">
-                ${markup}
-                <small>${suitableEmployees.length ? `${suitableEmployees.length} geschikt` : "Geen bevoegde medewerker"}</small>
+                ${row.markup}
+                <small>${row.suitableEmployees.length ? `${row.suitableEmployees.length} geschikt` : "Geen bevoegde medewerker"}</small>
                 <button type="button" class="secondary" data-planning-edit-cancel>Sluiten</button>
               </div>
             ` : ""}
           `;
-        }).join("") : `<div class="planning-shift-empty">Geen diensten</div>`}
+        }).join("")}
       </div>
-    </article>
+    </section>
   `;
 }
 
 function compareCompactRosterRows(rowA, rowB) {
-  if (rowA.isShopShift && rowB.isShopShift) {
-    return (getShopShiftNumber(rowA.shiftName) || 0) - (getShopShiftNumber(rowB.shiftName) || 0);
-  }
+  return getRosterShiftSortOrder(rowA) - getRosterShiftSortOrder(rowB) ||
+    (rowA.startTime || "").localeCompare(rowB.startTime || "") ||
+    ((rowA.entry?.name || "")).localeCompare(rowB.entry?.name || "", "nl") ||
+    getShiftName(rowA).localeCompare(getShiftName(rowB), "nl");
+}
 
-  return rowA.startTime.localeCompare(rowB.startTime) || rowA.shiftName.localeCompare(rowB.shiftName, "nl");
+function getCompactRosterShiftLabel(shiftName) {
+  const normalizedShiftName = String(shiftName || "").trim();
+  const lowerShiftName = normalizedShiftName.toLowerCase();
+  const winkelMatch = lowerShiftName.match(/winkeldienst\s*(\d+)/);
+  const allroundMatch = lowerShiftName.match(/allrounddienst\s*(\d+)/);
+
+  if (winkelMatch) return `Winkel ${winkelMatch[1]}`;
+  if (allroundMatch) return `Allround ${allroundMatch[1]}`;
+  if (lowerShiftName.includes("draai")) return "Draai";
+  if (lowerShiftName.includes("oven")) return "Oven";
+  if (lowerShiftName.includes("brood")) return "Brood";
+  if (lowerShiftName.includes("banket")) return "Banket";
+  if (lowerShiftName.includes("productie")) return "Productie";
+  if (lowerShiftName.includes("inpak")) return "Inpak";
+  if (lowerShiftName.includes("bezorg")) return "Bezorg";
+  if (lowerShiftName.includes("stage")) return "Stage";
+
+  return normalizedShiftName || "Dienst";
 }
 
 function renderCompactWeekRosterShiftLine(row) {
@@ -13642,6 +13694,7 @@ function renderCompactWeekRosterShiftLine(row) {
     ? row.entry.index
     : row.entry ? entries.indexOf(row.entry) : -1;
   const shiftTime = `${row.startTime}-${row.endTime}`;
+  const displayShiftName = getCompactRosterShiftLabel(row.shiftName);
   const rowClass = `planning-shift-line ${employeeName ? "is-filled" : "is-open"}`;
 
   if (entryIndex >= 0) {
@@ -13651,27 +13704,44 @@ function renderCompactWeekRosterShiftLine(row) {
         class="${rowClass}"
         data-action="edit"
         data-index="${entryIndex}"
-        title="${employeeName} - klik om dienst te bewerken"
+        title="${employeeName} - ${row.shiftName} - ${shiftTime}. Klik om dienst te bewerken"
       >
-        <span class="planning-shift-name">${row.shiftName}</span>
         <span class="planning-shift-employee">${employeeName || "OPEN"}</span>
+        <span class="planning-shift-name" title="${row.shiftName}">${displayShiftName}</span>
         <span class="planning-shift-time">${shiftTime}</span>
       </button>
     `;
   }
 
   return `
-    <div class="${rowClass}" title="OPEN">
-      <span class="planning-shift-name">${row.shiftName}</span>
+    <div class="${rowClass}" title="OPEN - ${row.shiftName} - ${shiftTime}">
       <span class="planning-shift-employee">OPEN</span>
+      <span class="planning-shift-name" title="${row.shiftName}">${displayShiftName}</span>
       <span class="planning-shift-time">${shiftTime}</span>
     </div>
   `;
 }
 
+function renderCompactWeekRosterGroup(title, groupRows, groupType) {
+  if (!groupRows.length) {
+    return "";
+  }
+
+  return `
+    <section class="roster-group roster-group--${groupType} planning-roster-group">
+      <h3 class="roster-group-title">${groupType === "shop" ? "🏪" : "🥖"} ${title}</h3>
+      <div class="roster-group-list planning-shift-lines">
+        ${groupRows.map(renderCompactWeekRosterShiftLine).join("")}
+      </div>
+    </section>
+  `;
+}
+
 function renderCompactWeekRosterDayCard(day, sourceEntries = entries, {
   includeOpenShifts = true,
-  approvedAbsences = []
+  approvedAbsences = [],
+  extraClassName = "",
+  extraBottomMarkup = ""
 } = {}) {
   const requiredShifts = getRequiredDayPlannerShifts(day);
   const dayEntries = sourceEntries.filter((entry) => entry.day === day);
@@ -13709,23 +13779,27 @@ function renderCompactWeekRosterDayCard(day, sourceEntries = entries, {
   });
 
   rows.sort(compareCompactRosterRows);
+  const groupedRows = groupEntriesByDepartment(rows);
 
   const hasOpenShifts = rows.some((row) => !row.entry);
   const hasVisibleContent = rows.length || approvedAbsences.length;
 
   return `
-    <article class="planning-day-card week-roster-day-card ${hasVisibleContent ? (hasOpenShifts ? "is-open-day" : "") : "is-closed"}">
+    <article class="planning-day-card week-roster-day-card ${extraClassName} ${hasVisibleContent ? (hasOpenShifts ? "is-open-day" : "") : "is-closed"}">
       <header class="planning-day-header">
         <strong>${formatWeekday(day)}</strong>
         <span>${formatDate(day)}</span>
       </header>
-      <div class="planning-shift-lines">
-        ${rows.length ? rows.map(renderCompactWeekRosterShiftLine).join("") : `<div class="planning-shift-empty">Geen diensten</div>`}
+      <div class="roster-groups planning-roster-groups">
+        ${rows.length
+          ? `${renderCompactWeekRosterGroup("Bakkerij", groupedRows.bakery, "bakery")}${renderCompactWeekRosterGroup("Winkel", groupedRows.shop, "shop")}`
+          : `<div class="planning-shift-empty">Geen diensten</div>`}
         ${approvedAbsences.map((request) => `
           <div class="planning-absence-line absence-${getAbsenceCardClass(request.type)}">
             ${request.employeeName}: ${getApprovedAbsenceLabel(request)}${request.reason ? ` - ${request.reason}` : ""}
           </div>
         `).join("")}
+        ${extraBottomMarkup}
       </div>
     </article>
   `;
@@ -18696,56 +18770,30 @@ function renderSchedule() {
       ${employeeWeekFocusMarkup}
       <section class="mobile-week">
         ${weekDates.map((day) => {
-          const dayEntries = (plannerDeviationOnlyActive ? getDeviationOnlyEntries(visibleEntries, weekDates) : visibleEntries)
-            .filter((entry) => entry.day === day)
-            .sort((entryA, entryB) => entryA.startTime.localeCompare(entryB.startTime) || entryA.name.localeCompare(entryB.name, "nl"));
+          const plannerEntriesForMobileDay = plannerDeviationOnlyActive ? getDeviationOnlyEntries(visibleEntries, weekDates) : visibleEntries;
+          const dayEntries = plannerEntriesForMobileDay
+            .filter((entry) => entry.day === day);
           const filledStageEntries = dayEntries.filter((entry) => isNonRequiredFilledShift(entry));
           const dayTimeOff = approvedTimeOffRequests
             .filter((request) => requestIncludesDate(request, day))
             .sort((requestA, requestB) => requestA.employeeName.localeCompare(requestB.employeeName, "nl"));
           const coverage = getShopCoverageLabel(day);
           const coverageStatus = getCoverageStatusName(coverage.className);
-          const isClosedDay = coverageStatus === "closed";
           const mobilePlannerInfoMarkup = isPlannerRole()
             ? `${renderMobileCoverageAlert(coverageStatus, coverage.text)}${renderDayPlanningMessage(day, true)}`
             : "";
-          const dayEmptyText = isPlannerRole()
-            ? plannerDeviationOnlyActive
-              ? "Geen afwijkingen in beeld"
-              : isClosedDay
-                ? "Geen diensten ingepland"
-                : coverageStatus === "under"
-                  ? "Nog geen ingevulde diensten"
-                  : isDefaultFreeDay(day)
-                    ? "Standaard vrij"
-                    : "Nog geen ingevulde diensten"
-            : (dayTimeOff.length ? getApprovedAbsenceLabel(dayTimeOff[0]) : "Geen dienst");
-
-          return `
-            <article class="mobile-day-card ${isDefaultFreeDay(day) ? "free-day-card" : ""} ${getRecognizedSpecialDayInfo(day) ? "has-special-day" : ""} ${getRelativeDayState(day) ? `is-${getRelativeDayState(day)}` : ""} is-${coverageStatus}">
-              <div class="mobile-day-header">
-                <div class="mobile-day-top">
-                  <span class="mobile-day-short">${formatShortWeekday(day)}</span>
-                  <div class="mobile-day-meta">
-                    <strong>${formatWeekday(day)}</strong>
-                    <span>${formatDate(day)}</span>
-                  </div>
-                </div>
-                ${isPlannerRole() ? renderRelativeDayLabel(day) : ""}
-                ${isPlannerRole() ? renderSpecialDayBadges(day, { compact: true }) : ""}
-                ${isPlannerRole() ? (isClosedDay ? '<em class="free-day-label">Gesloten</em>' : isDefaultFreeDay(day) ? '<em class="free-day-label">Vrije dag</em>' : "") : ""}
-                ${mobilePlannerInfoMarkup}
-              </div>
-              <div class="mobile-shift-list">
-                ${dayEntries.length
-                  ? dayEntries.map((entry) => renderShiftCard(entry, { showEmployee: true, showActions: isPlannerRole() })).join("")
-                  : `<span class="planner-empty">${dayEmptyText}</span>`}
-              </div>
-              ${isPlannerRole() && filledStageEntries.length ? `<div class="day-planner-note is-info">${filledStageEntries.length} stageplek(ken) ingevuld</div>` : ""}
-              ${renderSuitableEmployeesHelper(day)}
-              ${isPlannerRole() && coverageStatus !== "closed" && dayTimeOff.length ? renderApprovedTimeOffList(dayTimeOff) : ""}
-            </article>
+          const plannerMobileBottomMarkup = `
+            ${mobilePlannerInfoMarkup}
+            ${filledStageEntries.length ? `<div class="day-planner-note is-info">${filledStageEntries.length} stageplek(ken) ingevuld</div>` : ""}
+            ${renderSuitableEmployeesHelper(day)}
           `;
+
+          return renderCompactWeekRosterDayCard(day, plannerEntriesForMobileDay, {
+            includeOpenShifts: showOpenPlannerSections && !plannerDeviationOnlyActive,
+            approvedAbsences: dayTimeOff,
+            extraClassName: `mobile-day-card ${isDefaultFreeDay(day) ? "free-day-card" : ""} ${getRecognizedSpecialDayInfo(day) ? "has-special-day" : ""} ${getRelativeDayState(day) ? `is-${getRelativeDayState(day)}` : ""} is-${coverageStatus}`,
+            extraBottomMarkup: plannerMobileBottomMarkup
+          });
         }).join("")}
       </section>
     `;
@@ -18757,12 +18805,16 @@ function renderSchedule() {
   const plannerEntriesForBoard = plannerDeviationOnlyActive
     ? getDeviationOnlyEntries(visibleEntries, weekDates)
     : visibleEntries;
+  const plannerVisibleWeekDates = weekDates.filter((day) => {
+    const weekday = new Date(`${day}T00:00:00`).getDay();
+    return weekday !== 0 && weekday !== 1;
+  });
   setClassName(scheduleBoard, "schedule-board");
   scheduleBoard.innerHTML = `
     <p class="week-note">Weekrooster week ${selectedWeek.replace("-W", " - ")}</p>
     ${employeeWeekFocusMarkup}
     <section class="planning-week-grid week-roster-compact-grid">
-      ${weekDates.map((day) => renderCompactWeekRosterDayCard(day, plannerEntriesForBoard, {
+      ${plannerVisibleWeekDates.map((day) => renderCompactWeekRosterDayCard(day, plannerEntriesForBoard, {
         includeOpenShifts: showOpenPlannerSections && !plannerDeviationOnlyActive,
         approvedAbsences: approvedTimeOffRequests
           .filter((request) => requestIncludesDate(request, day))
