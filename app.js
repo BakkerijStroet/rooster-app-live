@@ -4966,11 +4966,11 @@ function isEmployeeMailTestEnabled(employeeName) {
 }
 
 function isEmployeeMailBlockedByTestPhase(employeeName) {
-  return Boolean(getEmployeeEmail(employeeName)) && !isEmployeeMailTestEnabled(employeeName);
+  return EMPLOYEE_MAIL_TEST_MODE_ENABLED && Boolean(getEmployeeEmail(employeeName)) && !isEmployeeMailTestEnabled(employeeName);
 }
 
 function getMailEligibleEmployeeEmail(employeeName) {
-  if (!isEmployeeMailTestEnabled(employeeName)) {
+  if (EMPLOYEE_MAIL_TEST_MODE_ENABLED && !isEmployeeMailTestEnabled(employeeName)) {
     return "";
   }
 
