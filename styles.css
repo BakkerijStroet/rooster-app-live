@@ -122,8 +122,13 @@ h3 {
   gap: 14px;
   align-items: center;
   flex-wrap: wrap;
-  padding: 2px 0 4px;
+  padding: 2px 0 8px;
   border-bottom: 1px solid rgba(216, 116, 47, 0.12);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgba(255, 253, 250, 0.96);
+  backdrop-filter: blur(8px);
 }
 
 .brand-lockup {
@@ -258,7 +263,6 @@ h3 {
   z-index: 1;
 }
 
-.brand-header,
 .session-bar,
 #plannerDashboard {
   position: relative;
@@ -738,10 +742,6 @@ body[data-role="employee"] .brand-chip {
 body[data-role="employee"] .brand-actions {
   margin-left: auto;
   gap: 6px;
-}
-
-body[data-role="planner"] #switchUserButton {
-  display: none !important;
 }
 
 body[data-role="employee"] .app-nav {
@@ -7303,10 +7303,6 @@ button,
     gap: 12px;
   }
 
-  body[data-role="planner"] #switchUserButton {
-    display: none;
-  }
-
   body[data-role="planner"] .session-bar,
   body[data-role="planner"] .app-nav,
   body[data-role="planner"] #plannerDashboard {
@@ -8155,11 +8151,7 @@ body[data-role="planner"] .app-shell {
 }
 
 body #switchUserButton.session-logout-button:not(.hidden) {
-  position: fixed;
-  top: 14px;
-  right: 14px;
-  left: auto;
-  z-index: 5600;
+  position: static;
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
@@ -8172,7 +8164,7 @@ body #switchUserButton.session-logout-button:not(.hidden) {
   border-radius: 999px;
   pointer-events: auto !important;
   white-space: nowrap;
-  box-shadow: 0 8px 22px rgba(36, 27, 10, 0.14);
+  box-shadow: none;
 }
 
 body[data-role="planner"] .app-panel.is-active[data-panel="dashboard"],
