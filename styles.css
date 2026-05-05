@@ -7199,7 +7199,7 @@ button,
 .planning-shift-line {
   appearance: none;
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr) minmax(42px, auto);
+  grid-template-columns: minmax(0, 1fr) minmax(42px, auto) 58px;
   gap: 0.22rem;
   align-items: center;
   width: 100%;
@@ -7232,6 +7232,7 @@ button,
   color: #7a6453;
   font-size: 0.6rem;
   font-weight: 700;
+  text-align: right;
   white-space: nowrap;
 }
 
@@ -7253,7 +7254,7 @@ button,
   color: #344054;
   font-size: 0.62rem;
   font-weight: 700;
-  text-align: right;
+  text-align: center;
 }
 
 .planning-shift-line.is-open .planning-shift-employee {

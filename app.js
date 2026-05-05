@@ -11799,9 +11799,9 @@ function renderSchedulePlanningDayCard(day, sourceEntries = entries) {
               data-planning-edit-shift="${shift.id || shift.name}"
               title="${employeeName || "OPEN"}"
             >
-              <span class="planning-shift-time">${shift.startTime}-${shift.endTime}</span>
               <span class="planning-shift-name">${shift.name}</span>
               <span class="planning-shift-employee">${employeeName || "OPEN"}</span>
+              <span class="planning-shift-time">${shift.startTime}-${shift.endTime}</span>
             </button>
             ${isEditing ? `
               <div class="planning-shift-editor">
