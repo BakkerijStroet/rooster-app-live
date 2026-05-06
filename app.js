@@ -25070,7 +25070,10 @@ myHoursRegistrations?.addEventListener("click", (event) => {
 
   const workLogAction = button.dataset.worklogAction || "";
   const workLogId = button.dataset.worklogId || "";
-  const isMobileSubmitAction = !isPlannerRole() && workLogAction === "submit" && Boolean(workLogId);
+  const effectiveWorkLogAction = !isPlannerRole() && mobileMediaQuery.matches && workLogAction === "save"
+    ? "submit"
+    : workLogAction;
+  const isMobileSubmitAction = !isPlannerRole() && effectiveWorkLogAction === "submit" && Boolean(workLogId);
 
   if (isMobileSubmitAction) {
     activeMobileWorkLogId = workLogId;
@@ -25122,8 +25125,8 @@ myHoursRegistrations?.addEventListener("click", (event) => {
     return;
   }
 
-  if ((workLogAction === "save" || workLogAction === "submit") && workLogId) {
-    const wasSaved = saveWorkLogFromForm(workLogId, workLogAction);
+  if ((effectiveWorkLogAction === "save" || effectiveWorkLogAction === "submit") && workLogId) {
+    const wasSaved = saveWorkLogFromForm(workLogId, effectiveWorkLogAction);
 
     if (isMobileSubmitAction) {
       if (!wasSaved) {
