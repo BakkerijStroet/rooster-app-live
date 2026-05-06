@@ -12763,6 +12763,126 @@ body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.is-
   }
 }
 
+/* Finetune dienstblokken: middenweg tussen compact en goed scanbaar. */
+.planning-roster-groups,
+.planning-roster-group,
+.planning-roster-group .roster-group-list,
+.planning-shift-lines {
+  gap: 6px;
+}
+
+.planning-roster-group,
+.roster-group {
+  padding: 8px;
+  border-radius: 13px;
+}
+
+.planning-roster-group .roster-group-title,
+.roster-group-title {
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.planning-shift-line {
+  min-height: 46px;
+  padding: 7px 9px;
+  gap: 3px 7px;
+  border-radius: 11px;
+  box-shadow: 0 2px 7px rgba(41, 35, 28, 0.035);
+}
+
+.planning-shift-employee {
+  font-size: 13px;
+  line-height: 1.18;
+}
+
+.planning-shift-name {
+  font-size: 12px;
+  line-height: 1.22;
+  padding-right: 70px;
+}
+
+.planning-shift-time {
+  font-size: 11px;
+  line-height: 1.2;
+  padding-left: 6px;
+}
+
+.planning-shift-line.is-open .planning-shift-employee {
+  font-size: 13px;
+  line-height: 1.18;
+}
+
+.planning-shift-line.is-open::after,
+.planning-shift-line.is-filled::after {
+  padding: 2px 6px;
+  font-size: 10px;
+  line-height: 1.15;
+}
+
+body[data-role="planner"] [data-panel="week-current"] .planning-day-card {
+  padding: 10px;
+  gap: 8px;
+}
+
+body[data-role="planner"] [data-panel="week-current"] .planning-roster-group {
+  padding: 8px;
+}
+
+body[data-role="planner"] [data-panel="week-current"] .planning-shift-line {
+  padding: 7px 9px;
+}
+
+body[data-role="planner"] [data-panel="week-current"] .desktop-day-list .shift-card {
+  padding: 8px 9px;
+  gap: 4px;
+  border-radius: 12px;
+}
+
+.smart-planning-proposal-roster .smart-planning-open-shift-button {
+  min-height: 46px;
+  padding: 7px 9px;
+  border-radius: 11px;
+  box-shadow: 0 2px 7px rgba(41, 35, 28, 0.035);
+}
+
+.smart-planning-open-shift {
+  gap: 3px 7px;
+}
+
+.smart-planning-open-label {
+  padding: 2px 6px;
+  font-size: 10px;
+  line-height: 1.15;
+}
+
+.smart-planning-open-shift-name {
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.smart-planning-open-time {
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.smart-planning-proposal-roster .planning-shift-name {
+  font-size: 12px;
+  padding-right: 64px;
+}
+
+.smart-planning-proposal-roster .planning-shift-time {
+  min-width: 64px;
+  font-size: 11px;
+}
+
+@media (max-width: 760px) {
+  .planning-shift-line,
+  .smart-planning-proposal-roster .smart-planning-open-shift-button {
+    min-height: 48px;
+  }
+}
+
 
 
 
