@@ -14247,14 +14247,14 @@ function formatRosterWeekHeaderLabel(weekValue) {
 function renderCompactWeekRosterShiftLine(row) {
   const employeeName = row.entry?.name || "";
   const shiftTime = `${row.startTime}-${row.endTime}`;
-  const displayShiftName = getCompactRosterShiftLabel(row.shiftName);
+  const displayShiftName = row.shiftName || getCompactRosterShiftLabel(row.shiftName);
   const rowClass = `planning-shift-line ${employeeName ? "is-filled" : "is-open"}`;
 
   return `
     <div class="${rowClass}" title="${row.shiftName} - ${shiftTime} - ${employeeName || "Open"}">
+      <span class="planning-shift-employee">${employeeName || "Open"}</span>
       <span class="planning-shift-name" title="${row.shiftName}">${displayShiftName}</span>
       <span class="planning-shift-time">${shiftTime}</span>
-      <span class="planning-shift-employee">${employeeName || "Open"}</span>
     </div>
   `;
 }
