@@ -98,7 +98,13 @@ const saveVacationWeekButton = document.getElementById("saveVacationWeekButton")
 const removeVacationWeekButton = document.getElementById("removeVacationWeekButton");
 const vacationWeekList = document.getElementById("vacationWeekList");
 const newEmployeeNameInput = document.getElementById("newEmployeeName");
+const newEmployeeEmailInput = document.getElementById("newEmployeeEmail");
+const newEmployeeRoleSelect = document.getElementById("newEmployeeRole");
 const addEmployeeButton = document.getElementById("addEmployeeButton");
+const employeeAdminSearchInput = document.getElementById("employeeAdminSearch");
+const employeeAdminFilters = document.getElementById("employeeAdminFilters");
+const employeeNewToggleButton = document.getElementById("employeeNewToggleButton");
+const employeeNewForm = document.getElementById("employeeNewForm");
 const removeEmployeeSelect = document.getElementById("removeEmployeeSelect");
 const employeeStatusSelect = document.getElementById("employeeStatusSelect");
 const employeeRoleSelect = document.getElementById("employeeRoleSelect");
@@ -107,14 +113,29 @@ const employeeEmailError = document.getElementById("employeeEmailError");
 const employeeLoginPinInput = document.getElementById("employeeLoginPinInput");
 const employeeLoginPinError = document.getElementById("employeeLoginPinError");
 const employeeLoginPinStatus = document.getElementById("employeeLoginPinStatus");
+const employeeTemporaryPinState = document.getElementById("employeeTemporaryPinState");
+const employeeResetPinButton = document.getElementById("employeeResetPinButton");
+const employeeTemporaryPinButton = document.getElementById("employeeTemporaryPinButton");
+const employeeSavePinButton = document.getElementById("employeeSavePinButton");
+const employeePlannerRightsButton = document.getElementById("employeePlannerRightsButton");
 const employeeMailTestUserInput = document.getElementById("employeeMailTestUserInput");
 const employeeNameDisplayInput = document.getElementById("employeeNameDisplay");
+const employeeDepartmentDisplayInput = document.getElementById("employeeDepartmentDisplay");
 const employeeDetailMailStatus = document.getElementById("employeeDetailMailStatus");
+const employeeDetailWarnings = document.getElementById("employeeDetailWarnings");
+const employeeDetailTabs = document.getElementById("employeeDetailTabs");
+const employeeHoursSummary = document.getElementById("employeeHoursSummary");
 const removeEmployeeButton = document.getElementById("removeEmployeeButton");
 const saveEmployeeEmailButton = document.getElementById("saveEmployeeEmailButton");
 const employeeDetailTestMailButton = document.getElementById("employeeDetailTestMailButton");
 const employeeStatusImpact = document.getElementById("employeeStatusImpact");
 const employeeDetailTitle = document.getElementById("employeeDetailTitle");
+const myAccountEmployeeBadge = document.getElementById("myAccountEmployeeBadge");
+const myAccountCurrentPinInput = document.getElementById("myAccountCurrentPin");
+const myAccountNewPinInput = document.getElementById("myAccountNewPin");
+const myAccountRepeatPinInput = document.getElementById("myAccountRepeatPin");
+const myAccountSavePinButton = document.getElementById("myAccountSavePinButton");
+const myAccountPinStatus = document.getElementById("myAccountPinStatus");
 const createRestorePointButton = document.getElementById("createRestorePointButton");
 const backupRestoreSelect = document.getElementById("backupRestoreSelect");
 const restoreBackupButton = document.getElementById("restoreBackupButton");
@@ -4772,10 +4793,12 @@ let messageTimeoutId = null;
 let activeMessageState = null;
 let queuedMessageStates = [];
 const plannerAllowedTabs = ["dashboard", "week-current", "schedule-planning", "hours-approval", "requests", "employees", "services", "planning", "backup"];
-const employeeAllowedTabs = ["week-current", "my-schedule", "my-hours", "requests"];
+const employeeAllowedTabs = ["week-current", "my-schedule", "my-hours", "my-account", "requests"];
 let planningDataRevision = 0;
 let requestDataRevision = 0;
 let previewDataRevision = 0;
+let activeEmployeeAdminFilter = "all";
+let activeEmployeeDetailTab = "details";
 let activeMyHoursSection = "";
 let activeMyHoursEntryMode = "planned";
 let activeMyHoursChoice = null;
@@ -5120,6 +5143,9 @@ function renderEmployeeEditorDetails() {
   renderEmployeePermissions();
   renderEmployeeStandardShifts();
   renderEmployeeContractPanel();
+  renderEmployeeWarnings();
+  renderEmployeeDetailTabs();
+  renderEmployeeHoursSummary();
 }
 
 function renderEmployeeDetailMailStatus(employeeName = getSelectedEmployeeAdminName()) {
@@ -5188,7 +5214,9 @@ function renderEmployeeLoginPinStatus(employeeName = getSelectedEmployeeAdminNam
     ? employeeDraft.loginPin
     : getConfiguredEmployeeLoginPin(employeeName);
   const statusViewModel = getEmployeeLoginPinStatusViewModel(configuredLoginPin);
-  employeeLoginPinStatus.textContent = statusViewModel.text;
+  employeeLoginPinStatus.textContent = isEmployeeTemporaryPinActive(employeeName)
+    ? "Tijdelijke pin actief"
+    : statusViewModel.text;
 }
 
 function discardEmployeeEditorChanges(employeeName) {
@@ -16932,6 +16960,359 @@ function toggleFavoriteEmployee(employeeName) {
   savePreferences();
 }
 
+function getEmployeeAuthorizedShiftNames(employeeName) {
+  const permissions = employeePermissions?.[employeeName] || {};
+  return getPermissionShiftDescriptors()
+    .filter((shift) => permissions?.[shift.name] !== false)
+    .map((shift) => shift.name);
+}
+
+function getEmployeeDepartmentSummary(employeeName) {
+  const authorizedShiftNames = getEmployeeAuthorizedShiftNames(employeeName);
+  const hasShop = authorizedShiftNames.some((shiftName) => isShopShiftName(shiftName));
+  const hasBakery = authorizedShiftNames.some((shiftName) =>
+    !isShopShiftName(shiftName) &&
+    !isAllroundShiftName(shiftName) &&
+    !isStageShiftName(shiftName)
+  );
+  const hasAllround = authorizedShiftNames.some((shiftName) => isAllroundShiftName(shiftName));
+
+  if (getEmployeeAppRole(employeeName) === "planner") {
+    return "Planner";
+  }
+
+  if (hasShop && hasBakery) {
+    return "Bakkerij + Winkel";
+  }
+
+  if (hasShop || hasAllround) {
+    return "Winkel";
+  }
+
+  if (hasBakery) {
+    return "Bakkerij";
+  }
+
+  return "Overig";
+}
+
+function getEmployeeRoleLabels(employeeName) {
+  const authorizedShiftNames = getEmployeeAuthorizedShiftNames(employeeName);
+  const labels = [];
+
+  if (getEmployeeAppRole(employeeName) === "planner") {
+    labels.push("Planner");
+  }
+
+  if (authorizedShiftNames.some((shiftName) => isShopShiftName(shiftName))) {
+    labels.push("Winkel");
+  }
+
+  if (authorizedShiftNames.some((shiftName) =>
+    !isShopShiftName(shiftName) &&
+    !isAllroundShiftName(shiftName) &&
+    !isStageShiftName(shiftName)
+  )) {
+    labels.push("Bakkerij");
+  }
+
+  if (authorizedShiftNames.some((shiftName) => isAllroundShiftName(shiftName))) {
+    labels.push("Allround");
+  }
+
+  return labels.length ? labels : ["Geen rol"];
+}
+
+function isEmployeeTemporaryPinActive(employeeName) {
+  return Boolean(employeeMeta?.[employeeName]?.tempLoginPinActive) || !getConfiguredEmployeeLoginPin(employeeName);
+}
+
+function getEmployeeWarningLabels(employeeName) {
+  const warnings = [];
+
+  if (getEmployeeContractHours(employeeName) <= 0) {
+    warnings.push("geen contracturen");
+  }
+
+  if (getEmployeeAuthorizedShiftNames(employeeName).length === 0) {
+    warnings.push("geen bevoegdheden");
+  }
+
+  if (!getEmployeeEmail(employeeName)) {
+    warnings.push("geen mailadres");
+  }
+
+  if (isEmployeeTemporaryPinActive(employeeName)) {
+    warnings.push("tijdelijke pin actief");
+  }
+
+  return warnings;
+}
+
+function matchesEmployeeAdminFilter(employeeName, filterName = activeEmployeeAdminFilter) {
+  const status = getEmployeeStatus(employeeName);
+  const department = getEmployeeDepartmentSummary(employeeName).toLowerCase();
+
+  if (filterName === "active") {
+    return status === "active";
+  }
+
+  if (filterName === "inactive") {
+    return status !== "active";
+  }
+
+  if (filterName === "bakery") {
+    return department.includes("bakkerij");
+  }
+
+  if (filterName === "shop") {
+    return department.includes("winkel");
+  }
+
+  if (filterName === "planner") {
+    return getEmployeeAppRole(employeeName) === "planner";
+  }
+
+  return true;
+}
+
+function getFilteredEmployeeAdminNames() {
+  const searchValue = getEmployeeSearchValue(employeeAdminSearchInput);
+  return getEmployeesWithFavoritesFirst(employees)
+    .filter((employeeName) => matchesEmployeeAdminFilter(employeeName))
+    .filter((employeeName) => !searchValue || employeeName.toLowerCase().includes(searchValue));
+}
+
+function renderEmployeeAdminFilterButtons() {
+  employeeAdminFilters?.querySelectorAll("[data-employee-admin-filter]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.employeeAdminFilter === activeEmployeeAdminFilter);
+  });
+}
+
+function renderEmployeeWarnings(employeeName = getSelectedEmployeeAdminName()) {
+  if (!employeeDetailWarnings) {
+    return;
+  }
+
+  if (!employeeName) {
+    employeeDetailWarnings.innerHTML = "";
+    return;
+  }
+
+  const warnings = getEmployeeWarningLabels(employeeName);
+  employeeDetailWarnings.innerHTML = warnings.length
+    ? warnings.map((warning) => `<span class="employee-warning-pill">${warning}</span>`).join("")
+    : `<span class="employee-ok-pill">Compleet</span>`;
+}
+
+function renderEmployeeDetailTabs() {
+  employeeDetailTabs?.querySelectorAll("[data-employee-detail-tab]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.employeeDetailTab === activeEmployeeDetailTab);
+  });
+
+  document.querySelectorAll("[data-employee-detail-panel]").forEach((panel) => {
+    panel.classList.toggle("hidden", panel.dataset.employeeDetailPanel !== activeEmployeeDetailTab);
+  });
+}
+
+function renderEmployeeHoursSummary() {
+  if (!employeeHoursSummary) {
+    return;
+  }
+
+  const employeeName = getSelectedEmployeeAdminName();
+
+  if (!employeeName) {
+    setClassName(employeeHoursSummary, "employee-hours-summary empty");
+    employeeHoursSummary.textContent = "Kies links een medewerker.";
+    return;
+  }
+
+  const currentWeek = getCurrentWeekValue();
+  const contractHours = getEmployeeContractHours(employeeName);
+  const plannedHours = getEmployeeWeekHours(employeeName, currentWeek, entries);
+  const employeeWeekLogs = workLogs.filter((log) => log.employeeName === employeeName && getWeekValueFromDate(log.day) === currentWeek);
+  const openHours = employeeWeekLogs.filter((log) => log.status === "draft" || log.status === "open" || !log.status).length;
+  const approvedHours = employeeWeekLogs.filter((log) => log.status === "approved").length;
+
+  setClassName(employeeHoursSummary, "employee-hours-summary");
+  employeeHoursSummary.innerHTML = `
+    <div class="employee-hours-grid">
+      <article>
+        <span>Contracturen</span>
+        <strong>${contractHours > 0 ? formatHours(contractHours) : "Niet ingesteld"}</strong>
+      </article>
+      <article>
+        <span>Gepland deze week</span>
+        <strong>${formatHours(plannedHours)}</strong>
+      </article>
+      <article>
+        <span>Open uren</span>
+        <strong>${openHours}</strong>
+      </article>
+      <article>
+        <span>Goedgekeurd</span>
+        <strong>${approvedHours}</strong>
+      </article>
+    </div>
+  `;
+}
+
+function selectEmployeeForAdmin(employeeName) {
+  if (!employees.includes(employeeName) || !removeEmployeeSelect) {
+    return false;
+  }
+
+  const currentEmployeeName = getSelectedEmployeeAdminName();
+  if (currentEmployeeName && currentEmployeeName !== employeeName) {
+    const navigationChoice = confirmEmployeeEditorNavigation(currentEmployeeName);
+
+    if (navigationChoice === "cancel") {
+      return false;
+    }
+  }
+
+  removeEmployeeSelect.value = employeeName;
+  renderEmployeeList();
+  renderEmployeeEditorDetails();
+  return true;
+}
+
+function updateEmployeeTemporaryPinState(employeeName = getSelectedEmployeeAdminName()) {
+  if (!employeeTemporaryPinState) {
+    return;
+  }
+
+  employeeTemporaryPinState.textContent = employeeName && isEmployeeTemporaryPinActive(employeeName) ? "Ja" : "Nee";
+}
+
+function generateTemporaryEmployeePin() {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
+function saveEmployeeAccountMeta(employeeName, patch, message) {
+  if (!employeeName || !employeeMeta[employeeName]) {
+    showMessage("Kies eerst een medewerker.", "error");
+    return false;
+  }
+
+  employeeMeta[employeeName] = {
+    ...getEmployeeStatusMetaDefaults(),
+    ...employeeMeta[employeeName],
+    ...patch,
+    updatedAt: getNowIsoString(),
+    updatedByRole: isPlannerRole() ? "planner" : "employee",
+    updatedByName: isPlannerRole() ? "Planner / Directie" : (getRoleScopedEmployeeName() || employeeName)
+  };
+
+  saveEmployeeMeta();
+  clearEmployeeEditorDraft(employeeName);
+  render();
+
+  if (message) {
+    showMessage(message, "success");
+  }
+
+  return true;
+}
+
+function resetEmployeePin(employeeName) {
+  return saveEmployeeAccountMeta(employeeName, {
+    loginPin: "",
+    tempLoginPinActive: true
+  }, "Pin gereset. Tijdelijke standaardpin is actief.");
+}
+
+function setTemporaryEmployeePin(employeeName) {
+  const temporaryPin = generateTemporaryEmployeePin();
+  const saved = saveEmployeeAccountMeta(employeeName, {
+    loginPin: temporaryPin,
+    tempLoginPinActive: true
+  }, `Nieuwe tijdelijke pin ingesteld: ${temporaryPin}`);
+
+  if (saved && employeeLoginPinInput && getSelectedEmployeeAdminName() === employeeName) {
+    employeeLoginPinInput.value = temporaryPin;
+  }
+
+  return saved;
+}
+
+function savePlannerEmployeePin(employeeName) {
+  const normalizedPin = normalizeEmployeeLoginPin(employeeLoginPinInput?.value);
+
+  if (!isValidEmployeeLoginPin(normalizedPin)) {
+    setEmployeeLoginPinFieldError("Vul 4 tot 6 cijfers in.");
+    employeeLoginPinInput?.reportValidity();
+    showMessage("Vul 4 tot 6 cijfers in.", "error");
+    return false;
+  }
+
+  clearEmployeeLoginPinFieldError();
+  return saveEmployeeAccountMeta(employeeName, {
+    loginPin: normalizedPin,
+    tempLoginPinActive: false
+  }, "Pincode gewijzigd.");
+}
+
+function toggleEmployeePlannerRights(employeeName) {
+  const nextRole = getEmployeeAppRole(employeeName) === "planner" ? "employee" : "planner";
+  return saveEmployeeAccountMeta(employeeName, {
+    role: nextRole
+  }, nextRole === "planner" ? "Plannerrechten ingeschakeld." : "Plannerrechten uitgeschakeld.");
+}
+
+function updateEmployeeStatusQuick(employeeName, nextStatus) {
+  if (!employeeName || !employeeMeta[employeeName]) {
+    return false;
+  }
+
+  const normalizedStatus = normalizeEmployeeStatus(nextStatus);
+  const currentStatus = getEmployeeStatus(employeeName);
+
+  if (currentStatus === normalizedStatus) {
+    showMessage("Deze medewerker heeft deze status al.", "error");
+    return false;
+  }
+
+  const linkedEntryCount = entries.filter((entry) => entry.name === employeeName).length;
+  const linkedRequestCount = timeOffRequests.filter((request) => request.employeeName === employeeName).length +
+    swapRequests.filter((request) => request.employeeName === employeeName || request.targetEmployeeName === employeeName).length;
+  const linkedWorkLogCount = workLogs.filter((log) => log.employeeName === employeeName).length;
+
+  if (!confirmAction(`${employeeName} krijgt status ${getEmployeeStatusLabel(normalizedStatus)}.\n\nHistorie blijft bewaard:\n- ${linkedEntryCount} roosterregels\n- ${linkedRequestCount} aanvragen of ruilverzoeken\n- ${linkedWorkLogCount} urenregistraties\n\nWeet je zeker dat je dit wilt opslaan?`)) {
+    return false;
+  }
+
+  employeeMeta[employeeName] = {
+    ...getEmployeeStatusMetaDefaults(),
+    ...employeeMeta[employeeName],
+    status: normalizedStatus,
+    updatedAt: getNowIsoString(),
+    updatedByRole: "planner",
+    updatedByName: "Planner / Directie"
+  };
+
+  saveEmployeeMeta();
+  clearEmployeeEditorDraft(employeeName);
+  persistProtectedChange({
+    reason: `Medewerkerstatus gewijzigd: ${employeeName}`,
+    scope: "employee",
+    action: "employee-status-changed",
+    message: `${employeeName} is op ${getEmployeeStatusLabel(normalizedStatus).toLowerCase()} gezet.`,
+    details: {
+      employeeName,
+      previousStatus: currentStatus,
+      nextStatus: normalizedStatus,
+      linkedEntryCount,
+      linkedRequestCount,
+      linkedWorkLogCount
+    }
+  });
+  render();
+  showMessage(`Status opgeslagen. ${employeeName} staat nu op ${getEmployeeStatusLabel(normalizedStatus).toLowerCase()}.`, "success");
+  return true;
+}
+
 function renderEmployeeSelectors() {
   const selectedName = nameSelect.value;
   const selectedRemoveName = removeEmployeeSelect.value;
@@ -17053,27 +17434,54 @@ function renderEmployeeSelectors() {
 }
 
 function renderEmployeeList() {
+  renderEmployeeAdminFilterButtons();
+
   if (!employees.length) {
     setClassName(employeeListCard, "simple-list empty");
     employeeListCard.textContent = "Nog geen medewerkers toegevoegd.";
     return;
   }
-  const selectedEmployee = getSelectedEmployeeAdminName();
 
-  setClassName(employeeListCard, "employee-summary-list");
-  employeeListCard.innerHTML = getEmployeesWithFavoritesFirst(employees)
+  const selectedEmployee = getSelectedEmployeeAdminName();
+  const filteredEmployees = getFilteredEmployeeAdminNames();
+
+  if (!filteredEmployees.length) {
+    setClassName(employeeListCard, "employee-table-list empty");
+    employeeListCard.textContent = "Geen medewerkers gevonden voor deze selectie.";
+    return;
+  }
+
+  setClassName(employeeListCard, "employee-table-list");
+  employeeListCard.innerHTML = filteredEmployees
     .map((employee) => {
       const employeeStatus = getEmployeeStatus(employee);
+      const warnings = getEmployeeWarningLabels(employee);
+      const temporaryPinActive = isEmployeeTemporaryPinActive(employee);
+      const roleLabels = getEmployeeRoleLabels(employee);
+      const nextStatus = employeeStatus === "active" ? "inactive" : "active";
 
       return `
-        <article class="employee-summary-card ${employee === selectedEmployee ? "is-active" : ""}" data-employee-select="${employee}">
-          <div class="employee-summary-head">
-            <div class="employee-summary-main">
-              <h3>${employee}</h3>
-              <div class="employee-summary-subline">
-                <span class="employee-status-badge ${getEmployeeStatusClass(employeeStatus)}">${getEmployeeStatusLabel(employeeStatus)}</span>
-              </div>
-            </div>
+        <article class="employee-table-row ${employee === selectedEmployee ? "is-active" : ""}" data-employee-select="${escapeHtmlAttribute(employee)}">
+          <button type="button" class="employee-table-cell employee-name-cell" data-employee-select="${escapeHtmlAttribute(employee)}">
+            <strong>${escapeHtmlAttribute(employee)}</strong>
+            ${warnings.length ? `<small>${warnings.join(" · ")}</small>` : `<small>Compleet</small>`}
+          </button>
+          <div class="employee-table-cell">${getEmployeeDepartmentSummary(employee)}</div>
+          <div class="employee-table-cell">${getEmployeeContractHours(employee) > 0 ? formatHours(getEmployeeContractHours(employee)) : "Geen"}</div>
+          <div class="employee-table-cell">
+            <span class="employee-status-badge ${temporaryPinActive ? "is-temporary" : getEmployeeStatusClass(employeeStatus)}">
+              ${temporaryPinActive ? "Tijdelijke pin" : getEmployeeStatusLabel(employeeStatus)}
+            </span>
+          </div>
+          <div class="employee-table-cell employee-role-pills">
+            ${roleLabels.map((label) => `<span>${label}</span>`).join("")}
+          </div>
+          <div class="employee-table-cell employee-row-actions">
+            <button type="button" class="secondary" data-employee-select="${escapeHtmlAttribute(employee)}">Bewerken</button>
+            <button type="button" class="secondary" data-employee-reset-pin="${escapeHtmlAttribute(employee)}">Reset pin</button>
+            <button type="button" class="secondary" data-employee-toggle-status="${escapeHtmlAttribute(employee)}" data-next-status="${nextStatus}">
+              ${employeeStatus === "active" ? "Inactief" : "Actief"}
+            </button>
           </div>
         </article>
       `;
@@ -17344,6 +17752,9 @@ function renderEmployeeStatusControls() {
     if (employeeNameDisplayInput) {
       employeeNameDisplayInput.value = "";
     }
+    if (employeeDepartmentDisplayInput) {
+      employeeDepartmentDisplayInput.value = "";
+    }
     if (employeeMailTestUserInput) {
       employeeMailTestUserInput.checked = false;
     }
@@ -17351,8 +17762,12 @@ function renderEmployeeStatusControls() {
       employeeDetailTitle.textContent = "Kies links een medewerker";
     }
     employeeStatusImpact.textContent = "Nog geen medewerkers toegevoegd.";
+    if (employeePlannerRightsButton) {
+      employeePlannerRightsButton.textContent = "Plannerrechten";
+    }
     clearEmployeeLoginPinFieldError();
     renderEmployeeLoginPinStatus("");
+    updateEmployeeTemporaryPinState("");
     return;
   }
 
@@ -17369,8 +17784,8 @@ function renderEmployeeStatusControls() {
   }
   if (employeeLoginPinInput) {
     employeeLoginPinInput.value = typeof employeeDraft?.loginPin === "string"
-      ? employeeDraft.loginPin
-      : (selectedEmployee ? getConfiguredEmployeeLoginPin(selectedEmployee) : "");
+      ? (employeeDraft.loginPin || (selectedEmployee ? getEmployeeLoginPin(selectedEmployee) : ""))
+      : (selectedEmployee ? getEmployeeLoginPin(selectedEmployee) : "");
   }
   if (employeeMailTestUserInput) {
     employeeMailTestUserInput.checked = EMPLOYEE_MAIL_TEST_MODE_ENABLED
@@ -17386,12 +17801,21 @@ function renderEmployeeStatusControls() {
   if (employeeNameDisplayInput) {
     employeeNameDisplayInput.value = selectedEmployee;
   }
+  if (employeeDepartmentDisplayInput) {
+    employeeDepartmentDisplayInput.value = selectedEmployee ? getEmployeeDepartmentSummary(selectedEmployee) : "";
+  }
   if (employeeDetailTitle) {
     employeeDetailTitle.textContent = selectedEmployee || "Kies links een medewerker";
   }
   employeeStatusImpact.textContent = formatEmployeeStatusImpact(employeeStatusSelect.value);
+  if (employeePlannerRightsButton) {
+    employeePlannerRightsButton.textContent = getEmployeeAppRole(selectedEmployee) === "planner"
+      ? "Plannerrechten uitzetten"
+      : "Plannerrechten";
+  }
   renderEmployeeLoginPinStatus(selectedEmployee);
   renderEmployeeDetailMailStatus(selectedEmployee);
+  updateEmployeeTemporaryPinState(selectedEmployee);
 }
 
 function renderBackupRestore() {
@@ -21761,6 +22185,31 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   return true;
 }
 
+function renderMyAccount() {
+  const employeeName = getRoleScopedEmployeeName();
+  updateRoleContextBadge(myAccountEmployeeBadge, employeeName);
+
+  if (!myAccountPinStatus) {
+    return;
+  }
+
+  if (!employeeName) {
+    myAccountPinStatus.textContent = "Geen medewerker gekoppeld.";
+    if (myAccountSavePinButton) {
+      myAccountSavePinButton.disabled = true;
+    }
+    return;
+  }
+
+  if (myAccountSavePinButton) {
+    myAccountSavePinButton.disabled = false;
+  }
+
+  myAccountPinStatus.textContent = isEmployeeTemporaryPinActive(employeeName)
+    ? "Je gebruikt nu een tijdelijke pin. Kies zelf een nieuwe pincode."
+    : "Je kunt hier je eigen pincode wijzigen.";
+}
+
 function refreshWorkLogValidationForCard(workLogId) {
   const card = myHoursRegistrations?.querySelector(`[data-worklog-card-id="${workLogId}"]`);
   const entry = getWorkLogContextById(workLogId);
@@ -22319,10 +22768,7 @@ function renderActiveTabContent() {
 
   if (activeTab === "employees") {
     renderEmployeeList();
-    renderEmployeeStatusControls();
-    renderEmployeePermissions();
-    renderEmployeeStandardShifts();
-    renderEmployeeContractPanel();
+    renderEmployeeEditorDetails();
     return;
   }
 
@@ -22356,6 +22802,11 @@ function renderActiveTabContent() {
 
   if (activeTab === "my-hours") {
     renderMyHours();
+    return;
+  }
+
+  if (activeTab === "my-account") {
+    renderMyAccount();
     return;
   }
 
@@ -24619,6 +25070,8 @@ addEmployeeButton.addEventListener("click", () => {
   }
 
   const employeeName = newEmployeeNameInput.value.trim();
+  const employeeEmail = normalizeEmployeeEmail(newEmployeeEmailInput?.value);
+  const employeeRole = normalizeEmployeeAppRole(newEmployeeRoleSelect?.value);
 
   if (!employeeName) {
     showMessage("Vul eerst een naam van een medewerker in.", "error");
@@ -24630,12 +25083,23 @@ addEmployeeButton.addEventListener("click", () => {
     return;
   }
 
+  if (employeeEmail && !isValidEmployeeEmail(employeeEmail)) {
+    showMessage("Vul een geldig e-mailadres in, bijvoorbeeld naam@domein.nl.", "error");
+    return;
+  }
+
+  if (employeeEmail && findEmployeeByEmail(employeeEmail)) {
+    showMessage("Dit e-mailadres is al gekoppeld aan een medewerker.", "error");
+    return;
+  }
+
   employees.push(employeeName);
   employees.sort((nameA, nameB) => nameA.localeCompare(nameB, "nl"));
   employeeMeta[employeeName] = {
     ...getEmployeeStatusMetaDefaults(),
     status: "active",
-    role: getDefaultEmployeeAppRole(employeeName),
+    role: employeeRole || getDefaultEmployeeAppRole(employeeName),
+    email: employeeEmail,
     updatedAt: getNowIsoString(),
     updatedByRole: isPlannerRole() ? "planner" : "employee",
     updatedByName: isPlannerRole() ? "Planner / Directie" : (getRoleScopedEmployeeName() || "Medewerker")
@@ -24664,6 +25128,13 @@ addEmployeeButton.addEventListener("click", () => {
   preferences.lastEmployee = employeeName;
   savePreferences();
   newEmployeeNameInput.value = "";
+  if (newEmployeeEmailInput) {
+    newEmployeeEmailInput.value = "";
+  }
+  if (newEmployeeRoleSelect) {
+    newEmployeeRoleSelect.value = "employee";
+  }
+  employeeNewForm?.classList.add("hidden");
   showSavedMessage();
 });
 
@@ -24895,6 +25366,37 @@ serviceDepartmentFilter?.addEventListener("change", renderShiftList);
 serviceStatusFilter?.addEventListener("change", renderShiftList);
 serviceSearchInput?.addEventListener("input", renderShiftList);
 
+employeeAdminSearchInput?.addEventListener("input", renderEmployeeList);
+
+employeeAdminFilters?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-employee-admin-filter]");
+
+  if (!button) {
+    return;
+  }
+
+  activeEmployeeAdminFilter = button.dataset.employeeAdminFilter || "all";
+  renderEmployeeList();
+});
+
+employeeNewToggleButton?.addEventListener("click", () => {
+  employeeNewForm?.classList.toggle("hidden");
+  if (!employeeNewForm?.classList.contains("hidden")) {
+    newEmployeeNameInput?.focus();
+  }
+});
+
+employeeDetailTabs?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-employee-detail-tab]");
+
+  if (!button) {
+    return;
+  }
+
+  activeEmployeeDetailTab = button.dataset.employeeDetailTab || "details";
+  renderEmployeeDetailTabs();
+});
+
 shiftListCard?.addEventListener("click", (event) => {
   const editButton = event.target.closest("[data-service-edit]");
   const deleteButton = event.target.closest("[data-service-delete]");
@@ -25111,7 +25613,25 @@ employeeContractPanel?.addEventListener("change", (event) => {
 });
 
 employeeListCard?.addEventListener("click", (event) => {
+  const resetButton = event.target.closest("[data-employee-reset-pin]");
+  const statusButton = event.target.closest("[data-employee-toggle-status]");
   const card = event.target.closest("[data-employee-select]");
+
+  if (resetButton) {
+    const employeeName = resetButton.dataset.employeeResetPin;
+    if (selectEmployeeForAdmin(employeeName)) {
+      resetEmployeePin(employeeName);
+    }
+    return;
+  }
+
+  if (statusButton) {
+    const employeeName = statusButton.dataset.employeeToggleStatus;
+    if (selectEmployeeForAdmin(employeeName)) {
+      updateEmployeeStatusQuick(employeeName, statusButton.dataset.nextStatus);
+    }
+    return;
+  }
 
   if (!card || !removeEmployeeSelect) {
     return;
@@ -25123,19 +25643,7 @@ employeeListCard?.addEventListener("click", (event) => {
     return;
   }
 
-  const currentEmployeeName = getSelectedEmployeeAdminName();
-
-  if (employeeName !== currentEmployeeName) {
-    const navigationChoice = confirmEmployeeEditorNavigation(currentEmployeeName);
-
-    if (navigationChoice === "cancel") {
-      return;
-    }
-  }
-
-  removeEmployeeSelect.value = employeeName;
-  renderEmployeeList();
-  renderEmployeeEditorDetails();
+  selectEmployeeForAdmin(employeeName);
 });
 
 function findOpenTimeOffDuplicateRequest(employeeName, startDate, endDate, excludedRequestId = "") {
@@ -25629,16 +26137,29 @@ employeeMailTestUserInput?.addEventListener("change", () => {
   }
 });
 
+employeeResetPinButton?.addEventListener("click", () => {
+  resetEmployeePin(getSelectedEmployeeAdminName());
+});
+
+employeeTemporaryPinButton?.addEventListener("click", () => {
+  setTemporaryEmployeePin(getSelectedEmployeeAdminName());
+});
+
+employeeSavePinButton?.addEventListener("click", () => {
+  savePlannerEmployeePin(getSelectedEmployeeAdminName());
+});
+
+employeePlannerRightsButton?.addEventListener("click", () => {
+  toggleEmployeePlannerRights(getSelectedEmployeeAdminName());
+});
+
 removeEmployeeSelect?.addEventListener("change", () => {
   if (!employeeStatusSelect) {
     return;
   }
 
   renderEmployeeList();
-  renderEmployeeStatusControls();
-  renderEmployeePermissions();
-  renderEmployeeStandardShifts();
-  renderEmployeeContractPanel();
+  renderEmployeeEditorDetails();
   clearEmployeeLoginPinFieldError();
 });
 
@@ -25818,6 +26339,59 @@ function confirmEmployeeEditorNavigation(employeeName) {
 
 saveEmployeeEmailButton?.addEventListener("click", () => {
   saveSelectedEmployeeDetails({ showSuccessMessage: true });
+});
+
+myAccountSavePinButton?.addEventListener("click", () => {
+  const employeeName = getRoleScopedEmployeeName();
+  const currentPin = String(myAccountCurrentPinInput?.value || "").trim();
+  const nextPin = normalizeEmployeeLoginPin(myAccountNewPinInput?.value);
+  const repeatPin = normalizeEmployeeLoginPin(myAccountRepeatPinInput?.value);
+
+  if (!employeeName) {
+    showMessage("Geen medewerker gekoppeld.", "error");
+    return;
+  }
+
+  if (currentPin !== getEmployeeLoginPin(employeeName)) {
+    showMessage("Huidige pin klopt niet.", "error");
+    myAccountPinStatus.textContent = "Huidige pin klopt niet.";
+    return;
+  }
+
+  if (!isValidEmployeeLoginPin(nextPin)) {
+    showMessage("Vul een nieuwe pincode van 4 tot 6 cijfers in.", "error");
+    myAccountPinStatus.textContent = "Vul een nieuwe pincode van 4 tot 6 cijfers in.";
+    return;
+  }
+
+  if (nextPin !== repeatPin) {
+    showMessage("Nieuwe pincodes komen niet overeen.", "error");
+    myAccountPinStatus.textContent = "Nieuwe pincodes komen niet overeen.";
+    return;
+  }
+
+  employeeMeta[employeeName] = {
+    ...getEmployeeStatusMetaDefaults(),
+    ...employeeMeta[employeeName],
+    loginPin: nextPin,
+    tempLoginPinActive: false,
+    updatedAt: getNowIsoString(),
+    updatedByRole: "employee",
+    updatedByName: employeeName
+  };
+  saveEmployeeMeta();
+  clearEmployeeEditorDraft(employeeName);
+  if (myAccountCurrentPinInput) {
+    myAccountCurrentPinInput.value = "";
+  }
+  if (myAccountNewPinInput) {
+    myAccountNewPinInput.value = "";
+  }
+  if (myAccountRepeatPinInput) {
+    myAccountRepeatPinInput.value = "";
+  }
+  renderMyAccount();
+  showMessage("Pincode gewijzigd", "success");
 });
 
 employeeDetailTestMailButton?.addEventListener("click", async () => {

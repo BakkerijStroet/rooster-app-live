@@ -98,6 +98,7 @@
       <button type="button" class="nav-tab planner-only-tab" data-tab="hours-approval">Uren controleren</button>
       <button type="button" class="nav-tab" data-tab="my-schedule">Mijn rooster</button>
       <button type="button" class="nav-tab" data-tab="my-hours">Mijn uren</button>
+      <button type="button" class="nav-tab" data-tab="my-account">Mijn account</button>
       <button type="button" class="nav-tab" data-tab="requests">Aanvragen</button>
       <button type="button" class="nav-tab planner-only-tab" data-tab="employees">Medewerkers</button>
       <button type="button" class="nav-tab planner-only-tab" data-tab="services">Diensten</button>
@@ -125,9 +126,31 @@
         <div id="homeWeekOverview" class="schedule-board empty">Nog geen weekoverzicht beschikbaar.</div>
       </section>
 
-      <section class="staff-panel role-planner app-panel" data-panel="employees" data-slot="left">
-        <h2>Medewerkers</h2>
-        <div class="staff-actions employee-add-actions">
+      <section class="staff-panel role-planner app-panel employee-management-panel" data-panel="employees">
+        <div class="view-header director-screen-header">
+          <div>
+            <h2>Medewerkers</h2>
+            <p class="panel-note">Beheer medewerkers, bevoegdheden, contracturen en accountgegevens.</p>
+          </div>
+        </div>
+
+        <div class="employee-management-toolbar">
+          <label class="employee-management-search">
+            <span>Zoek medewerker</span>
+            <input type="search" id="employeeAdminSearch" placeholder="Zoek medewerker" autocomplete="off">
+          </label>
+          <div class="employee-management-filters" id="employeeAdminFilters" aria-label="Medewerkerfilters">
+            <button type="button" class="employee-filter-button active" data-employee-admin-filter="all">Alles</button>
+            <button type="button" class="employee-filter-button" data-employee-admin-filter="active">Actief</button>
+            <button type="button" class="employee-filter-button" data-employee-admin-filter="inactive">Inactief</button>
+            <button type="button" class="employee-filter-button" data-employee-admin-filter="bakery">Bakkerij</button>
+            <button type="button" class="employee-filter-button" data-employee-admin-filter="shop">Winkel</button>
+            <button type="button" class="employee-filter-button" data-employee-admin-filter="planner">Planner</button>
+          </div>
+          <button type="button" id="employeeNewToggleButton">Nieuwe medewerker</button>
+        </div>
+
+        <div id="employeeNewForm" class="employee-new-form hidden">
           <label>
             Naam
             <input type="text" id="newEmployeeName" placeholder="Naam medewerker">
@@ -145,90 +168,141 @@
           </label>
           <button type="button" id="addEmployeeButton">Medewerker toevoegen</button>
         </div>
-        <div id="employeeListCard" class="simple-list empty">Nog geen medewerkers toegevoegd.</div>
-      </section>
 
-      <section class="staff-panel role-planner app-panel" data-panel="employees" data-slot="right">
-        <div class="employee-detail-section">
-          <h2>Basisgegevens</h2>
-          <div id="employeeDetailTitle" class="employee-detail-title">Kies links een medewerker</div>
-          <div class="staff-actions">
-            <label class="hidden">
-              Medewerker
-              <select id="removeEmployeeSelect">
-                <option value="">Kies medewerker voor statuswijziging</option>
-              </select>
-            </label>
-            <label>
-              Naam
-              <input type="text" id="employeeNameDisplay" readonly>
-            </label>
-              <label>
-                E-mailadres
-                <input type="email" id="employeeEmailInput" placeholder="naam@bakkerijstroet.nl" required autocomplete="email">
-                <small id="employeeEmailError" class="field-error-text hidden" aria-live="polite"></small>
-              </label>
-              <label>
-                Login-pincode
-                <input
-                  type="password"
-                  id="employeeLoginPinInput"
-                  placeholder="Leeg = tijdelijke standaardpin"
-                  inputmode="numeric"
-                  autocomplete="new-password"
-                  maxlength="6"
-                >
-                <small id="employeeLoginPinError" class="field-error-text hidden" aria-live="polite"></small>
-                <small id="employeeLoginPinStatus" class="panel-note" aria-live="polite">Gebruikt tijdelijke standaardpin</small>
-              </label>
-              <label>
-                Rol
-                <select id="employeeRoleSelect">
-                  <option value="employee">Medewerker</option>
-                  <option value="planner">Directie / Planner</option>
-              </select>
-            </label>
-            <label>
-              Status
-              <select id="employeeStatusSelect">
-                <option value="active">Actief</option>
-                <option value="inactive">Inactief</option>
-                <option value="former">Uit dienst</option>
-              </select>
-            </label>
-            <label class="employee-inline-toggle">
-              <input type="checkbox" id="employeeLoginAllowedInput" checked>
-              <span>Login toegestaan</span>
-            </label>
-            <div id="employeeStatusImpact" class="panel-note">Actieve medewerkers blijven beschikbaar voor planning en aanvragen.</div>
-          </div>
-        </div>
+        <div class="employee-management-layout">
+          <article class="employee-management-list-panel">
+            <div class="employee-table-head">
+              <span>Naam</span>
+              <span>Afdeling</span>
+              <span>Contract</span>
+              <span>Status</span>
+              <span>Rollen</span>
+              <span>Acties</span>
+            </div>
+            <div id="employeeListCard" class="simple-list empty">Nog geen medewerkers toegevoegd.</div>
+          </article>
 
-        <div class="employee-detail-section">
-          <h2>Mag uitvoeren</h2>
-          <div id="employeePermissionsList" class="employee-permissions-list empty">Nog geen medewerkers toegevoegd.</div>
-        </div>
+          <article class="employee-management-detail-panel">
+            <div class="employee-detail-header">
+              <div>
+                <span class="eyebrow">Detail</span>
+                <div id="employeeDetailTitle" class="employee-detail-title">Kies links een medewerker</div>
+              </div>
+              <div id="employeeDetailWarnings" class="employee-warning-row"></div>
+            </div>
 
-        <div class="employee-detail-section">
-          <h2>Vast rooster</h2>
-          <div id="employeeStandardShiftList" class="employee-standard-shift-list empty">Nog geen medewerkers toegevoegd.</div>
-        </div>
+            <div class="employee-detail-tabs" id="employeeDetailTabs" aria-label="Medewerker detailtabs">
+              <button type="button" class="employee-detail-tab active" data-employee-detail-tab="details">Gegevens</button>
+              <button type="button" class="employee-detail-tab" data-employee-detail-tab="planning">Planning</button>
+              <button type="button" class="employee-detail-tab" data-employee-detail-tab="hours">Uren</button>
+              <button type="button" class="employee-detail-tab" data-employee-detail-tab="account">Account</button>
+            </div>
 
-        <div class="employee-detail-section">
-          <h2>Contracturen</h2>
-          <div id="employeeContractPanel" class="employee-contract-panel empty">Nog geen medewerkers toegevoegd.</div>
-        </div>
+            <div class="employee-detail-tab-panel" data-employee-detail-panel="details">
+              <div class="staff-actions employee-detail-form-grid">
+                <label class="hidden">
+                  Medewerker
+                  <select id="removeEmployeeSelect">
+                    <option value="">Kies medewerker voor statuswijziging</option>
+                  </select>
+                </label>
+                <label>
+                  Naam
+                  <input type="text" id="employeeNameDisplay" readonly>
+                </label>
+                <label>
+                  E-mailadres
+                  <input type="email" id="employeeEmailInput" placeholder="naam@bakkerijstroet.nl" required autocomplete="email">
+                  <small id="employeeEmailError" class="field-error-text hidden" aria-live="polite"></small>
+                </label>
+                <label>
+                  Afdeling
+                  <input type="text" id="employeeDepartmentDisplay" readonly>
+                </label>
+                <label>
+                  Rol
+                  <select id="employeeRoleSelect">
+                    <option value="employee">Medewerker</option>
+                    <option value="planner">Directie / Planner</option>
+                  </select>
+                </label>
+                <label>
+                  Status
+                  <select id="employeeStatusSelect">
+                    <option value="active">Actief</option>
+                    <option value="inactive">Inactief</option>
+                    <option value="former">Uit dienst</option>
+                  </select>
+                </label>
+                <label class="employee-inline-toggle">
+                  <input type="checkbox" id="employeeLoginAllowedInput" checked>
+                  <span>Login toegestaan</span>
+                </label>
+                <div id="employeeStatusImpact" class="panel-note">Actieve medewerkers blijven beschikbaar voor planning en aanvragen.</div>
+              </div>
+            </div>
 
-        <div class="employee-detail-section">
-          <h2>Acties</h2>
-          <div class="form-actions compact-actions">
-            <button type="button" id="saveEmployeeEmailButton" class="secondary">Opslaan</button>
-            <button type="button" id="employeeDetailTestMailButton" class="secondary">Test mail</button>
-            <button type="button" id="employeeInviteButton" class="secondary">Uitnodigen via Clerk</button>
-          </div>
-          <div id="employeeClerkStatus" class="panel-note hidden" aria-live="polite"></div>
-          <div id="employeeDetailMailStatus" class="panel-note hidden" aria-live="polite"></div>
-          <div class="panel-note">Wachtwoord reset verloopt veilig via Clerk op het inlogscherm met ‘Wachtwoord vergeten’.</div>
+            <div class="employee-detail-tab-panel hidden" data-employee-detail-panel="planning">
+              <div class="employee-detail-section">
+                <h3>Contracturen</h3>
+                <div id="employeeContractPanel" class="employee-contract-panel empty">Nog geen medewerkers toegevoegd.</div>
+              </div>
+              <div class="employee-detail-section">
+                <h3>Bevoegdheden en diensten</h3>
+                <div id="employeePermissionsList" class="employee-permissions-list empty">Nog geen medewerkers toegevoegd.</div>
+              </div>
+              <div class="employee-detail-section">
+                <h3>Vast rooster</h3>
+                <div id="employeeStandardShiftList" class="employee-standard-shift-list empty">Nog geen medewerkers toegevoegd.</div>
+              </div>
+            </div>
+
+            <div class="employee-detail-tab-panel hidden" data-employee-detail-panel="hours">
+              <div id="employeeHoursSummary" class="employee-hours-summary empty">Kies links een medewerker.</div>
+            </div>
+
+            <div class="employee-detail-tab-panel hidden" data-employee-detail-panel="account">
+              <div class="employee-detail-section">
+                <div class="employee-account-grid">
+                  <label>
+                    Huidige pincode
+                    <input
+                      type="text"
+                      id="employeeLoginPinInput"
+                      placeholder="Leeg = tijdelijke standaardpin"
+                      inputmode="numeric"
+                      autocomplete="new-password"
+                      maxlength="6"
+                    >
+                    <small id="employeeLoginPinError" class="field-error-text hidden" aria-live="polite"></small>
+                    <small id="employeeLoginPinStatus" class="panel-note" aria-live="polite">Gebruikt tijdelijke standaardpin</small>
+                  </label>
+                  <div class="employee-account-status">
+                    <span class="eyebrow">Tijdelijke pin</span>
+                    <strong id="employeeTemporaryPinState">Ja</strong>
+                  </div>
+                </div>
+                <div class="form-actions compact-actions employee-account-actions">
+                  <button type="button" id="employeeResetPinButton" class="secondary">Reset pin</button>
+                  <button type="button" id="employeeTemporaryPinButton" class="secondary">Nieuwe tijdelijke pin</button>
+                  <button type="button" id="employeeSavePinButton" class="secondary">Pincode wijzigen</button>
+                  <button type="button" id="employeePlannerRightsButton" class="secondary">Plannerrechten</button>
+                </div>
+              </div>
+
+              <div class="employee-detail-section">
+                <h3>Acties</h3>
+                <div class="form-actions compact-actions">
+                  <button type="button" id="saveEmployeeEmailButton" class="secondary">Opslaan</button>
+                  <button type="button" id="employeeDetailTestMailButton" class="secondary">Test mail</button>
+                  <button type="button" id="employeeInviteButton" class="secondary">Uitnodigen via Clerk</button>
+                </div>
+                <div id="employeeClerkStatus" class="panel-note hidden" aria-live="polite"></div>
+                <div id="employeeDetailMailStatus" class="panel-note hidden" aria-live="polite"></div>
+                <div class="panel-note">Wachtwoord reset verloopt veilig via Clerk op het inlogscherm met ‘Wachtwoord vergeten’.</div>
+              </div>
+            </div>
+          </article>
         </div>
       </section>
 
@@ -756,6 +830,39 @@
         </div>
       </section>
 
+      <section class="staff-panel app-panel aligned-view-panel director-screen-panel my-account-panel" data-panel="my-account">
+        <div class="view-header director-screen-header">
+          <div>
+            <h2>Mijn account</h2>
+            <p class="panel-note">Wijzig je eigen medewerker-pincode.</p>
+          </div>
+        </div>
+        <div class="my-account-card">
+          <div id="myAccountEmployeeBadge" class="employee-context-badge role-employee-summary">
+            <span>Medewerker</span>
+            <strong>Geen medewerker gekoppeld</strong>
+          </div>
+          <div class="staff-actions my-account-pin-form">
+            <label>
+              Huidige pin
+              <input type="password" id="myAccountCurrentPin" inputmode="numeric" autocomplete="current-password" maxlength="6">
+            </label>
+            <label>
+              Nieuwe pin
+              <input type="password" id="myAccountNewPin" inputmode="numeric" autocomplete="new-password" maxlength="6">
+            </label>
+            <label>
+              Herhaal nieuwe pin
+              <input type="password" id="myAccountRepeatPin" inputmode="numeric" autocomplete="new-password" maxlength="6">
+            </label>
+          </div>
+          <div class="form-actions compact-actions">
+            <button type="button" id="myAccountSavePinButton">Pincode opslaan</button>
+          </div>
+          <div id="myAccountPinStatus" class="panel-note" aria-live="polite"></div>
+        </div>
+      </section>
+
       <section class="staff-panel role-planner app-panel aligned-view-panel director-screen-panel hours-approval-panel" data-panel="hours-approval">
         <div class="view-header director-screen-header">
           <div>
@@ -1218,6 +1325,7 @@
     <button type="button" class="mobile-nav-button" data-go-tab="week-current">Rooster</button>
     <button type="button" class="mobile-nav-button" data-go-tab="my-schedule">Mijn rooster</button>
     <button type="button" class="mobile-nav-button" data-go-tab="my-hours">Mijn uren</button>
+    <button type="button" class="mobile-nav-button" data-go-tab="my-account">Mijn account</button>
     <button type="button" class="mobile-nav-button" data-go-tab="requests">Aanvragen</button>
   </nav>
 
