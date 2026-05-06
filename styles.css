@@ -2923,17 +2923,21 @@ textarea.input-error {
 }
 
 .smart-planning-proposal-roster .smart-planning-open-shift-button {
-  grid-template-columns: 104px minmax(78px, 1fr) 78px;
-  gap: 8px;
+  grid-template-columns: minmax(72px, 104px) minmax(72px, 1fr) 84px;
+  column-gap: 6px;
   min-height: 34px;
   padding: 0.38rem 0.46rem;
   cursor: pointer;
   align-items: center;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .smart-planning-proposal-roster .planning-shift-name {
   min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2946,6 +2950,9 @@ textarea.input-error {
   justify-self: end;
   text-align: right;
   white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .smart-planning-proposal-roster .planning-shift-employee {
@@ -2957,6 +2964,12 @@ textarea.input-error {
   min-width: 0;
   white-space: nowrap;
   justify-self: start;
+}
+
+.smart-planning-proposal-roster .planning-shift-employee,
+.smart-planning-proposal-roster .planning-shift-name,
+.smart-planning-proposal-roster .planning-shift-time {
+  box-sizing: border-box;
 }
 
 .smart-planning-concept-badge {

@@ -18747,6 +18747,7 @@ function selectSmartPlanningProposalEmployee(itemId, employeeName) {
   }
 
   item.chosenEmployeeName = employeeName || "";
+  selectedSmartPlanningOpenShiftId = "";
   renderSmartPlanningPanel();
 }
 
