@@ -19664,6 +19664,50 @@ function isSmartPlanningEmergencyEmployee(employeeName) {
     departmentSummary.includes("planner");
 }
 
+function getSmartPlanningFixedBakeryEmployeeForShift(shiftName = "") {
+  const normalizedShiftName = String(shiftName || "").toLowerCase();
+
+  if (normalizedShiftName.includes("draai")) return "Richard H";
+  if (normalizedShiftName.includes("oven")) return "Richard R";
+  if (normalizedShiftName.includes("brood")) return "Marnix";
+  if (normalizedShiftName.includes("banket")) return "Ronny";
+  if (normalizedShiftName.includes("inpak")) return "Lindsey";
+  if (normalizedShiftName.includes("productie")) return "Lindsey";
+
+  return "";
+}
+
+function applySmartPlanningFixedBakeryStaffing() {
+  if (!smartPlanningProposalState?.weeks?.length) {
+    return 0;
+  }
+
+  let assignedCount = 0;
+  const proposalItems = [...getSmartPlanningProposalItems()].sort(compareSmartPlanningItemsByRosterOrder);
+
+  proposalItems.forEach((item) => {
+    if (!item || item.chosenEmployeeName || item.department === "shop") {
+      return;
+    }
+
+    const fixedEmployeeName = getSmartPlanningFixedBakeryEmployeeForShift(item.shiftName);
+
+    if (!fixedEmployeeName || !employees.includes(fixedEmployeeName)) {
+      return;
+    }
+
+    if (!isSmartPlanningEmployeeAvailableForItem(fixedEmployeeName, item)) {
+      return;
+    }
+
+    item.chosenEmployeeName = fixedEmployeeName;
+    item.assignmentReason = "Vaste bezetting";
+    assignedCount += 1;
+  });
+
+  return assignedCount;
+}
+
 function getSmartPlanningEmployeeAdvice(item) {
   if (!item) {
     return { suitable: [], attention: [], unsuitable: [] };
@@ -20279,6 +20323,7 @@ function selectSmartPlanningProposalEmployee(itemId, employeeName, options = {})
   }
 
   item.chosenEmployeeName = employeeName || "";
+  item.assignmentReason = "";
   if (employeeName) {
     lastSmartPlanningSelectedEmployeeName = employeeName;
     lastSmartPlanningAssignedItemId = itemId;
@@ -20555,13 +20600,14 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
           const warningText = getSmartPlanningShiftWarning(proposalItem);
           const chosenEmployeeName = proposalItem?.chosenEmployeeName || "";
           const employeeLabel = chosenEmployeeName || "OPEN";
+          const assignmentLabel = proposalItem?.assignmentReason || "Voorstel";
           const opensLeft = getWeekdayNumberFromDate(row.day) >= 5;
           const titleText = warningText || `OPEN - ${row.shiftName} - ${shiftTime}. Klik om details te bekijken`;
           const shiftContent = chosenEmployeeName ? `
                 <span class="smart-planning-assigned-shift">
                   <span class="smart-planning-assigned-top">
                     <span class="smart-planning-assigned-name">${employeeLabel}</span>
-                    <em class="smart-planning-concept-badge">Voorstel</em>
+                    <em class="smart-planning-concept-badge">${assignmentLabel}</em>
                   </span>
                   <span class="smart-planning-assigned-bottom">
                     <span class="smart-planning-assigned-shift-name" title="${escapeHtmlAttribute(row.shiftName)}">${displayShiftName}</span>
@@ -20784,10 +20830,11 @@ function createSmartPlanningPlaceholderProposal() {
       }))
     }))
   };
+  const fixedStaffingCount = applySmartPlanningFixedBakeryStaffing();
   const totalOpenItems = smartPlanningProposalState.weeks.reduce((total, weekProposal) => total + weekProposal.items.length, 0);
   renderSmartPlanningPanel();
   showMessage(totalOpenItems
-    ? "Maandvoorstel gemaakt. Er is nog niets toegepast op het rooster."
+    ? `Maandvoorstel gemaakt.${fixedStaffingCount ? ` ${fixedStaffingCount} vaste bakkerijdienst${fixedStaffingCount === 1 ? "" : "en"} alvast ingevuld.` : ""} Er is nog niets toegepast op het rooster.`
     : "Geen open diensten gevonden voor deze selectie.", totalOpenItems ? "success" : "warning");
 }
 
