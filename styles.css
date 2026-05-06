@@ -3612,6 +3612,7 @@ textarea.input-error {
 }
 
 .smart-planning-proposal-status strong {
+  display: block;
   color: #1f3f35;
 }
 
@@ -3640,12 +3641,23 @@ textarea.input-error {
   box-shadow: 0 14px 30px rgba(99, 64, 28, 0.12);
 }
 
+.smart-planning-clear-services-confirm {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #d6b16e;
+  border-radius: 16px;
+  background: #fff9ed;
+  box-shadow: 0 14px 30px rgba(99, 64, 28, 0.1);
+}
+
 .smart-planning-apply-confirm strong {
   display: block;
   color: #4f3420;
 }
 
-.smart-planning-adjust-confirm strong {
+.smart-planning-adjust-confirm strong,
+.smart-planning-clear-services-confirm strong {
   display: block;
   color: #78350f;
   font-size: 16px;
@@ -3658,11 +3670,34 @@ textarea.input-error {
   font-weight: 800;
 }
 
-.smart-planning-adjust-confirm p {
+.smart-planning-adjust-confirm p,
+.smart-planning-clear-services-confirm p {
   margin: 4px 0 0;
   color: #6b4a2f;
   font-size: 13px;
   font-weight: 800;
+}
+
+.smart-planning-clear-scope {
+  display: grid;
+  gap: 8px;
+}
+
+.smart-planning-clear-scope label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #ead9bf;
+  border-radius: 12px;
+  background: #fff;
+  color: #4f3420;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.smart-planning-clear-scope label:has(input:disabled) {
+  opacity: 0.58;
 }
 
 .smart-planning-apply-warning {

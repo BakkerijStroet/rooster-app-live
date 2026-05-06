@@ -4841,6 +4841,7 @@ let lastSmartPlanningSelectedEmployeeName = "";
 let lastSmartPlanningAssignedItemId = "";
 let smartPlanningApplyConfirmVisible = false;
 let smartPlanningAdjustConfirmVisible = false;
+let smartPlanningClearServicesConfirmVisible = false;
 let lastOpenRequestReminderKey = "";
 let lastEmployeeHoursReminderKey = "";
 const derivedDataCache = {
@@ -19733,12 +19734,16 @@ function getSmartPlanningAssignedItems(data = null) {
   }
 
   return getSmartPlanningProposalItems()
-    .filter((item) => item.chosenEmployeeName && isSmartPlanningProposalItemChanged(item))
+    .filter((item) => isSmartPlanningProposalItemChanged(item))
     .sort(compareSmartPlanningItemsByRosterOrder);
 }
 
 function isSmartPlanningProposalItemChanged(item) {
-  if (!item?.chosenEmployeeName) {
+  if (!item) {
+    return false;
+  }
+
+  if (!item.isExistingRosterEntry && !item.chosenEmployeeName) {
     return false;
   }
 
@@ -19767,8 +19772,8 @@ function updateSmartPlanningApplyButton(data = getSmartPlanningMonthData()) {
   smartPlanningApplyProposalButton.disabled = summary.assignedCount === 0;
   smartPlanningApplyProposalButton.textContent = "Rooster toepassen";
   smartPlanningApplyProposalButton.title = summary.assignedCount
-    ? `${summary.assignedCount} gekozen dienst${summary.assignedCount === 1 ? "" : "en"} toepassen`
-    : "Kies eerst minimaal één medewerker.";
+    ? `${summary.assignedCount} wijziging${summary.assignedCount === 1 ? "" : "en"} toepassen`
+    : "Kies eerst minimaal één medewerker of maak een dienst leeg.";
 }
 
 function renderSmartPlanningApplyConfirm(data = getSmartPlanningMonthData()) {
@@ -19783,11 +19788,11 @@ function renderSmartPlanningApplyConfirm(data = getSmartPlanningMonthData()) {
     <section class="smart-planning-apply-confirm">
       <div>
         <strong>Rooster toepassen?</strong>
-        <p>De ingevulde voorgestelde diensten worden in het echte rooster gezet.</p>
+        <p>De gekozen wijzigingen worden in het echte rooster gezet.</p>
         ${isAdjustingRoster ? `<p class="smart-planning-apply-warning">Let op: je wijzigt een bestaand rooster.</p>` : ""}
       </div>
       <div class="smart-planning-apply-summary">
-        <span>${summary.assignedCount} diensten worden aangepast/ingevuld</span>
+        <span>${summary.assignedCount} diensten worden aangepast/leeggemaakt/ingevuld</span>
         <span>${summary.openCount} diensten blijven open</span>
         <span>${summary.warningCount} waarschuwingen blijven staan</span>
       </div>
@@ -19841,6 +19846,16 @@ function clearAppliedSmartPlanningAssignments(appliedItemIds) {
           return item;
         }
 
+        if (!item.chosenEmployeeName) {
+          return {
+            ...item,
+            originalEmployeeName: "",
+            originalEntryKey: "",
+            isExistingRosterEntry: false,
+            assignmentReason: ""
+          };
+        }
+
         const shift = getSmartPlanningShiftFromProposalItem(item);
         const nextEntry = createSmartPlanningRosterEntry(item, shift);
 
@@ -19871,7 +19886,7 @@ function applySmartPlanningToRoster() {
   const assignedItems = getSmartPlanningAssignedItems(data);
 
   if (!assignedItems.length) {
-    showMessage("Kies eerst minimaal één medewerker.", "warning");
+    showMessage("Kies eerst minimaal één medewerker of maak een dienst leeg.", "warning");
     updateSmartPlanningApplyButton();
     return;
   }
@@ -19893,6 +19908,7 @@ function applySmartPlanningToRoster() {
   const savedEntries = [];
   const replacedEntries = [];
   let skippedCount = 0;
+  let clearedCount = 0;
   let movedWorkLogs = false;
 
   assignedItems.forEach((item) => {
@@ -19911,6 +19927,19 @@ function applySmartPlanningToRoster() {
     const sourceEntries = previousEntry
       ? workingEntries.filter((entry, index) => index !== existingIndex)
       : workingEntries;
+
+    if (previousEntry && !employeeName) {
+      workingEntries.splice(existingIndex, 1);
+      replacedEntries.push(previousEntry);
+      clearedCount += 1;
+      appliedItemIds.add(item.id);
+      return;
+    }
+
+    if (!employeeName) {
+      skippedCount += 1;
+      return;
+    }
 
     if (!previousEntry) {
       const openSlot = findMatchingOpenPlanningSlot(item, workingEntries);
@@ -19943,7 +19972,7 @@ function applySmartPlanningToRoster() {
     appliedItemIds.add(item.id);
   });
 
-  if (savedEntries.length) {
+  if (savedEntries.length || clearedCount) {
     setUndoState("Rooster plannen toepassen");
     entries.splice(0, entries.length, ...workingEntries);
     saveEntries();
@@ -19963,6 +19992,7 @@ function applySmartPlanningToRoster() {
       details: {
         weekValues: affectedWeeks,
         assignmentCount: savedEntries.length,
+        clearedCount,
         skippedCount,
         rosterChangeSummary: buildRosterChangeSummary(preparedRosterChanges)
       }
@@ -19978,7 +20008,8 @@ function applySmartPlanningToRoster() {
   clearAppliedSmartPlanningAssignments(appliedItemIds);
   smartPlanningApplyConfirmVisible = false;
   render();
-  showMessage(`Rooster bijgewerkt: ${savedEntries.length} diensten aangepast/ingevuld · ${skippedCount} overgeslagen · open diensten blijven open.`, savedEntries.length ? "success" : "warning");
+  const changedCount = savedEntries.length + clearedCount;
+  showMessage(`Rooster bijgewerkt: ${savedEntries.length} diensten aangepast/ingevuld · ${clearedCount} leeggemaakt · ${skippedCount} overgeslagen · open diensten blijven open.`, changedCount ? "success" : "warning");
 }
 
 function mapSmartPlanningProposalToRosterEntries(proposalItems = []) {
@@ -21292,6 +21323,7 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
     setClassName(smartPlanningProposalList, "smart-planning-list empty");
     smartPlanningProposalList.innerHTML = `
       ${renderSmartPlanningAdjustConfirm()}
+      ${renderSmartPlanningClearServicesConfirm()}
       <strong>${smartPlanningProposalState.mode === "adjust" ? "Geen diensten gevonden om aan te passen." : "Geen open diensten gevonden voor deze selectie."}</strong>
       <span>4 weken vanaf ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel}</span>
     `;
@@ -21305,6 +21337,7 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
     setClassName(smartPlanningProposalList, "smart-planning-list empty");
     smartPlanningProposalList.innerHTML = `
       ${renderSmartPlanningAdjustConfirm()}
+      ${renderSmartPlanningClearServicesConfirm()}
       <span>Nog geen voorstel gemaakt.</span>
     `;
     return;
@@ -21318,11 +21351,15 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
   setClassName(smartPlanningProposalList, "smart-planning-list");
   smartPlanningProposalList.innerHTML = `
     ${renderSmartPlanningAdjustConfirm()}
+    ${renderSmartPlanningClearServicesConfirm()}
     <div class="smart-planning-proposal-status">
-      <strong>${smartPlanningProposalState.mode === "adjust" ? "Rooster aanpassen" : "Maandvoorstel gemaakt"}</strong>
-      <span>${smartPlanningProposalState.mode === "adjust"
-        ? `4 weken vanaf ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel} · bestaande diensten blijven staan; alleen bewuste wijzigingen worden toegepast.`
-        : `4 weken vanaf ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel} · alle regels blijven tijdelijk tot je later bewust toepast.`}</span>
+      <div>
+        <strong>${smartPlanningProposalState.mode === "adjust" ? "Rooster aanpassen" : "Maandvoorstel gemaakt"}</strong>
+        <span>${smartPlanningProposalState.mode === "adjust"
+          ? `4 weken vanaf ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel} · bestaande diensten blijven staan; alleen bewuste wijzigingen worden toegepast.`
+          : `4 weken vanaf ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel} · alle regels blijven tijdelijk tot je later bewust toepast.`}</span>
+      </div>
+      ${smartPlanningProposalState.mode === "adjust" ? `<button type="button" class="secondary" data-smart-planning-clear-services-open>Diensten leegmaken</button>` : ""}
     </div>
     ${renderSmartPlanningApplyConfirm(data)}
     <div class="smart-planning-month-proposal">
@@ -21409,6 +21446,7 @@ function createSmartPlanningPlaceholderProposal() {
   lastSmartPlanningAssignedItemId = "";
   smartPlanningApplyConfirmVisible = false;
   smartPlanningAdjustConfirmVisible = false;
+  smartPlanningClearServicesConfirmVisible = false;
 
   smartPlanningProposalState = {
     mode: "create",
@@ -21484,6 +21522,7 @@ function createSmartPlanningAdjustmentProposal() {
   lastSmartPlanningAssignedItemId = "";
   smartPlanningApplyConfirmVisible = false;
   smartPlanningAdjustConfirmVisible = false;
+  smartPlanningClearServicesConfirmVisible = false;
 
   smartPlanningProposalState = {
     mode: "adjust",
@@ -21510,6 +21549,38 @@ function createSmartPlanningAdjustmentProposal() {
     : "Geen diensten gevonden om aan te passen voor deze selectie.", totalItems ? "success" : "warning");
 }
 
+function clearSmartPlanningRosterServices(scope = "week") {
+  if (smartPlanningProposalState?.mode !== "adjust") {
+    showMessage("Gebruik Diensten leegmaken alleen binnen Rooster aanpassen.", "warning");
+    return;
+  }
+
+  const itemsToClear = getSmartPlanningClearableServiceItems(scope);
+
+  if (!itemsToClear.length) {
+    showMessage("Geen gevulde diensten gevonden om leeg te maken.", "warning");
+    smartPlanningClearServicesConfirmVisible = false;
+    renderSmartPlanningPanel();
+    return;
+  }
+
+  const linkedWorkLogCount = countSmartPlanningLinkedWorkLogs(itemsToClear);
+  itemsToClear.forEach((item) => {
+    item.chosenEmployeeName = "";
+    item.assignmentReason = "";
+  });
+
+  selectedSmartPlanningOpenShiftId = itemsToClear[0]?.id || "";
+  lastSmartPlanningAssignedItemId = "";
+  smartPlanningClearServicesConfirmVisible = false;
+  smartPlanningApplyConfirmVisible = false;
+  renderSmartPlanningPanel();
+  showMessage(
+    `${itemsToClear.length} dienst${itemsToClear.length === 1 ? "" : "en"} leeggemaakt in het voorstel.${linkedWorkLogCount ? " Let op: er zijn al uren geregistreerd." : ""} Klik Rooster toepassen om dit op te slaan.`,
+    linkedWorkLogCount ? "warning" : "success"
+  );
+}
+
 function getSmartPlanningWeekValueForItemId(itemId) {
   const item = getSmartPlanningProposalItemById(itemId);
   return item?.weekValue || (item?.day ? getWeekValueFromDate(item.day) : "");
@@ -21532,6 +21603,7 @@ function clearSmartPlanningProposalWeek(weekValue = "") {
   weekProposal.items = [];
   smartPlanningApplyConfirmVisible = false;
   smartPlanningAdjustConfirmVisible = false;
+  smartPlanningClearServicesConfirmVisible = false;
   if (selectedWeek === targetWeek) {
     selectedSmartPlanningOpenShiftId = "";
   }
@@ -21549,6 +21621,7 @@ function clearSmartPlanningProposal() {
   lastSmartPlanningAssignedItemId = "";
   smartPlanningApplyConfirmVisible = false;
   smartPlanningAdjustConfirmVisible = false;
+  smartPlanningClearServicesConfirmVisible = false;
   renderSmartPlanningPanel();
   showMessage("Alle voorstellen gewist. Er is niets aan het rooster gewijzigd.", "success");
 }
@@ -21773,6 +21846,79 @@ function renderDashboard() {
       </div>
     </section>
     <div class="dashboard-alert">${dashboardAlertText}</div>
+  `;
+}
+
+function getSmartPlanningClearServicesTargetWeek() {
+  const selectedWeek = getSmartPlanningWeekValueForItemId(selectedSmartPlanningOpenShiftId);
+  return selectedWeek || smartPlanningProposalState?.startWeek || getSmartPlanningSelectedWeek();
+}
+
+function getSmartPlanningSelectedClearableItem() {
+  const selectedItem = getSmartPlanningProposalItemById(selectedSmartPlanningOpenShiftId);
+  return selectedItem?.isExistingRosterEntry && selectedItem.chosenEmployeeName ? selectedItem : null;
+}
+
+function getSmartPlanningClearableServiceItems(scope = "week") {
+  if (smartPlanningProposalState?.mode !== "adjust") {
+    return [];
+  }
+
+  const selectedItem = getSmartPlanningSelectedClearableItem();
+  if (scope === "selected") {
+    return selectedItem ? [selectedItem] : [];
+  }
+
+  const targetWeek = getSmartPlanningClearServicesTargetWeek();
+  return getSmartPlanningProposalItems()
+    .filter((item) => item.isExistingRosterEntry && item.chosenEmployeeName && item.weekValue === targetWeek)
+    .sort(compareSmartPlanningItemsByRosterOrder);
+}
+
+function countSmartPlanningLinkedWorkLogs(items = []) {
+  return items.filter((item) => {
+    const shift = getSmartPlanningShiftFromProposalItem(item);
+    const entry = createSmartPlanningRosterEntry(item, shift);
+    return Boolean(getWorkLogForEntry(entry));
+  }).length;
+}
+
+function renderSmartPlanningClearServicesConfirm() {
+  if (!smartPlanningClearServicesConfirmVisible || smartPlanningProposalState?.mode !== "adjust") {
+    return "";
+  }
+
+  const selectedItem = getSmartPlanningSelectedClearableItem();
+  const targetWeek = getSmartPlanningClearServicesTargetWeek();
+  const weekItems = getSmartPlanningClearableServiceItems("week");
+  const selectedItems = getSmartPlanningClearableServiceItems("selected");
+  const defaultScope = selectedItem ? "selected" : "week";
+  const selectedLinkedWorkLogCount = countSmartPlanningLinkedWorkLogs(selectedItems);
+  const weekLinkedWorkLogCount = countSmartPlanningLinkedWorkLogs(weekItems);
+  const linkedWorkLogCount = selectedLinkedWorkLogCount || weekLinkedWorkLogCount;
+
+  return `
+    <section class="smart-planning-clear-services-confirm" role="dialog" aria-modal="false" aria-labelledby="smartPlanningClearServicesTitle">
+      <div>
+        <strong id="smartPlanningClearServicesTitle">Diensten leegmaken</strong>
+        <p>Je gaat medewerkers uit geselecteerde diensten verwijderen. De diensten blijven bestaan als OPEN dienst zodat je opnieuw kunt plannen.</p>
+        ${linkedWorkLogCount ? `<p class="smart-planning-apply-warning">Let op: voor sommige diensten zijn al uren geregistreerd.</p>` : ""}
+      </div>
+      <div class="smart-planning-clear-scope">
+        <label>
+          <input type="radio" name="smartPlanningClearServicesScope" value="selected" ${defaultScope === "selected" ? "checked" : ""} ${selectedItem ? "" : "disabled"}>
+          <span>Geselecteerde dienst${selectedItem ? ` · ${formatWeekday(selectedItem.day)} ${getCompactRosterShiftLabel(selectedItem.shiftName)}${selectedLinkedWorkLogCount ? " · uren geregistreerd" : ""}` : " · kies eerst een dienst"}</span>
+        </label>
+        <label>
+          <input type="radio" name="smartPlanningClearServicesScope" value="week" ${defaultScope === "week" ? "checked" : ""} ${weekItems.length ? "" : "disabled"}>
+          <span>Huidige week leegmaken · ${formatWeekLabel(targetWeek)} · ${weekItems.length} dienst${weekItems.length === 1 ? "" : "en"}${weekLinkedWorkLogCount ? ` · ${weekLinkedWorkLogCount} met uren` : ""}</span>
+        </label>
+      </div>
+      <div class="smart-planning-apply-actions">
+        <button type="button" class="secondary" data-smart-planning-clear-services-cancel>Annuleren</button>
+        <button type="button" data-smart-planning-clear-services-confirm ${weekItems.length || selectedItem ? "" : "disabled"}>Diensten leegmaken</button>
+      </div>
+    </section>
   `;
 }
 
@@ -28051,7 +28197,7 @@ smartPlanningApplyProposalButton?.addEventListener("click", () => {
   }
 
   if (!getSmartPlanningAssignedItems(getSmartPlanningMonthData()).length) {
-    showMessage("Kies eerst minimaal één medewerker.", "warning");
+    showMessage("Kies eerst minimaal één medewerker of maak een dienst leeg.", "warning");
     updateSmartPlanningApplyButton();
     return;
   }
@@ -28073,6 +28219,32 @@ smartPlanningChecksList?.addEventListener("click", (event) => {
 });
 
 smartPlanningProposalList?.addEventListener("click", (event) => {
+  const clearServicesOpenButton = event.target.closest("[data-smart-planning-clear-services-open]");
+
+  if (clearServicesOpenButton) {
+    smartPlanningClearServicesConfirmVisible = true;
+    smartPlanningAdjustConfirmVisible = false;
+    smartPlanningApplyConfirmVisible = false;
+    renderSmartPlanningPanel();
+    return;
+  }
+
+  const clearServicesCancelButton = event.target.closest("[data-smart-planning-clear-services-cancel]");
+
+  if (clearServicesCancelButton) {
+    smartPlanningClearServicesConfirmVisible = false;
+    renderSmartPlanningPanel();
+    return;
+  }
+
+  const clearServicesConfirmButton = event.target.closest("[data-smart-planning-clear-services-confirm]");
+
+  if (clearServicesConfirmButton) {
+    const selectedScopeInput = smartPlanningProposalList.querySelector("input[name='smartPlanningClearServicesScope']:checked");
+    clearSmartPlanningRosterServices(selectedScopeInput?.value || "week");
+    return;
+  }
+
   const adjustCancelButton = event.target.closest("[data-smart-planning-adjust-cancel]");
 
   if (adjustCancelButton) {
