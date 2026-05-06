@@ -4788,6 +4788,8 @@ let activeHoursApprovalFilter = "all";
 let smartPlanningProposalState = null;
 let activeSmartPlanningTab = "proposal";
 let selectedSmartPlanningOpenShiftId = "";
+let lastSmartPlanningSelectedEmployeeName = "";
+let lastSmartPlanningAssignedItemId = "";
 let lastOpenRequestReminderKey = "";
 let lastEmployeeHoursReminderKey = "";
 const derivedDataCache = {
@@ -18791,7 +18793,81 @@ function hasBlockingSmartPlanningAssignment(employeeName, candidateShift) {
   return assignments.some((assignment) => !canCombineSmartPlanningShifts(assignment, candidateShift));
 }
 
-function selectSmartPlanningProposalEmployee(itemId, employeeName) {
+function renderSmartPlanningPanelPreservingRosterScroll() {
+  const rosterScroll = document.querySelector(".smart-planning-roster-scroll");
+  const scrollLeft = rosterScroll?.scrollLeft || 0;
+
+  renderSmartPlanningPanel();
+
+  requestAnimationFrame(() => {
+    const nextRosterScroll = document.querySelector(".smart-planning-roster-scroll");
+    if (nextRosterScroll) {
+      nextRosterScroll.scrollLeft = scrollLeft;
+    }
+  });
+}
+
+function getNextSmartPlanningOpenShiftId(currentItemId) {
+  const items = smartPlanningProposalState?.items || [];
+  const currentIndex = items.findIndex((item) => item.id === currentItemId);
+  const currentItem = items[currentIndex];
+
+  if (!currentItem) {
+    return "";
+  }
+
+  const isOpenCandidate = (item) => item.id !== currentItemId && !item.chosenEmployeeName;
+  const sameDayAfter = items.slice(currentIndex + 1)
+    .find((item) => item.day === currentItem.day && isOpenCandidate(item));
+
+  if (sameDayAfter) {
+    return sameDayAfter.id;
+  }
+
+  const sameDayAny = items.find((item) => item.day === currentItem.day && isOpenCandidate(item));
+  if (sameDayAny) {
+    return sameDayAny.id;
+  }
+
+  const nextDay = items.find((item) => item.day > currentItem.day && isOpenCandidate(item));
+  if (nextDay) {
+    return nextDay.id;
+  }
+
+  return "";
+}
+
+function isSmartPlanningEmployeeAvailableForItem(employeeName, item) {
+  return getSmartPlanningAuthorizedEmployeeAdvice(item)
+    .available
+    .some((employeeAdvice) => employeeAdvice.employeeName === employeeName);
+}
+
+function assignSmartPlanningSameShiftSeries(itemId, employeeName) {
+  const sourceItem = getSmartPlanningProposalItemById(itemId);
+
+  if (!sourceItem || !employeeName) {
+    return 0;
+  }
+
+  const items = smartPlanningProposalState?.items || [];
+  const sourceIndex = items.findIndex((item) => item.id === itemId);
+  let assignedCount = 0;
+  items.slice(Math.max(sourceIndex + 1, 0)).forEach((item) => {
+    if (
+      item.shiftName === sourceItem.shiftName &&
+      !item.chosenEmployeeName &&
+      isSmartPlanningEmployeeAvailableForItem(employeeName, item)
+    ) {
+      item.chosenEmployeeName = employeeName;
+      assignedCount += 1;
+    }
+  });
+
+  return assignedCount;
+}
+
+function selectSmartPlanningProposalEmployee(itemId, employeeName, options = {}) {
   const item = getSmartPlanningProposalItemById(itemId);
 
   if (!item) {
@@ -18799,8 +18875,18 @@ function selectSmartPlanningProposalEmployee(itemId, employeeName) {
   }
 
   item.chosenEmployeeName = employeeName || "";
-  selectedSmartPlanningOpenShiftId = "";
-  renderSmartPlanningPanel();
+  if (employeeName) {
+    lastSmartPlanningSelectedEmployeeName = employeeName;
+    lastSmartPlanningAssignedItemId = itemId;
+    if (options.assignSeries) {
+      assignSmartPlanningSameShiftSeries(itemId, employeeName);
+    }
+  } else if (lastSmartPlanningAssignedItemId === itemId) {
+    lastSmartPlanningAssignedItemId = "";
+  }
+
+  selectedSmartPlanningOpenShiftId = employeeName ? getNextSmartPlanningOpenShiftId(itemId) : itemId;
+  renderSmartPlanningPanelPreservingRosterScroll();
 }
 
 function clearSmartPlanningProposalAssignment(itemId) {
@@ -18898,14 +18984,23 @@ function renderSmartPlanningInlineAdvice(item) {
   }
 
   const advice = getSmartPlanningAuthorizedEmployeeAdvice(item);
+  const availableAdvice = [...advice.available].sort((itemA, itemB) => {
+    const itemALast = itemA.employeeName === lastSmartPlanningSelectedEmployeeName ? -1 : 0;
+    const itemBLast = itemB.employeeName === lastSmartPlanningSelectedEmployeeName ? -1 : 0;
+
+    return itemALast - itemBLast ||
+      itemA.plannedHours - itemB.plannedHours ||
+      itemA.employeeName.localeCompare(itemB.employeeName, "nl");
+  });
   const renderChoice = (employeeAdvice, isAvailable) => {
     const isSelected = item.chosenEmployeeName === employeeAdvice.employeeName;
+    const isLastSelected = employeeAdvice.employeeName === lastSmartPlanningSelectedEmployeeName;
     const reason = employeeAdvice.displayReason || employeeAdvice.statusLabel || employeeAdvice.reasons[0] || "Beschikbaarheid onbekend";
 
     return `
       <button
         type="button"
-        class="smart-planning-employee-choice ${isAvailable ? "is-available" : "is-unavailable"} ${isSelected ? "is-selected" : ""}"
+        class="smart-planning-employee-choice ${isAvailable ? "is-available" : "is-unavailable"} ${isSelected ? "is-selected" : ""} ${isLastSelected ? "is-last-selected" : ""}"
         data-smart-planning-employee-choice="${escapeHtmlAttribute(item.id)}"
         data-employee-name="${escapeHtmlAttribute(employeeAdvice.employeeName)}"
         data-employee-available="${isAvailable ? "true" : "false"}"
@@ -18929,8 +19024,8 @@ function renderSmartPlanningInlineAdvice(item) {
       <section>
         <h4>Beschikbaar</h4>
         <div class="smart-planning-inline-choice-list">
-          ${advice.available.length
-            ? advice.available.map((employeeAdvice) => renderChoice(employeeAdvice, true)).join("")
+          ${availableAdvice.length
+            ? availableAdvice.map((employeeAdvice) => renderChoice(employeeAdvice, true)).join("")
             : `<p class="panel-note">Geen beschikbare bevoegde medewerkers.</p>`}
         </div>
       </section>
@@ -19030,6 +19125,7 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
           const shiftTime = `${row.startTime}-${row.endTime}`;
           const displayShiftName = getCompactRosterShiftLabel(row.shiftName);
           const isSelected = row.smartPlanningId && row.smartPlanningId === selectedSmartPlanningOpenShiftId;
+          const wasJustAssigned = row.smartPlanningId && row.smartPlanningId === lastSmartPlanningAssignedItemId;
           const proposalItem = getSmartPlanningProposalItemById(row.smartPlanningId);
           const warningText = getSmartPlanningShiftWarning(proposalItem);
           const chosenEmployeeName = proposalItem?.chosenEmployeeName || "";
@@ -19061,7 +19157,7 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
             <div class="smart-planning-open-shift-wrap ${opensLeft ? "opens-left" : ""}">
               <button
                 type="button"
-                class="planning-shift-line is-open smart-planning-open-shift-button ${isSelected ? "is-selected" : ""} ${warningText ? "has-warning" : ""} ${chosenEmployeeName ? "has-choice" : ""}"
+                class="planning-shift-line is-open smart-planning-open-shift-button ${isSelected ? "is-selected" : ""} ${warningText ? "has-warning" : ""} ${chosenEmployeeName ? "has-choice" : ""} ${wasJustAssigned ? "was-just-assigned" : ""}"
                 data-smart-planning-open-shift="${escapeHtmlAttribute(row.smartPlanningId)}"
                 title="${escapeHtmlAttribute(titleText)}"
               >
@@ -19248,6 +19344,7 @@ function renderSmartPlanningPanel() {
 function createSmartPlanningPlaceholderProposal() {
   const data = getSmartPlanningWeekData();
   selectedSmartPlanningOpenShiftId = "";
+  lastSmartPlanningAssignedItemId = "";
 
   smartPlanningProposalState = {
     weekValue: data.selectedWeek,
@@ -19272,6 +19369,7 @@ function createSmartPlanningPlaceholderProposal() {
 function clearSmartPlanningProposal() {
   smartPlanningProposalState = null;
   selectedSmartPlanningOpenShiftId = "";
+  lastSmartPlanningAssignedItemId = "";
   renderSmartPlanningPanel();
   showMessage("Voorstel gewist. Er is niets aan het rooster gewijzigd.", "success");
 }
@@ -25350,7 +25448,7 @@ smartPlanningProposalList?.addEventListener("click", (event) => {
       return;
     }
 
-    selectSmartPlanningProposalEmployee(itemId, employeeName);
+    selectSmartPlanningProposalEmployee(itemId, employeeName, { assignSeries: event.shiftKey });
     return;
   }
 
