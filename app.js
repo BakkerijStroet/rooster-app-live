@@ -8472,7 +8472,13 @@ function renderWorkLogCardMarkup(entry, workLog = getWorkLogForEntry(entry), opt
           ? "open"
           : "draft";
   const isMobileEntryActive = !isPlannerRole() && activeMobileWorkLogId === workLogId;
-  const mobileStatusLabel = workLog ? "Ingevuld" : "Nog invullen";
+  const mobileStatusLabel = workLog?.status === "approved"
+    ? "Goedgekeurd"
+    : workLog?.status === "open"
+      ? "Ingediend"
+      : workLog
+        ? "Ingevuld"
+        : "Nog invullen";
   const mobilePlannedTimeLabel = entry.startTime && entry.endTime
     ? `${entry.startTime} - ${entry.endTime}`
     : "Geen geplande tijd";
@@ -8482,6 +8488,7 @@ function renderWorkLogCardMarkup(entry, workLog = getWorkLogForEntry(entry), opt
   const mobileActionLabel = entry.isManualHours
     ? (isMobileEntryActive ? "Nu invullen" : "Extra uren toevoegen")
     : (workLog ? "Controleer uren" : "Uren invullen");
+  const submitButtonLabel = isPlannerRole() ? "Indienen" : "Uren indienen";
   const plannedTimeMarkup = entry.startTime && entry.endTime
     ? `<span>Gepland: ${entry.startTime} - ${entry.endTime}</span>`
     : `<span class="hours-registration-flag">${entry.isManualHours ? "Geen geplande dienst nodig" : "Geen dienst gepland"}</span>`;
@@ -8589,7 +8596,7 @@ function renderWorkLogCardMarkup(entry, workLog = getWorkLogForEntry(entry), opt
           ? ""
           : `${entry.startTime && entry.endTime ? `<button type="button" class="secondary" data-worklog-action="planned" data-worklog-id="${workLogId}">Gewerkt zoals gepland</button>` : ""}
              <button type="button" class="secondary" data-worklog-action="save" data-worklog-id="${workLogId}">Opslaan</button>
-             <button type="button" data-worklog-action="submit" data-worklog-id="${workLogId}">Indienen</button>
+             <button type="button" data-worklog-action="submit" data-worklog-id="${workLogId}">${submitButtonLabel}</button>
              <button type="button" class="secondary mobile-hours-cancel-button" data-mobile-worklog-cancel="${workLogId}">Annuleren</button>`}
       </div>
     </article>
@@ -25081,6 +25088,8 @@ myHoursRegistrations?.addEventListener("click", (event) => {
   if (isMobileSubmitAction) {
     activeMobileWorkLogId = workLogId;
     setMobileHoursFeedback(workLogId, "Uren worden ingediend...", "info");
+    button.disabled = true;
+    button.textContent = "Indienen...";
   }
 
   if (workLogAction === "planned" && workLogId) {
@@ -25129,11 +25138,28 @@ myHoursRegistrations?.addEventListener("click", (event) => {
   }
 
   if ((effectiveWorkLogAction === "save" || effectiveWorkLogAction === "submit") && workLogId) {
-    const wasSaved = saveWorkLogFromForm(workLogId, effectiveWorkLogAction);
+    let wasSaved = false;
+
+    try {
+      wasSaved = saveWorkLogFromForm(workLogId, effectiveWorkLogAction);
+    } catch (error) {
+      console.error("Uren indienen mislukt", error);
+
+      if (isMobileSubmitAction) {
+        activeMobileWorkLogId = workLogId;
+        setMobileHoursFeedback(workLogId, "Uren indienen is niet gelukt. Probeer opnieuw.", "error");
+        renderMyHours();
+        focusMobileWorkLogCard(workLogId);
+        return;
+      }
+
+      throw error;
+    }
 
     if (isMobileSubmitAction) {
       if (!wasSaved) {
         activeMobileWorkLogId = workLogId;
+        setMobileHoursFeedback(workLogId, "Uren indienen is niet gelukt. Probeer opnieuw.", "error");
         renderMyHours();
         focusMobileWorkLogCard(workLogId);
         return;

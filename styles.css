@@ -9253,7 +9253,8 @@ button,
   }
 
   body[data-role="employee"] [data-panel="my-hours"] .is-mobile-entry-active .mobile-hours-open-button,
-  body[data-role="employee"] [data-panel="my-hours"] .is-mobile-entry-active [data-worklog-action="planned"] {
+  body[data-role="employee"] [data-panel="my-hours"] .is-mobile-entry-active [data-worklog-action="planned"],
+  body[data-role="employee"] [data-panel="my-hours"] .is-mobile-entry-active [data-worklog-action="save"] {
     display: none !important;
   }
 
