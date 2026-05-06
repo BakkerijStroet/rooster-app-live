@@ -25128,6 +25128,7 @@ myHoursRegistrations?.addEventListener("click", (event) => {
     if (isMobileSubmitAction) {
       if (!wasSaved) {
         activeMobileWorkLogId = workLogId;
+        renderMyHours();
         focusMobileWorkLogCard(workLogId);
         return;
       }
@@ -25142,6 +25143,7 @@ myHoursRegistrations?.addEventListener("click", (event) => {
       } else {
         activeMobileWorkLogId = workLogId;
         setMobileHoursFeedback(workLogId, submitResult.message, "error");
+        renderMyHours();
         focusMobileWorkLogCard(workLogId);
       }
     }
