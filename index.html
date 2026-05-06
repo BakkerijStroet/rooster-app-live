@@ -94,7 +94,6 @@
     <nav class="app-nav" aria-label="Hoofdnavigatie">
       <button type="button" class="nav-tab planner-only-tab" data-tab="dashboard">Dashboard</button>
       <button type="button" class="nav-tab" data-tab="week-current">Rooster</button>
-      <button type="button" class="nav-tab planner-only-tab" data-tab="schedule-planning">Rooster inplannen</button>
       <button type="button" class="nav-tab planner-only-tab" data-tab="hours-approval">Uren controleren</button>
       <button type="button" class="nav-tab" data-tab="my-schedule">Mijn rooster</button>
       <button type="button" class="nav-tab" data-tab="my-hours">Mijn uren</button>
@@ -102,7 +101,7 @@
       <button type="button" class="nav-tab" data-tab="requests">Aanvragen</button>
       <button type="button" class="nav-tab planner-only-tab" data-tab="employees">Medewerkers</button>
       <button type="button" class="nav-tab planner-only-tab" data-tab="services">Diensten</button>
-      <button type="button" class="nav-tab planner-only-tab" data-tab="planning">Slim plannen</button>
+      <button type="button" class="nav-tab planner-only-tab" data-tab="planning">Rooster plannen</button>
       <button type="button" class="nav-tab planner-only-tab" data-tab="backup">Back-up</button>
     </nav>
       <div id="plannerDashboard" class="dashboard"></div>
@@ -309,10 +308,10 @@
       <section class="staff-panel role-planner app-panel smart-planning-panel" data-panel="planning">
         <div class="view-header director-screen-header smart-planning-header">
           <div>
-            <h2>Slim plannen</h2>
+            <h2>Rooster plannen</h2>
             <p class="panel-note">Maak automatisch een voorstel op basis van beschikbaarheid, diensten en contracturen.</p>
           </div>
-          <div class="smart-planning-toolbar" aria-label="Slim plannen bediening">
+          <div class="smart-planning-toolbar" aria-label="Rooster plannen bediening">
             <label class="week-select">
               <span>Startweek</span>
               <input type="week" id="smartPlanningWeek">
@@ -333,19 +332,19 @@
         </div>
 
         <div class="smart-planning-info">
-          Slim plannen maakt eerst alleen een voorstel. Er wordt niets aangepast aan het rooster totdat je kiest voor Toepassen.
+          Rooster plannen maakt eerst alleen een voorstel. Er wordt niets aangepast aan het rooster totdat je kiest voor Rooster toepassen.
         </div>
 
-        <div class="smart-planning-tabs" aria-label="Slim plannen onderdelen">
+        <div class="smart-planning-tabs" aria-label="Rooster plannen onderdelen">
           <button type="button" class="smart-planning-tab active" data-smart-planning-tab="proposal">Voorstel</button>
-          <button type="button" class="smart-planning-tab" data-smart-planning-tab="checks">Controle</button>
+          <button type="button" class="smart-planning-tab" data-smart-planning-tab="checks">Planning controleren</button>
           <button type="button" class="smart-planning-tab" data-smart-planning-tab="insights">Inzichten</button>
         </div>
 
         <div class="smart-planning-tab-content">
           <article class="smart-planning-card" data-smart-planning-panel="proposal">
             <div class="smart-planning-card-head">
-              <h3>Voorstelrooster</h3>
+              <h3>Voorgesteld rooster</h3>
               <span id="smartPlanningProposalSummary" class="panel-note">Nog geen voorstel gemaakt.</span>
             </div>
             <div id="smartPlanningProposalList" class="smart-planning-list empty">Nog geen voorstel gemaakt.</div>
@@ -353,10 +352,10 @@
 
           <article class="smart-planning-card hidden" data-smart-planning-panel="checks">
             <div class="smart-planning-card-head">
-              <h3>Controlepunten</h3>
+              <h3>Planning controleren</h3>
               <span id="smartPlanningChecksSummary" class="panel-note">Automatische controle op hoofdlijnen.</span>
             </div>
-            <div id="smartPlanningChecksList" class="smart-planning-list empty">Nog geen controlepunten beschikbaar.</div>
+            <div id="smartPlanningChecksList" class="smart-planning-list empty">Nog geen planningcontrole beschikbaar.</div>
           </article>
 
           <article class="smart-planning-card hidden" data-smart-planning-panel="insights">
@@ -1272,38 +1271,6 @@
         <span class="legend-item"><span class="legend-swatch replacement"></span>Vervanging</span>
         <span class="legend-item"><span class="legend-swatch stage"></span>Stage</span>
       </div>
-    </section>
-
-    <section class="staff-panel role-planner app-panel aligned-view-panel director-screen-panel schedule-planning-panel" data-panel="schedule-planning">
-      <div class="view-header director-screen-header">
-        <div>
-          <h2 id="planningOverviewTitle">Rooster inplannen</h2>
-          <p class="panel-note role-planner">1. Week kiezen · 2. Voorstel maken · 3. Voorstel controleren · 4. Bewust toepassen of annuleren</p>
-        </div>
-        <div class="board-toolbar director-screen-toolbar">
-          <div class="week-switcher compact-actions planner-planning-groups">
-            <div class="planner-action-group">
-              <span class="planner-action-group-label">Week kiezen</span>
-              <div class="planner-action-group-buttons">
-                <label class="week-select role-planner">
-                  <span>Week</span>
-                  <input type="week" id="planningOverviewMonth">
-                </label>
-              </div>
-            </div>
-            <div class="planner-action-group">
-              <span class="planner-action-group-label">Acties</span>
-              <div class="planner-action-group-buttons">
-                <button type="button" id="planningOverviewRefreshButton" class="secondary role-planner">Deze week</button>
-                <button type="button" id="planningOverviewAutoButton" class="secondary role-planner">Voorstel maken</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div id="planningOverviewSummary" class="planning-overview-summary hidden"></div>
-      <div id="planningProposalReview" class="auto-fill-summary-overview hidden"></div>
-      <div id="planningOverviewList" class="planning-overview-list empty">Kies een week om het rooster te bekijken.</div>
     </section>
 
     <section class="card totals-card app-panel" data-panel="week-summary" data-slot="bottom">

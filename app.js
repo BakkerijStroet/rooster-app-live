@@ -4803,7 +4803,7 @@ const mobileMediaQuery = window.matchMedia("(max-width: 640px)");
 let messageTimeoutId = null;
 let activeMessageState = null;
 let queuedMessageStates = [];
-const plannerAllowedTabs = ["dashboard", "week-current", "schedule-planning", "hours-approval", "requests", "employees", "services", "planning", "backup"];
+const plannerAllowedTabs = ["dashboard", "week-current", "hours-approval", "requests", "employees", "services", "planning", "backup"];
 const employeeAllowedTabs = ["week-current", "my-schedule", "my-hours", "my-account", "requests"];
 let planningDataRevision = 0;
 let requestDataRevision = 0;
@@ -13416,7 +13416,7 @@ function renderPlanningProposalReview(selectedWeek) {
     return;
   }
 
-  if (!isPlannerRole() || activeTab !== "schedule-planning" || !autoFillPreviewEntries.length || !selectedWeek) {
+  if (!isPlannerRole() || activeTab !== "planning" || !autoFillPreviewEntries.length || !selectedWeek) {
     setClassName(planningProposalReview, "auto-fill-summary-overview hidden");
     planningProposalReview.innerHTML = "";
     return;
@@ -14306,7 +14306,7 @@ function renderSchedulePlanningOverview() {
   const hasActiveProposal = autoFillPreviewEntries.some((entry) => getWeekValueFromDate(entry.day) === selectedWeek);
 
   if (planningOverviewTitle) {
-    planningOverviewTitle.textContent = `Rooster inplannen ${formatWeekLabel(selectedWeek)}`;
+    planningOverviewTitle.textContent = `Rooster plannen ${formatWeekLabel(selectedWeek)}`;
   }
 
   if (planningOverviewAutoButton) {
@@ -16707,6 +16707,10 @@ function getNormalizedTabName(tabName) {
 
   if (!nextTabName) {
     return getDefaultTabForCurrentRole();
+  }
+
+  if (nextTabName === "schedule-planning") {
+    return "planning";
   }
 
   if (nextTabName === "week-next") {
@@ -19433,7 +19437,7 @@ function renderSmartPlanningApplyConfirm(data = getSmartPlanningMonthData()) {
     <section class="smart-planning-apply-confirm">
       <div>
         <strong>Rooster toepassen?</strong>
-        <p>De ingevulde conceptdiensten worden in het echte rooster gezet.</p>
+        <p>De ingevulde voorgestelde diensten worden in het echte rooster gezet.</p>
       </div>
       <div class="smart-planning-apply-summary">
         <span>${summary.assignedCount} diensten worden ingevuld</span>
@@ -19545,14 +19549,14 @@ function applySmartPlanningToRoster() {
   });
 
   if (newEntries.length) {
-    setUndoState("Slim plannen toepassen");
+    setUndoState("Rooster plannen toepassen");
     entries.push(...newEntries);
     saveEntries();
     persistProtectedChange({
-      reason: "Slim plannen toegepast",
+      reason: "Rooster plannen toegepast",
       scope: "roster",
       action: "smart-planning-applied",
-      message: "Slim plannen rooster toegepast.",
+      message: "Rooster plannen toegepast.",
       details: {
         weekValues: affectedWeeks,
         assignmentCount: newEntries.length,
@@ -20493,7 +20497,7 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
                 <span class="smart-planning-assigned-shift">
                   <span class="smart-planning-assigned-top">
                     <span class="smart-planning-assigned-name">${employeeLabel}</span>
-                    <em class="smart-planning-concept-badge">Concept</em>
+                    <em class="smart-planning-concept-badge">Voorstel</em>
                   </span>
                   <span class="smart-planning-assigned-bottom">
                     <span class="smart-planning-assigned-shift-name" title="${escapeHtmlAttribute(row.shiftName)}">${displayShiftName}</span>
@@ -20946,7 +20950,7 @@ function renderDashboard() {
           label: "Diensten zonder medewerker",
           value: planningWeekData.openCount,
           help: "Deze diensten hebben nog niemand ingepland.",
-          tab: "schedule-planning",
+          tab: "planning",
           buttonLabel: "Bekijk planning"
         })}
       </div>
@@ -23236,11 +23240,6 @@ function renderActiveTabContent() {
 
   if (activeTab === "planning") {
     renderPlanningSettings();
-    return;
-  }
-
-  if (activeTab === "schedule-planning") {
-    renderSchedulePlanningOverview();
     return;
   }
 
@@ -27175,7 +27174,7 @@ smartPlanningDepartmentSelect?.addEventListener("change", () => {
 
 smartPlanningMakeProposalButton?.addEventListener("click", () => {
   if (!isPlannerRole()) {
-    showMessage("Alleen planner of directie kan een slim voorstel voorbereiden.", "error");
+    showMessage("Alleen planner of directie kan een rooster voorstel voorbereiden.", "error");
     return;
   }
 
