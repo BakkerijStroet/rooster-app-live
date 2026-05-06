@@ -45,6 +45,7 @@ const planningProposalReview = document.getElementById("planningProposalReview")
 const smartPlanningWeekInput = document.getElementById("smartPlanningWeek");
 const smartPlanningDepartmentSelect = document.getElementById("smartPlanningDepartment");
 const smartPlanningMakeProposalButton = document.getElementById("smartPlanningMakeProposalButton");
+const smartPlanningAdjustRosterButton = document.getElementById("smartPlanningAdjustRosterButton");
 const smartPlanningClearProposalButton = document.getElementById("smartPlanningClearProposalButton");
 const smartPlanningClearAllProposalButton = document.getElementById("smartPlanningClearAllProposalButton");
 const smartPlanningApplyProposalButton = document.getElementById("smartPlanningApplyProposalButton");
@@ -19731,8 +19732,16 @@ function getSmartPlanningAssignedItems(data = null) {
   }
 
   return getSmartPlanningProposalItems()
-    .filter((item) => item.chosenEmployeeName)
+    .filter((item) => item.chosenEmployeeName && isSmartPlanningProposalItemChanged(item))
     .sort(compareSmartPlanningItemsByRosterOrder);
+}
+
+function isSmartPlanningProposalItemChanged(item) {
+  if (!item?.chosenEmployeeName) {
+    return false;
+  }
+
+  return (item.originalEmployeeName || "") !== item.chosenEmployeeName;
 }
 
 function getSmartPlanningApplySummary(data = getSmartPlanningMonthData()) {
@@ -19775,7 +19784,7 @@ function renderSmartPlanningApplyConfirm(data = getSmartPlanningMonthData()) {
         <p>De ingevulde voorgestelde diensten worden in het echte rooster gezet.</p>
       </div>
       <div class="smart-planning-apply-summary">
-        <span>${summary.assignedCount} diensten worden ingevuld</span>
+        <span>${summary.assignedCount} diensten worden aangepast/ingevuld</span>
         <span>${summary.openCount} diensten blijven open</span>
         <span>${summary.warningCount} waarschuwingen blijven staan</span>
       </div>
@@ -19823,6 +19832,26 @@ function clearAppliedSmartPlanningAssignments(appliedItemIds) {
   }
 
   smartPlanningProposalState.weeks.forEach((weekProposal) => {
+    if (smartPlanningProposalState.mode === "adjust") {
+      weekProposal.items = (weekProposal.items || []).map((item) => {
+        if (!appliedItemIds.has(item.id)) {
+          return item;
+        }
+
+        const shift = getSmartPlanningShiftFromProposalItem(item);
+        const nextEntry = createSmartPlanningRosterEntry(item, shift);
+
+        return {
+          ...item,
+          originalEmployeeName: item.chosenEmployeeName || "",
+          originalEntryKey: getPlanningEntrySyncId(nextEntry),
+          isExistingRosterEntry: true,
+          assignmentReason: "Bestaand"
+        };
+      });
+      return;
+    }
+
     weekProposal.items = (weekProposal.items || []).filter((item) => !appliedItemIds.has(item.id));
   });
 
@@ -19857,17 +19886,35 @@ function applySmartPlanningToRoster() {
   }
 
   const appliedItemIds = new Set();
-  const newEntries = [];
+  const workingEntries = [...entries];
+  const savedEntries = [];
+  const replacedEntries = [];
   let skippedCount = 0;
+  let movedWorkLogs = false;
 
   assignedItems.forEach((item) => {
-    const sourceEntries = [...entries, ...newEntries];
-    const { shift, isOpen } = findMatchingOpenPlanningSlot(item, sourceEntries);
     const employeeName = item.chosenEmployeeName || "";
+    const shift = getSmartPlanningShiftFromProposalItem(item);
 
-    if (!shift || !isOpen || !employeeName) {
+    if (!shift || !employeeName) {
       skippedCount += 1;
       return;
+    }
+
+    const existingIndex = item.isExistingRosterEntry
+      ? workingEntries.findIndex((entry) => isSmartPlanningOriginalEntryMatch(entry, item))
+      : -1;
+    const previousEntry = existingIndex >= 0 ? workingEntries[existingIndex] : null;
+    const sourceEntries = previousEntry
+      ? workingEntries.filter((entry, index) => index !== existingIndex)
+      : workingEntries;
+
+    if (!previousEntry) {
+      const openSlot = findMatchingOpenPlanningSlot(item, workingEntries);
+      if (!openSlot.shift || !openSlot.isOpen) {
+        skippedCount += 1;
+        return;
+      }
     }
 
     if (
@@ -19879,14 +19926,30 @@ function applySmartPlanningToRoster() {
       return;
     }
 
-    newEntries.push(createSmartPlanningRosterEntry(item, shift));
+    const nextEntry = createSmartPlanningRosterEntry(item, shift);
+    if (previousEntry) {
+      workingEntries.splice(existingIndex, 1, nextEntry);
+      replacedEntries.push(previousEntry);
+      if (moveWorkLogToEntry(previousEntry, nextEntry)) {
+        movedWorkLogs = true;
+      }
+    } else {
+      workingEntries.push(nextEntry);
+    }
+    savedEntries.push(nextEntry);
     appliedItemIds.add(item.id);
   });
 
-  if (newEntries.length) {
+  if (savedEntries.length) {
     setUndoState("Rooster plannen toepassen");
-    entries.push(...newEntries);
+    entries.splice(0, entries.length, ...workingEntries);
     saveEntries();
+    if (movedWorkLogs) {
+      saveWorkLogs();
+    }
+    if (replacedEntries.length) {
+      markPlanningEntriesDeletedCentrally(getPlanningEntriesRemovedByReplacement(replacedEntries, savedEntries));
+    }
     persistProtectedChange({
       reason: "Rooster plannen toegepast",
       scope: "roster",
@@ -19894,12 +19957,12 @@ function applySmartPlanningToRoster() {
       message: "Rooster plannen toegepast.",
       details: {
         weekValues: affectedWeeks,
-        assignmentCount: newEntries.length,
+        assignmentCount: savedEntries.length,
         skippedCount
       }
     });
 
-    const lastEmployee = newEntries[newEntries.length - 1]?.name || "";
+    const lastEmployee = savedEntries[savedEntries.length - 1]?.name || "";
     if (lastEmployee) {
       preferences.lastEmployee = lastEmployee;
       savePreferences();
@@ -19909,7 +19972,7 @@ function applySmartPlanningToRoster() {
   clearAppliedSmartPlanningAssignments(appliedItemIds);
   smartPlanningApplyConfirmVisible = false;
   render();
-  showMessage(`Rooster bijgewerkt: ${newEntries.length} diensten ingevuld · ${skippedCount} overgeslagen · open diensten blijven open.`, newEntries.length ? "success" : "warning");
+  showMessage(`Rooster bijgewerkt: ${savedEntries.length} diensten aangepast/ingevuld · ${skippedCount} overgeslagen · open diensten blijven open.`, savedEntries.length ? "success" : "warning");
 }
 
 function mapSmartPlanningProposalToRosterEntries(proposalItems = []) {
@@ -19948,6 +20011,30 @@ function getSmartPlanningShiftFromProposalItem(item) {
     endTime: item.endTime || "",
     isShopShift: item.department === "shop" || isShopShiftName(item.shiftName || "")
   };
+}
+
+function isSmartPlanningOriginalEntryMatch(entry, item) {
+  if (!entry || !item?.isExistingRosterEntry) {
+    return false;
+  }
+
+  if (item.originalEntryKey && getPlanningEntrySyncId(entry) === item.originalEntryKey) {
+    return true;
+  }
+
+  return entry.day === item.day &&
+    (entry.name || "") === (item.originalEmployeeName || "") &&
+    (entry.startTime || "") === (item.startTime || "") &&
+    (entry.endTime || "") === (item.endTime || "") &&
+    getShiftName(entry).toLowerCase() === String(item.shiftName || "").toLowerCase();
+}
+
+function getSmartPlanningEntriesWithoutOriginalItem(item, sourceEntries = entries) {
+  if (!item?.isExistingRosterEntry) {
+    return sourceEntries;
+  }
+
+  return sourceEntries.filter((entry) => !isSmartPlanningOriginalEntryMatch(entry, item));
 }
 
 function isSmartPlanningEmergencyEmployee(employeeName) {
@@ -20076,6 +20163,7 @@ function getSmartPlanningEmployeeAdvice(item) {
   const weekValue = getWeekValueFromDate(item.day);
   const shift = getSmartPlanningShiftFromProposalItem(item);
   const shiftHours = calculateHours(item.startTime || "", item.endTime || "") || 0;
+  const adviceSourceEntries = getSmartPlanningEntriesWithoutOriginalItem(item, entries);
   const advice = {
     suitable: [],
     attention: [],
@@ -20087,11 +20175,11 @@ function getSmartPlanningEmployeeAdvice(item) {
     const isActive = status === "active";
     const isAuthorized = isEmployeeAuthorizedForShift(employeeName, shift?.name || item.shiftName);
     const absence = getApprovedTimeOff(employeeName, item.day);
-    const overlappingEntry = findConflict(employeeName, item.day, item.startTime || "", item.endTime || "", -1);
+    const overlappingEntry = findConflictInSource(adviceSourceEntries, employeeName, item.day, item.startTime || "", item.endTime || "");
     const hasBlockingProposalAssignment = hasBlockingSmartPlanningAssignment(employeeName, item);
-    const hasOtherSameDayShift = !overlappingEntry && hasEmployeeAssignmentOnDay(employeeName, item.day);
+    const hasOtherSameDayShift = !overlappingEntry && adviceSourceEntries.some((entry) => entry.name === employeeName && entry.day === item.day);
     const contractHours = getEmployeeContractHours(employeeName);
-    const plannedHours = getEmployeeWeekHours(employeeName, weekValue, entries);
+    const plannedHours = getEmployeeWeekHours(employeeName, weekValue, adviceSourceEntries);
     const projectedHours = Math.round((plannedHours + shiftHours) * 10) / 10;
     const isEmergencyOption = isSmartPlanningEmergencyEmployee(employeeName);
     const patternPriority = getSmartPlanningPatternPriority(employeeName, item);
@@ -20250,10 +20338,11 @@ function getSmartPlanningChosenEmployeeIssue(item, weekValue) {
   const issues = [];
   const shiftTime = `${item.startTime || "?"}-${item.endTime || "?"}`;
   const shiftLabel = getCompactRosterShiftLabel(item.shiftName || "Dienst");
+  const issueSourceEntries = getSmartPlanningEntriesWithoutOriginalItem(item, entries);
   const absence = getApprovedTimeOff(employeeName, item.day);
-  const overlappingEntry = findConflict(employeeName, item.day, item.startTime || "", item.endTime || "", -1);
+  const overlappingEntry = findConflictInSource(issueSourceEntries, employeeName, item.day, item.startTime || "", item.endTime || "");
   const contractHours = getEmployeeContractHours(employeeName);
-  const plannedHours = getEmployeeWeekHours(employeeName, weekValue, entries);
+  const plannedHours = getEmployeeWeekHours(employeeName, weekValue, issueSourceEntries);
   const shiftHours = calculateHours(item.startTime || "", item.endTime || "") || 0;
   const projectedHours = Math.round((plannedHours + shiftHours) * 10) / 10;
 
@@ -21116,11 +21205,11 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
 
   if (hasProposal && !proposalItems.length) {
     if (smartPlanningProposalSummary) {
-      smartPlanningProposalSummary.textContent = `Maandvoorstel gemaakt · vanaf ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel}`;
+      smartPlanningProposalSummary.textContent = `${smartPlanningProposalState.mode === "adjust" ? "Rooster aanpassen" : "Maandvoorstel gemaakt"} · vanaf ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel}`;
     }
     setClassName(smartPlanningProposalList, "smart-planning-list empty");
     smartPlanningProposalList.innerHTML = `
-      <strong>Geen open diensten gevonden voor deze selectie.</strong>
+      <strong>${smartPlanningProposalState.mode === "adjust" ? "Geen diensten gevonden om aan te passen." : "Geen open diensten gevonden voor deze selectie."}</strong>
       <span>4 weken vanaf ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel}</span>
     `;
     return;
@@ -21136,14 +21225,17 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
   }
 
   if (smartPlanningProposalSummary) {
-    smartPlanningProposalSummary.textContent = `Maandvoorstel gemaakt · vanaf ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel} · ${proposalItems.length} regels`;
+    const changedCount = getSmartPlanningAssignedItems(data).length;
+    smartPlanningProposalSummary.textContent = `${smartPlanningProposalState.mode === "adjust" ? "Rooster aanpassen" : "Maandvoorstel gemaakt"} · vanaf ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel} · ${proposalItems.length} regels${smartPlanningProposalState.mode === "adjust" ? ` · ${changedCount} wijziging${changedCount === 1 ? "" : "en"}` : ""}`;
   }
 
   setClassName(smartPlanningProposalList, "smart-planning-list");
   smartPlanningProposalList.innerHTML = `
     <div class="smart-planning-proposal-status">
-      <strong>Maandvoorstel gemaakt</strong>
-      <span>4 weken vanaf ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel} · alle regels blijven tijdelijk tot je later bewust toepast.</span>
+      <strong>${smartPlanningProposalState.mode === "adjust" ? "Rooster aanpassen" : "Maandvoorstel gemaakt"}</strong>
+      <span>${smartPlanningProposalState.mode === "adjust"
+        ? `4 weken vanaf ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel} · bestaande diensten blijven staan; alleen bewuste wijzigingen worden toegepast.`
+        : `4 weken vanaf ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel} · alle regels blijven tijdelijk tot je later bewust toepast.`}</span>
     </div>
     ${renderSmartPlanningApplyConfirm(data)}
     <div class="smart-planning-month-proposal">
@@ -21231,6 +21323,7 @@ function createSmartPlanningPlaceholderProposal() {
   smartPlanningApplyConfirmVisible = false;
 
   smartPlanningProposalState = {
+    mode: "create",
     startWeek: data.selectedWeek,
     department: data.departmentFilter,
     createdAt: getNowIsoString(),
@@ -21254,6 +21347,78 @@ function createSmartPlanningPlaceholderProposal() {
   showMessage(totalOpenItems
     ? `Maandvoorstel gemaakt.${fixedStaffingCount ? ` ${fixedStaffingCount} vaste bakkerijdienst${fixedStaffingCount === 1 ? "" : "en"} alvast ingevuld.` : ""} Er is nog niets toegepast op het rooster.`
     : "Geen open diensten gevonden voor deze selectie.", totalOpenItems ? "success" : "warning");
+}
+
+function createSmartPlanningProposalItemFromOpenItem(weekValue, item, index) {
+  return {
+    id: `${weekValue}|${item.day}|${item.shift.id || item.shift.name}|${item.shift.startTime || ""}-${item.shift.endTime || ""}|${index}`,
+    weekValue,
+    day: item.day,
+    department: getSmartPlanningDepartmentForShift(item.shift),
+    shiftId: item.shift.id || "",
+    shiftName: item.shift.name,
+    startTime: item.shift.startTime,
+    endTime: item.shift.endTime,
+    originalEmployeeName: ""
+  };
+}
+
+function createSmartPlanningProposalItemFromExistingEntry(weekValue, entry, index) {
+  const shift = getShiftForEntry(entry) || {
+    id: entry.shiftId || "",
+    name: getShiftName(entry),
+    startTime: entry.startTime || "",
+    endTime: entry.endTime || "",
+    isShopShift: getRosterDepartmentForEntry(entry) === "shop"
+  };
+  const employeeName = entry.name || "";
+
+  return {
+    id: `adjust|${weekValue}|${entry.day}|${getPlanningEntrySyncId(entry) || `${employeeName}|${getShiftName(entry)}|${index}`}`,
+    weekValue,
+    day: entry.day,
+    department: getRosterDepartmentForEntry(entry),
+    shiftId: entry.shiftId || shift.id || "",
+    shiftName: getShiftName(entry),
+    startTime: entry.startTime || shift.startTime || "",
+    endTime: entry.endTime || shift.endTime || "",
+    chosenEmployeeName: employeeName,
+    originalEmployeeName: employeeName,
+    originalEntryKey: getPlanningEntrySyncId(entry),
+    isExistingRosterEntry: true,
+    assignmentReason: "Bestaand"
+  };
+}
+
+function createSmartPlanningAdjustmentProposal() {
+  const data = getSmartPlanningMonthData();
+  selectedSmartPlanningOpenShiftId = "";
+  lastSmartPlanningAssignedItemId = "";
+  smartPlanningApplyConfirmVisible = false;
+
+  smartPlanningProposalState = {
+    mode: "adjust",
+    startWeek: data.selectedWeek,
+    department: data.departmentFilter,
+    createdAt: getNowIsoString(),
+    weeks: data.visibleWeeks.map(({ weekValue, data: weekData }) => {
+      const existingItems = sortRosterEntriesForDisplay(weekData.weekEntries || [])
+        .map((entry, index) => createSmartPlanningProposalItemFromExistingEntry(weekValue, entry, index));
+      const openItems = (weekData.openItems || [])
+        .map((item, index) => createSmartPlanningProposalItemFromOpenItem(weekValue, item, index));
+
+      return {
+        weekValue,
+        items: [...existingItems, ...openItems].sort(compareSmartPlanningItemsByRosterOrder)
+      };
+    })
+  };
+
+  const totalItems = smartPlanningProposalState.weeks.reduce((total, weekProposal) => total + weekProposal.items.length, 0);
+  renderSmartPlanningPanel();
+  showMessage(totalItems
+    ? `Bestaand rooster geladen. Pas alleen aan wat nodig is; toepassen slaat alleen wijzigingen op.`
+    : "Geen diensten gevonden om aan te passen voor deze selectie.", totalItems ? "success" : "warning");
 }
 
 function getSmartPlanningWeekValueForItemId(itemId) {
@@ -27738,6 +27903,15 @@ smartPlanningMakeProposalButton?.addEventListener("click", () => {
   }
 
   createSmartPlanningPlaceholderProposal();
+});
+
+smartPlanningAdjustRosterButton?.addEventListener("click", () => {
+  if (!isPlannerRole()) {
+    showMessage("Alleen planner of directie kan een rooster aanpassen.", "error");
+    return;
+  }
+
+  createSmartPlanningAdjustmentProposal();
 });
 
 smartPlanningClearProposalButton?.addEventListener("click", () => {
