@@ -9500,6 +9500,23 @@ button,
     grid-template-columns: 1fr;
   }
 
+  body[data-role="planner"] [data-panel="week-current"] .board-header {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  body[data-role="planner"] [data-panel="week-current"] .board-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-role="planner"] [data-panel="week-current"] .planning-week-grid {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-role="planner"] [data-panel="week-current"] .planning-shift-line {
+    grid-template-columns: minmax(0, 1fr) max-content minmax(64px, max-content);
+  }
+
   .employee-switcher {
     grid-template-columns: 1fr 1fr;
   }
@@ -10051,19 +10068,19 @@ button,
 
 .planning-week-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(105px, 1fr));
-  gap: 0.32rem;
+  grid-template-columns: repeat(7, minmax(128px, 1fr));
+  gap: 0.45rem;
   align-items: stretch;
 }
 
 .planning-day-card {
   display: grid;
   grid-template-rows: auto 1fr;
-  gap: 0.28rem;
+  gap: 0.42rem;
   min-width: 0;
-  padding: 0.38rem;
+  padding: 0.55rem;
   border: 1px solid #eadfce;
-  border-radius: 10px;
+  border-radius: 14px;
   background: #fffdfa;
 }
 
@@ -10077,15 +10094,21 @@ button,
   background: #fffaf5;
 }
 
+.planning-day-card.is-today {
+  border-color: #d89a4a;
+  box-shadow: inset 0 0 0 1px rgba(216, 154, 74, 0.2);
+}
+
 .planning-day-header {
   display: grid;
-  gap: 0.05rem;
+  gap: 0.1rem;
   min-width: 0;
 }
 
 .planning-day-header strong {
   color: #2f2a23;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
+  line-height: 1.15;
   text-transform: capitalize;
 }
 
@@ -10096,7 +10119,7 @@ button,
 
 .planning-shift-lines {
   display: grid;
-  gap: 0.18rem;
+  gap: 0.24rem;
   align-content: start;
 }
 
@@ -10109,9 +10132,9 @@ button,
 }
 
 .planning-roster-group {
-  padding: 0.5rem;
+  padding: 0.48rem;
   border: 1px solid rgba(138, 85, 54, 0.1);
-  border-radius: 12px;
+  border-radius: 13px;
   background: rgba(255, 253, 250, 0.76);
 }
 
@@ -10128,7 +10151,7 @@ button,
 .planning-roster-group .roster-group-title {
   margin: 0;
   color: #4d3a2b;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.02em;
 }
@@ -10136,23 +10159,23 @@ button,
 .planning-shift-line {
   appearance: none;
   display: grid;
-  grid-template-columns: minmax(76px, 96px) minmax(0, 1fr) 70px;
-  gap: 0.3rem;
+  grid-template-columns: minmax(0, 1.15fr) max-content minmax(68px, 0.9fr);
+  gap: 0.38rem;
   align-items: center;
   width: 100%;
   min-width: 0;
-  padding: 0.3rem 0.38rem;
-  border: 1px solid #d7e6dc;
-  border-radius: 8px;
-  background: #f7fbf8;
+  padding: 0.34rem 0.42rem;
+  border: 1px solid #dce9e1;
+  border-radius: 10px;
+  background: rgba(248, 252, 249, 0.86);
   color: inherit;
-  cursor: pointer;
+  cursor: default;
   text-align: left;
 }
 
 .planning-shift-line.is-open {
-  background: #fff2e8;
-  border-color: #f1c9a9;
+  background: #fff7ef;
+  border-color: #efcfb4;
 }
 
 .planning-shift-line:focus-visible {
@@ -10162,15 +10185,14 @@ button,
 
 .planning-shift-line:hover {
   background: #fffaf3;
-  border-color: #d7b98f;
-  box-shadow: 0 2px 8px rgba(57, 42, 24, 0.08);
+  border-color: #dbc7a8;
 }
 
 .planning-shift-time {
   color: #7a6453;
   font-size: 0.72rem;
   font-weight: 700;
-  text-align: right;
+  text-align: left;
   white-space: nowrap;
 }
 
@@ -10183,8 +10205,8 @@ button,
 
 .planning-shift-name {
   color: #2f2a23;
-  font-size: 0.76rem;
-  font-weight: 700;
+  font-size: 0.78rem;
+  font-weight: 800;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -10196,17 +10218,17 @@ button,
   color: #344054;
   font-size: 0.76rem;
   font-weight: 700;
-  text-align: left;
+  text-align: right;
 }
 
 .planning-shift-line.is-open .planning-shift-employee {
   display: inline-flex;
   justify-content: center;
-  justify-self: start;
-  padding: 0.08rem 0.28rem;
+  justify-self: end;
+  padding: 0.08rem 0.38rem;
   border-radius: 999px;
-  background: #ffe3cf;
-  color: #b85a1a;
+  background: #fff0df;
+  color: #9d5426;
 }
 
 .planning-shift-line.is-filled .planning-shift-employee {
@@ -10219,6 +10241,35 @@ button,
 
 .week-roster-compact-grid .planning-shift-line:not(button) {
   cursor: default;
+}
+
+body[data-role="planner"] [data-panel="week-current"] .board-header {
+  align-items: end;
+}
+
+body[data-role="planner"] [data-panel="week-current"] .panel-note {
+  max-width: 680px;
+}
+
+body[data-role="planner"] [data-panel="week-current"] .week-note {
+  margin: 0 0 0.35rem;
+  color: #6f5f4d;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+body[data-role="planner"] [data-panel="week-current"] .planner-more-actions {
+  margin-top: 0.75rem;
+}
+
+body[data-role="planner"] [data-panel="week-current"] .planner-more-actions summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+body[data-role="planner"] [data-panel="week-current"] .roster-plan-link {
+  white-space: nowrap;
 }
 
 .planning-absence-line {

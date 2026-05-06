@@ -65,6 +65,7 @@ const focusModeButton = document.getElementById("focusModeButton");
 const controlModeButton = document.getElementById("controlModeButton");
 const deviationOnlyButton = document.getElementById("deviationOnlyButton");
 const weekViewTitle = document.getElementById("weekViewTitle");
+const weekViewNote = document.getElementById("weekViewNote");
 const copySourceWeekInput = document.getElementById("copySourceWeek");
 const copyTargetWeekInput = document.getElementById("copyTargetWeek");
 const nameSelect = document.getElementById("name");
@@ -14056,36 +14057,53 @@ function getCompactRosterShiftLabel(shiftName) {
   return normalizedShiftName || "Dienst";
 }
 
+function formatRosterDateLabel(dateValue) {
+  if (!dateValue) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("nl-NL", {
+    day: "numeric",
+    month: "short"
+  }).format(new Date(`${dateValue}T00:00:00`)).replace(".", "");
+}
+
+function formatRosterDayHeaderLabel(dateValue) {
+  if (!dateValue) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("nl-NL", {
+    weekday: "long",
+    day: "numeric",
+    month: "short"
+  }).format(new Date(`${dateValue}T00:00:00`)).replace(".", "");
+}
+
+function formatRosterWeekHeaderLabel(weekValue) {
+  const weekDates = getWeekDates(weekValue);
+  const startDate = weekDates[0];
+  const endDate = weekDates[weekDates.length - 1];
+  const weekNumber = getWeekNumber(weekValue);
+
+  if (!startDate || !endDate || !weekNumber) {
+    return formatWeekLabel(weekValue);
+  }
+
+  return `Week ${weekNumber} · ${formatRosterDateLabel(startDate)} t/m ${formatRosterDateLabel(endDate)}`;
+}
+
 function renderCompactWeekRosterShiftLine(row) {
   const employeeName = row.entry?.name || "";
-  const entryIndex = Number.isInteger(row.entry?.index)
-    ? row.entry.index
-    : row.entry ? entries.indexOf(row.entry) : -1;
   const shiftTime = `${row.startTime}-${row.endTime}`;
   const displayShiftName = getCompactRosterShiftLabel(row.shiftName);
   const rowClass = `planning-shift-line ${employeeName ? "is-filled" : "is-open"}`;
 
-  if (entryIndex >= 0) {
-    return `
-      <button
-        type="button"
-        class="${rowClass}"
-        data-action="edit"
-        data-index="${entryIndex}"
-        title="${employeeName} - ${row.shiftName} - ${shiftTime}. Klik om dienst te bewerken"
-      >
-        <span class="planning-shift-employee">${employeeName || "OPEN"}</span>
-        <span class="planning-shift-name" title="${row.shiftName}">${displayShiftName}</span>
-        <span class="planning-shift-time">${shiftTime}</span>
-      </button>
-    `;
-  }
-
   return `
-    <div class="${rowClass}" title="OPEN - ${row.shiftName} - ${shiftTime}">
-      <span class="planning-shift-employee">OPEN</span>
+    <div class="${rowClass}" title="${row.shiftName} - ${shiftTime} - ${employeeName || "Open"}">
       <span class="planning-shift-name" title="${row.shiftName}">${displayShiftName}</span>
       <span class="planning-shift-time">${shiftTime}</span>
+      <span class="planning-shift-employee">${employeeName || "Open"}</span>
     </div>
   `;
 }
@@ -14097,7 +14115,7 @@ function renderCompactWeekRosterGroup(title, groupRows, groupType) {
 
   return `
     <section class="roster-group roster-group--${groupType} planning-roster-group">
-      <h3 class="roster-group-title">${groupType === "shop" ? "🏪" : "🥖"} ${title}</h3>
+      <h3 class="roster-group-title">${title}</h3>
       <div class="roster-group-list planning-shift-lines">
         ${groupRows.map(renderCompactWeekRosterShiftLine).join("")}
       </div>
@@ -14151,17 +14169,21 @@ function renderCompactWeekRosterDayCard(day, sourceEntries = entries, {
 
   const hasOpenShifts = rows.some((row) => !row.entry);
   const hasVisibleContent = rows.length || approvedAbsences.length;
+  const openCount = rows.filter((row) => !row.entry).length;
+  const serviceCountText = `${rows.length} dienst${rows.length === 1 ? "" : "en"}`;
+  const openCountText = openCount ? `${openCount} open` : "alles ingevuld";
+  const relativeDayState = getRelativeDayState(day);
 
   return `
-    <article class="planning-day-card week-roster-day-card ${extraClassName} ${hasVisibleContent ? (hasOpenShifts ? "is-open-day" : "") : "is-closed"}">
+    <article class="planning-day-card week-roster-day-card ${extraClassName} ${relativeDayState ? `is-${relativeDayState}` : ""} ${hasVisibleContent ? (hasOpenShifts ? "is-open-day" : "") : "is-closed"}">
       <header class="planning-day-header">
-        <strong>${formatWeekday(day)}</strong>
-        <span>${formatDate(day)}</span>
+        <strong>${formatRosterDayHeaderLabel(day)}</strong>
+        <span>${rows.length ? `${serviceCountText} · ${openCountText}` : "Geen diensten gepland"}</span>
       </header>
       <div class="roster-groups planning-roster-groups">
         ${rows.length
           ? `${renderCompactWeekRosterGroup("Bakkerij", groupedRows.bakery, "bakery")}${renderCompactWeekRosterGroup("Winkel", groupedRows.shop, "shop")}`
-          : `<div class="planning-shift-empty">Geen diensten</div>`}
+          : `<div class="planning-shift-empty">Geen diensten gepland</div>`}
         ${approvedAbsences.map((request) => `
           <div class="planning-absence-line absence-${getAbsenceCardClass(request.type)}">
             ${request.employeeName}: ${getApprovedAbsenceLabel(request)}${request.reason ? ` - ${request.reason}` : ""}
@@ -16557,17 +16579,20 @@ function updateWeekViewTitle() {
   const currentWeek = getCurrentWeekValue();
   const selectedWeek = weekFilterInput.value || currentWeek;
 
-  if (selectedWeek === currentWeek) {
+  if (weekViewTitle) {
     weekViewTitle.textContent = "Rooster";
-    return;
   }
 
-  if (selectedWeek === getNextWeekValue(currentWeek)) {
-    weekViewTitle.textContent = "Rooster volgende week";
-    return;
+  if (weekViewNote) {
+    const relativeLabel = selectedWeek === currentWeek
+      ? "Deze week"
+      : selectedWeek === getPreviousWeekValue(currentWeek)
+        ? "Vorige week"
+        : selectedWeek === getNextWeekValue(currentWeek)
+          ? "Volgende week"
+          : "Gekozen week";
+    weekViewNote.textContent = `Bekijk per dag wie er werkt en welke diensten nog openstaan. ${relativeLabel}: ${formatRosterWeekHeaderLabel(selectedWeek)}.`;
   }
-
-  weekViewTitle.textContent = `Rooster week ${selectedWeek.replace("-W", " - ")}`;
 }
 
 function clearPlannerWeekInsights() {
@@ -21449,7 +21474,7 @@ function renderSchedule() {
     const plannerDeviationOnlyActive = isDeviationOnlyModeActive();
     setClassName(scheduleBoard, "schedule-board");
     scheduleBoard.innerHTML = `
-      <p class="week-note">Weekrooster week ${selectedWeek.replace("-W", " - ")}</p>
+      <p class="week-note">${formatRosterWeekHeaderLabel(selectedWeek)}</p>
       ${employeeWeekFocusMarkup}
       <section class="mobile-week">
         ${weekDates.map((day) => {
@@ -21490,7 +21515,7 @@ function renderSchedule() {
     : visibleEntries;
   setClassName(scheduleBoard, "schedule-board");
   scheduleBoard.innerHTML = `
-    <p class="week-note">Weekrooster week ${selectedWeek.replace("-W", " - ")}</p>
+    <p class="week-note">${formatRosterWeekHeaderLabel(selectedWeek)}</p>
     ${employeeWeekFocusMarkup}
     <section class="planning-week-grid week-roster-compact-grid">
       ${weekDates.map((day) => renderCompactWeekRosterDayCard(day, plannerEntriesForBoard, {

@@ -1159,7 +1159,7 @@
       <div class="board-header director-screen-header">
         <div>
           <h2 id="weekViewTitle">Rooster</h2>
-          <p class="panel-note">Weekoverzicht van maandag t/m zondag.</p>
+          <p id="weekViewNote" class="panel-note">Bekijk per dag wie er werkt en welke diensten nog openstaan.</p>
         </div>
         <div class="board-toolbar director-screen-toolbar">
           <div id="employeeWeekToolbar" class="employee-week-toolbar hidden" aria-label="Roosterweergave medewerker">
@@ -1177,9 +1177,15 @@
             <div class="planner-action-group">
               <span class="planner-action-group-label">Weeknavigatie</span>
               <div class="planner-action-group-buttons">
-                <button type="button" id="previousWeekButton" class="secondary">Vorige</button>
-                <button type="button" id="todayWeekButton" class="secondary">Deze</button>
-                <button type="button" id="nextWeekButton" class="secondary">Volgende</button>
+                <button type="button" id="previousWeekButton" class="secondary">Vorige week</button>
+                <button type="button" id="todayWeekButton" class="secondary">Deze week</button>
+                <button type="button" id="nextWeekButton" class="secondary">Volgende week</button>
+              </div>
+            </div>
+            <div class="planner-action-group">
+              <span class="planner-action-group-label">Plannen</span>
+              <div class="planner-action-group-buttons">
+                <button type="button" class="secondary quick-link roster-plan-link" data-go-tab="planning">Rooster plannen</button>
               </div>
             </div>
             <div class="planner-action-group">
@@ -1195,7 +1201,7 @@
       <div id="message" class="message hidden compact-message" role="status" aria-live="polite"></div>
       <div id="schedule-board" class="schedule-board empty">Nog geen diensten toegevoegd.</div>
       <details class="planner-more-actions role-planner">
-        <summary>Meer acties en controle</summary>
+        <summary>Extra opties</summary>
         <div class="planner-toolbar-actions role-planner">
           <div class="planner-action-group role-planner">
             <span class="planner-action-group-label">Modus</span>
