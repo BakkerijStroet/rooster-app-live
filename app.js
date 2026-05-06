@@ -18568,6 +18568,12 @@ function matchesSmartPlanningDepartment(shift, departmentFilter = "all") {
   return departmentFilter === "all" || getSmartPlanningDepartmentForShift(shift) === departmentFilter;
 }
 
+function getSmartPlanningDepartmentLabel(department = "all") {
+  if (department === "bakery") return "Bakkerij";
+  if (department === "shop") return "Winkel";
+  return "Alles";
+}
+
 function getSmartPlanningWeekData() {
   const selectedWeek = getSmartPlanningSelectedWeek();
   const departmentFilter = smartPlanningDepartmentSelect?.value || "all";
@@ -18644,10 +18650,25 @@ function renderSmartPlanningProposal(data = getSmartPlanningWeekData()) {
   const hasProposal = smartPlanningProposalState?.weekValue === data.selectedWeek
     && smartPlanningProposalState?.department === data.departmentFilter;
   const proposalItems = hasProposal ? smartPlanningProposalState.items || [] : [];
+  const proposalDepartmentLabel = hasProposal
+    ? getSmartPlanningDepartmentLabel(smartPlanningProposalState.department)
+    : getSmartPlanningDepartmentLabel(data.departmentFilter);
 
   if (smartPlanningApplyProposalButton) {
     smartPlanningApplyProposalButton.disabled = true;
     smartPlanningApplyProposalButton.title = "Deze stap maakt nog geen toepasbaar rooster. Gebruik Rooster inplannen om een voorstel toe te passen.";
+  }
+
+  if (hasProposal && !proposalItems.length) {
+    if (smartPlanningProposalSummary) {
+      smartPlanningProposalSummary.textContent = `Conceptvoorstel gemaakt · ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel}`;
+    }
+    setClassName(smartPlanningProposalList, "smart-planning-list empty");
+    smartPlanningProposalList.innerHTML = `
+      <strong>Geen open diensten gevonden voor deze selectie.</strong>
+      <span>${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel}</span>
+    `;
+    return;
   }
 
   if (!proposalItems.length) {
@@ -18660,17 +18681,17 @@ function renderSmartPlanningProposal(data = getSmartPlanningWeekData()) {
   }
 
   if (smartPlanningProposalSummary) {
-    smartPlanningProposalSummary.textContent = `${proposalItems.length} open diensten voorbereid, nog niet toegepast.`;
+    smartPlanningProposalSummary.textContent = `Conceptvoorstel gemaakt · ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel} · ${proposalItems.length} regels`;
   }
 
   setClassName(smartPlanningProposalList, "smart-planning-list");
   smartPlanningProposalList.innerHTML = proposalItems.map((item) => `
     <article class="smart-planning-proposal-row">
       <div>
-        <strong>${formatWeekday(item.day)} · ${item.shiftName}</strong>
+        <strong>${formatWeekday(item.day)} · ${getSmartPlanningDepartmentLabel(item.department)} · ${getCompactRosterShiftLabel(item.shiftName)}</strong>
         <span>${formatDate(item.day)} · ${item.startTime || "?"}-${item.endTime || "?"}</span>
       </div>
-      <span class="status-pill status-open">Nog te bepalen</span>
+      <span class="status-pill status-open">Nog niet toegewezen</span>
     </article>
   `).join("");
 }
@@ -18690,12 +18711,17 @@ function renderSmartPlanningChecks(data = getSmartPlanningWeekData()) {
 
     return total + Object.values(employeeCounts).filter((count) => count > 1).length;
   }, 0);
+  const hasProposal = smartPlanningProposalState?.weekValue === data.selectedWeek
+    && smartPlanningProposalState?.department === data.departmentFilter;
+  const proposalCount = hasProposal ? smartPlanningProposalState.items?.length || 0 : 0;
   const missingAvailabilityCount = data.openItems.length;
   const contractCount = data.contractImbalanceEmployees?.length || 0;
   const checks = [
+    { label: "Open diensten", value: `${missingAvailabilityCount} gevonden`, className: missingAvailabilityCount ? "is-warning" : "is-ok" },
+    { label: "Voorgestelde regels", value: hasProposal ? `${proposalCount} conceptregels` : "Nog geen voorstel", className: hasProposal ? "is-warning" : "is-neutral" },
     { label: "Contracturen", value: contractCount ? `${contractCount} aandacht` : "Rustig", className: contractCount ? "is-warning" : "is-ok" },
     { label: "Dubbele diensten", value: duplicateCount ? `${duplicateCount} mogelijk dubbel` : "Geen dubbele inzet", className: duplicateCount ? "is-warning" : "is-ok" },
-    { label: "Ontbrekende bezetting", value: missingAvailabilityCount ? `${missingAvailabilityCount} open diensten` : "Geen open diensten", className: missingAvailabilityCount ? "is-warning" : "is-ok" },
+    { label: "Automatische toewijzing", value: hasProposal ? "Er zijn nog geen medewerkers automatisch toegewezen." : "Nog niet gestart", className: hasProposal ? "is-warning" : "is-neutral" },
     { label: "Medewerkers zonder beschikbaarheid", value: "Niet actief gecontroleerd", className: "is-neutral" },
     { label: "Conflicts / waarschuwingen", value: "Alleen basiscontrole in deze stap", className: "is-neutral" }
   ];
@@ -18732,26 +18758,22 @@ function renderSmartPlanningPanel() {
 function createSmartPlanningPlaceholderProposal() {
   const data = getSmartPlanningWeekData();
 
-  if (!data.openItems.length) {
-    smartPlanningProposalState = null;
-    renderSmartPlanningPanel();
-    showMessage("Geen open diensten gevonden voor deze selectie.", "warning");
-    return;
-  }
-
   smartPlanningProposalState = {
     weekValue: data.selectedWeek,
     department: data.departmentFilter,
     createdAt: getNowIsoString(),
     items: data.openItems.map((item) => ({
       day: item.day,
+      department: getSmartPlanningDepartmentForShift(item.shift),
       shiftName: item.shift.name,
       startTime: item.shift.startTime,
       endTime: item.shift.endTime
     }))
   };
   renderSmartPlanningPanel();
-  showMessage("Slim plannen wordt voorbereid. Er is nog geen automatisch voorstel toegepast.", "success");
+  showMessage(data.openItems.length
+    ? "Conceptvoorstel gemaakt. Er is nog niets toegepast op het rooster."
+    : "Geen open diensten gevonden voor deze selectie.", data.openItems.length ? "success" : "warning");
 }
 
 function clearSmartPlanningProposal() {
