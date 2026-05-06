@@ -18660,6 +18660,7 @@ function getSmartPlanningEmployeeAdvice(item) {
     const isAuthorized = isEmployeeAuthorizedForShift(employeeName, shift?.name || item.shiftName);
     const absence = getApprovedTimeOff(employeeName, item.day);
     const overlappingEntry = findConflict(employeeName, item.day, item.startTime || "", item.endTime || "", -1);
+    const hasBlockingProposalAssignment = hasBlockingSmartPlanningAssignment(employeeName, item);
     const hasOtherSameDayShift = !overlappingEntry && hasEmployeeAssignmentOnDay(employeeName, item.day);
     const contractHours = getEmployeeContractHours(employeeName);
     const plannedHours = getEmployeeWeekHours(employeeName, weekValue, entries);
@@ -18679,6 +18680,9 @@ function getSmartPlanningEmployeeAdvice(item) {
     } else if (overlappingEntry) {
       group = "unsuitable";
       reasons.push("Al ingepland");
+    } else if (hasBlockingProposalAssignment) {
+      group = "unsuitable";
+      reasons.push("Al gekozen");
     } else {
       if (hasOtherSameDayShift) {
         group = "attention";
@@ -18739,6 +18743,54 @@ function getSmartPlanningUnfillableOpenShiftIds() {
     .map((item) => item.id);
 }
 
+function getSmartPlanningShiftFamily(shiftOrItem = {}) {
+  const shiftName = String(shiftOrItem.shiftName || shiftOrItem.name || "").toLowerCase();
+  const department = String(shiftOrItem.department || "").toLowerCase();
+
+  if (shiftName.includes("bezorg")) return "bezorg";
+  if (shiftName.includes("inpak")) return "inpak";
+  if (shiftName.includes("productie")) return "productie";
+  if (department === "shop" || department === "winkel" || shiftName.includes("winkel")) return "winkel";
+
+  return shiftName || "overig";
+}
+
+function canCombineSmartPlanningShifts(existingShift, candidateShift) {
+  const existingFamily = getSmartPlanningShiftFamily(existingShift);
+  const candidateFamily = getSmartPlanningShiftFamily(candidateShift);
+  const allowedPairs = new Set([
+    "inpak:productie",
+    "productie:inpak",
+    "inpak:bezorg",
+    "bezorg:inpak",
+    "productie:bezorg",
+    "bezorg:productie",
+    "winkel:bezorg",
+    "bezorg:winkel"
+  ]);
+
+  return allowedPairs.has(`${existingFamily}:${candidateFamily}`);
+}
+
+function getSmartPlanningEmployeeAssignmentsForDate(employeeName, dateValue, exceptItemId = "") {
+  return (smartPlanningProposalState?.items || [])
+    .filter((item) =>
+      item.id !== exceptItemId &&
+      item.day === dateValue &&
+      item.chosenEmployeeName === employeeName
+    );
+}
+
+function hasBlockingSmartPlanningAssignment(employeeName, candidateShift) {
+  const assignments = getSmartPlanningEmployeeAssignmentsForDate(
+    employeeName,
+    candidateShift?.day || "",
+    candidateShift?.id || ""
+  );
+
+  return assignments.some((assignment) => !canCombineSmartPlanningShifts(assignment, candidateShift));
+}
+
 function selectSmartPlanningProposalEmployee(itemId, employeeName) {
   const item = getSmartPlanningProposalItemById(itemId);
 
@@ -18762,6 +18814,7 @@ function normalizeSmartPlanningUnavailableReason(reason = "") {
   if (normalizedReason.includes("ziek")) return "Ziek";
   if (normalizedReason.includes("vakantie") || normalizedReason.includes("verlof")) return "Verlof";
   if (normalizedReason.includes("overlap")) return "Overlap";
+  if (normalizedReason.includes("gekozen")) return "Al gekozen";
   if (normalizedReason.includes("ingepland") || normalizedReason.includes("andere dienst")) return "Al ingepland";
   if (normalizedReason.includes("contract")) return "Contracturen vol";
   if (normalizedReason.includes("onbekend")) return "Beschikbaarheid onbekend";
@@ -18992,7 +19045,10 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
                 data-smart-planning-open-shift="${escapeHtmlAttribute(row.smartPlanningId)}"
                 title="${escapeHtmlAttribute(titleText)}"
               >
-                <span class="planning-shift-employee">${employeeLabel}${chosenEmployeeName ? `<em class="smart-planning-concept-badge">Concept</em>` : ""}</span>
+                <span class="planning-shift-employee">
+                  <span class="smart-planning-assigned-person">${employeeLabel}</span>
+                  ${chosenEmployeeName ? `<em class="smart-planning-concept-badge">Concept</em>` : ""}
+                </span>
                 <span class="planning-shift-name" title="${escapeHtmlAttribute(row.shiftName)}">${displayShiftName}${warningText ? `<span class="smart-planning-shift-warning" title="${escapeHtmlAttribute(warningText)}">⚠</span>` : ""}</span>
                 <span class="planning-shift-time">${shiftTime}</span>
               </button>
