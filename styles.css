@@ -12082,6 +12082,687 @@ body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.is-
   }
 }
 
+/* Professionele cleanup-laag: rustig, leesbaar en oranje alleen als accent. */
+:root {
+  --bg: #f7f4ef;
+  --bg-soft: #fbfaf7;
+  --card: #ffffff;
+  --card-soft: #f9f5ef;
+  --text: #26231f;
+  --text-secondary: #514a42;
+  --text-subtle: #756c62;
+  --muted: #756c62;
+  --accent: #df7425;
+  --accent-strong: #a84b12;
+  --accent-soft: #f1b278;
+  --accent-tint: #fff3e8;
+  --border: #e2d8cc;
+  --shadow: 0 10px 26px rgba(41, 35, 28, 0.08);
+  --shadow-soft: 0 6px 16px rgba(41, 35, 28, 0.06);
+  --shadow-hover: 0 14px 30px rgba(41, 35, 28, 0.11);
+}
+
+body {
+  background: linear-gradient(180deg, #fbfaf7 0%, #f7f4ef 100%);
+  color: var(--text);
+}
+
+body::before {
+  opacity: 0.35;
+  background:
+    radial-gradient(circle at 8% 14%, rgba(223, 116, 37, 0.06), transparent 18%),
+    radial-gradient(circle at 88% 10%, rgba(38, 35, 31, 0.035), transparent 20%);
+}
+
+.card,
+.staff-panel,
+.dashboard-item,
+.dashboard-card,
+.compact-status-card,
+.quick-actions > *,
+.hours-control-summary-card,
+.planner-summary-chip,
+.smart-planning-control-summary-card,
+.capacity-card,
+.employee-summary-card,
+.employee-table-row,
+.services-table-row,
+.planner-request-inbox-item,
+.planner-vacation-item,
+.hours-control-item,
+.planning-day-card,
+.week-roster-day-card,
+.smart-planning-card,
+.smart-planning-rules,
+.smart-planning-legacy-tools,
+.employee-detail-panel,
+.services-table,
+.planner-request-inbox,
+.planner-vacation-panel,
+.hours-control-main {
+  background: #ffffff;
+  border-color: var(--border);
+  box-shadow: var(--shadow-soft);
+  color: var(--text);
+}
+
+.card::before,
+.staff-panel::before,
+.shift-card::before,
+.desktop-day-list::before {
+  opacity: 0.18;
+}
+
+h1,
+h2,
+h3,
+h4,
+.brand-copy h1,
+.view-header h2,
+.view-header h3,
+.board-header h2,
+.board-header h3,
+.dashboard-card h3,
+.dashboard-item strong,
+.planning-day-header strong,
+.desktop-day-header strong,
+.planning-roster-group .roster-group-title,
+.roster-group-title,
+.employee-name-cell strong,
+.employee-table-cell strong,
+.service-name strong,
+.hours-control-item strong {
+  color: var(--text);
+}
+
+p,
+small,
+.panel-note,
+.view-header p,
+.view-header small,
+.board-header p,
+.board-header small,
+.dashboard-card p,
+.dashboard-item span,
+.desktop-day-header span,
+.desktop-day-header-meta,
+.planning-day-header span,
+.employee-summary-subline,
+.employee-table-cell,
+.employee-name-cell span,
+.service-meta,
+.service-time,
+.hours-control-item small,
+.planner-request-inbox-item small,
+.planner-vacation-item small {
+  color: var(--text-subtle);
+}
+
+.brand-header {
+  background: rgba(251, 250, 247, 0.96);
+  border-bottom-color: var(--border);
+  box-shadow: 0 8px 22px rgba(41, 35, 28, 0.045);
+}
+
+.brand-home {
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.app-nav {
+  gap: 8px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.86);
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.nav-tab {
+  min-height: 40px;
+  padding: 9px 14px;
+  border-color: #e6ddd2;
+  background: #ffffff;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: none;
+}
+
+.nav-tab::before {
+  width: 6px;
+  height: 6px;
+  background: rgba(223, 116, 37, 0.42);
+}
+
+.nav-tab:hover {
+  background: #fffaf5;
+  border-color: rgba(223, 116, 37, 0.28);
+  color: var(--text);
+}
+
+.nav-tab.active {
+  background: #ffffff;
+  color: var(--text);
+  border-color: rgba(223, 116, 37, 0.48);
+  box-shadow: inset 0 -3px 0 var(--accent), 0 6px 16px rgba(41, 35, 28, 0.055);
+}
+
+button:not(.secondary):not(.warning):not(:disabled),
+.employee-filter-button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(168, 75, 18, 0.16);
+}
+
+button:not(.secondary):not(.warning):not(:disabled):hover {
+  background: #c95d17;
+  border-color: #c95d17;
+  box-shadow: 0 10px 22px rgba(168, 75, 18, 0.2);
+}
+
+button.secondary,
+.request-switch-button,
+.mobile-nav-button {
+  background: #ffffff;
+  border-color: var(--border);
+  color: var(--text);
+  box-shadow: none;
+}
+
+button.secondary:hover:not(:disabled),
+.request-switch-button:hover,
+.mobile-nav-button:hover {
+  background: #fffaf5;
+  border-color: rgba(223, 116, 37, 0.3);
+}
+
+.request-switch-button.active,
+body[data-role="employee"] .request-switch-button.active,
+.smart-planning-tab.active,
+.mobile-nav-button.active,
+body[data-role="employee"] .mobile-nav-button.active {
+  background: #ffffff;
+  border-color: rgba(223, 116, 37, 0.46);
+  color: var(--text);
+  box-shadow: inset 0 -3px 0 var(--accent), 0 4px 12px rgba(41, 35, 28, 0.055);
+}
+
+.dashboard-item,
+.dashboard-card {
+  display: grid;
+  gap: 8px;
+  border-left: 4px solid rgba(223, 116, 37, 0.28);
+}
+
+.dashboard-item strong,
+.dashboard-card strong,
+.hours-control-summary-card strong,
+.planner-summary-chip strong {
+  color: var(--text);
+  text-shadow: none;
+}
+
+.dashboard-item small,
+.dashboard-card p,
+.dashboard-card span {
+  color: var(--text-subtle);
+}
+
+.planning-week-grid,
+.desktop-week-grid {
+  gap: 12px;
+  align-items: start;
+}
+
+.planning-day-card,
+.week-roster-day-card {
+  padding: 12px;
+  gap: 10px;
+  border-radius: 18px;
+  background: #ffffff;
+  min-height: 0;
+  align-content: start;
+}
+
+.planning-day-card.is-open-day,
+.smart-planning-day-row.has-open,
+.smart-planning-check-row.is-warning {
+  background: #ffffff;
+  border-color: #e7c2a2;
+  box-shadow: inset 4px 0 0 rgba(223, 116, 37, 0.34), var(--shadow-soft);
+}
+
+.planning-day-card.is-today,
+.week-roster-day-card.is-today {
+  border-color: rgba(223, 116, 37, 0.5);
+  box-shadow: inset 4px 0 0 var(--accent), var(--shadow-soft);
+}
+
+.planning-day-header {
+  gap: 3px;
+  padding: 0;
+}
+
+.planning-day-header strong {
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.planning-day-header span {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.planning-roster-groups,
+.planning-roster-group,
+.planning-roster-group .roster-group-list,
+.planning-shift-lines,
+.roster-groups,
+.roster-group,
+.roster-group-list {
+  gap: 8px;
+  align-content: start;
+}
+
+.planning-roster-group,
+.roster-group {
+  padding: 10px;
+  border: 1px solid #ede4da;
+  border-radius: 14px;
+  background: #fbfaf7;
+}
+
+.planning-roster-group.roster-group--bakery,
+.roster-group--bakery,
+.planning-roster-group.roster-group--shop,
+.roster-group--shop {
+  background: #fbfaf7;
+  border-color: #ede4da;
+}
+
+.planning-roster-group.roster-group--bakery,
+.roster-group--bakery {
+  box-shadow: inset 3px 0 0 rgba(223, 116, 37, 0.28);
+}
+
+.planning-roster-group.roster-group--shop,
+.roster-group--shop {
+  box-shadow: inset 3px 0 0 rgba(63, 122, 88, 0.22);
+}
+
+.planning-roster-group .roster-group-title,
+.roster-group-title {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.planning-shift-line,
+.smart-planning-proposal-roster .smart-planning-open-shift-button,
+.shift-card {
+  background: #ffffff;
+  border: 1px solid #e8ded3;
+  border-radius: 13px;
+  box-shadow: 0 3px 10px rgba(41, 35, 28, 0.045);
+}
+
+.planning-shift-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "employee badge"
+    "detail detail";
+  gap: 5px 8px;
+  min-height: 58px;
+  padding: 10px 11px;
+  align-items: start;
+}
+
+.planning-shift-employee {
+  grid-area: employee;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.2;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.planning-shift-name {
+  grid-area: detail;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.25;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.planning-shift-time {
+  grid-area: detail;
+  justify-self: end;
+  align-self: end;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+  padding-left: 8px;
+  background: #ffffff;
+}
+
+.planning-shift-line.is-open .planning-shift-employee {
+  grid-area: employee;
+  justify-self: start;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.planning-shift-line.is-open::after {
+  content: "Open";
+  grid-area: badge;
+  justify-self: end;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #fff3e8;
+  color: #8f4e09;
+  border: 1px solid #edc49f;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.planning-shift-line.is-filled::after {
+  content: "Bestaat";
+  grid-area: badge;
+  justify-self: end;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #edf7f0;
+  color: #245a3d;
+  border: 1px solid #b8d9be;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.desktop-day-list {
+  min-height: 0;
+  height: auto;
+  padding: 10px;
+  gap: 10px;
+  background: #ffffff;
+  border-color: var(--border);
+  box-shadow: var(--shadow-soft);
+}
+
+.desktop-day-list .shift-card {
+  padding: 11px 12px;
+  gap: 6px;
+}
+
+.shift-name,
+.desktop-day-list .shift-name,
+.mobile-shift-name {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.shift-time,
+.shift-employee,
+.desktop-day-list .shift-time,
+.desktop-day-list .shift-employee {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.shift-status,
+.status-pill,
+.employee-status-badge,
+.mobile-hours-status,
+.planner-audit-badge,
+.day-planner-badge {
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  box-shadow: none;
+}
+
+.status-open,
+.status-waiting,
+.status-in-review,
+.employee-status-badge.is-temporary {
+  background: #fff3e8;
+  border-color: #edc49f;
+  color: #8f4e09;
+}
+
+.status-approved,
+.employee-status-badge.is-active,
+.status-complete {
+  background: #edf7f0;
+  border-color: #b8d9be;
+  color: #245a3d;
+}
+
+.status-rejected,
+.status-overdue,
+.employee-status-badge.is-inactive,
+.employee-status-badge.is-former {
+  background: #fff2ef;
+  border-color: #d9a19a;
+  color: #843325;
+}
+
+.status-empty,
+.status-neutral {
+  background: #f6f2ed;
+  border-color: #ded3c6;
+  color: var(--text-secondary);
+}
+
+.smart-planning-proposal-roster .smart-planning-open-shift-button {
+  padding: 9px 10px;
+  min-height: 58px;
+  color: var(--text);
+}
+
+.smart-planning-open-shift {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "open name"
+    "time time";
+  gap: 5px 8px;
+}
+
+.smart-planning-open-label {
+  grid-area: open;
+  align-self: start;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #fff3e8;
+  color: #8f4e09;
+  border: 1px solid #edc49f;
+  font-size: 11px;
+}
+
+.smart-planning-open-shift-name {
+  grid-area: name;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.smart-planning-open-time {
+  grid-area: time;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.smart-planning-inline-advice {
+  background: #ffffff;
+  border-color: var(--border);
+  box-shadow: 0 18px 36px rgba(41, 35, 28, 0.16);
+}
+
+.smart-planning-employee-choice {
+  background: #ffffff;
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.smart-planning-employee-choice.is-available {
+  background: #f5fbf7;
+  color: #245a3d;
+  border-color: #b8d9be;
+}
+
+.smart-planning-employee-choice.is-unavailable {
+  background: #fff6f3;
+  color: #843325;
+  border-color: #d9a19a;
+}
+
+.smart-planning-employee-choice.is-emergency-option {
+  background: #fbf8f3;
+  color: var(--text-secondary);
+  border-color: #d8c4aa;
+}
+
+.employee-table-row,
+.employee-summary-card {
+  background: #ffffff;
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.employee-table-row.is-active,
+.employee-summary-card.is-active {
+  background: #ffffff;
+  border-color: rgba(223, 116, 37, 0.38);
+  box-shadow: inset 4px 0 0 rgba(223, 116, 37, 0.58), var(--shadow-soft);
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-year-grid {
+  grid-template-columns: repeat(auto-fill, minmax(142px, 1fr));
+  gap: 12px;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile {
+  min-height: 118px;
+  padding: 13px 14px;
+  gap: 7px;
+  background: #ffffff;
+  border-color: var(--border);
+  box-shadow: var(--shadow-soft);
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile strong {
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile span {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile em {
+  margin-top: auto;
+  padding: 4px 0 0;
+  color: var(--text-subtle);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.is-current,
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.is-selected {
+  background: #ffffff;
+  border-color: rgba(223, 116, 37, 0.48);
+  box-shadow: inset 4px 0 0 var(--accent), var(--shadow-soft);
+}
+
+.planner-control-card,
+.week-review-status-card,
+.week-status-card,
+.control-mode-card,
+.planner-control-item,
+.control-contract-row {
+  background: #ffffff;
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+@media (max-width: 760px) {
+  .app-nav {
+    gap: 7px;
+  }
+
+  .nav-tab {
+    min-height: 40px;
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+
+  .planning-shift-line,
+  .smart-planning-proposal-roster .smart-planning-open-shift-button {
+    min-height: 60px;
+  }
+
+  body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-year-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .mobile-bottom-nav {
+    gap: 6px;
+    padding: 9px 10px calc(9px + env(safe-area-inset-bottom, 0px));
+    background: rgba(255, 255, 255, 0.96);
+    border-top-color: var(--border);
+  }
+
+  .mobile-nav-button,
+  body[data-role="employee"] .mobile-nav-button {
+    min-height: 52px;
+    padding: 8px 6px;
+    border-radius: 13px;
+    background: #ffffff;
+    color: var(--text);
+    font-size: 12px;
+    line-height: 1.15;
+  }
+
+  .mobile-nav-button.active,
+  body[data-role="employee"] .mobile-nav-button.active {
+    background: #ffffff;
+    color: var(--text);
+    border-color: rgba(223, 116, 37, 0.5);
+    box-shadow: inset 0 3px 0 var(--accent);
+  }
+
+  .planning-day-card,
+  .week-roster-day-card,
+  .mobile-day-card,
+  .shift-card {
+    border-radius: 16px;
+  }
+}
+
 
 
 
