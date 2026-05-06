@@ -1,22 +1,22 @@
 ﻿:root {
   color-scheme: light;
-  --bg: #F9F9F9;
-  --bg-soft: #ffffff;
-  --card: #fffdfb;
-  --card-soft: #f6f4f1;
-  --text: #333333;
-  --muted: #666666;
-  --accent: #F28C28;
-  --accent-strong: #D97706;
-  --accent-soft: #f6d9b9;
-  --accent-tint: #fdf1e4;
-  --border: #E5E5E5;
-  --success: #4f7357;
-  --warning: #a36f25;
-  --danger: #9a4e3a;
-  --shadow: 0 18px 38px rgba(69, 48, 27, 0.08);
-  --shadow-soft: 0 10px 24px rgba(69, 48, 27, 0.05);
-  --shadow-hover: 0 18px 34px rgba(69, 48, 27, 0.1);
+  --bg: #fbf4ea;
+  --bg-soft: #fffaf2;
+  --card: #fffdf8;
+  --card-soft: #fff3df;
+  --text: #30261d;
+  --muted: #6f6255;
+  --accent: #f59e0b;
+  --accent-strong: #c96512;
+  --accent-soft: #f6c46f;
+  --accent-tint: #fff1d6;
+  --border: #ead8bf;
+  --success: #347451;
+  --warning: #b76510;
+  --danger: #a7432f;
+  --shadow: 0 18px 40px rgba(91, 55, 19, 0.13);
+  --shadow-soft: 0 10px 24px rgba(91, 55, 19, 0.08);
+  --shadow-hover: 0 20px 34px rgba(91, 55, 19, 0.18);
   --surface-glow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
   --transition-soft: 180ms ease;
   --space-1: 6px;
@@ -34,9 +34,9 @@ body {
   margin: 0;
   font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif;
   background:
-    radial-gradient(circle at top left, rgba(242, 140, 40, 0.07) 0, transparent 30%),
-    radial-gradient(circle at top right, rgba(242, 140, 40, 0.035) 0, transparent 24%),
-    linear-gradient(180deg, #fffdfa 0%, #f9f9f9 100%);
+    radial-gradient(circle at top left, rgba(245, 158, 11, 0.16) 0, transparent 28%),
+    radial-gradient(circle at top right, rgba(167, 67, 47, 0.08) 0, transparent 25%),
+    linear-gradient(180deg, #fff8eb 0%, #fbf4ea 48%, #f8efe2 100%);
   color: var(--text);
 }
 
@@ -50,8 +50,8 @@ body {
 }
 
 .card {
-  background: var(--card);
-  border: 1px solid var(--border);
+  background: linear-gradient(180deg, #fffefa 0%, var(--card) 62%, #fff8ec 100%);
+  border: 1px solid rgba(198, 132, 61, 0.22);
   border-radius: 24px;
   padding: 20px;
   box-shadow: var(--shadow);
@@ -123,11 +123,11 @@ h3 {
   align-items: center;
   flex-wrap: wrap;
   padding: 0 0 6px;
-  border-bottom: 1px solid rgba(216, 116, 47, 0.12);
+  border-bottom: 1px solid rgba(201, 101, 18, 0.18);
   position: sticky;
   top: 0;
   z-index: 40;
-  background: rgba(255, 253, 250, 0.96);
+  background: linear-gradient(180deg, rgba(255, 251, 244, 0.98), rgba(255, 244, 226, 0.94));
   backdrop-filter: blur(8px);
 }
 
@@ -145,9 +145,9 @@ h3 {
   justify-content: center;
   padding: 4px;
   border-radius: 12px;
-  border: 1px solid var(--border);
-  background: #fffdfa;
-  box-shadow: none;
+  border: 1px solid rgba(198, 132, 61, 0.24);
+  background: #fff8eb;
+  box-shadow: 0 8px 18px rgba(91, 55, 19, 0.08);
   flex: 0 0 auto;
   transition: transform var(--transition-soft), box-shadow var(--transition-soft), border-color var(--transition-soft);
 }
@@ -1960,9 +1960,9 @@ body[data-role="employee"] [data-panel="requests"] #requestsOpenCards {
 }
 
 .nav-tab {
-  background: rgba(255, 255, 255, 0.52);
+  background: rgba(255, 250, 240, 0.72);
   color: var(--text);
-  border: 1px solid rgba(242, 140, 40, 0.06);
+  border: 1px solid rgba(198, 101, 18, 0.12);
   border-radius: 999px;
   padding: 7px 10px;
   font-size: 13px;
@@ -1986,21 +1986,21 @@ body[data-role="employee"] [data-panel="requests"] #requestsOpenCards {
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  background: rgba(242, 140, 40, 0.26);
+  background: rgba(245, 158, 11, 0.36);
   box-shadow: none;
   flex: 0 0 auto;
 }
 
 .nav-tab:hover {
-  background: rgba(242, 140, 40, 0.12);
-  border-color: rgba(242, 140, 40, 0.16);
+  background: rgba(255, 235, 199, 0.86);
+  border-color: rgba(201, 101, 18, 0.28);
 }
 
 .nav-tab.active {
-  background: #fff7ed;
+  background: linear-gradient(180deg, #fff1c8, #ffe3a3);
   color: var(--accent-strong);
-  border-color: rgba(216, 116, 47, 0.34);
-  box-shadow: inset 0 0 0 1px rgba(216, 116, 47, 0.08);
+  border-color: rgba(201, 101, 18, 0.42);
+  box-shadow: inset 0 0 0 1px rgba(201, 101, 18, 0.08), 0 7px 14px rgba(91, 55, 19, 0.08);
 }
 
 .nav-tab.active::before {
@@ -11204,6 +11204,130 @@ body[data-role="planner"] .request-list {
   body[data-role="planner"] .mobile-bottom-nav {
     display: none !important;
   }
+}
+
+/* Warme Bakkerij Stroet opfrislaag: alleen kleur, contrast en uitstraling. */
+.board-card,
+.totals-card,
+.requests-card,
+.staff-panel,
+.smart-planning-card,
+.smart-planning-rules,
+.smart-planning-legacy-tools,
+.planning-day-card,
+.employee-summary-card,
+.employee-detail-panel,
+.services-table,
+.planner-request-inbox,
+.planner-vacation-panel,
+.hours-control-main {
+  border-color: rgba(198, 132, 61, 0.22);
+  background: linear-gradient(180deg, rgba(255, 253, 248, 0.98), rgba(255, 247, 234, 0.96));
+  box-shadow: var(--shadow-soft);
+}
+
+button:not(.secondary):not(.warning):not(:disabled),
+.request-switch-button.active,
+.employee-filter-button.active,
+.smart-planning-tab.active,
+.mobile-nav-button.active {
+  background: linear-gradient(180deg, #f7aa25, #d46f16);
+  border-color: rgba(151, 72, 18, 0.18);
+  color: #fff;
+  box-shadow: 0 11px 22px rgba(180, 89, 19, 0.22);
+}
+
+button:not(.secondary):not(.warning):not(:disabled):hover {
+  background: linear-gradient(180deg, #fbbf3d, #c96512);
+  box-shadow: 0 15px 26px rgba(180, 89, 19, 0.28);
+}
+
+button.secondary {
+  background: linear-gradient(180deg, #fff8ec, #f4eadb);
+  border-color: rgba(167, 106, 45, 0.22);
+  color: #4b3928;
+}
+
+button.secondary:hover:not(:disabled) {
+  border-color: rgba(201, 101, 18, 0.34);
+  background: linear-gradient(180deg, #fff3d8, #f2dfc2);
+}
+
+.status-pill,
+.shift-status,
+.day-planner-badge,
+.employee-status-badge,
+.mobile-hours-status,
+.planner-audit-badge {
+  border-width: 1px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.68);
+}
+
+.status-open,
+.status-waiting,
+.status-in-review,
+.planning-shift-line.is-open,
+.day-planner-row.is-open .day-planner-badge,
+.smart-planning-open-shift-button.has-warning {
+  border-color: #efb56f;
+  background: #fff3df;
+  color: #8a4b08;
+}
+
+.status-approved,
+.planning-shift-line.is-filled .planning-shift-employee,
+.smart-planning-open-shift-button.has-choice,
+.smart-planning-employee-choice.is-available,
+.smart-planning-concept-badge {
+  border-color: #92c9a4;
+  background: #ecf9ef;
+  color: #24643f;
+}
+
+.status-rejected,
+.status-overdue,
+.smart-planning-employee-choice.is-unavailable,
+.planner-note.warning,
+.message.warning {
+  border-color: #e6a091;
+  background: #fff0eb;
+  color: #9f2b16;
+}
+
+.planning-day-card.is-open-day,
+.smart-planning-day-row.has-open,
+.smart-planning-check-row.is-warning {
+  border-color: #efbd7a;
+  background: linear-gradient(180deg, #fffaf2, #fff2df);
+}
+
+.planning-day-card.is-today,
+.week-roster-day-card.is-today {
+  border-color: #d87a1f;
+  box-shadow: inset 0 0 0 1px rgba(216, 122, 31, 0.18), 0 10px 22px rgba(91, 55, 19, 0.12);
+}
+
+.planning-roster-group.roster-group--bakery,
+.roster-group--bakery {
+  border-color: rgba(214, 111, 22, 0.22);
+  background: linear-gradient(180deg, rgba(255, 248, 235, 0.95), rgba(255, 239, 211, 0.82));
+}
+
+.planning-roster-group.roster-group--shop,
+.roster-group--shop {
+  border-color: rgba(64, 132, 83, 0.2);
+  background: linear-gradient(180deg, rgba(245, 252, 246, 0.95), rgba(234, 247, 237, 0.84));
+}
+
+.smart-planning-inline-advice {
+  border-color: rgba(198, 132, 61, 0.32);
+  background: linear-gradient(180deg, #fffdf8, #fff4e3);
+  box-shadow: 0 18px 34px rgba(91, 55, 19, 0.22);
+}
+
+.smart-planning-open-label {
+  background: linear-gradient(180deg, #f59e0b, #d46f16);
+  box-shadow: 0 2px 5px rgba(180, 89, 19, 0.18);
 }
 
 
