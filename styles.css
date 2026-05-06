@@ -12883,6 +12883,303 @@ body[data-role="planner"] [data-panel="week-current"] .desktop-day-list .shift-c
   }
 }
 
+/* Diensten kleurlaag: gebruik de rustige Diensten-stijl als basis voor de hele app. */
+:root {
+  --bg: #f7f4ef;
+  --bg-soft: #fffaf1;
+  --card: #ffffff;
+  --card-soft: #fffaf1;
+  --text: #26231f;
+  --text-secondary: #514a42;
+  --text-subtle: #756c62;
+  --muted: #756c62;
+  --accent: #d69a45;
+  --accent-strong: #7a4a12;
+  --accent-soft: #fde8c8;
+  --accent-tint: #fffaf1;
+  --border: #e2d8cc;
+  --success: #245a3d;
+  --warning: #7a3d0d;
+  --danger: #843325;
+  --shop-accent: #4aa9a2;
+  --shop-tint: #f1fbf9;
+  --bakery-accent: #d69a45;
+  --bakery-tint: #fffaf1;
+  --other-accent: #9aa5b1;
+  --other-tint: #f8fafc;
+}
+
+body {
+  background: linear-gradient(180deg, #fbfaf7 0%, #f7f4ef 100%);
+  color: var(--text);
+}
+
+.card,
+.staff-panel,
+.dashboard-item,
+.dashboard-card,
+.compact-status-card,
+.quick-actions > *,
+.hours-control-summary-card,
+.planner-summary-chip,
+.smart-planning-control-summary-card,
+.capacity-card,
+.employee-summary-card,
+.employee-table-row,
+.services-table-row,
+.planner-request-inbox-item,
+.planner-vacation-item,
+.hours-control-item,
+.planning-day-card,
+.week-roster-day-card,
+.smart-planning-card,
+.smart-planning-rules,
+.smart-planning-legacy-tools,
+.employee-detail-panel,
+.services-table,
+.planner-request-inbox,
+.planner-vacation-panel,
+.hours-control-main,
+.my-schedule-week-tile,
+.request-card,
+.hours-registration-card,
+.my-hours-extra-card,
+.my-hours-worked-card {
+  background: #ffffff;
+  border-color: var(--border);
+  color: var(--text);
+  box-shadow: 0 6px 16px rgba(41, 35, 28, 0.055);
+}
+
+.smart-planning-toolbar,
+.hours-control-toolbar,
+.services-toolbar,
+.services-management-toolbar,
+.employees-toolbar,
+.planner-request-toolbar,
+.planner-vacation-filters,
+.week-switcher,
+.view-toolbar,
+.board-toolbar {
+  background: #fffaf1;
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.app-nav {
+  background: #fffaf1;
+  border-color: var(--border);
+}
+
+.nav-tab,
+.request-switch-button,
+.mobile-nav-button,
+button.secondary {
+  background: #ffffff;
+  border-color: var(--border);
+  color: var(--text-secondary);
+  box-shadow: none;
+}
+
+.nav-tab:hover,
+.request-switch-button:hover,
+.mobile-nav-button:hover,
+button.secondary:hover:not(:disabled) {
+  background: #fffaf1;
+  border-color: rgba(214, 154, 69, 0.42);
+  color: var(--text);
+}
+
+button:not(.secondary):not(.warning):not(:disabled) {
+  background: #d69a45;
+  border-color: #d69a45;
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(122, 74, 18, 0.16);
+}
+
+button:not(.secondary):not(.warning):not(:disabled):hover {
+  background: #bf8434;
+  border-color: #bf8434;
+  box-shadow: 0 10px 22px rgba(122, 74, 18, 0.2);
+}
+
+button.warning:not(:disabled) {
+  background: #843325;
+  border-color: #843325;
+  color: #ffffff;
+}
+
+.nav-tab.active,
+.request-switch-button.active,
+body[data-role="employee"] .request-switch-button.active,
+.smart-planning-tab.active,
+.mobile-nav-button.active,
+body[data-role="employee"] .mobile-nav-button.active,
+.employee-filter-button.active {
+  background: #fffaf1;
+  border-color: rgba(214, 154, 69, 0.72);
+  color: var(--text);
+  box-shadow: inset 0 -3px 0 var(--bakery-accent);
+}
+
+.dashboard-item,
+.dashboard-card {
+  border-left: 4px solid rgba(214, 154, 69, 0.65);
+}
+
+.planning-roster-group,
+.roster-group {
+  background: #ffffff;
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.planning-roster-group.roster-group--bakery,
+.roster-group--bakery,
+.services-table-row.is-bakery {
+  background: #fffaf1;
+  border-color: var(--border);
+  border-left-color: #d69a45;
+}
+
+.planning-roster-group.roster-group--shop,
+.roster-group--shop,
+.services-table-row.is-shop {
+  background: #f1fbf9;
+  border-color: var(--border);
+  border-left-color: #4aa9a2;
+}
+
+.planning-roster-group .roster-group-title,
+.roster-group-title {
+  color: var(--text-secondary);
+}
+
+.planning-shift-line,
+.smart-planning-proposal-roster .smart-planning-open-shift-button,
+.shift-card {
+  background: #ffffff;
+  border-color: var(--border);
+  box-shadow: 0 2px 7px rgba(41, 35, 28, 0.035);
+}
+
+.planning-shift-line.is-open,
+.smart-planning-open-shift-button.has-warning {
+  background: #fffaf1;
+  border-color: #e4a45c;
+}
+
+.planning-shift-line.is-open::after,
+.smart-planning-open-label,
+.status-open,
+.status-waiting,
+.status-in-review,
+.employee-status-badge.is-temporary {
+  background: #fff4e8;
+  border-color: #e4a45c;
+  color: #7a3d0d;
+}
+
+.planning-shift-line.is-filled::after,
+.status-approved,
+.employee-status-badge.is-active,
+.status-complete,
+.smart-planning-employee-choice.is-available,
+.smart-planning-concept-badge {
+  background: #edf7f0;
+  border-color: #9cc8aa;
+  color: #245a3d;
+}
+
+.status-rejected,
+.status-overdue,
+.employee-status-badge.is-inactive,
+.employee-status-badge.is-former,
+.smart-planning-employee-choice.is-unavailable,
+.message.error,
+.login-auth-status.is-error {
+  background: #fff2ef;
+  border-color: #d9a19a;
+  color: #843325;
+}
+
+.status-empty,
+.status-neutral,
+.service-department-pill.is-other {
+  background: #f8fafc;
+  border-color: #d7dde3;
+  color: #5f5142;
+}
+
+.service-department-pill.is-bakery,
+.day-planner-badge.is-bakery {
+  background: #fde8c8;
+  color: #7a4a12;
+}
+
+.service-department-pill.is-shop,
+.day-planner-badge.is-shop {
+  background: #dff4f1;
+  color: #12615c;
+}
+
+.employee-table-row.is-active,
+.employee-summary-card.is-active,
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.is-current,
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.is-selected {
+  background: #fffaf1;
+  border-color: rgba(214, 154, 69, 0.6);
+  box-shadow: inset 4px 0 0 #d69a45, 0 6px 16px rgba(41, 35, 28, 0.055);
+}
+
+.smart-planning-inline-advice {
+  background: #ffffff;
+  border-color: var(--border);
+  box-shadow: 0 18px 36px rgba(41, 35, 28, 0.16);
+}
+
+.smart-planning-employee-choice {
+  background: #ffffff;
+  border-color: var(--border);
+  color: var(--text);
+}
+
+input,
+select,
+textarea {
+  background: #ffffff;
+  border-color: var(--border);
+  color: var(--text);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: rgba(214, 154, 69, 0.65);
+  box-shadow: 0 0 0 3px rgba(214, 154, 69, 0.14);
+}
+
+@media (max-width: 640px) {
+  .mobile-bottom-nav {
+    background: #fffaf1;
+    border-top-color: var(--border);
+  }
+
+  .mobile-nav-button,
+  body[data-role="employee"] .mobile-nav-button {
+    background: #ffffff;
+    color: var(--text-secondary);
+  }
+
+  .mobile-nav-button.active,
+  body[data-role="employee"] .mobile-nav-button.active {
+    background: #ffffff;
+    color: var(--text);
+    border-color: rgba(214, 154, 69, 0.72);
+    box-shadow: inset 0 3px 0 #d69a45;
+  }
+}
+
 
 
 
