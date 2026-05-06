@@ -2917,7 +2917,7 @@ textarea.input-error {
 }
 
 .smart-planning-proposal-roster .smart-planning-open-shift-button {
-  grid-template-columns: 88px minmax(0, 1fr) 78px;
+  grid-template-columns: 96px minmax(0, 1fr) 78px;
   gap: 8px;
   min-height: 34px;
   padding: 0.38rem 0.46rem;
@@ -2943,11 +2943,27 @@ textarea.input-error {
 }
 
 .smart-planning-proposal-roster .planning-shift-employee {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
   white-space: nowrap;
   justify-self: start;
+}
+
+.smart-planning-concept-badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  padding: 1px 4px;
+  border-radius: 999px;
+  background: #dff5e7;
+  color: #236b45;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1.2;
 }
 
 .smart-planning-open-shift-button.has-choice {
@@ -3060,6 +3076,37 @@ textarea.input-error {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
+}
+
+.smart-planning-inline-selected {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid #b7dfc3;
+  border-radius: 10px;
+  background: #f3fbf6;
+}
+
+.smart-planning-inline-selected span {
+  color: #236b45;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.smart-planning-inline-selected button {
+  appearance: none;
+  min-height: 26px;
+  padding: 4px 8px;
+  border: 1px solid #9ed2ac;
+  border-radius: 999px;
+  background: #fff;
+  color: #236b45;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 900;
 }
 
 .smart-planning-inline-advice h4 {

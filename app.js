@@ -18750,6 +18750,10 @@ function selectSmartPlanningProposalEmployee(itemId, employeeName) {
   renderSmartPlanningPanel();
 }
 
+function clearSmartPlanningProposalAssignment(itemId) {
+  selectSmartPlanningProposalEmployee(itemId, "");
+}
+
 function normalizeSmartPlanningUnavailableReason(reason = "") {
   const normalizedReason = String(reason || "").toLowerCase();
 
@@ -18866,6 +18870,12 @@ function renderSmartPlanningInlineAdvice(item) {
         <strong>${getCompactRosterShiftLabel(item.shiftName)} ${item.startTime || "?"}-${item.endTime || "?"}</strong>
         <span>Alleen bevoegde medewerkers</span>
       </div>
+      ${item.chosenEmployeeName ? `
+        <div class="smart-planning-inline-selected">
+          <span>${item.chosenEmployeeName} is tijdelijk gekozen.</span>
+          <button type="button" data-smart-planning-clear-choice="${escapeHtmlAttribute(item.id)}">Keuze wissen</button>
+        </div>
+      ` : ""}
       <section>
         <h4>Beschikbaar</h4>
         <div class="smart-planning-inline-choice-list">
@@ -18974,7 +18984,7 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
           const proposalItem = getSmartPlanningProposalItemById(row.smartPlanningId);
           const warningText = getSmartPlanningShiftWarning(proposalItem);
           const chosenEmployeeName = proposalItem?.chosenEmployeeName || "";
-          const employeeLabel = chosenEmployeeName ? `${chosenEmployeeName} gekozen` : "OPEN";
+          const employeeLabel = chosenEmployeeName || "OPEN";
           const titleText = warningText || `OPEN - ${row.shiftName} - ${shiftTime}. Klik om details te bekijken`;
 
           return `
@@ -18985,7 +18995,7 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
                 data-smart-planning-open-shift="${escapeHtmlAttribute(row.smartPlanningId)}"
                 title="${escapeHtmlAttribute(titleText)}"
               >
-                <span class="planning-shift-employee">${employeeLabel}</span>
+                <span class="planning-shift-employee">${employeeLabel}${chosenEmployeeName ? `<em class="smart-planning-concept-badge">Concept</em>` : ""}</span>
                 <span class="planning-shift-name" title="${escapeHtmlAttribute(row.shiftName)}">${displayShiftName}${warningText ? `<span class="smart-planning-shift-warning" title="${escapeHtmlAttribute(warningText)}">⚠</span>` : ""}</span>
                 <span class="planning-shift-time">${shiftTime}</span>
               </button>
@@ -25253,6 +25263,13 @@ smartPlanningApplyProposalButton?.addEventListener("click", () => {
 });
 
 smartPlanningProposalList?.addEventListener("click", (event) => {
+  const clearChoiceButton = event.target.closest("[data-smart-planning-clear-choice]");
+
+  if (clearChoiceButton) {
+    clearSmartPlanningProposalAssignment(clearChoiceButton.dataset.smartPlanningClearChoice || "");
+    return;
+  }
+
   const employeeChoiceButton = event.target.closest("[data-smart-planning-employee-choice]");
 
   if (employeeChoiceButton) {
