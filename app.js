@@ -4810,7 +4810,7 @@ const mobileMediaQuery = window.matchMedia("(max-width: 640px)");
 let messageTimeoutId = null;
 let activeMessageState = null;
 let queuedMessageStates = [];
-const plannerAllowedTabs = ["dashboard", "week-current", "hours-approval", "requests", "employees", "services", "planning", "backup"];
+const plannerAllowedTabs = ["dashboard", "week-current", "hours-approval", "requests", "vacations", "employees", "services", "planning", "backup"];
 const employeeAllowedTabs = ["week-current", "my-schedule", "my-hours", "my-account", "requests"];
 let planningDataRevision = 0;
 let requestDataRevision = 0;
@@ -23594,6 +23594,11 @@ function renderActiveTabContent() {
     renderSwapEntryOptions();
     renderTimeOffRequests();
     renderSwapRequests();
+    return;
+  }
+
+  if (activeTab === "vacations") {
+    renderPlannerVacationOverview();
     return;
   }
 
