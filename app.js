@@ -4845,12 +4845,35 @@ let smartPlanningClearServicesConfirmVisible = false;
 let smartPlanningClearWeekConfirmVisible = false;
 const smartPlanningClearedWeekSnapshots = {};
 let smartPlanningProposalRevision = 0;
+let smartPlanningProposalItemsCache = {
+  revision: -1,
+  items: [],
+  itemById: new Map()
+};
 let smartPlanningEffectiveEntriesCache = {
   revision: -1,
   sourceEntries: null,
   sourceLength: -1,
   entries: [],
   entryByItemId: new Map()
+};
+let smartPlanningLookupCache = {
+  revision: -1,
+  sourceEntries: null,
+  sourceLength: -1,
+  effectiveEntries: [],
+  entryByItemId: new Map(),
+  employeeDayEntries: new Map(),
+  employeeWeekHours: new Map(),
+  proposalAssignmentsByEmployeeDay: new Map(),
+  authorizationByEmployeeShift: new Map(),
+  patternByEmployeeItem: new Map(),
+  absenceByEmployeeDay: new Map()
+};
+let smartPlanningEmployeeAdviceCache = {
+  revision: -1,
+  itemAdvice: new Map(),
+  authorizedAdvice: new Map()
 };
 let lastOpenRequestReminderKey = "";
 let lastEmployeeHoursReminderKey = "";
@@ -19726,7 +19749,18 @@ function getSmartPlanningProposalWeeks(data = getSmartPlanningMonthData()) {
 }
 
 function getSmartPlanningProposalItems() {
-  return (smartPlanningProposalState?.weeks || []).flatMap((weekProposal) => getSmartPlanningProposalWeekItems(weekProposal));
+  if (smartPlanningProposalItemsCache.revision === smartPlanningProposalRevision) {
+    return smartPlanningProposalItemsCache.items;
+  }
+
+  const items = (smartPlanningProposalState?.weeks || []).flatMap((weekProposal) => getSmartPlanningProposalWeekItems(weekProposal));
+  smartPlanningProposalItemsCache = {
+    revision: smartPlanningProposalRevision,
+    items,
+    itemById: new Map(items.map((item) => [item.id, item]))
+  };
+
+  return items;
 }
 
 function getSmartPlanningProposalWeekByValue(weekValue) {
@@ -19781,16 +19815,16 @@ function isSmartPlanningProposalItemChanged(item) {
   return (item.originalEmployeeName || "") !== item.chosenEmployeeName;
 }
 
-function getSmartPlanningApplySummary(data = getSmartPlanningMonthData()) {
+function getSmartPlanningApplySummary(data = getSmartPlanningMonthData(), options = {}) {
   const hasProposal = isSmartPlanningProposalCurrent(data);
   const assignedItems = getSmartPlanningAssignedItems(data);
   const openItems = hasProposal ? getSmartPlanningProposalItems().filter((item) => !item.chosenEmployeeName) : [];
-  const controlSummary = getSmartPlanningControlSummary(data);
+  const controlSummary = options.includeWarnings ? getSmartPlanningControlSummary(data) : null;
 
   return {
     assignedCount: assignedItems.length,
     openCount: openItems.length,
-    warningCount: controlSummary.actionCount + controlSummary.warningCount
+    warningCount: controlSummary ? controlSummary.actionCount + controlSummary.warningCount : 0
   };
 }
 
@@ -19812,7 +19846,7 @@ function renderSmartPlanningApplyConfirm(data = getSmartPlanningMonthData()) {
     return "";
   }
 
-  const summary = getSmartPlanningApplySummary(data);
+  const summary = getSmartPlanningApplySummary(data, { includeWarnings: true });
   const isAdjustingRoster = smartPlanningProposalState?.mode === "adjust";
 
   return `
@@ -20056,6 +20090,7 @@ function mapSmartPlanningProposalToRosterEntries(proposalItems = []) {
     shiftId: item.shiftId || "",
     shiftName: item.shiftName || "Dienst",
     smartPlanningId: item.id || "",
+    smartPlanningItem: item,
     isSmartPlanningProposal: true
   }));
 }
@@ -20066,8 +20101,8 @@ function getSelectedSmartPlanningOpenShift() {
 }
 
 function getSmartPlanningProposalItemById(itemId) {
-  const items = getSmartPlanningProposalItems();
-  return items.find((item) => item.id === itemId) || null;
+  getSmartPlanningProposalItems();
+  return smartPlanningProposalItemsCache.itemById.get(itemId) || null;
 }
 
 function getSmartPlanningShiftFromProposalItem(item) {
@@ -20110,12 +20145,35 @@ function getSmartPlanningEntriesWithoutOriginalItem(item, sourceEntries = entrie
 
 function invalidateSmartPlanningEffectiveEntriesCache() {
   smartPlanningProposalRevision += 1;
+  smartPlanningProposalItemsCache = {
+    revision: -1,
+    items: [],
+    itemById: new Map()
+  };
   smartPlanningEffectiveEntriesCache = {
     revision: -1,
     sourceEntries: null,
     sourceLength: -1,
     entries: [],
     entryByItemId: new Map()
+  };
+  smartPlanningLookupCache = {
+    revision: -1,
+    sourceEntries: null,
+    sourceLength: -1,
+    effectiveEntries: [],
+    entryByItemId: new Map(),
+    employeeDayEntries: new Map(),
+    employeeWeekHours: new Map(),
+    proposalAssignmentsByEmployeeDay: new Map(),
+    authorizationByEmployeeShift: new Map(),
+    patternByEmployeeItem: new Map(),
+    absenceByEmployeeDay: new Map()
+  };
+  smartPlanningEmployeeAdviceCache = {
+    revision: -1,
+    itemAdvice: new Map(),
+    authorizedAdvice: new Map()
   };
 }
 
@@ -20130,10 +20188,16 @@ function getSmartPlanningEffectiveEntriesCache(sourceEntries = entries) {
 
   const proposalItems = getSmartPlanningProposalItems();
   const proposalOriginals = proposalItems.filter((item) => item.isExistingRosterEntry);
+  const originalEntryKeys = new Set(proposalOriginals.map((item) => item.originalEntryKey).filter(Boolean));
   const entryByItemId = new Map();
-  const preservedEntries = sourceEntries.filter((entry) =>
-    !proposalOriginals.some((item) => isSmartPlanningOriginalEntryMatch(entry, item))
-  );
+  const preservedEntries = sourceEntries.filter((entry) => {
+    const entryKey = getPlanningEntrySyncId(entry);
+    if (entryKey && originalEntryKeys.has(entryKey)) {
+      return false;
+    }
+
+    return !proposalOriginals.some((item) => isSmartPlanningOriginalEntryMatch(entry, item));
+  });
   const proposalEntries = proposalItems
     .filter((item) => item.chosenEmployeeName)
     .map((item) => {
@@ -20153,6 +20217,70 @@ function getSmartPlanningEffectiveEntriesCache(sourceEntries = entries) {
   return smartPlanningEffectiveEntriesCache;
 }
 
+function getSmartPlanningLookupCache(sourceEntries = entries) {
+  if (
+    smartPlanningLookupCache.revision === smartPlanningProposalRevision &&
+    smartPlanningLookupCache.sourceEntries === sourceEntries &&
+    smartPlanningLookupCache.sourceLength === sourceEntries.length
+  ) {
+    return smartPlanningLookupCache;
+  }
+
+  const effectiveCache = smartPlanningProposalState?.mode === "adjust"
+    ? getSmartPlanningEffectiveEntriesCache(sourceEntries)
+    : null;
+  const effectiveEntries = effectiveCache?.entries || sourceEntries;
+  const employeeDayEntries = new Map();
+  const employeeWeekHours = new Map();
+  const proposalAssignmentsByEmployeeDay = new Map();
+
+  effectiveEntries.forEach((entry) => {
+    const employeeName = entry.name || "";
+    const day = entry.day || "";
+    if (!employeeName || !day) {
+      return;
+    }
+
+    const dayKey = `${employeeName}|${day}`;
+    if (!employeeDayEntries.has(dayKey)) {
+      employeeDayEntries.set(dayKey, []);
+    }
+    employeeDayEntries.get(dayKey).push(entry);
+
+    const weekKey = `${employeeName}|${getWeekValueFromDate(day)}`;
+    const entryHours = calculateHours(entry.startTime || "", entry.endTime || "") || 0;
+    employeeWeekHours.set(weekKey, (employeeWeekHours.get(weekKey) || 0) + entryHours);
+  });
+
+  getSmartPlanningProposalItems().forEach((item) => {
+    if (!item.chosenEmployeeName || !item.day) {
+      return;
+    }
+
+    const dayKey = `${item.chosenEmployeeName}|${item.day}`;
+    if (!proposalAssignmentsByEmployeeDay.has(dayKey)) {
+      proposalAssignmentsByEmployeeDay.set(dayKey, []);
+    }
+    proposalAssignmentsByEmployeeDay.get(dayKey).push(item);
+  });
+
+  smartPlanningLookupCache = {
+    revision: smartPlanningProposalRevision,
+    sourceEntries,
+    sourceLength: sourceEntries.length,
+    effectiveEntries,
+    entryByItemId: effectiveCache?.entryByItemId || new Map(),
+    employeeDayEntries,
+    employeeWeekHours,
+    proposalAssignmentsByEmployeeDay,
+    authorizationByEmployeeShift: new Map(),
+    patternByEmployeeItem: new Map(),
+    absenceByEmployeeDay: new Map()
+  };
+
+  return smartPlanningLookupCache;
+}
+
 function getEffectivePlanningEntriesForSmartPlanningProposal(candidateItem = null, sourceEntries = entries) {
   if (smartPlanningProposalState?.mode !== "adjust") {
     return getSmartPlanningEntriesWithoutOriginalItem(candidateItem, sourceEntries);
@@ -20164,6 +20292,92 @@ function getEffectivePlanningEntriesForSmartPlanningProposal(candidateItem = nul
   return candidateEntry
     ? cache.entries.filter((entry) => entry !== candidateEntry)
     : cache.entries;
+}
+
+function getSmartPlanningCandidateEntry(item, lookup = getSmartPlanningLookupCache(entries)) {
+  return item?.id ? lookup.entryByItemId.get(item.id) || null : null;
+}
+
+function getSmartPlanningEmployeeDayEntries(employeeName, day, lookup = getSmartPlanningLookupCache(entries), exceptEntry = null) {
+  const dayEntries = lookup.employeeDayEntries.get(`${employeeName}|${day}`) || [];
+  return exceptEntry ? dayEntries.filter((entry) => entry !== exceptEntry) : dayEntries;
+}
+
+function getSmartPlanningEmployeeWeekHoursFromLookup(employeeName, weekValue, lookup = getSmartPlanningLookupCache(entries), exceptEntry = null) {
+  const baseHours = lookup.employeeWeekHours.get(`${employeeName}|${weekValue}`) || 0;
+  if (!exceptEntry || exceptEntry.name !== employeeName || getWeekValueFromDate(exceptEntry.day) !== weekValue) {
+    return baseHours;
+  }
+
+  return Math.max(0, baseHours - (calculateHours(exceptEntry.startTime || "", exceptEntry.endTime || "") || 0));
+}
+
+function findSmartPlanningConflictInLookup(lookup, employeeName, item, exceptEntry = null) {
+  const newStart = timeToMinutes(item?.startTime || "");
+  const newEnd = timeToMinutes(item?.endTime || "");
+
+  return getSmartPlanningEmployeeDayEntries(employeeName, item?.day || "", lookup, exceptEntry)
+    .find((entry) => newStart < timeToMinutes(entry.endTime || "") && newEnd > timeToMinutes(entry.startTime || "")) || null;
+}
+
+function isEmployeeAuthorizedForSmartPlanningItem(employeeName, item, shift, lookup = getSmartPlanningLookupCache(entries)) {
+  const shiftKey = `${employeeName}|${shift?.id || ""}|${shift?.name || item?.shiftName || ""}`;
+  if (!lookup.authorizationByEmployeeShift.has(shiftKey)) {
+    lookup.authorizationByEmployeeShift.set(
+      shiftKey,
+      isEmployeeAuthorizedForShift(employeeName, shift?.name || item?.shiftName)
+    );
+  }
+
+  return lookup.authorizationByEmployeeShift.get(shiftKey);
+}
+
+function getSmartPlanningAbsenceForEmployeeDay(employeeName, day, lookup = getSmartPlanningLookupCache(entries)) {
+  const absenceKey = `${employeeName}|${day}`;
+  if (!lookup.absenceByEmployeeDay.has(absenceKey)) {
+    lookup.absenceByEmployeeDay.set(absenceKey, getApprovedTimeOff(employeeName, day) || null);
+  }
+
+  return lookup.absenceByEmployeeDay.get(absenceKey);
+}
+
+function getSmartPlanningPatternInfo(employeeName, item, lookup = getSmartPlanningLookupCache(entries)) {
+  const patternKey = `${employeeName}|${item?.id || ""}`;
+  if (lookup.patternByEmployeeItem.has(patternKey)) {
+    return lookup.patternByEmployeeItem.get(patternKey);
+  }
+
+  const patternId = getEmployeeBasePatternId(employeeName);
+  const patternMatch = getSmartPlanningPatternMatchForItem(employeeName, item);
+  let priority = 25;
+
+  if (patternId === "director-emergency" || isSmartPlanningEmergencyEmployee(employeeName)) {
+    priority = 90;
+  } else if (patternId === "on-call") {
+    priority = 70;
+  } else if (patternId && patternMatch.score < 55) {
+    priority = 0;
+  } else if (patternId) {
+    priority = 45;
+  }
+
+  let reason = "Geen vast patroon";
+  if (patternId === "director-emergency" || isSmartPlanningEmergencyEmployee(employeeName)) {
+    reason = "Noodoptie";
+  } else if (patternId === "on-call") {
+    reason = "Oproep/flex";
+  } else if (patternId && patternMatch.score < 55) {
+    reason = "Past binnen basispatroon";
+  } else if (patternId) {
+    reason = "Buiten normaal patroon";
+  }
+
+  const info = {
+    priority,
+    reason
+  };
+  lookup.patternByEmployeeItem.set(patternKey, info);
+  return info;
 }
 
 function getRosterChangesForNotifications(previousEntries = [], nextEntries = []) {
@@ -20365,10 +20579,20 @@ function getSmartPlanningEmployeeAdvice(item) {
     return { suitable: [], attention: [], unsuitable: [] };
   }
 
+  if (
+    smartPlanningEmployeeAdviceCache.revision === smartPlanningProposalRevision &&
+    smartPlanningEmployeeAdviceCache.itemAdvice.has(item.id)
+  ) {
+    return smartPlanningEmployeeAdviceCache.itemAdvice.get(item.id);
+  }
+
   const weekValue = getWeekValueFromDate(item.day);
   const shift = getSmartPlanningShiftFromProposalItem(item);
   const shiftHours = calculateHours(item.startTime || "", item.endTime || "") || 0;
-  const adviceSourceEntries = getEffectivePlanningEntriesForSmartPlanningProposal(item, entries);
+  const lookup = getSmartPlanningLookupCache(entries);
+  const candidateEntry = smartPlanningProposalState?.mode === "adjust"
+    ? getSmartPlanningCandidateEntry(item, lookup)
+    : null;
   const advice = {
     suitable: [],
     attention: [],
@@ -20378,17 +20602,18 @@ function getSmartPlanningEmployeeAdvice(item) {
   employees.forEach((employeeName) => {
     const status = getEmployeeStatus(employeeName);
     const isActive = status === "active";
-    const isAuthorized = isEmployeeAuthorizedForShift(employeeName, shift?.name || item.shiftName);
-    const absence = getApprovedTimeOff(employeeName, item.day);
-    const overlappingEntry = findConflictInSource(adviceSourceEntries, employeeName, item.day, item.startTime || "", item.endTime || "");
-    const hasBlockingProposalAssignment = hasBlockingSmartPlanningAssignment(employeeName, item);
-    const hasOtherSameDayShift = !overlappingEntry && adviceSourceEntries.some((entry) => entry.name === employeeName && entry.day === item.day);
+    const isAuthorized = isEmployeeAuthorizedForSmartPlanningItem(employeeName, item, shift, lookup);
+    const absence = getSmartPlanningAbsenceForEmployeeDay(employeeName, item.day, lookup);
+    const overlappingEntry = findSmartPlanningConflictInLookup(lookup, employeeName, item, candidateEntry);
+    const hasBlockingProposalAssignment = hasBlockingSmartPlanningAssignment(employeeName, item, lookup);
+    const hasOtherSameDayShift = !overlappingEntry && getSmartPlanningEmployeeDayEntries(employeeName, item.day, lookup, candidateEntry).length > 0;
     const contractHours = getEmployeeContractHours(employeeName);
-    const plannedHours = getEmployeeWeekHours(employeeName, weekValue, adviceSourceEntries);
+    const plannedHours = getSmartPlanningEmployeeWeekHoursFromLookup(employeeName, weekValue, lookup, candidateEntry);
     const projectedHours = Math.round((plannedHours + shiftHours) * 10) / 10;
     const isEmergencyOption = isSmartPlanningEmergencyEmployee(employeeName);
-    const patternPriority = getSmartPlanningPatternPriority(employeeName, item);
-    const patternReason = getSmartPlanningPatternDisplayReason(employeeName, item);
+    const patternInfo = getSmartPlanningPatternInfo(employeeName, item, lookup);
+    const patternPriority = patternInfo.priority;
+    const patternReason = patternInfo.reason;
     const reasons = [];
     let group = "suitable";
 
@@ -20447,6 +20672,8 @@ function getSmartPlanningEmployeeAdvice(item) {
     );
   });
 
+  smartPlanningEmployeeAdviceCache.revision = smartPlanningProposalRevision;
+  smartPlanningEmployeeAdviceCache.itemAdvice.set(item.id, advice);
   return advice;
 }
 
@@ -20454,8 +20681,22 @@ function hasSuitableEmployeesForSmartPlanningShift(item) {
   return getSmartPlanningAuthorizedEmployeeAdvice(item).available.length > 0;
 }
 
-function getSmartPlanningShiftWarning(item) {
-  if (!item || hasSuitableEmployeesForSmartPlanningShift(item)) {
+function hasCachedSmartPlanningEmployeeAdvice(item) {
+  return !!item?.id &&
+    smartPlanningEmployeeAdviceCache.revision === smartPlanningProposalRevision &&
+    smartPlanningEmployeeAdviceCache.authorizedAdvice.has(item.id);
+}
+
+function getSmartPlanningShiftWarning(item, options = {}) {
+  if (!item) {
+    return "";
+  }
+
+  if (options.lazy && item.id !== selectedSmartPlanningOpenShiftId && !hasCachedSmartPlanningEmployeeAdvice(item)) {
+    return "";
+  }
+
+  if (hasSuitableEmployeesForSmartPlanningShift(item)) {
     return "";
   }
 
@@ -20543,15 +20784,18 @@ function getSmartPlanningChosenEmployeeIssue(item, weekValue) {
   const issues = [];
   const shiftTime = `${item.startTime || "?"}-${item.endTime || "?"}`;
   const shiftLabel = getCompactRosterShiftLabel(item.shiftName || "Dienst");
-  const issueSourceEntries = getEffectivePlanningEntriesForSmartPlanningProposal(item, entries);
-  const absence = getApprovedTimeOff(employeeName, item.day);
-  const overlappingEntry = findConflictInSource(issueSourceEntries, employeeName, item.day, item.startTime || "", item.endTime || "");
+  const lookup = getSmartPlanningLookupCache(entries);
+  const candidateEntry = smartPlanningProposalState?.mode === "adjust"
+    ? getSmartPlanningCandidateEntry(item, lookup)
+    : null;
+  const absence = getSmartPlanningAbsenceForEmployeeDay(employeeName, item.day, lookup);
+  const overlappingEntry = findSmartPlanningConflictInLookup(lookup, employeeName, item, candidateEntry);
   const contractHours = getEmployeeContractHours(employeeName);
-  const plannedHours = getEmployeeWeekHours(employeeName, weekValue, issueSourceEntries);
+  const plannedHours = getSmartPlanningEmployeeWeekHoursFromLookup(employeeName, weekValue, lookup, candidateEntry);
   const shiftHours = calculateHours(item.startTime || "", item.endTime || "") || 0;
   const projectedHours = Math.round((plannedHours + shiftHours) * 10) / 10;
 
-  if (hasBlockingSmartPlanningAssignment(employeeName, item)) {
+  if (hasBlockingSmartPlanningAssignment(employeeName, item, lookup)) {
     issues.push(createSmartPlanningControlIssue({
       weekValue,
       item,
@@ -20880,20 +21124,19 @@ function canCombineSmartPlanningShifts(existingShift, candidateShift) {
   return allowedPairs.has(`${existingFamily}:${candidateFamily}`);
 }
 
-function getSmartPlanningEmployeeAssignmentsForDate(employeeName, dateValue, exceptItemId = "") {
-  return getSmartPlanningProposalItems()
-    .filter((item) =>
-      item.id !== exceptItemId &&
-      item.day === dateValue &&
-      item.chosenEmployeeName === employeeName
-    );
+function getSmartPlanningEmployeeAssignmentsForDate(employeeName, dateValue, exceptItemId = "", lookup = getSmartPlanningLookupCache(entries)) {
+  const assignments = lookup.proposalAssignmentsByEmployeeDay.get(`${employeeName}|${dateValue}`) || [];
+  return exceptItemId
+    ? assignments.filter((item) => item.id !== exceptItemId)
+    : assignments;
 }
 
-function hasBlockingSmartPlanningAssignment(employeeName, candidateShift) {
+function hasBlockingSmartPlanningAssignment(employeeName, candidateShift, lookup = getSmartPlanningLookupCache(entries)) {
   const assignments = getSmartPlanningEmployeeAssignmentsForDate(
     employeeName,
     candidateShift?.day || "",
-    candidateShift?.id || ""
+    candidateShift?.id || "",
+    lookup
   );
 
   return assignments.some((assignment) => !canCombineSmartPlanningShifts(assignment, candidateShift));
@@ -21084,6 +21327,14 @@ function getSmartPlanningContractSummary(item) {
 }
 
 function getSmartPlanningAuthorizedEmployeeAdvice(item) {
+  if (
+    item?.id &&
+    smartPlanningEmployeeAdviceCache.revision === smartPlanningProposalRevision &&
+    smartPlanningEmployeeAdviceCache.authorizedAdvice.has(item.id)
+  ) {
+    return smartPlanningEmployeeAdviceCache.authorizedAdvice.get(item.id);
+  }
+
   const advice = getSmartPlanningEmployeeAdvice(item);
   const authorizedItems = [...advice.suitable, ...advice.attention, ...advice.unsuitable]
     .filter((employeeAdvice) => employeeAdvice.isAuthorized && !employeeAdvice.reasons.includes("Niet bevoegd"));
@@ -21114,7 +21365,13 @@ function getSmartPlanningAuthorizedEmployeeAdvice(item) {
       itemA.employeeName.localeCompare(itemB.employeeName, "nl")
     );
 
-  return { available, unavailable };
+  const authorizedAdvice = { available, unavailable };
+  if (item?.id) {
+    smartPlanningEmployeeAdviceCache.revision = smartPlanningProposalRevision;
+    smartPlanningEmployeeAdviceCache.authorizedAdvice.set(item.id, authorizedAdvice);
+  }
+
+  return authorizedAdvice;
 }
 
 function renderSmartPlanningEmployeeAdviceGroup(title, items, groupType) {
@@ -21310,8 +21567,8 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
           const displayShiftName = getCompactRosterShiftLabel(row.shiftName);
           const isSelected = row.smartPlanningId && row.smartPlanningId === selectedSmartPlanningOpenShiftId;
           const wasJustAssigned = row.smartPlanningId && row.smartPlanningId === lastSmartPlanningAssignedItemId;
-          const proposalItem = getSmartPlanningProposalItemById(row.smartPlanningId);
-          const warningText = getSmartPlanningShiftWarning(proposalItem);
+          const proposalItem = row.smartPlanningItem || getSmartPlanningProposalItemById(row.smartPlanningId);
+          const warningText = getSmartPlanningShiftWarning(proposalItem, { lazy: true });
           const chosenEmployeeName = proposalItem?.chosenEmployeeName || "";
           const employeeLabel = chosenEmployeeName || "OPEN";
           const assignmentLabel = proposalItem?.assignmentReason || "Voorstel";
@@ -21544,7 +21801,13 @@ function renderSmartPlanningPanel() {
   const data = getSmartPlanningMonthData();
   renderSmartPlanningTabs();
   renderSmartPlanningProposal(data);
-  renderSmartPlanningChecks(data);
+  if (activeSmartPlanningTab === "checks") {
+    renderSmartPlanningChecks(data);
+  } else if (smartPlanningChecksSummary) {
+    smartPlanningChecksSummary.textContent = smartPlanningProposalState?.weeks?.length
+      ? "Open Planning controleren voor de controlepunten."
+      : "Maak eerst een maandvoorstel.";
+  }
   renderSmartPlanningTabContent();
   scheduleSmartPlanningFloatingAdvicePosition();
 }
