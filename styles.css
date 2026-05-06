@@ -3651,13 +3651,24 @@ textarea.input-error {
   box-shadow: 0 14px 30px rgba(99, 64, 28, 0.1);
 }
 
+.smart-planning-clear-week-confirm {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #d6b16e;
+  border-radius: 16px;
+  background: #fff9ed;
+  box-shadow: 0 14px 30px rgba(99, 64, 28, 0.1);
+}
+
 .smart-planning-apply-confirm strong {
   display: block;
   color: #4f3420;
 }
 
 .smart-planning-adjust-confirm strong,
-.smart-planning-clear-services-confirm strong {
+.smart-planning-clear-services-confirm strong,
+.smart-planning-clear-week-confirm strong {
   display: block;
   color: #78350f;
   font-size: 16px;
@@ -3671,7 +3682,8 @@ textarea.input-error {
 }
 
 .smart-planning-adjust-confirm p,
-.smart-planning-clear-services-confirm p {
+.smart-planning-clear-services-confirm p,
+.smart-planning-clear-week-confirm p {
   margin: 4px 0 0;
   color: #6b4a2f;
   font-size: 13px;
@@ -3772,6 +3784,25 @@ textarea.input-error {
   padding: 3px 7px;
   border-radius: 999px;
   background: #f4efe7;
+}
+
+.smart-planning-week-empty-state {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px dashed #d8c3a2;
+  border-radius: 14px;
+  background: #fffaf2;
+}
+
+.smart-planning-week-empty-state strong {
+  color: #4f3420;
+}
+
+.smart-planning-week-empty-state span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .smart-planning-proposal-roster {
