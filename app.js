@@ -838,6 +838,7 @@ function resetMyHoursChoiceState() {
   activeMyHoursEntryMode = "planned";
   activeMyHoursHistoryFilter = "week";
   activeMobileWorkLogId = "";
+  clearMobileWorkLogFormValues();
 }
 
 function resetMyScheduleRosterState({ showYearOverview = true, scrollToCurrentWeek = showYearOverview, scrollTargetWeek = "" } = {}) {
@@ -4819,6 +4820,7 @@ let activeMobileHoursFeedback = {
   text: "",
   type: "info"
 };
+const pendingMobileWorkLogValues = {};
 let activeHoursApprovalFilter = "all";
 let smartPlanningProposalState = null;
 let activeSmartPlanningTab = "proposal";
@@ -8361,16 +8363,29 @@ function moveWorkLogToEntry(previousEntry, nextEntry) {
 
 function getEffectiveWorkLogValues(entry, workLog = getWorkLogForEntry(entry)) {
   const defaults = getDefaultWorkLogValues(entry);
+  const workLogId = getWorkLogIdForEntry(entry);
+  const pendingValues = pendingMobileWorkLogValues[workLogId];
 
-  if (!workLog) {
-    return defaults;
+  const storedValues = !workLog
+    ? defaults
+    : {
+      actualStart: workLog.actualStart || defaults.actualStart,
+      actualEnd: workLog.actualEnd || defaults.actualEnd,
+      breakMinutes: Number.isFinite(Number(workLog.breakMinutes)) ? Math.max(0, Number(workLog.breakMinutes)) : defaults.breakMinutes,
+      notes: workLog.notes || ""
+    };
+
+  if (!pendingValues) {
+    return storedValues;
   }
 
   return {
-    actualStart: workLog.actualStart || defaults.actualStart,
-    actualEnd: workLog.actualEnd || defaults.actualEnd,
-    breakMinutes: Number.isFinite(Number(workLog.breakMinutes)) ? Math.max(0, Number(workLog.breakMinutes)) : defaults.breakMinutes,
-    notes: workLog.notes || ""
+    ...storedValues,
+    actualStart: typeof pendingValues.actualStart === "string" ? pendingValues.actualStart : storedValues.actualStart,
+    actualEnd: typeof pendingValues.actualEnd === "string" ? pendingValues.actualEnd : storedValues.actualEnd,
+    breakMinutes: Number.isFinite(Number(pendingValues.breakMinutes)) ? Math.max(0, Number(pendingValues.breakMinutes)) : storedValues.breakMinutes,
+    notes: typeof pendingValues.notes === "string" ? pendingValues.notes : storedValues.notes,
+    employeeReply: typeof pendingValues.employeeReply === "string" ? pendingValues.employeeReply : (workLog?.employeeReply || "")
   };
 }
 
@@ -8419,6 +8434,33 @@ function getWorkLogFieldElement(workLogId, field, scope = myHoursRegistrations) 
 
   return Array.from(scope.querySelectorAll(`[data-worklog-field="${field}"][data-worklog-id]`))
     .find((input) => input.dataset.worklogId === workLogId) || null;
+}
+
+function rememberMobileWorkLogFormValues(workLogId) {
+  const card = getWorkLogCardElement(workLogId);
+
+  if (!workLogId || !card) {
+    return;
+  }
+
+  pendingMobileWorkLogValues[workLogId] = {
+    actualStart: getWorkLogFieldElement(workLogId, "actualStart", card)?.value || "",
+    actualEnd: getWorkLogFieldElement(workLogId, "actualEnd", card)?.value || "",
+    breakMinutes: getWorkLogFieldElement(workLogId, "breakMinutes", card)?.value || "0",
+    notes: getWorkLogFieldElement(workLogId, "notes", card)?.value || "",
+    employeeReply: getWorkLogFieldElement(workLogId, "employeeReply", card)?.value || ""
+  };
+}
+
+function clearMobileWorkLogFormValues(workLogId = "") {
+  if (workLogId) {
+    delete pendingMobileWorkLogValues[workLogId];
+    return;
+  }
+
+  Object.keys(pendingMobileWorkLogValues).forEach((key) => {
+    delete pendingMobileWorkLogValues[key];
+  });
 }
 
 function focusMobileWorkLogCard(workLogId) {
@@ -8593,7 +8635,7 @@ function renderWorkLogCardMarkup(entry, workLog = getWorkLogForEntry(entry), opt
         ${(workLog?.status === "revision" || workLog?.status === "rejected" || (isPlannerRole() && workLog?.employeeReply))
           ? `<label class="hours-registration-notes">
               Reactie medewerker
-              <input type="text" maxlength="200" data-worklog-field="employeeReply" data-worklog-id="${workLogIdAttribute}" value="${escapeHtmlAttribute(workLog?.employeeReply || "")}" placeholder="Toelichting op de afwijking" ${isInputLockedWithFuture || isPlannerRole() ? "disabled" : ""}>
+              <input type="text" maxlength="200" data-worklog-field="employeeReply" data-worklog-id="${workLogIdAttribute}" value="${escapeHtmlAttribute(effectiveValues.employeeReply || workLog?.employeeReply || "")}" placeholder="Toelichting op de afwijking" ${isInputLockedWithFuture || isPlannerRole() ? "disabled" : ""}>
             </label>`
           : ""}
       </div>
@@ -22235,17 +22277,20 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   const entry = getWorkLogContextById(workLogId);
 
   if (!entry) {
+    rememberMobileWorkLogFormValues(workLogId);
     setWorkLogSubmitError(workLogId, `dienst kon niet worden gevonden (${workLogId || "geen id"})`);
     showMessage("De gekoppelde dienst is niet meer gevonden.", "error");
     return false;
   }
 
   if (!ensureOwnEmployeeAccess(entry.name, "Je kunt alleen je eigen urenregistratie invullen.")) {
+    rememberMobileWorkLogFormValues(workLogId);
     setWorkLogSubmitError(workLogId, `medewerker klopt niet (${entry.name || "onbekend"})`);
     return false;
   }
 
   if (isFutureDateValue(entry.day)) {
+    rememberMobileWorkLogFormValues(workLogId);
     setWorkLogSubmitError(workLogId, `toekomstige dienst (${formatDate(entry.day)})`);
     showMessage("Uren voor toekomstige diensten kun je nog niet invullen.", "error");
     renderMyHours();
@@ -22253,6 +22298,7 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   }
 
   if (!ensureEmployeeWeekEditable(entry.day, "uren in te dienen of te wijzigen")) {
+    rememberMobileWorkLogFormValues(workLogId);
     setWorkLogSubmitError(workLogId, "Deze week is afgesloten voor urenregistratie.");
     renderMyHours();
     return false;
@@ -22266,6 +22312,7 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   const employeeReplyInput = getWorkLogFieldElement(workLogId, "employeeReply", card);
 
   if (!actualStartInput || !actualEndInput || !breakMinutesInput || !notesInput) {
+    rememberMobileWorkLogFormValues(workLogId);
     const missingField = !card
       ? "urenkaart niet gevonden"
       : !actualStartInput
@@ -22295,6 +22342,7 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   if (!isPlannerRole() && existingLog && (existingLog.status === "open" || existingLog.status === "approved")) {
     if (action === "submit" && existingLog.status === "open") {
       activeMobileWorkLogId = "";
+      clearMobileWorkLogFormValues(workLogId);
       setMobileHoursFeedback(workLogId, "Uren ingediend", "success");
       return true;
     }
@@ -22317,12 +22365,14 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   }
 
   if (!actualStart || !actualEnd) {
+    rememberMobileWorkLogFormValues(workLogId);
     setWorkLogSubmitError(workLogId, !actualStart ? "begintijd ontbreekt" : "eindtijd ontbreekt");
     showMessage("Vul zowel de werkelijke starttijd als eindtijd in.", "error");
     return false;
   }
 
   if (entry.isManualHours && !notes) {
+    rememberMobileWorkLogFormValues(workLogId);
     setWorkLogSubmitError(workLogId, "reden voor extra uren ontbreekt");
     showMessage("Vul bij extra uren een korte reden of type werk in.", "error");
     return false;
@@ -22331,12 +22381,14 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   const workedHours = validation.workedHours;
 
   if (validation.isInvalidRange || workedHours === null) {
+    rememberMobileWorkLogFormValues(workLogId);
     setWorkLogSubmitError(workLogId, `validatie mislukt: ${validation.isInvalidRange ? "eindtijd ligt voor begintijd" : "uren konden niet worden berekend"}`);
     showMessage("Controleer de werkelijke tijden en pauze. De eindtijd moet later zijn dan de starttijd.", "error");
     return false;
   }
 
   if (!isPlannerRole() && (existingLog?.status === "revision" || existingLog?.status === "rejected") && !employeeReply) {
+    rememberMobileWorkLogFormValues(workLogId);
     setWorkLogSubmitError(workLogId, "reactie medewerker ontbreekt na afwijzing/opmerking");
     showMessage("Voeg een korte reactie of toelichting toe voordat je opnieuw indient.", "error");
     return false;
@@ -22410,6 +22462,7 @@ function saveWorkLogFromForm(workLogId, action = "save") {
     saveWorkLogs();
   } catch (error) {
     console.error("saveWorkLogs mislukt", error);
+    rememberMobileWorkLogFormValues(workLogId);
     setWorkLogSubmitError(workLogId, "saveWorkLogs gaf een fout");
     showMessage("Uren opslaan is niet gelukt.", "error");
     return false;
@@ -22418,12 +22471,14 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   const savedLog = workLogs.find((log) => log.id === workLogId) || null;
 
   if (!savedLog) {
+    rememberMobileWorkLogFormValues(workLogId);
     setWorkLogSubmitError(workLogId, "workLog niet aangemaakt");
     showMessage("Uren opslaan is niet gelukt.", "error");
     return false;
   }
 
   if (action === "submit" && savedLog.status !== "open") {
+    rememberMobileWorkLogFormValues(workLogId);
     setWorkLogSubmitError(workLogId, `status niet ingediend (${savedLog.status || "leeg"})`);
     showMessage("Uren indienen is niet gelukt.", "error");
     return false;
@@ -22449,6 +22504,7 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   });
   if (!isPlannerRole()) {
     activeMobileWorkLogId = "";
+    clearMobileWorkLogFormValues(workLogId);
     setMobileHoursFeedback(workLogId, action === "submit" ? "Uren ingediend" : "Uren opgeslagen", "success");
   }
   renderMyHours();
@@ -25117,6 +25173,7 @@ myHoursRegistrations?.addEventListener("click", (event) => {
   const mobileCancelButton = event.target.closest("[data-mobile-worklog-cancel]");
 
   if (mobileCancelButton?.dataset.mobileWorklogCancel) {
+    clearMobileWorkLogFormValues(mobileCancelButton.dataset.mobileWorklogCancel);
     activeMobileWorkLogId = "";
     setMobileHoursFeedback(mobileCancelButton.dataset.mobileWorklogCancel, "Invullen geannuleerd.", "info");
     renderMyHours();
