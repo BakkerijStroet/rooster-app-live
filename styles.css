@@ -2734,13 +2734,6 @@ textarea.input-error {
   font-weight: 700;
 }
 
-.smart-planning-grid {
-  display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr) minmax(260px, 0.9fr);
-  gap: 12px;
-  align-items: start;
-}
-
 .smart-planning-card,
 .smart-planning-rules,
 .smart-planning-legacy-tools {
@@ -2751,6 +2744,42 @@ textarea.input-error {
   border-radius: 14px;
   background: #fff;
   min-width: 0;
+}
+
+.smart-planning-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fffaf1;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.smart-planning-tab {
+  appearance: none;
+  min-height: 34px;
+  padding: 7px 13px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: #6a5844;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.smart-planning-tab.active {
+  border-color: #e7b35f;
+  background: #f59f24;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(122, 74, 18, 0.14);
+}
+
+.smart-planning-tab-content {
+  display: grid;
+  gap: 10px;
 }
 
 .smart-planning-card-head {
@@ -9249,7 +9278,6 @@ body[data-role="planner"] .request-list {
 }
 
 @media (max-width: 900px) {
-  .smart-planning-grid,
   .smart-planning-tools-grid,
   .smart-planning-rules-grid {
     grid-template-columns: 1fr;

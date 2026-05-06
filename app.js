@@ -4786,6 +4786,7 @@ let activeMobileHoursFeedback = {
 };
 let activeHoursApprovalFilter = "all";
 let smartPlanningProposalState = null;
+let activeSmartPlanningTab = "proposal";
 let lastOpenRequestReminderKey = "";
 let lastEmployeeHoursReminderKey = "";
 const derivedDataCache = {
@@ -18764,6 +18765,20 @@ function renderSmartPlanningChecks(data = getSmartPlanningWeekData()) {
   `).join("");
 }
 
+function renderSmartPlanningTabs() {
+  document.querySelectorAll("[data-smart-planning-tab]").forEach((button) => {
+    const isActive = button.dataset.smartPlanningTab === activeSmartPlanningTab;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+}
+
+function renderSmartPlanningTabContent() {
+  document.querySelectorAll("[data-smart-planning-panel]").forEach((panel) => {
+    panel.classList.toggle("hidden", panel.dataset.smartPlanningPanel !== activeSmartPlanningTab);
+  });
+}
+
 function renderSmartPlanningPanel() {
   if (!isPlannerRole() || !smartPlanningWeekInput) {
     return;
@@ -18775,9 +18790,10 @@ function renderSmartPlanningPanel() {
   }
 
   const data = getSmartPlanningWeekData();
-  renderSmartPlanningDemandOverview(data);
+  renderSmartPlanningTabs();
   renderSmartPlanningProposal(data);
   renderSmartPlanningChecks(data);
+  renderSmartPlanningTabContent();
 }
 
 function createSmartPlanningPlaceholderProposal() {
@@ -24860,6 +24876,14 @@ smartPlanningClearProposalButton?.addEventListener("click", () => {
 
 smartPlanningApplyProposalButton?.addEventListener("click", () => {
   showMessage("Toepassen is hier nog niet actief. Gebruik Rooster inplannen om een gecontroleerd voorstel toe te passen.", "warning");
+});
+
+document.querySelectorAll("[data-smart-planning-tab]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const nextTab = button.dataset.smartPlanningTab || "proposal";
+    activeSmartPlanningTab = ["proposal", "checks", "insights"].includes(nextTab) ? nextTab : "proposal";
+    renderSmartPlanningPanel();
+  });
 });
 
 autoFillButton?.addEventListener("click", () => {

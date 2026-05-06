@@ -261,16 +261,14 @@
           Slim plannen maakt eerst alleen een voorstel. Er wordt niets aangepast aan het rooster totdat je kiest voor Toepassen.
         </div>
 
-        <div class="smart-planning-grid">
-          <article class="smart-planning-card">
-            <div class="smart-planning-card-head">
-              <h3>Plandagen</h3>
-              <span id="smartPlanningDemandSummary" class="panel-note">Kies een week.</span>
-            </div>
-            <div id="smartPlanningDemandList" class="smart-planning-list empty">Kies een week om open diensten te bekijken.</div>
-          </article>
+        <div class="smart-planning-tabs" aria-label="Slim plannen onderdelen">
+          <button type="button" class="smart-planning-tab active" data-smart-planning-tab="proposal">Voorstel</button>
+          <button type="button" class="smart-planning-tab" data-smart-planning-tab="checks">Controle</button>
+          <button type="button" class="smart-planning-tab" data-smart-planning-tab="insights">Inzichten</button>
+        </div>
 
-          <article class="smart-planning-card">
+        <div class="smart-planning-tab-content">
+          <article class="smart-planning-card" data-smart-planning-panel="proposal">
             <div class="smart-planning-card-head">
               <h3>Voorstelrooster</h3>
               <span id="smartPlanningProposalSummary" class="panel-note">Nog geen voorstel gemaakt.</span>
@@ -278,39 +276,44 @@
             <div id="smartPlanningProposalList" class="smart-planning-list empty">Nog geen voorstel gemaakt.</div>
           </article>
 
-          <article class="smart-planning-card">
+          <article class="smart-planning-card hidden" data-smart-planning-panel="checks">
             <div class="smart-planning-card-head">
               <h3>Controlepunten</h3>
               <span id="smartPlanningChecksSummary" class="panel-note">Automatische controle op hoofdlijnen.</span>
             </div>
             <div id="smartPlanningChecksList" class="smart-planning-list empty">Nog geen controlepunten beschikbaar.</div>
           </article>
-        </div>
 
-        <article class="smart-planning-rules">
-          <div class="smart-planning-card-head">
-            <h3>Plangrenzen</h3>
-            <span class="panel-note">Voorbereid voor toekomstige slimme planning. Deze velden wijzigen nu nog geen roosterdata.</span>
-          </div>
-          <div class="smart-planning-rules-grid">
-            <label>
-              Max uren per medewerker
-              <input type="number" id="smartPlanningMaxHours" min="0" step="0.5" placeholder="Bijv. 38">
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" id="smartPlanningRespectTimeOff" checked>
-              <span>Respecteer vrije dagen</span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" id="smartPlanningRespectContracts" checked>
-              <span>Respecteer contracturen</span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" id="smartPlanningFairWeekends">
-              <span>Verdeel weekenddiensten eerlijk</span>
-            </label>
-          </div>
-        </article>
+          <article class="smart-planning-card hidden" data-smart-planning-panel="insights">
+            <div class="smart-planning-card-head">
+              <h3>Inzichten</h3>
+              <span class="panel-note">Voorbereid voor latere planningsanalyse.</span>
+            </div>
+            <div class="smart-planning-list empty">Inzichten volgen in een volgende stap.</div>
+            <div class="smart-planning-card-head">
+              <h3>Plangrenzen</h3>
+              <span class="panel-note">Voorbereid voor toekomstige slimme planning. Deze velden wijzigen nu nog geen roosterdata.</span>
+            </div>
+            <div class="smart-planning-rules-grid">
+              <label>
+                Max uren per medewerker
+                <input type="number" id="smartPlanningMaxHours" min="0" step="0.5" placeholder="Bijv. 38">
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="smartPlanningRespectTimeOff" checked>
+                <span>Respecteer vrije dagen</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="smartPlanningRespectContracts" checked>
+                <span>Respecteer contracturen</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="smartPlanningFairWeekends">
+                <span>Verdeel weekenddiensten eerlijk</span>
+              </label>
+            </div>
+          </article>
+        </div>
 
         <details class="smart-planning-legacy-tools">
           <summary>Bestaande planninghulpmiddelen</summary>
