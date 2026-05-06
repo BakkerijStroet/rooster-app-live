@@ -14200,7 +14200,7 @@ function getCompactRosterShiftLabel(shiftName) {
 
   if (winkelMatch) return `Winkel ${winkelMatch[1]}`;
   if (allroundMatch) return `Allround ${allroundMatch[1]}`;
-  if (lowerShiftName.includes("draai")) return "Draai";
+  if (lowerShiftName.includes("draai")) return "Draaidienst";
   if (lowerShiftName.includes("oven")) return "Oven";
   if (lowerShiftName.includes("brood")) return "Brood";
   if (lowerShiftName.includes("banket")) return "Banket";
@@ -14251,7 +14251,7 @@ function formatRosterWeekHeaderLabel(weekValue) {
 function renderCompactWeekRosterShiftLine(row) {
   const employeeName = row.entry?.name || "";
   const shiftTime = `${row.startTime}-${row.endTime}`;
-  const displayShiftName = row.shiftName || getCompactRosterShiftLabel(row.shiftName);
+  const displayShiftName = getCompactRosterShiftLabel(row.shiftName);
   const rowClass = `planning-shift-line ${employeeName ? "is-filled" : "is-open"}`;
 
   return `

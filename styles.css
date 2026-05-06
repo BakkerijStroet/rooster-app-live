@@ -9,10 +9,10 @@
   --color-success-rgb: 21, 128, 61;
   --color-success-soft: #ecfdf3;
   --color-success-border: #86efac;
-  --color-warning: #0e7490;
-  --color-warning-rgb: 14, 116, 144;
-  --color-warning-soft: #ecfeff;
-  --color-warning-border: #67e8f9;
+  --color-warning: #b45309;
+  --color-warning-rgb: 180, 83, 9;
+  --color-warning-soft: #fff7ed;
+  --color-warning-border: #fdba74;
   --color-danger: #be123c;
   --color-danger-rgb: 190, 18, 60;
   --color-danger-soft: #fff1f2;
@@ -13157,6 +13157,231 @@ body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.has
     color: var(--color-text);
     border-color: var(--color-primary-border);
     box-shadow: inset 0 3px 0 var(--color-primary);
+  }
+}
+
+.planning-shift-line {
+  grid-template-columns: minmax(0, 1fr) max-content;
+  grid-template-areas:
+    "employee badge"
+    "shift time";
+  align-items: start;
+  gap: 5px 8px;
+  min-width: 0;
+  overflow: visible;
+}
+
+.planning-shift-employee {
+  grid-area: employee;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
+.planning-shift-name {
+  grid-area: shift;
+  min-width: 0;
+  padding-right: 0;
+  color: var(--color-text);
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
+.planning-shift-time {
+  grid-area: time;
+  justify-self: end;
+  align-self: end;
+  min-width: 0;
+  padding-left: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-align: right;
+  text-overflow: clip;
+}
+
+.planning-shift-line.is-open .planning-shift-employee {
+  display: inline-flex;
+  grid-area: employee;
+  justify-self: start;
+  width: auto;
+  padding: 2px 7px;
+  border: 1px solid var(--color-warning-border);
+  border-radius: 999px;
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.planning-shift-line.is-open::after,
+.planning-shift-line.is-filled::after {
+  content: none;
+  display: none;
+}
+
+.planning-shift-line.is-open,
+.smart-planning-open-shift-button,
+.shift-card.is-open-shift,
+body[data-control-mode="planner"] .shift-card.is-open-shift {
+  background: var(--color-warning-soft);
+  border-color: var(--color-warning-border);
+  color: var(--color-text);
+}
+
+.planning-shift-line.is-filled,
+.smart-planning-open-shift-button.has-choice,
+.shift-card.is-filled,
+.shift-card.is-planned,
+.shift-card.is-vacation-autofill,
+body[data-control-mode="planner"] .shift-card.is-vacation-autofill {
+  background: var(--color-success-soft);
+  border-color: var(--color-success-border);
+  color: var(--color-text);
+}
+
+.smart-planning-open-shift-button.has-warning,
+.smart-planning-open-shift-button.has-warning.is-selected {
+  background: var(--color-danger-soft);
+  border-color: var(--color-danger-border);
+  color: var(--color-text);
+}
+
+.smart-planning-open-shift-button,
+.smart-planning-proposal-roster .smart-planning-open-shift-button {
+  overflow: visible;
+}
+
+.smart-planning-proposal-roster .smart-planning-open-shift {
+  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-areas:
+    "open name"
+    "time time";
+  align-items: start;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.smart-planning-proposal-roster .smart-planning-open-label {
+  grid-area: open;
+  align-self: start;
+  border: 1px solid var(--color-warning-border);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.smart-planning-proposal-roster .smart-planning-open-shift-name {
+  grid-area: name;
+  min-width: 0;
+  color: var(--color-text);
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
+.smart-planning-proposal-roster .smart-planning-open-time {
+  grid-area: time;
+  min-width: 0;
+  color: var(--color-text-secondary);
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-align: left;
+  text-overflow: clip;
+}
+
+.smart-planning-proposal-roster .smart-planning-assigned-shift {
+  grid-template-columns: minmax(0, 1fr) max-content;
+  grid-template-areas:
+    "employee badge"
+    "name time";
+  align-items: start;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.smart-planning-proposal-roster .smart-planning-assigned-name {
+  grid-area: employee;
+  min-width: 0;
+  color: var(--color-text);
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
+.smart-planning-proposal-roster .smart-planning-concept-badge {
+  display: inline-flex;
+  grid-area: badge;
+  justify-self: end;
+  background: var(--color-success-soft);
+  border: 1px solid var(--color-success-border);
+  color: var(--color-success);
+}
+
+.smart-planning-proposal-roster .smart-planning-assigned-shift-name {
+  grid-area: name;
+  grid-column: auto;
+  min-width: 0;
+  color: var(--color-text);
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
+.smart-planning-proposal-roster .smart-planning-assigned-time {
+  grid-area: time;
+  grid-column: auto;
+  justify-self: end;
+  min-width: 0;
+  color: var(--color-text-secondary);
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-align: right;
+  text-overflow: clip;
+}
+
+.shift-card,
+.desktop-day-list .shift-card {
+  min-width: 0;
+  overflow: visible;
+}
+
+.shift-name,
+.mobile-shift-name,
+.desktop-day-list .shift-name {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
+.shift-time,
+.shift-employee,
+.desktop-day-list .shift-time,
+.desktop-day-list .shift-employee {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
+@media (max-width: 760px) {
+  .planning-shift-line,
+  .smart-planning-proposal-roster .smart-planning-open-shift-button {
+    min-height: 52px;
   }
 }
 
