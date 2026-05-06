@@ -20844,6 +20844,18 @@ function getShopCoverageLabel(dateValue) {
   });
 }
 
+function formatDashboardAttentionList(items) {
+  if (!items.length) {
+    return "";
+  }
+
+  if (items.length === 1) {
+    return items[0];
+  }
+
+  return `${items.slice(0, -1).join(", ")} en ${items[items.length - 1]}`;
+}
+
 function renderDashboard() {
   if (!plannerDashboard) {
     return;
@@ -20870,60 +20882,108 @@ function renderDashboard() {
   const hoursReviewState = getHoursWeekReviewState(currentWeek);
   const contractMismatchCount = contractOverviewData.underEmployees.length + contractOverviewData.overEmployees.length;
   const hoursReadyCount = hoursReviewState.openLogs.length;
+  const attentionParts = [
+    totalOpenRequests ? `${totalOpenRequests} aanvraag${totalOpenRequests === 1 ? "" : "en"} wacht${totalOpenRequests === 1 ? "" : "en"} op beoordeling` : "",
+    hoursReadyCount ? `${hoursReadyCount} uurregel${hoursReadyCount === 1 ? "" : "s"} moet${hoursReadyCount === 1 ? "" : "en"} nog gecontroleerd worden` : "",
+    planningWeekData.openCount ? `${planningWeekData.openCount} dienst${planningWeekData.openCount === 1 ? "" : "en"} ${planningWeekData.openCount === 1 ? "heeft" : "hebben"} nog geen medewerker` : "",
+    planningWeekData.replacementCount ? `${planningWeekData.replacementCount} ruiling${planningWeekData.replacementCount === 1 ? "" : "en"} of vervanging${planningWeekData.replacementCount === 1 ? "" : "en"} ${planningWeekData.replacementCount === 1 ? "vraagt" : "vragen"} aandacht` : "",
+    contractMismatchCount ? `${contractMismatchCount} medewerker${contractMismatchCount === 1 ? "" : "s"} ${contractMismatchCount === 1 ? "wijkt" : "wijken"} af van contracturen` : ""
+  ].filter(Boolean);
+  const dashboardAlertText = attentionParts.length
+    ? `Deze week vraagt aandacht: ${formatDashboardAttentionList(attentionParts)}.`
+    : `Deze week staat rustig: er zijn geen open acties voor ${currentWeek}.`;
+  const renderDashboardCard = ({ label, value, help, tab, action, buttonLabel }) => {
+    const targetAttrs = tab
+      ? ` data-dashboard-go-tab="${tab}"${action ? ` data-dashboard-action="${action}"` : ""}`
+      : "";
+    const button = tab && buttonLabel
+      ? `<button type="button" class="secondary dashboard-item-action" data-dashboard-go-tab="${tab}"${action ? ` data-dashboard-action="${action}"` : ""}>${buttonLabel}</button>`
+      : "";
+
+    return `
+      <article class="dashboard-item"${targetAttrs}>
+        <span>${label}</span>
+        <strong>${value}</strong>
+        <small>${help}</small>
+        ${button}
+      </article>
+    `;
+  };
 
   plannerDashboard.innerHTML = `
     <section class="panel-section">
-      <h3>Acties nodig</h3>
+      <h3>Vandaag nodig</h3>
       <div class="dashboard-grid">
-        <article class="dashboard-item" data-dashboard-go-tab="requests" data-dashboard-action="open-requests">
-          <span>Open aanvragen</span>
-          <strong>${totalOpenRequests}</strong>
-          <button type="button" class="secondary dashboard-item-action" data-dashboard-go-tab="requests" data-dashboard-action="open-requests">Bekijk aanvragen</button>
-        </article>
-        <article class="dashboard-item" data-dashboard-go-tab="requests" data-dashboard-action="overdue-requests">
-          <span>Overdue aanvragen</span>
-          <strong>${overdueRequests}</strong>
-          <button type="button" class="secondary dashboard-item-action" data-dashboard-go-tab="requests" data-dashboard-action="overdue-requests">Bekijk aanvragen</button>
-        </article>
-        <article class="dashboard-item" data-dashboard-go-tab="hours-approval" data-dashboard-action="hours-approval">
-          <span>Uren klaar voor controle</span>
-          <strong>${hoursReadyCount}</strong>
-          <button type="button" class="secondary dashboard-item-action" data-dashboard-go-tab="hours-approval" data-dashboard-action="hours-approval">Controleren</button>
-        </article>
+        ${renderDashboardCard({
+          label: "Nieuwe aanvragen",
+          value: totalOpenRequests,
+          help: "Er zijn nieuwe aanvragen die nog beoordeeld moeten worden.",
+          tab: "requests",
+          action: "open-requests",
+          buttonLabel: "Bekijk aanvragen"
+        })}
+        ${renderDashboardCard({
+          label: "Aanvragen die wachten",
+          value: overdueRequests,
+          help: "Deze aanvragen staan al langer open dan gewenst.",
+          tab: "requests",
+          action: "overdue-requests",
+          buttonLabel: "Bekijk aanvragen"
+        })}
       </div>
     </section>
     <section class="panel-section">
-      <h3>Aandacht nodig</h3>
+      <h3>Deze week</h3>
       <div class="dashboard-grid">
-        <article class="dashboard-item" data-dashboard-go-tab="week-current">
-          <span>Open diensten</span>
-          <strong>${planningWeekData.openCount}</strong>
-          <button type="button" class="secondary dashboard-item-action" data-dashboard-go-tab="week-current">Bekijk rooster</button>
-        </article>
-        <article class="dashboard-item" data-dashboard-go-tab="week-current">
-          <span>Vervangingen</span>
-          <strong>${planningWeekData.replacementCount}</strong>
-          <button type="button" class="secondary dashboard-item-action" data-dashboard-go-tab="week-current">Bekijk rooster</button>
-        </article>
+        ${renderDashboardCard({
+          label: "Status van deze week",
+          value: planningWeekData.status.label,
+          help: "Zo staat het rooster er voor deze week voor.",
+          tab: "week-current",
+          buttonLabel: "Bekijk rooster"
+        })}
+        ${renderDashboardCard({
+          label: "Diensten zonder medewerker",
+          value: planningWeekData.openCount,
+          help: "Deze diensten hebben nog niemand ingepland.",
+          tab: "schedule-planning",
+          buttonLabel: "Bekijk planning"
+        })}
       </div>
     </section>
     <section class="panel-section">
-      <h3>Overzicht</h3>
+      <h3>Controle</h3>
       <div class="dashboard-grid">
-        <article class="dashboard-item" data-dashboard-go-tab="week-current">
-          <span>Contract-afwijkingen</span>
-          <strong>${contractMismatchCount}</strong>
-          <button type="button" class="secondary dashboard-item-action" data-dashboard-go-tab="week-current">Bekijk rooster</button>
-        </article>
-        <div class="dashboard-item">
-          <span>Weekstatus</span>
-          <strong>${planningWeekData.status.label}</strong>
-        </div>
+        ${renderDashboardCard({
+          label: "Uren controleren",
+          value: hoursReadyCount,
+          help: "Deze uren zijn ingediend door medewerkers.",
+          tab: "hours-approval",
+          action: "hours-approval",
+          buttonLabel: "Controleer uren"
+        })}
+        ${renderDashboardCard({
+          label: "Uren wijken af",
+          value: contractMismatchCount,
+          help: "Deze medewerkers zitten boven of onder hun contracturen.",
+          tab: "week-current",
+          buttonLabel: "Bekijk rooster"
+        })}
       </div>
     </section>
-    ${(totalOpenRequests + overdueRequests + hoursReadyCount + planningWeekData.openCount + planningWeekData.replacementCount + contractMismatchCount) > 0
-      ? `<div class="dashboard-alert">Planner aandacht: ${totalOpenRequests} open aanvragen, ${hoursReadyCount} uren klaar voor controle en ${planningWeekData.openCount} open diensten in ${currentWeek}.</div>`
-      : `<div class="dashboard-alert">Geen directe acties open voor ${currentWeek}. Alles staat er rustig bij.</div>`}
+    <section class="panel-section">
+      <h3>Planning</h3>
+      <div class="dashboard-grid">
+        ${renderDashboardCard({
+          label: "Ruilingen / vervanging",
+          value: planningWeekData.replacementCount,
+          help: "Deze diensten vragen om een ruiling of vervanger.",
+          tab: "week-current",
+          buttonLabel: "Bekijk rooster"
+        })}
+      </div>
+    </section>
+    <div class="dashboard-alert">${dashboardAlertText}</div>
   `;
 }
 
@@ -21036,16 +21096,19 @@ function renderHomeSummary() {
 
   homeSummary.innerHTML = `
     <div class="dashboard-item">
-      <span>Open afwezigheid</span>
+      <span>Nieuwe afwezigheid</span>
       <strong>${openTimeOff}</strong>
+      <small>Vrije dagen, vakantie en ziekmeldingen die nog openstaan.</small>
     </div>
     <div class="dashboard-item">
-      <span>Open ruilverzoeken</span>
+      <span>Nieuwe ruilverzoeken</span>
       <strong>${openSwaps}</strong>
+      <small>Ruilingen die nog beoordeeld moeten worden.</small>
     </div>
     <div class="dashboard-item">
-      <span>Status deze week</span>
+      <span>Status van deze week</span>
       <strong>${weekStatus ? "Vol" : "Niet vol"}</strong>
+      <small>Laat in een oogopslag zien of de week gevuld is.</small>
     </div>
   `;
 }

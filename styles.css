@@ -4646,20 +4646,43 @@ textarea.input-error {
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 10px;
 }
 
 .dashboard-item {
+  display: grid;
+  gap: 6px;
+  align-content: start;
   padding: 12px 14px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: #fffcf5;
 }
 
+.dashboard-item span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .dashboard-item strong {
   display: block;
   font-size: 24px;
+  line-height: 1.05;
+}
+
+.dashboard-item small {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.dashboard-item-action {
+  justify-self: start;
+  margin-top: 2px;
 }
 
 .dashboard-card {
@@ -4751,6 +4774,7 @@ textarea.input-error {
   background: #f9f1c9;
   color: #6f5f20;
   font-weight: 700;
+  line-height: 1.4;
 }
 
 .form-actions {
