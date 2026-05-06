@@ -26689,8 +26689,8 @@ myHoursRegistrations?.addEventListener("click", (event) => {
   const registrationChoiceButton = event.target.closest("[data-my-hours-choice]");
 
   if (registrationChoiceButton?.dataset.myHoursChoice && !isPlannerRole()) {
-    activeMyHoursChoice = registrationChoiceButton.dataset.myHoursChoice;
-    renderMyHours();
+    event.preventDefault();
+    activateMyHoursChoice(registrationChoiceButton.dataset.myHoursChoice);
     return;
   }
 
@@ -26879,24 +26879,36 @@ myHoursRegistrations?.addEventListener("change", (event) => {
   refreshWorkLogValidationForCard(input.dataset.worklogId);
 });
 
+function activateMyHoursChoice(choice) {
+  if (!choice || isPlannerRole()) {
+    return;
+  }
+
+  activeMyHoursChoice = choice;
+  activeMyHoursSection = choice === "today" ? "today" : choice;
+  activeMyHoursEntryMode = choice === "extra" ? "extra" : "planned";
+  activeMobileWorkLogId = "";
+
+  if (choice === "today" && hoursDateInput) {
+    const todayValue = getTodayLocalDateValue();
+    hoursDateInput.value = todayValue;
+    if (hoursWeekInput) {
+      hoursWeekInput.value = getWeekValueFromDate(todayValue) || getCurrentWeekValue();
+    }
+    preferences.lastHoursDate = todayValue;
+    preferences.lastHoursWeek = hoursWeekInput?.value || getCurrentWeekValue();
+    savePreferences();
+  }
+
+  renderMyHours();
+}
+
 myHoursChoiceTabs?.addEventListener("click", (event) => {
   const choiceButton = event.target.closest("[data-my-hours-choice]");
 
   if (choiceButton?.dataset.myHoursChoice && !isPlannerRole()) {
-    activeMyHoursChoice = choiceButton.dataset.myHoursChoice;
-    if (activeMyHoursChoice === "today" && hoursDateInput) {
-      const todayValue = getTodayLocalDateValue();
-      hoursDateInput.value = todayValue;
-      if (hoursWeekInput) {
-        hoursWeekInput.value = getWeekValueFromDate(todayValue) || getCurrentWeekValue();
-      }
-      preferences.lastHoursDate = todayValue;
-      preferences.lastHoursWeek = hoursWeekInput?.value || getCurrentWeekValue();
-      savePreferences();
-    }
-    activeMyHoursSection = activeMyHoursChoice === "today" ? "today" : activeMyHoursChoice;
-    activeMyHoursEntryMode = "planned";
-    renderMyHours();
+    event.preventDefault();
+    activateMyHoursChoice(choiceButton.dataset.myHoursChoice);
   }
 });
 
@@ -26904,20 +26916,8 @@ myHoursSummary?.addEventListener("click", (event) => {
   const choiceButton = event.target.closest("[data-my-hours-choice]");
 
   if (choiceButton?.dataset.myHoursChoice && !isPlannerRole()) {
-    activeMyHoursChoice = choiceButton.dataset.myHoursChoice;
-    if (activeMyHoursChoice === "today" && hoursDateInput) {
-      const todayValue = getTodayLocalDateValue();
-      hoursDateInput.value = todayValue;
-      if (hoursWeekInput) {
-        hoursWeekInput.value = getWeekValueFromDate(todayValue) || getCurrentWeekValue();
-      }
-      preferences.lastHoursDate = todayValue;
-      preferences.lastHoursWeek = hoursWeekInput?.value || getCurrentWeekValue();
-      savePreferences();
-    }
-    activeMyHoursSection = activeMyHoursChoice === "today" ? "today" : activeMyHoursChoice;
-    activeMyHoursEntryMode = "planned";
-    renderMyHours();
+    event.preventDefault();
+    activateMyHoursChoice(choiceButton.dataset.myHoursChoice);
     return;
   }
 

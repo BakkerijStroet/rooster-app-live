@@ -11629,6 +11629,155 @@ textarea:focus {
   box-shadow: 0 0 0 2px rgba(230, 118, 31, 0.08);
 }
 
+/* Laatste rooster-finishing: compactere dagkaarten zonder geforceerde lege hoogte. */
+body[data-role="planner"] [data-panel="week-current"] .desktop-week-grid {
+  align-items: start;
+}
+
+body[data-role="planner"] [data-panel="week-current"] .desktop-day-column {
+  grid-template-rows: auto auto;
+  align-content: start;
+  align-items: start;
+  height: auto;
+}
+
+body[data-role="planner"] [data-panel="week-current"] .desktop-day-list {
+  min-height: 0;
+  height: auto;
+  align-self: start;
+  padding: 7px;
+  gap: 5px;
+}
+
+body[data-role="planner"] [data-panel="week-current"] .desktop-day-section,
+body[data-role="planner"] [data-panel="week-current"] .desktop-day-cards {
+  gap: 3px;
+}
+
+body[data-role="planner"] [data-panel="week-current"] .desktop-day-section + .desktop-day-section {
+  margin-top: 2px;
+}
+
+body[data-role="planner"] [data-panel="week-current"] .desktop-day-section-title {
+  padding-bottom: 1px;
+}
+
+body[data-role="planner"] [data-panel="week-current"] .desktop-day-list .shift-card {
+  padding: 7px 8px;
+  gap: 3px;
+  border-radius: 13px;
+}
+
+body[data-role="planner"] [data-panel="week-current"] .planning-week-grid {
+  align-items: start;
+}
+
+body[data-role="planner"] [data-panel="week-current"] .planning-day-card {
+  grid-template-rows: auto auto;
+  align-content: start;
+  padding: 0.48rem;
+  gap: 0.3rem;
+}
+
+body[data-role="planner"] [data-panel="week-current"] .planning-roster-groups,
+body[data-role="planner"] [data-panel="week-current"] .planning-roster-group,
+body[data-role="planner"] [data-panel="week-current"] .planning-roster-group .roster-group-list,
+body[data-role="planner"] [data-panel="week-current"] .planning-shift-lines {
+  align-content: start;
+  gap: 0.18rem;
+}
+
+body[data-role="planner"] [data-panel="week-current"] .planning-roster-group {
+  padding: 0.38rem;
+}
+
+body[data-role="planner"] [data-panel="week-current"] .planning-shift-line {
+  padding: 0.28rem 0.38rem;
+}
+
+/* Controleblokken moeten altijd binnen de beschikbare breedte blijven. */
+.planner-control-panel,
+.control-mode-overview,
+.week-status-overview,
+.week-review-status,
+.planner-control-card,
+.planner-control-grid,
+.planner-control-section,
+.planner-control-items,
+.planner-control-item,
+.control-mode-card,
+.control-contract-overview,
+.control-contract-list,
+.control-contract-row {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.planner-control-grid,
+.control-contract-list {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
+}
+
+.planner-control-item,
+.control-contract-row,
+.week-review-status-card {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .planner-control-grid,
+  .control-contract-list,
+  .week-status-overview {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Rustiger mobiel jaaroverzicht voor medewerkers. */
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-year-grid {
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 7px;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile {
+  min-height: 92px;
+  align-content: start;
+  padding: 9px 10px;
+  gap: 4px;
+  overflow: hidden;
+  border-color: rgba(138, 85, 54, 0.12);
+  background: linear-gradient(180deg, #ffffff, #fbf8f3);
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile strong {
+  font-size: 13px;
+  line-height: 1.18;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile span,
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile em {
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile em {
+  align-self: end;
+  margin-top: auto;
+  padding-top: 2px;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.is-current {
+  border-color: rgba(230, 118, 31, 0.42);
+  background: linear-gradient(180deg, #ffffff, #fff3e8);
+  box-shadow: inset 3px 0 0 rgba(230, 118, 31, 0.72), 0 7px 16px rgba(57, 42, 24, 0.06);
+}
+
+@media (max-width: 520px) {
+  body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-year-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 640px) {
   body {
     background:
