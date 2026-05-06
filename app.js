@@ -5067,6 +5067,11 @@ function getSelectedEmployeeAdminName() {
   return employees.includes(selectedName) ? selectedName : employees[0];
 }
 
+function getExplicitSelectedEmployeeAdminName() {
+  const selectedName = removeEmployeeSelect?.value || employeeNameDisplayInput?.value || "";
+  return employees.includes(selectedName) ? selectedName : "";
+}
+
 function cloneSerializableValue(value) {
   if (value === null || value === undefined) {
     return value;
@@ -17428,7 +17433,7 @@ function renderEmployeeDetailTabs() {
   });
 
   if (employeeDetailSaveButton) {
-    const hasSelectedEmployee = Boolean(getSelectedEmployeeAdminName());
+    const hasSelectedEmployee = Boolean(getExplicitSelectedEmployeeAdminName());
     employeeDetailSaveButton.disabled = !hasSelectedEmployee;
     employeeDetailSaveButton.title = hasSelectedEmployee
       ? "Sla medewerkergegevens, planning en accountwijzigingen op."
@@ -26790,7 +26795,7 @@ function saveSelectedEmployeeDetails(options = {}) {
     return false;
   }
 
-  const employeeName = removeEmployeeSelect.value;
+  const employeeName = getExplicitSelectedEmployeeAdminName();
 
   if (!employeeName || !employeeMeta[employeeName]) {
     showMessage("Kies eerst een medewerker.", "error");
@@ -26816,21 +26821,14 @@ function saveSelectedEmployeeDetails(options = {}) {
   const currentStatus = getEmployeeStatus(employeeName);
   const duplicateEmployeeName = findEmployeeByEmail(normalizedEmail, employeeName);
 
-  if (!normalizedEmail) {
-    setEmployeeEmailFieldError("Vul een e-mailadres in.");
-    employeeEmailInput?.reportValidity();
-    showMessage("Vul een e-mailadres in.", "error");
-    return false;
-  }
-
-  if (!isValidEmployeeEmail(normalizedEmail)) {
+  if (normalizedEmail && !isValidEmployeeEmail(normalizedEmail)) {
     setEmployeeEmailFieldError("Vul een geldig e-mailadres in, bijvoorbeeld naam@domein.nl.");
     employeeEmailInput?.reportValidity();
     showMessage("Vul een geldig e-mailadres in, bijvoorbeeld naam@domein.nl.", "error");
     return false;
   }
 
-  if (duplicateEmployeeName) {
+  if (normalizedEmail && duplicateEmployeeName) {
     setEmployeeEmailFieldError(`Dit e-mailadres is al gekoppeld aan ${duplicateEmployeeName}.`);
     employeeEmailInput?.reportValidity();
     showMessage(`Dit e-mailadres is al gekoppeld aan ${duplicateEmployeeName}.`, "error");
