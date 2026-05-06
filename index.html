@@ -249,74 +249,121 @@
         </div>
       </section>
 
-      <section class="staff-panel role-planner app-panel" data-panel="services" data-slot="left">
-        <h2>Diensten overzicht</h2>
-        <div id="shiftListCard" class="shift-list empty">Nog geen diensten toegevoegd.</div>
-      </section>
-
-      <section class="staff-panel role-planner app-panel" data-panel="services" data-slot="right">
-        <h2>Dienst toevoegen</h2>
-        <div class="staff-actions">
-          <label>
-            Naam dienst
-            <input type="text" id="newShiftName" placeholder="Bijvoorbeeld Ovendienst">
-          </label>
-          <label>
-            Kleur
-            <select id="newShiftColor">
-              <option value="shift-tone-oven">Oven rood / oranje</option>
-              <option value="shift-tone-draai">Draai geel</option>
-              <option value="shift-tone-banket">Banket blauw</option>
-              <option value="shift-tone-brood">Brood bruin</option>
-              <option value="shift-tone-inpak">Inpak groen</option>
-              <option value="shift-tone-productie">Productie groen</option>
-              <option value="shift-tone-bezorg">Bezorg paarsblauw</option>
-              <option value="shift-tone-winkel-1">Winkel licht teal</option>
-              <option value="shift-tone-winkel-2">Winkel teal</option>
-              <option value="shift-tone-winkel-3">Winkel fris teal</option>
-              <option value="shift-tone-winkel-4">Winkel zacht turquoise</option>
-              <option value="shift-tone-winkel-5">Winkel diep turquoise</option>
-              <option value="shift-tone-winkel-6">Winkel blauwgroen</option>
-            </select>
-          </label>
-          <label>
-            Begintijd
-            <input type="time" id="newShiftStart">
-          </label>
-          <label>
-            Eindtijd
-            <input type="time" id="newShiftEnd">
-          </label>
-          <button type="button" id="addShiftButton">Dienst toevoegen</button>
-          <button type="button" id="cancelShiftButton" class="secondary hidden">Annuleren</button>
+      <section class="staff-panel role-planner app-panel services-management-panel" data-panel="services">
+        <div class="view-header director-screen-header services-management-header">
+          <div>
+            <h2>Diensten</h2>
+            <p class="panel-note">Beheer standaarddiensten voor rooster en planning.</p>
+          </div>
+          <div class="services-management-toolbar" aria-label="Diensten filteren en beheren">
+            <button type="button" id="serviceNewButton">Nieuwe dienst</button>
+            <label class="week-select">
+              <span>Afdeling</span>
+              <select id="serviceDepartmentFilter">
+                <option value="all">Alles</option>
+                <option value="bakery">Bakkerij</option>
+                <option value="shop">Winkel</option>
+                <option value="other">Overig</option>
+              </select>
+            </label>
+            <label class="week-select">
+              <span>Status</span>
+              <select id="serviceStatusFilter">
+                <option value="active">Actief</option>
+                <option value="inactive">Inactief</option>
+                <option value="all">Alles</option>
+              </select>
+            </label>
+            <label class="week-select services-search-control">
+              <span>Zoeken</span>
+              <input type="search" id="serviceSearchInput" placeholder="Naam of afkorting">
+            </label>
+          </div>
         </div>
-      </section>
 
-      <section class="staff-panel role-planner app-panel" data-panel="services" data-slot="right">
-        <h2>Dienst beheren</h2>
-        <div class="staff-actions">
-          <label>
-            Kies dienst
-            <select id="removeShiftSelect">
-              <option value="">Kies dienst</option>
-            </select>
-          </label>
-          <button type="button" id="editShiftButton" class="secondary">Dienst bewerken</button>
-          <button type="button" id="removeShiftButton" class="warning">Dienst verwijderen</button>
-        </div>
-      </section>
+        <div class="services-management-layout">
+          <article class="services-editor-card" id="serviceFormCard">
+            <div class="services-card-head">
+              <div>
+                <h3>Dienst toevoegen of bewerken</h3>
+                <p class="panel-note">Naam, kleur en werktijd blijven de bestaande dienstgegevens.</p>
+              </div>
+            </div>
+            <div class="staff-actions services-editor-grid">
+              <label>
+                Naam dienst
+                <input type="text" id="newShiftName" placeholder="Bijvoorbeeld Ovendienst">
+              </label>
+              <label>
+                Kleur
+                <select id="newShiftColor">
+                  <option value="shift-tone-oven">Oven rood / oranje</option>
+                  <option value="shift-tone-draai">Draai geel</option>
+                  <option value="shift-tone-banket">Banket blauw</option>
+                  <option value="shift-tone-brood">Brood bruin</option>
+                  <option value="shift-tone-inpak">Inpak groen</option>
+                  <option value="shift-tone-productie">Productie groen</option>
+                  <option value="shift-tone-bezorg">Bezorg paarsblauw</option>
+                  <option value="shift-tone-winkel-1">Winkel licht teal</option>
+                  <option value="shift-tone-winkel-2">Winkel teal</option>
+                  <option value="shift-tone-winkel-3">Winkel fris teal</option>
+                  <option value="shift-tone-winkel-4">Winkel zacht turquoise</option>
+                  <option value="shift-tone-winkel-5">Winkel diep turquoise</option>
+                  <option value="shift-tone-winkel-6">Winkel blauwgroen</option>
+                </select>
+              </label>
+              <label>
+                Begintijd
+                <input type="time" id="newShiftStart">
+              </label>
+              <label>
+                Eindtijd
+                <input type="time" id="newShiftEnd">
+              </label>
+              <div class="compact-actions services-editor-actions">
+                <button type="button" id="addShiftButton">Dienst toevoegen</button>
+                <button type="button" id="cancelShiftButton" class="secondary hidden">Annuleren</button>
+              </div>
+            </div>
+          </article>
 
-      <section class="staff-panel role-planner app-panel" data-panel="services" data-slot="right">
-        <h2>Voorkeursvolgorde per dienst</h2>
-        <div class="staff-actions">
-          <label>
-            Kies dienst
-            <select id="shiftPreferenceShiftSelect">
-              <option value="">Kies dienst</option>
-            </select>
-          </label>
+          <article class="services-list-card">
+            <div class="services-card-head">
+              <div>
+                <h3>Diensten overzicht</h3>
+                <p class="panel-note">Compact overzicht van bestaande en afgeleide standaarddiensten.</p>
+              </div>
+            </div>
+            <div id="shiftListCard" class="shift-list empty">Nog geen diensten toegevoegd.</div>
+          </article>
+
+          <details class="services-secondary-card">
+            <summary>Dienst beheren via keuzelijst</summary>
+            <div class="staff-actions services-secondary-actions">
+              <label>
+                Kies dienst
+                <select id="removeShiftSelect">
+                  <option value="">Kies dienst</option>
+                </select>
+              </label>
+              <button type="button" id="editShiftButton" class="secondary">Dienst bewerken</button>
+              <button type="button" id="removeShiftButton" class="warning">Dienst verwijderen</button>
+            </div>
+          </details>
+
+          <details class="services-secondary-card">
+            <summary>Voorkeursvolgorde per dienst</summary>
+            <div class="staff-actions services-secondary-actions">
+              <label>
+                Kies dienst
+                <select id="shiftPreferenceShiftSelect">
+                  <option value="">Kies dienst</option>
+                </select>
+              </label>
+            </div>
+            <div id="shiftPreferenceList" class="shift-preference-list empty">Kies eerst een dienst om de voorkeursvolgorde te beheren.</div>
+          </details>
         </div>
-        <div id="shiftPreferenceList" class="shift-preference-list empty">Kies eerst een dienst om de voorkeursvolgorde te beheren.</div>
       </section>
 
       <section class="staff-panel role-planner app-panel" data-panel="planning" data-slot="top">

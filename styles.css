@@ -2696,6 +2696,199 @@ textarea.input-error {
   border: 1px solid transparent;
 }
 
+.services-management-panel {
+  gap: 10px;
+  align-content: start;
+}
+
+.services-management-panel .services-management-header {
+  display: grid;
+  grid-template-columns: 1fr !important;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.services-management-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 12px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fffaf1;
+}
+
+.services-management-toolbar .week-select {
+  margin: 0;
+  min-width: 150px;
+}
+
+.services-management-toolbar .services-search-control {
+  min-width: 220px;
+}
+
+.services-management-layout,
+.services-list-card,
+.services-editor-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.services-editor-card,
+.services-list-card,
+.services-secondary-card {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.services-card-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.services-card-head h3 {
+  margin: 0;
+}
+
+.services-editor-grid {
+  grid-template-columns: minmax(220px, 1.2fr) minmax(180px, 0.9fr) minmax(130px, 0.65fr) minmax(130px, 0.65fr) max-content;
+  align-items: end;
+}
+
+.services-editor-actions {
+  align-self: end;
+}
+
+.services-table {
+  display: grid;
+  gap: 8px;
+}
+
+.services-table.empty {
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  color: var(--muted);
+  background: #fff;
+}
+
+.services-table-head,
+.services-table-row {
+  display: grid;
+  grid-template-columns: minmax(88px, 0.7fr) minmax(180px, 1.4fr) minmax(110px, 0.8fr) minmax(70px, 0.55fr) minmax(70px, 0.55fr) minmax(70px, 0.55fr) minmax(92px, 0.75fr) minmax(180px, 1.1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.services-table-head {
+  padding: 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.services-table-body {
+  display: grid;
+  gap: 7px;
+}
+
+.services-table-row {
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.services-table-row.is-bakery {
+  border-left-color: #d69a45;
+  background: #fffaf1;
+}
+
+.services-table-row.is-shop {
+  border-left-color: #4aa9a2;
+  background: #f1fbf9;
+}
+
+.services-table-row.is-other {
+  border-left-color: #9aa5b1;
+  background: #f8fafc;
+}
+
+.services-table-row.is-inactive {
+  opacity: 0.62;
+  filter: grayscale(0.25);
+}
+
+.services-abbreviation {
+  font-size: 15px;
+}
+
+.services-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.services-name small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.service-department-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.service-department-pill.is-bakery {
+  color: #7a4a12;
+  background: #fde8c8;
+}
+
+.service-department-pill.is-shop {
+  color: #12615c;
+  background: #dff4f1;
+}
+
+.service-department-pill.is-other {
+  color: #4b5563;
+  background: #e5e7eb;
+}
+
+.services-row-actions {
+  justify-content: flex-start;
+}
+
+.services-secondary-card {
+  display: grid;
+  gap: 10px;
+}
+
+.services-secondary-card summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.services-secondary-actions {
+  grid-template-columns: minmax(240px, 1fr) max-content max-content;
+  align-items: end;
+}
+
 .shift-preference-list {
   display: grid;
   gap: 10px;
@@ -8823,6 +9016,7 @@ body[data-role="planner"] .app-panel.is-active[data-panel="hours-approval"] {
 
 body[data-role="planner"] .app-panel.is-active[data-panel="schedule-planning"],
 body[data-role="planner"] .app-panel.is-active[data-panel="hours-approval"],
+body[data-role="planner"] .app-panel.is-active[data-panel="services"],
 body[data-role="planner"] .app-panel.is-active[data-panel="dashboard"] {
   grid-column: 1 / -1;
   justify-self: stretch;

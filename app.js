@@ -69,6 +69,11 @@ const removeShiftButton = document.getElementById("removeShiftButton");
 const shiftPreferenceShiftSelect = document.getElementById("shiftPreferenceShiftSelect");
 const shiftPreferenceList = document.getElementById("shiftPreferenceList");
 const shiftListCard = document.getElementById("shiftListCard");
+const serviceNewButton = document.getElementById("serviceNewButton");
+const serviceDepartmentFilter = document.getElementById("serviceDepartmentFilter");
+const serviceStatusFilter = document.getElementById("serviceStatusFilter");
+const serviceSearchInput = document.getElementById("serviceSearchInput");
+const serviceFormCard = document.getElementById("serviceFormCard");
 const winkelNeededInputs = Array.from({ length: 7 }, (_, index) => document.getElementById(`winkelNeeded${index + 1}`));
 const overrideDateInput = document.getElementById("overrideDate");
 const overrideCountInput = document.getElementById("overrideCount");
@@ -18032,42 +18037,194 @@ function renderShiftSelectors() {
   removeShiftSelect.value = shifts.some((shift) => shift.id === selectedRemoveShift) ? selectedRemoveShift : "";
 }
 
-function renderShiftList() {
-  const allroundOverview = Object.entries(getAllroundTemplatesByWeekday())
-    .flatMap(([weekday, templates]) =>
-      templates.map((shift) => ({
-        ...shift,
-        weekdayLabel: ["", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag", "Zondag"][Number(weekday)] || ""
-      }))
-    );
+function getServiceDepartmentKey(shift) {
+  const shiftName = shift?.name || "";
 
-  if (!shifts.length && !allroundOverview.length) {
-    setClassName(shiftListCard, "shift-list empty");
-    shiftListCard.textContent = "Nog geen diensten toegevoegd.";
+  if (shift?.isShopShift || isShopShiftName(shiftName)) {
+    return "shop";
+  }
+
+  if (shift?.isAllroundShift || isAllroundShiftName(shiftName) || isOptionalShift(shift) || isStageShiftName(shiftName)) {
+    return "other";
+  }
+
+  return "bakery";
+}
+
+function getServiceDepartmentLabel(departmentKey) {
+  if (departmentKey === "shop") {
+    return "Winkel";
+  }
+
+  if (departmentKey === "other") {
+    return "Overig";
+  }
+
+  return "Bakkerij";
+}
+
+function getServiceDepartmentClass(departmentKey) {
+  if (departmentKey === "shop") {
+    return "is-shop";
+  }
+
+  if (departmentKey === "other") {
+    return "is-other";
+  }
+
+  return "is-bakery";
+}
+
+function isServiceDefinitionActive(service) {
+  return service?.active !== false;
+}
+
+function getServiceStatusLabel(service) {
+  return isServiceDefinitionActive(service) ? "Actief" : "Inactief";
+}
+
+function getServiceDefinitionsForDisplay() {
+  const serviceMap = new Map();
+  const addService = (shift, source = "custom", extra = {}) => {
+    if (!shift?.name) {
+      return;
+    }
+
+    const key = shift.id || `${shift.startTime || ""}|${shift.endTime || ""}|${shift.name}`;
+
+    if (serviceMap.has(key)) {
+      return;
+    }
+
+    serviceMap.set(key, {
+      id: shift.id || key,
+      name: shift.name,
+      abbreviation: getCompactRosterShiftLabel(shift.name),
+      department: getServiceDepartmentKey(shift),
+      startTime: shift.startTime || "",
+      endTime: shift.endTime || "",
+      breakMinutes: Number.isFinite(Number(shift.breakMinutes)) ? Number(shift.breakMinutes) : null,
+      color: shift.color || "shift-tone-inpak",
+      active: shift.active !== false,
+      source,
+      isEditable: source === "custom",
+      isRemovable: source === "custom",
+      ...extra
+    });
+  };
+
+  shifts.forEach((shift) => addService(shift, "custom"));
+
+  Object.entries(getAllroundTemplatesByWeekday()).forEach(([weekday, templates]) => {
+    templates.forEach((shift) => addService(
+      { ...shift, id: `${shift.id}-${weekday}`, isAllroundShift: true },
+      "system",
+      { weekdayLabel: ["", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag", "Zondag"][Number(weekday)] || "" }
+    ));
+  });
+
+  [
+    ...Object.values(getDefaultShopTemplatesByWeekday()).flat(),
+    ...getHolidayShopTemplates()
+  ].forEach((template) => addService({
+    id: `shop-${template.number}`,
+    name: `Winkeldienst ${template.number}`,
+    startTime: template.startTime,
+    endTime: template.endTime,
+    color: getShopShiftColor(template.number),
+    isShopShift: true
+  }, "system"));
+
+  return [...serviceMap.values()];
+}
+
+function sortServiceDefinitionsForDisplay(serviceA, serviceB) {
+  const departmentOrder = { bakery: 0, shop: 1, other: 2 };
+  const departmentDifference = (departmentOrder[serviceA.department] ?? 9) - (departmentOrder[serviceB.department] ?? 9);
+
+  if (departmentDifference !== 0) {
+    return departmentDifference;
+  }
+
+  return (serviceA.startTime || "").localeCompare(serviceB.startTime || "") ||
+    serviceA.name.localeCompare(serviceB.name, "nl");
+}
+
+function getFilteredServiceDefinitions() {
+  const departmentFilter = serviceDepartmentFilter?.value || "all";
+  const statusFilter = serviceStatusFilter?.value || "active";
+  const searchValue = (serviceSearchInput?.value || "").trim().toLowerCase();
+
+  return getServiceDefinitionsForDisplay()
+    .filter((service) => departmentFilter === "all" || service.department === departmentFilter)
+    .filter((service) => {
+      if (statusFilter === "active") {
+        return isServiceDefinitionActive(service);
+      }
+
+      if (statusFilter === "inactive") {
+        return !isServiceDefinitionActive(service);
+      }
+
+      return true;
+    })
+    .filter((service) => {
+      if (!searchValue) {
+        return true;
+      }
+
+      return service.name.toLowerCase().includes(searchValue) ||
+        service.abbreviation.toLowerCase().includes(searchValue);
+    })
+    .sort(sortServiceDefinitionsForDisplay);
+}
+
+function renderShiftList() {
+  const services = getFilteredServiceDefinitions();
+
+  if (!services.length) {
+    setClassName(shiftListCard, "services-table empty");
+    shiftListCard.textContent = "Geen diensten gevonden voor deze selectie.";
     return;
   }
 
-  setClassName(shiftListCard, "shift-list");
+  setClassName(shiftListCard, "services-table");
   shiftListCard.innerHTML = `
-    ${shifts.map((shift) => `
-      <article class="shift-list-item ${shift.color || 'shift-tone-inpak'}">
-        <strong>${shift.name}</strong>
-        <span>${shift.startTime} - ${shift.endTime}</span>
-        ${isOptionalShift(shift) ? '<span>Optioneel extra</span>' : ""}
-      </article>
-    `).join("")}
-    ${allroundOverview.length ? `
-      <article class="shift-list-item shift-tone-productie">
-        <strong>Daggebonden allrounddiensten</strong>
-        <span>Alleen zichtbaar op de juiste dagen in het rooster</span>
-      </article>
-      ${allroundOverview.map((shift) => `
-        <article class="shift-list-item ${shift.color || 'shift-tone-productie'}">
-          <strong>${shift.name}</strong>
-          <span>${shift.weekdayLabel}: ${shift.startTime} - ${shift.endTime}</span>
-        </article>
-      `).join("")}
-    ` : ""}
+    <div class="services-table-head" aria-hidden="true">
+      <span>Afkorting</span>
+      <span>Naam</span>
+      <span>Afdeling</span>
+      <span>Start</span>
+      <span>Eind</span>
+      <span>Pauze</span>
+      <span>Status</span>
+      <span>Acties</span>
+    </div>
+    <div class="services-table-body">
+      ${services.map((service) => {
+        const departmentLabel = getServiceDepartmentLabel(service.department);
+        const departmentClass = getServiceDepartmentClass(service.department);
+        const statusClass = isServiceDefinitionActive(service) ? "status-approved" : "status-rejected";
+        const title = escapeHtmlAttribute(`${service.name} - ${departmentLabel} - ${service.startTime || "?"}-${service.endTime || "?"}`);
+        const serviceIdAttribute = escapeHtmlAttribute(service.id);
+
+        return `
+          <article class="services-table-row ${departmentClass} ${isServiceDefinitionActive(service) ? "" : "is-inactive"}" title="${title}">
+            <strong class="services-abbreviation">${service.abbreviation}</strong>
+            <span class="services-name">${service.name}${service.weekdayLabel ? ` <small>${service.weekdayLabel}</small>` : ""}</span>
+            <span><span class="service-department-pill ${departmentClass}">${departmentLabel}</span></span>
+            <span>${service.startTime || "-"}</span>
+            <span>${service.endTime || "-"}</span>
+            <span>${service.breakMinutes ? `${service.breakMinutes} min` : "-"}</span>
+            <span><span class="status-pill ${statusClass}">${getServiceStatusLabel(service)}</span></span>
+            <span class="services-row-actions compact-actions">
+              ${service.isEditable ? `<button type="button" class="secondary" data-service-edit="${serviceIdAttribute}">Bewerken</button>` : `<span class="panel-note">Vast schema</span>`}
+              ${service.isRemovable ? `<button type="button" class="warning" data-service-delete="${serviceIdAttribute}">Verwijderen</button>` : ""}
+            </span>
+          </article>
+        `;
+      }).join("")}
+    </div>
   `;
 }
 
@@ -23209,6 +23366,38 @@ editShiftButton.addEventListener("click", () => {
 cancelShiftButton.addEventListener("click", () => {
   resetShiftForm();
   hideMessage();
+});
+
+serviceNewButton?.addEventListener("click", () => {
+  resetShiftForm();
+  serviceFormCard?.scrollIntoView({ block: "start", behavior: "smooth" });
+  newShiftNameInput?.focus();
+});
+
+serviceDepartmentFilter?.addEventListener("change", renderShiftList);
+serviceStatusFilter?.addEventListener("change", renderShiftList);
+serviceSearchInput?.addEventListener("input", renderShiftList);
+
+shiftListCard?.addEventListener("click", (event) => {
+  const editButton = event.target.closest("[data-service-edit]");
+  const deleteButton = event.target.closest("[data-service-delete]");
+  const shiftId = editButton?.dataset.serviceEdit || deleteButton?.dataset.serviceDelete || "";
+
+  if (!shiftId || !removeShiftSelect) {
+    return;
+  }
+
+  removeShiftSelect.value = shiftId;
+
+  if (editButton) {
+    editShiftButton?.click();
+    serviceFormCard?.scrollIntoView({ block: "start", behavior: "smooth" });
+    return;
+  }
+
+  if (deleteButton) {
+    removeShiftButton?.click();
+  }
 });
 
 employeePermissionsList?.addEventListener("change", (event) => {
