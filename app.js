@@ -20619,6 +20619,60 @@ function renderSmartPlanningPanelPreservingRosterScroll() {
   });
 }
 
+function getSelectedSmartPlanningOpenShiftButton() {
+  if (!selectedSmartPlanningOpenShiftId) {
+    return null;
+  }
+
+  return Array.from(document.querySelectorAll("[data-smart-planning-open-shift]"))
+    .find((button) => button.dataset.smartPlanningOpenShift === selectedSmartPlanningOpenShiftId) || null;
+}
+
+function positionSmartPlanningFloatingAdvice() {
+  const picker = document.querySelector(".smart-planning-floating-advice");
+  const selectedButton = getSelectedSmartPlanningOpenShiftButton();
+
+  if (!picker || !selectedButton) {
+    return;
+  }
+
+  if (window.matchMedia?.("(max-width: 640px)").matches) {
+    picker.style.removeProperty("--smart-picker-left");
+    picker.style.removeProperty("--smart-picker-top");
+    picker.classList.remove("is-fixed-positioned");
+    return;
+  }
+
+  const buttonRect = selectedButton.getBoundingClientRect();
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+  const gap = 8;
+  const edgePadding = 12;
+  const pickerWidth = picker.offsetWidth || 280;
+  const pickerHeight = Math.min(picker.offsetHeight || 320, 360);
+  let left = buttonRect.right + gap;
+  let top = buttonRect.top;
+
+  if (left + pickerWidth + edgePadding > viewportWidth) {
+    left = Math.max(edgePadding, viewportWidth - pickerWidth - edgePadding);
+  }
+  left = Math.max(edgePadding, left);
+
+  if (top + pickerHeight + edgePadding > viewportHeight) {
+    top = Math.max(edgePadding, viewportHeight - pickerHeight - edgePadding);
+  }
+
+  picker.style.setProperty("--smart-picker-left", `${Math.round(left)}px`);
+  picker.style.setProperty("--smart-picker-top", `${Math.round(top)}px`);
+  picker.classList.add("is-fixed-positioned");
+}
+
+function scheduleSmartPlanningFloatingAdvicePosition() {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(positionSmartPlanningFloatingAdvice);
+  });
+}
+
 function getNextSmartPlanningOpenShiftId(currentItemId) {
   const items = [...getSmartPlanningProposalItems()].sort(compareSmartPlanningItemsByRosterOrder);
   const currentIndex = items.findIndex((item) => item.id === currentItemId);
@@ -20965,7 +21019,6 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
           const chosenEmployeeName = proposalItem?.chosenEmployeeName || "";
           const employeeLabel = chosenEmployeeName || "OPEN";
           const assignmentLabel = proposalItem?.assignmentReason || "Voorstel";
-          const opensLeft = getWeekdayNumberFromDate(row.day) >= 5;
           const titleText = warningText || `OPEN - ${row.shiftName} - ${shiftTime}. Klik om details te bekijken`;
           const shiftContent = chosenEmployeeName ? `
                 <span class="smart-planning-assigned-shift">
@@ -20989,7 +21042,7 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
           `;
 
           return `
-            <div class="smart-planning-open-shift-wrap ${opensLeft ? "opens-left" : ""}">
+            <div class="smart-planning-open-shift-wrap ${isSelected ? "is-picker-open" : ""}">
               <button
                 type="button"
                 class="planning-shift-line is-open smart-planning-open-shift-button ${isSelected ? "is-selected" : ""} ${warningText ? "has-warning" : ""} ${chosenEmployeeName ? "has-choice" : ""} ${wasJustAssigned ? "was-just-assigned" : ""}"
@@ -21168,6 +21221,7 @@ function renderSmartPlanningPanel() {
   renderSmartPlanningProposal(data);
   renderSmartPlanningChecks(data);
   renderSmartPlanningTabContent();
+  scheduleSmartPlanningFloatingAdvicePosition();
 }
 
 function createSmartPlanningPlaceholderProposal() {
@@ -27808,6 +27862,9 @@ document.addEventListener("keydown", (event) => {
   selectedSmartPlanningOpenShiftId = "";
   renderSmartPlanningPanel();
 });
+
+window.addEventListener("resize", positionSmartPlanningFloatingAdvice);
+window.addEventListener("scroll", positionSmartPlanningFloatingAdvice, true);
 
 document.querySelectorAll("[data-smart-planning-tab]").forEach((button) => {
   button.addEventListener("click", () => {
