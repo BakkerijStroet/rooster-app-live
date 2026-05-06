@@ -13365,6 +13365,194 @@ body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile spa
   color: var(--text-secondary);
 }
 
+/* Rooster plannen: dienstblokken terug naar compacte eenregelige planningregels. */
+.smart-planning-proposal-roster .planning-roster-groups,
+.smart-planning-proposal-roster .planning-shift-lines,
+.smart-planning-proposal-roster .roster-group-list {
+  gap: 3px;
+}
+
+.smart-planning-proposal-roster .planning-roster-group {
+  padding: 5px;
+  gap: 4px;
+  border-radius: 10px;
+}
+
+.smart-planning-proposal-roster .roster-group-title {
+  font-size: 10px;
+  line-height: 1.1;
+  margin-bottom: 1px;
+}
+
+.smart-planning-proposal-roster .planning-shift-line,
+.smart-planning-proposal-roster .smart-planning-open-shift-button {
+  display: grid;
+  align-items: center;
+  min-height: 30px;
+  padding: 3px 6px;
+  gap: 0;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(41, 35, 28, 0.035);
+}
+
+.smart-planning-proposal-roster .planning-shift-line {
+  grid-template-columns: minmax(42px, max-content) minmax(0, 1fr) minmax(72px, max-content);
+  grid-template-areas: "employee detail time";
+  column-gap: 7px;
+}
+
+.smart-planning-proposal-roster .planning-shift-line.is-open::after,
+.smart-planning-proposal-roster .planning-shift-line.is-filled::after {
+  content: none;
+  display: none;
+}
+
+.smart-planning-proposal-roster .planning-shift-employee {
+  grid-area: employee;
+  min-width: 0;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.smart-planning-proposal-roster .planning-shift-name {
+  grid-area: detail;
+  min-width: 0;
+  padding-right: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.smart-planning-proposal-roster .planning-shift-time {
+  grid-area: time;
+  min-width: 72px;
+  padding-left: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 10.5px;
+  font-weight: 900;
+  line-height: 1.1;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.smart-planning-proposal-roster .smart-planning-open-shift {
+  display: grid;
+  grid-template-columns: minmax(34px, max-content) minmax(0, 1fr) minmax(72px, max-content);
+  align-items: center;
+  gap: 7px;
+  min-height: 22px;
+  width: 100%;
+}
+
+.smart-planning-proposal-roster .smart-planning-open-top {
+  display: contents;
+}
+
+.smart-planning-proposal-roster .smart-planning-open-label {
+  padding: 1px 5px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+}
+
+.smart-planning-proposal-roster .smart-planning-open-shift-name {
+  min-width: 0;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.smart-planning-proposal-roster .smart-planning-open-time {
+  min-width: 72px;
+  color: var(--text-secondary);
+  font-size: 10.5px;
+  font-weight: 900;
+  line-height: 1.1;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.smart-planning-proposal-roster .smart-planning-open-shift-button.has-choice {
+  min-height: 30px;
+  padding: 3px 6px;
+}
+
+.smart-planning-proposal-roster .smart-planning-assigned-shift {
+  display: grid;
+  grid-template-columns: minmax(56px, max-content) minmax(0, 1fr) minmax(72px, max-content);
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-width: 0;
+}
+
+.smart-planning-proposal-roster .smart-planning-assigned-top,
+.smart-planning-proposal-roster .smart-planning-assigned-bottom {
+  display: contents;
+}
+
+.smart-planning-proposal-roster .smart-planning-assigned-name {
+  grid-column: 1;
+  min-width: 0;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.smart-planning-proposal-roster .smart-planning-concept-badge {
+  display: none;
+}
+
+.smart-planning-proposal-roster .smart-planning-assigned-shift-name {
+  grid-column: 2;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.smart-planning-proposal-roster .smart-planning-assigned-time {
+  grid-column: 3;
+  min-width: 72px;
+  color: var(--text-secondary);
+  font-size: 10.5px;
+  font-weight: 900;
+  line-height: 1.1;
+  text-align: right;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .smart-planning-proposal-roster .planning-shift-line,
+  .smart-planning-proposal-roster .smart-planning-open-shift-button {
+    min-height: 32px;
+  }
+}
+
 
 
 
