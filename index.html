@@ -101,7 +101,7 @@
       <button type="button" class="nav-tab" data-tab="requests">Aanvragen</button>
       <button type="button" class="nav-tab planner-only-tab" data-tab="employees">Medewerkers</button>
       <button type="button" class="nav-tab planner-only-tab" data-tab="services">Diensten</button>
-      <button type="button" class="nav-tab planner-only-tab" data-tab="planning">Planning</button>
+      <button type="button" class="nav-tab planner-only-tab" data-tab="planning">Slim plannen</button>
       <button type="button" class="nav-tab planner-only-tab" data-tab="backup">Back-up</button>
     </nav>
       <div id="plannerDashboard" class="dashboard"></div>
@@ -232,21 +232,181 @@
         </div>
       </section>
 
-      <section class="staff-panel role-planner app-panel" data-panel="planning" data-slot="bottom">
-        <h2>Week kopiÃ«ren</h2>
-        <div class="staff-actions">
-          <label>
-            Bronweek
-            <input type="week" id="copySourceWeek">
-          </label>
-          <label>
-            Doelweek
-            <input type="week" id="copyTargetWeek">
-          </label>
+      <section class="staff-panel role-planner app-panel smart-planning-panel" data-panel="planning">
+        <div class="view-header director-screen-header smart-planning-header">
+          <div>
+            <h2>Slim plannen</h2>
+            <p class="panel-note">Maak automatisch een voorstel op basis van beschikbaarheid, diensten en contracturen.</p>
+          </div>
+          <div class="smart-planning-toolbar" aria-label="Slim plannen bediening">
+            <label class="week-select">
+              <span>Week</span>
+              <input type="week" id="smartPlanningWeek">
+            </label>
+            <label class="week-select">
+              <span>Afdeling</span>
+              <select id="smartPlanningDepartment">
+                <option value="all">Alles</option>
+                <option value="bakery">Bakkerij</option>
+                <option value="shop">Winkel</option>
+              </select>
+            </label>
+            <button type="button" id="smartPlanningMakeProposalButton" class="secondary">Voorstel maken</button>
+            <button type="button" id="smartPlanningClearProposalButton" class="secondary">Voorstel wissen</button>
+            <button type="button" id="smartPlanningApplyProposalButton" disabled title="Maak eerst een voorstel voordat je dit toepast.">Toepassen op rooster</button>
+          </div>
         </div>
-        <div class="form-actions">
-          <button type="button" id="copyPreviousWeekButton" class="secondary">Week kopiÃ«ren</button>
+
+        <div class="smart-planning-info">
+          Slim plannen maakt eerst alleen een voorstel. Er wordt niets aangepast aan het rooster totdat je kiest voor Toepassen.
         </div>
+
+        <div class="smart-planning-grid">
+          <article class="smart-planning-card">
+            <div class="smart-planning-card-head">
+              <h3>Plandagen</h3>
+              <span id="smartPlanningDemandSummary" class="panel-note">Kies een week.</span>
+            </div>
+            <div id="smartPlanningDemandList" class="smart-planning-list empty">Kies een week om open diensten te bekijken.</div>
+          </article>
+
+          <article class="smart-planning-card">
+            <div class="smart-planning-card-head">
+              <h3>Voorstelrooster</h3>
+              <span id="smartPlanningProposalSummary" class="panel-note">Nog geen voorstel gemaakt.</span>
+            </div>
+            <div id="smartPlanningProposalList" class="smart-planning-list empty">Nog geen voorstel gemaakt.</div>
+          </article>
+
+          <article class="smart-planning-card">
+            <div class="smart-planning-card-head">
+              <h3>Controlepunten</h3>
+              <span id="smartPlanningChecksSummary" class="panel-note">Automatische controle op hoofdlijnen.</span>
+            </div>
+            <div id="smartPlanningChecksList" class="smart-planning-list empty">Nog geen controlepunten beschikbaar.</div>
+          </article>
+        </div>
+
+        <article class="smart-planning-rules">
+          <div class="smart-planning-card-head">
+            <h3>Plangrenzen</h3>
+            <span class="panel-note">Voorbereid voor toekomstige slimme planning. Deze velden wijzigen nu nog geen roosterdata.</span>
+          </div>
+          <div class="smart-planning-rules-grid">
+            <label>
+              Max uren per medewerker
+              <input type="number" id="smartPlanningMaxHours" min="0" step="0.5" placeholder="Bijv. 38">
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="smartPlanningRespectTimeOff" checked>
+              <span>Respecteer vrije dagen</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="smartPlanningRespectContracts" checked>
+              <span>Respecteer contracturen</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="smartPlanningFairWeekends">
+              <span>Verdeel weekenddiensten eerlijk</span>
+            </label>
+          </div>
+        </article>
+
+        <details class="smart-planning-legacy-tools">
+          <summary>Bestaande planninghulpmiddelen</summary>
+          <div class="smart-planning-tools-grid">
+            <article class="capacity-card">
+              <h3>Week kopieren</h3>
+              <div class="staff-actions">
+                <label>
+                  Bronweek
+                  <input type="week" id="copySourceWeek">
+                </label>
+                <label>
+                  Doelweek
+                  <input type="week" id="copyTargetWeek">
+                </label>
+              </div>
+              <div class="form-actions">
+                <button type="button" id="copyPreviousWeekButton" class="secondary">Week kopieren</button>
+              </div>
+            </article>
+
+            <article class="capacity-card">
+              <h3>Vaste bakkerijdiensten</h3>
+              <ul class="capacity-list">
+                <li>Draaidienst: 1 persoon</li>
+                <li>Ovendienst: 1 persoon</li>
+                <li>Banketdienst: 1 persoon</li>
+                <li>Brooddienst: 1 persoon</li>
+                <li>Inpakdienst: 1 persoon</li>
+                <li>Productiedienst: 1 persoon</li>
+                <li>Allrounddienst 1 en 2: 1 persoon per dienst op donderdag, vrijdag en zaterdag</li>
+                <li>Bezorgdienst: 1 persoon</li>
+              </ul>
+            </article>
+
+            <article class="capacity-card">
+              <h3>Winkeldiensten per dag</h3>
+              <p class="panel-note">Aantal benodigde winkeldiensten per dag. Bij meer dan het standaardschema worden feestdagblokken gebruikt.</p>
+              <div class="staff-actions smart-planning-weekday-grid">
+                <label>Maandag<input type="number" id="winkelNeeded1" min="0" max="8"></label>
+                <label>Dinsdag<input type="number" id="winkelNeeded2" min="0" max="8"></label>
+                <label>Woensdag<input type="number" id="winkelNeeded3" min="0" max="8"></label>
+                <label>Donderdag<input type="number" id="winkelNeeded4" min="0" max="8"></label>
+                <label>Vrijdag<input type="number" id="winkelNeeded5" min="0" max="8"></label>
+                <label>Zaterdag<input type="number" id="winkelNeeded6" min="0" max="8"></label>
+                <label>Zondag<input type="number" id="winkelNeeded7" min="0" max="8"></label>
+              </div>
+            </article>
+
+            <article class="capacity-card">
+              <h3>Afwijkende datum</h3>
+              <div class="staff-actions">
+                <label>
+                  Datum
+                  <input type="date" id="overrideDate">
+                </label>
+                <label>
+                  Benodigde winkeldiensten
+                  <input type="number" id="overrideCount" min="0" max="8">
+                </label>
+                <button type="button" id="saveOverrideButton">Afwijking opslaan</button>
+                <button type="button" id="removeOverrideButton" class="warning">Afwijking verwijderen</button>
+              </div>
+            </article>
+
+            <article class="capacity-card">
+              <h3>Afwijkingen overzicht</h3>
+              <div id="overrideList" class="request-list empty">Nog geen afwijkende bezetting ingesteld.</div>
+            </article>
+
+            <article class="capacity-card">
+              <h3>Vakantieweken</h3>
+              <p class="panel-note">Markeer weken waarin weekendkrachten breder beschikbaar zijn voor planning.</p>
+              <div class="staff-actions">
+                <label>
+                  Week
+                  <input type="week" id="vacationWeek">
+                </label>
+                <label>
+                  Status
+                  <select id="vacationWeekStatus">
+                    <option value="normal">Normale week</option>
+                    <option value="vacation">Vakantieweek</option>
+                  </select>
+                </label>
+                <button type="button" id="saveVacationWeekButton">Weekstatus opslaan</button>
+                <button type="button" id="removeVacationWeekButton" class="warning">Vakantieweek verwijderen</button>
+              </div>
+            </article>
+
+            <article class="capacity-card">
+              <h3>Vakantieweken overzicht</h3>
+              <div id="vacationWeekList" class="request-list empty">Nog geen vakantieweken ingesteld.</div>
+            </article>
+          </div>
+        </details>
       </section>
 
       <section class="staff-panel role-planner app-panel services-management-panel" data-panel="services">
@@ -363,101 +523,6 @@
             </div>
             <div id="shiftPreferenceList" class="shift-preference-list empty">Kies eerst een dienst om de voorkeursvolgorde te beheren.</div>
           </details>
-        </div>
-      </section>
-
-      <section class="staff-panel role-planner app-panel" data-panel="planning" data-slot="top">
-        <h2>Planning instellingen</h2>
-        <div class="capacity-grid">
-          <div class="capacity-card">
-            <h3>Vaste bakkerijdiensten</h3>
-            <ul class="capacity-list">
-              <li>Draaidienst: 1 persoon</li>
-              <li>Ovendienst: 1 persoon</li>
-              <li>Banketdienst: 1 persoon</li>
-              <li>Brooddienst: 1 persoon</li>
-              <li>Inpakdienst: 1 persoon</li>
-              <li>Productiedienst: 1 persoon</li>
-              <li>Allrounddienst 1 en 2: 1 persoon per dienst op donderdag, vrijdag en zaterdag</li>
-              <li>Bezorgdienst: 1 persoon</li>
-            </ul>
-          </div>
-          <div class="capacity-card">
-            <h3>Winkeldiensten per dag</h3>
-            <p class="panel-note">Aantal benodigde winkeldiensten per dag. Bij meer dan het standaardschema worden feestdagblokken gebruikt.</p>
-            <div class="staff-actions">
-              <label>
-                Maandag
-                <input type="number" id="winkelNeeded1" min="0" max="8">
-              </label>
-              <label>
-                Dinsdag
-                <input type="number" id="winkelNeeded2" min="0" max="8">
-              </label>
-              <label>
-                Woensdag
-                <input type="number" id="winkelNeeded3" min="0" max="8">
-              </label>
-              <label>
-                Donderdag
-                <input type="number" id="winkelNeeded4" min="0" max="8">
-              </label>
-              <label>
-                Vrijdag
-                <input type="number" id="winkelNeeded5" min="0" max="8">
-              </label>
-              <label>
-                Zaterdag
-                <input type="number" id="winkelNeeded6" min="0" max="8">
-              </label>
-              <label>
-                Zondag
-                <input type="number" id="winkelNeeded7" min="0" max="8">
-              </label>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="staff-panel role-planner app-panel" data-panel="planning" data-slot="bottom">
-        <h2>Afwijkende dagen</h2>
-        <div class="capacity-grid">
-          <div class="capacity-card">
-            <h3>Afwijkende datum</h3>
-            <div class="staff-actions">
-                <label>
-                  Afwijkende datum
-                  <input type="date" id="overrideDate">
-                </label>
-                <label>
-                  Benodigde winkeldiensten
-                  <input type="number" id="overrideCount" min="0" max="8">
-                </label>
-                <button type="button" id="saveOverrideButton">Afwijking opslaan</button>
-                <button type="button" id="removeOverrideButton" class="warning">Afwijking verwijderen</button>
-            </div>
-            <div id="overrideList" class="request-list empty">Nog geen afwijkende bezetting ingesteld.</div>
-          </div>
-          <div class="capacity-card">
-            <h3>Vakantieweken</h3>
-            <p class="panel-note">Alleen in deze weken mogen weekendkrachten extra meehelpen buiten hun normale basisrooster. Directie en oproepkrachten blijven laatste optie.</p>
-            <div class="staff-actions">
-              <label>
-                Week
-                <input type="week" id="vacationWeek">
-              </label>
-              <label>
-                Status
-                <select id="vacationWeekStatus">
-                  <option value="normal">Normale week</option>
-                  <option value="vacation">Vakantieweek</option>
-                </select>
-              </label>
-              <button type="button" id="saveVacationWeekButton">Weekstatus opslaan</button>
-              <button type="button" id="removeVacationWeekButton" class="warning">Weekmarkering verwijderen</button>
-            </div>
-            <div id="vacationWeekList" class="request-list empty">Nog geen vakantieweken ingesteld.</div>
-          </div>
         </div>
       </section>
 
