@@ -20099,6 +20099,23 @@ function getSmartPlanningEntriesWithoutOriginalItem(item, sourceEntries = entrie
   return sourceEntries.filter((entry) => !isSmartPlanningOriginalEntryMatch(entry, item));
 }
 
+function getEffectivePlanningEntriesForSmartPlanningProposal(candidateItem = null, sourceEntries = entries) {
+  if (smartPlanningProposalState?.mode !== "adjust") {
+    return getSmartPlanningEntriesWithoutOriginalItem(candidateItem, sourceEntries);
+  }
+
+  const proposalItems = getSmartPlanningProposalItems();
+  const proposalOriginals = proposalItems.filter((item) => item.isExistingRosterEntry);
+  const preservedEntries = sourceEntries.filter((entry) =>
+    !proposalOriginals.some((item) => isSmartPlanningOriginalEntryMatch(entry, item))
+  );
+  const proposalEntries = proposalItems
+    .filter((item) => item.id !== candidateItem?.id && item.chosenEmployeeName)
+    .map((item) => createSmartPlanningRosterEntry(item, getSmartPlanningShiftFromProposalItem(item)));
+
+  return [...preservedEntries, ...proposalEntries];
+}
+
 function getRosterChangesForNotifications(previousEntries = [], nextEntries = []) {
   const changes = [];
 
@@ -20301,7 +20318,7 @@ function getSmartPlanningEmployeeAdvice(item) {
   const weekValue = getWeekValueFromDate(item.day);
   const shift = getSmartPlanningShiftFromProposalItem(item);
   const shiftHours = calculateHours(item.startTime || "", item.endTime || "") || 0;
-  const adviceSourceEntries = getSmartPlanningEntriesWithoutOriginalItem(item, entries);
+  const adviceSourceEntries = getEffectivePlanningEntriesForSmartPlanningProposal(item, entries);
   const advice = {
     suitable: [],
     attention: [],
@@ -20476,7 +20493,7 @@ function getSmartPlanningChosenEmployeeIssue(item, weekValue) {
   const issues = [];
   const shiftTime = `${item.startTime || "?"}-${item.endTime || "?"}`;
   const shiftLabel = getCompactRosterShiftLabel(item.shiftName || "Dienst");
-  const issueSourceEntries = getSmartPlanningEntriesWithoutOriginalItem(item, entries);
+  const issueSourceEntries = getEffectivePlanningEntriesForSmartPlanningProposal(item, entries);
   const absence = getApprovedTimeOff(employeeName, item.day);
   const overlappingEntry = findConflictInSource(issueSourceEntries, employeeName, item.day, item.startTime || "", item.endTime || "");
   const contractHours = getEmployeeContractHours(employeeName);
