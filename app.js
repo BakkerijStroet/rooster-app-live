@@ -127,6 +127,7 @@ const employeeDetailWarnings = document.getElementById("employeeDetailWarnings")
 const employeeDetailTabs = document.getElementById("employeeDetailTabs");
 const employeeHoursSummary = document.getElementById("employeeHoursSummary");
 const removeEmployeeButton = document.getElementById("removeEmployeeButton");
+const employeeDetailSaveButton = document.getElementById("employeeDetailSaveButton");
 const saveEmployeeEmailButton = document.getElementById("saveEmployeeEmailButton");
 const employeeDetailTestMailButton = document.getElementById("employeeDetailTestMailButton");
 const employeeStatusImpact = document.getElementById("employeeStatusImpact");
@@ -17425,6 +17426,14 @@ function renderEmployeeDetailTabs() {
   document.querySelectorAll("[data-employee-detail-panel]").forEach((panel) => {
     panel.classList.toggle("hidden", panel.dataset.employeeDetailPanel !== activeEmployeeDetailTab);
   });
+
+  if (employeeDetailSaveButton) {
+    const hasSelectedEmployee = Boolean(getSelectedEmployeeAdminName());
+    employeeDetailSaveButton.disabled = !hasSelectedEmployee;
+    employeeDetailSaveButton.title = hasSelectedEmployee
+      ? "Sla medewerkergegevens, planning en accountwijzigingen op."
+      : "Kies eerst links een medewerker.";
+  }
 }
 
 function renderEmployeeHoursSummary() {
@@ -19640,6 +19649,21 @@ function getSmartPlanningShiftFromProposalItem(item) {
   };
 }
 
+function isSmartPlanningEmergencyEmployee(employeeName) {
+  const normalizedName = String(employeeName || "").trim().toLowerCase();
+
+  if (["twan", "chantal"].includes(normalizedName)) {
+    return true;
+  }
+
+  const role = getEmployeeAppRole(employeeName);
+  const departmentSummary = String(getEmployeeDepartmentSummary(employeeName) || "").toLowerCase();
+
+  return role === "planner" ||
+    departmentSummary.includes("directie") ||
+    departmentSummary.includes("planner");
+}
+
 function getSmartPlanningEmployeeAdvice(item) {
   if (!item) {
     return { suitable: [], attention: [], unsuitable: [] };
@@ -19665,6 +19689,7 @@ function getSmartPlanningEmployeeAdvice(item) {
     const contractHours = getEmployeeContractHours(employeeName);
     const plannedHours = getEmployeeWeekHours(employeeName, weekValue, entries);
     const projectedHours = Math.round((plannedHours + shiftHours) * 10) / 10;
+    const isEmergencyOption = isSmartPlanningEmergencyEmployee(employeeName);
     const reasons = [];
     let group = "suitable";
 
@@ -19707,6 +19732,7 @@ function getSmartPlanningEmployeeAdvice(item) {
       contractHours,
       plannedHours,
       projectedHours,
+      isEmergencyOption,
       isAuthorized,
       reasons
     });
@@ -19714,6 +19740,7 @@ function getSmartPlanningEmployeeAdvice(item) {
 
   Object.values(advice).forEach((items) => {
     items.sort((itemA, itemB) =>
+      Number(Boolean(itemA.isEmergencyOption)) - Number(Boolean(itemB.isEmergencyOption)) ||
       itemA.plannedHours - itemB.plannedHours ||
       itemA.employeeName.localeCompare(itemB.employeeName, "nl")
     );
@@ -20307,9 +20334,12 @@ function getSmartPlanningAuthorizedEmployeeAdvice(item) {
     .map((employeeAdvice) => ({
       ...employeeAdvice,
       statusLabel: "Beschikbaar",
-      displayReason: employeeAdvice.contractHours > 0 ? "Beschikbaar" : "Geen vaste uren"
+      displayReason: employeeAdvice.isEmergencyOption
+        ? "Noodoptie"
+        : (employeeAdvice.contractHours > 0 ? "Beschikbaar" : "Geen vaste uren")
     }))
     .sort((itemA, itemB) =>
+      Number(Boolean(itemA.isEmergencyOption)) - Number(Boolean(itemB.isEmergencyOption)) ||
       itemA.plannedHours - itemB.plannedHours ||
       itemA.employeeName.localeCompare(itemB.employeeName, "nl")
     );
@@ -20337,7 +20367,7 @@ function renderSmartPlanningEmployeeAdviceGroup(title, items, groupType) {
       ${items.length ? `
         <div class="smart-planning-advice-list">
           ${items.map((item) => `
-            <article class="smart-planning-advice-card is-${groupType}">
+            <article class="smart-planning-advice-card is-${groupType} ${item.isEmergencyOption ? "is-emergency-option" : ""}">
               <strong>${item.employeeName}</strong>
               <span>${getSmartPlanningContractSummary(item)}</span>
               <div class="smart-planning-advice-badges">
@@ -20378,7 +20408,8 @@ function renderSmartPlanningInlineAdvice(item) {
     const itemALast = itemA.employeeName === lastSmartPlanningSelectedEmployeeName ? -1 : 0;
     const itemBLast = itemB.employeeName === lastSmartPlanningSelectedEmployeeName ? -1 : 0;
 
-    return itemALast - itemBLast ||
+    return Number(Boolean(itemA.isEmergencyOption)) - Number(Boolean(itemB.isEmergencyOption)) ||
+      itemALast - itemBLast ||
       itemA.plannedHours - itemB.plannedHours ||
       itemA.employeeName.localeCompare(itemB.employeeName, "nl");
   });
@@ -20390,7 +20421,7 @@ function renderSmartPlanningInlineAdvice(item) {
     return `
       <button
         type="button"
-        class="smart-planning-employee-choice ${isAvailable ? "is-available" : "is-unavailable"} ${isSelected ? "is-selected" : ""} ${isLastSelected ? "is-last-selected" : ""}"
+        class="smart-planning-employee-choice ${isAvailable ? "is-available" : "is-unavailable"} ${employeeAdvice.isEmergencyOption ? "is-emergency-option" : ""} ${isSelected ? "is-selected" : ""} ${isLastSelected ? "is-last-selected" : ""}"
         data-smart-planning-employee-choice="${escapeHtmlAttribute(item.id)}"
         data-employee-name="${escapeHtmlAttribute(employeeAdvice.employeeName)}"
         data-employee-available="${isAvailable ? "true" : "false"}"
@@ -26879,6 +26910,10 @@ function confirmEmployeeEditorNavigation(employeeName) {
 }
 
 saveEmployeeEmailButton?.addEventListener("click", () => {
+  saveSelectedEmployeeDetails({ showSuccessMessage: true });
+});
+
+employeeDetailSaveButton?.addEventListener("click", () => {
   saveSelectedEmployeeDetails({ showSuccessMessage: true });
 });
 

@@ -2496,6 +2496,14 @@ textarea.input-error {
   margin-bottom: 10px;
 }
 
+.employee-detail-header-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .employee-detail-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -4142,6 +4150,17 @@ textarea.input-error {
 .smart-planning-employee-choice.is-available {
   border-color: #9ed2ac;
   background: #f3fbf6;
+}
+
+.smart-planning-employee-choice.is-emergency-option,
+.smart-planning-advice-card.is-emergency-option {
+  border-color: #e4b45c;
+  background: #fff8e8;
+}
+
+.smart-planning-employee-choice.is-emergency-option span,
+.smart-planning-advice-card.is-emergency-option .smart-planning-advice-badges em {
+  color: #8a5b06;
 }
 
 .smart-planning-employee-choice.is-unavailable {
