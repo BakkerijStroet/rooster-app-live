@@ -2907,8 +2907,8 @@ textarea.input-error {
 }
 
 .smart-planning-proposal-roster.planning-week-grid {
-  grid-template-columns: repeat(7, minmax(255px, 1fr));
-  min-width: 1785px;
+  grid-template-columns: repeat(7, minmax(275px, 1fr));
+  min-width: 1925px;
   overflow: visible;
 }
 
@@ -2923,9 +2923,9 @@ textarea.input-error {
 }
 
 .smart-planning-proposal-roster .smart-planning-open-shift-button {
-  grid-template-columns: minmax(86px, 116px) minmax(72px, 1fr) 84px;
+  grid-template-columns: minmax(70px, 96px) minmax(86px, 1fr) minmax(92px, max-content);
   column-gap: 6px;
-  min-height: 34px;
+  min-height: 36px;
   padding: 0.38rem 0.46rem;
   cursor: pointer;
   align-items: center;
@@ -2950,9 +2950,9 @@ textarea.input-error {
   justify-self: end;
   text-align: right;
   white-space: nowrap;
-  min-width: 0;
+  min-width: 92px;
   max-width: 100%;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .smart-planning-proposal-roster .planning-shift-employee {
