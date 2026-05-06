@@ -2900,19 +2900,46 @@ textarea.input-error {
   margin-top: 0;
 }
 
+.smart-planning-proposal-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 14px;
+  align-items: start;
+}
+
+.smart-planning-proposal-main,
+.smart-planning-side-panel {
+  min-width: 0;
+}
+
+.smart-planning-proposal-main {
+  overflow-x: auto;
+}
+
+.smart-planning-side-panel {
+  position: sticky;
+  top: 92px;
+}
+
+.smart-planning-proposal-roster.planning-week-grid {
+  grid-template-columns: repeat(7, minmax(190px, 1fr));
+}
+
 .smart-planning-proposal-roster .planning-shift-line {
   cursor: default;
 }
 
 .smart-planning-proposal-roster .smart-planning-open-shift-button {
-  grid-template-columns: 58px minmax(72px, 1fr) 78px;
-  gap: 0.42rem;
+  grid-template-columns: minmax(48px, 0.7fr) minmax(92px, 1.35fr) minmax(74px, 0.85fr);
+  gap: 0.5rem;
   min-height: 34px;
   padding: 0.38rem 0.46rem;
   cursor: pointer;
+  align-items: center;
 }
 
 .smart-planning-proposal-roster .planning-shift-name {
+  min-width: 0;
   overflow: visible;
   text-overflow: clip;
   white-space: normal;
@@ -2923,11 +2950,16 @@ textarea.input-error {
 
 .smart-planning-proposal-roster .planning-shift-time {
   font-size: 0.74rem;
+  justify-self: end;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .smart-planning-proposal-roster .planning-shift-employee {
   overflow: visible;
   text-overflow: clip;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .smart-planning-open-shift-button.is-selected {
@@ -3016,7 +3048,7 @@ textarea.input-error {
 
 .smart-planning-advice-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  grid-template-columns: 1fr;
   gap: 10px;
   align-items: start;
 }
@@ -3030,17 +3062,12 @@ textarea.input-error {
   background: #fff;
 }
 
-.smart-planning-advice-group--suitable {
+.smart-planning-advice-group--available {
   border-color: #bfe5cf;
   background: #f3fbf6;
 }
 
-.smart-planning-advice-group--attention {
-  border-color: #f0d49f;
-  background: #fff8ec;
-}
-
-.smart-planning-advice-group--unsuitable {
+.smart-planning-advice-group--unavailable {
   border-color: #efc5bd;
   background: #fff5f2;
 }
@@ -3062,7 +3089,7 @@ textarea.input-error {
   gap: 6px;
 }
 
-.smart-planning-advice-row {
+.smart-planning-advice-card {
   display: grid;
   gap: 4px;
   padding: 8px;
@@ -3071,7 +3098,17 @@ textarea.input-error {
   background: rgba(255, 255, 255, 0.74);
 }
 
-.smart-planning-advice-row span {
+.smart-planning-advice-card.is-available {
+  border-color: #b7dfc3;
+  background: #f8fff9;
+}
+
+.smart-planning-advice-card.is-unavailable {
+  border-color: #f0beb4;
+  background: #fff7f5;
+}
+
+.smart-planning-advice-card span {
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
@@ -3092,6 +3129,16 @@ textarea.input-error {
   font-size: 11px;
   font-style: normal;
   font-weight: 800;
+}
+
+.smart-planning-advice-card.is-available .smart-planning-advice-badges em {
+  background: #dff5e7;
+  color: #236b45;
+}
+
+.smart-planning-advice-card.is-unavailable .smart-planning-advice-badges em {
+  background: #ffe3de;
+  color: #9f2b16;
 }
 
 .smart-planning-rules-grid,
@@ -9468,10 +9515,15 @@ body[data-role="planner"] .request-list {
 }
 
 @media (max-width: 900px) {
+  .smart-planning-proposal-content,
   .smart-planning-advice-grid,
   .smart-planning-tools-grid,
   .smart-planning-rules-grid {
     grid-template-columns: 1fr;
+  }
+
+  .smart-planning-side-panel {
+    position: static;
   }
 
   body[data-role="planner"] .container {

@@ -18706,6 +18706,7 @@ function getSmartPlanningEmployeeAdvice(item) {
       contractHours,
       plannedHours,
       projectedHours,
+      isAuthorized,
       reasons
     });
   });
@@ -18721,7 +18722,7 @@ function getSmartPlanningEmployeeAdvice(item) {
 }
 
 function hasSuitableEmployeesForSmartPlanningShift(item) {
-  return getSmartPlanningEmployeeAdvice(item).suitable.length > 0;
+  return getSmartPlanningAuthorizedEmployeeAdvice(item).available.length > 0;
 }
 
 function getSmartPlanningShiftWarning(item) {
@@ -18738,6 +18739,52 @@ function getSmartPlanningUnfillableOpenShiftIds() {
     .map((item) => item.id);
 }
 
+function normalizeSmartPlanningUnavailableReason(reason = "") {
+  const normalizedReason = String(reason || "").toLowerCase();
+
+  if (normalizedReason.includes("vrij")) return "Vrije dag";
+  if (normalizedReason.includes("ziek")) return "Ziek";
+  if (normalizedReason.includes("vakantie") || normalizedReason.includes("verlof")) return "Verlof";
+  if (normalizedReason.includes("overlap")) return "Overlap";
+  if (normalizedReason.includes("ingepland") || normalizedReason.includes("andere dienst")) return "Al ingepland";
+  if (normalizedReason.includes("contract")) return "Contracturen vol";
+  if (normalizedReason.includes("onbekend")) return "Beschikbaarheid onbekend";
+  if (normalizedReason.includes("inactief")) return "Inactief";
+
+  return reason || "Beschikbaarheid onbekend";
+}
+
+function getSmartPlanningAuthorizedEmployeeAdvice(item) {
+  const advice = getSmartPlanningEmployeeAdvice(item);
+  const authorizedItems = [...advice.suitable, ...advice.attention, ...advice.unsuitable]
+    .filter((employeeAdvice) => employeeAdvice.isAuthorized && !employeeAdvice.reasons.includes("Niet bevoegd"));
+
+  const available = authorizedItems
+    .filter((employeeAdvice) => advice.suitable.includes(employeeAdvice))
+    .map((employeeAdvice) => ({
+      ...employeeAdvice,
+      statusLabel: "Beschikbaar",
+      displayReason: "Beschikbaar"
+    }))
+    .sort((itemA, itemB) =>
+      itemA.plannedHours - itemB.plannedHours ||
+      itemA.employeeName.localeCompare(itemB.employeeName, "nl")
+    );
+
+  const unavailable = authorizedItems
+    .filter((employeeAdvice) => !advice.suitable.includes(employeeAdvice))
+    .map((employeeAdvice) => ({
+      ...employeeAdvice,
+      displayReason: normalizeSmartPlanningUnavailableReason(employeeAdvice.reasons[0])
+    }))
+    .sort((itemA, itemB) =>
+      itemA.displayReason.localeCompare(itemB.displayReason, "nl") ||
+      itemA.employeeName.localeCompare(itemB.employeeName, "nl")
+    );
+
+  return { available, unavailable };
+}
+
 function renderSmartPlanningEmployeeAdviceGroup(title, items, groupType) {
   const countLabel = `${items.length} medewerker${items.length === 1 ? "" : "s"}`;
 
@@ -18747,11 +18794,11 @@ function renderSmartPlanningEmployeeAdviceGroup(title, items, groupType) {
       ${items.length ? `
         <div class="smart-planning-advice-list">
           ${items.map((item) => `
-            <article class="smart-planning-advice-row">
+            <article class="smart-planning-advice-card is-${groupType}">
               <strong>${item.employeeName}</strong>
               <span>${formatHours(item.plannedHours)} / ${item.contractHours > 0 ? formatHours(item.contractHours) : "?"} contract</span>
               <div class="smart-planning-advice-badges">
-                ${item.reasons.map((reason) => `<em>${reason}</em>`).join("")}
+                <em>${item.displayReason || item.statusLabel || item.reasons[0] || "Beschikbaarheid onbekend"}</em>
               </div>
             </article>
           `).join("")}
@@ -18762,15 +18809,14 @@ function renderSmartPlanningEmployeeAdviceGroup(title, items, groupType) {
 }
 
 function renderSmartPlanningEmployeeAdvice(item) {
-  const advice = getSmartPlanningEmployeeAdvice(item);
+  const advice = getSmartPlanningAuthorizedEmployeeAdvice(item);
 
   return `
     <section class="smart-planning-employee-advice">
       <h4>Medewerkeradvies</h4>
       <div class="smart-planning-advice-grid">
-        ${renderSmartPlanningEmployeeAdviceGroup("Geschikt", advice.suitable, "suitable")}
-        ${renderSmartPlanningEmployeeAdviceGroup("Aandacht nodig", advice.attention, "attention")}
-        ${renderSmartPlanningEmployeeAdviceGroup("Niet geschikt", advice.unsuitable, "unsuitable")}
+        ${renderSmartPlanningEmployeeAdviceGroup("Beschikbaar", advice.available, "available")}
+        ${renderSmartPlanningEmployeeAdviceGroup("Niet beschikbaar", advice.unavailable, "unavailable")}
       </div>
       <p class="panel-note">Toewijzen volgt in een volgende stap.</p>
     </section>
@@ -18889,7 +18935,7 @@ function renderSmartPlanningSelectedShiftPanel() {
   if (!selectedItem) {
     return `
       <aside class="smart-planning-selected-shift-panel empty">
-        Selecteer een OPEN dienst om details te bekijken.
+        Selecteer een OPEN dienst om medewerkers te bekijken.
       </aside>
     `;
   }
@@ -18970,8 +19016,14 @@ function renderSmartPlanningProposal(data = getSmartPlanningWeekData()) {
       <strong>Conceptvoorstel gemaakt</strong>
       <span>${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel} · alle regels blijven OPEN / nog niet toegewezen.</span>
     </div>
-    ${renderSmartPlanningProposalRoster(data, proposalItems)}
-    ${renderSmartPlanningSelectedShiftPanel()}
+    <div class="smart-planning-proposal-content">
+      <div class="smart-planning-proposal-main">
+        ${renderSmartPlanningProposalRoster(data, proposalItems)}
+      </div>
+      <div class="smart-planning-side-panel">
+        ${renderSmartPlanningSelectedShiftPanel()}
+      </div>
+    </div>
   `;
 }
 
