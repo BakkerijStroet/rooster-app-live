@@ -4842,6 +4842,10 @@ let smartPlanningIsSavingRoster = false;
 let smartPlanningAdjustConfirmVisible = false;
 let smartPlanningClearServicesConfirmVisible = false;
 let smartPlanningClearWeekConfirmVisible = false;
+let smartPlanningDirty = false;
+let smartPlanningFocusedWeek = "";
+let pendingSmartPlanningScrollWeek = "";
+const smartPlanningUnsavedWarningMessage = "Je hebt niet-opgeslagen wijzigingen in Rooster plannen. Wil je doorgaan zonder op te slaan?";
 const smartPlanningClearedWeekSnapshots = {};
 let smartPlanningProposalRevision = 0;
 let smartPlanningProposalItemsCache = {
@@ -7137,12 +7141,12 @@ function getEasterDateValue(year) {
   const centuryRemainder = century % 4;
   const lunarCorrection = Math.floor((century + 8) / 25);
   const centuryMoonOffset = Math.floor((century - lunarCorrection + 1) / 3);
-  const goldenNumber = year % 19;
-  const epact = (19 * goldenNumber + century - leapCorrection - centuryMoonOffset + 15) % 30;
+  const metonicCycleIndex = year % 19;
+  const epact = (19 * metonicCycleIndex + century - leapCorrection - centuryMoonOffset + 15) % 30;
   const yearLeap = Math.floor(yearOfCentury / 4);
   const yearRemainder = yearOfCentury % 4;
   const weekdayOffset = (32 + (2 * centuryRemainder) + (2 * yearLeap) - epact - yearRemainder) % 7;
-  const moonCorrection = Math.floor((goldenNumber + (11 * epact) + (22 * weekdayOffset)) / 451);
+  const moonCorrection = Math.floor((metonicCycleIndex + (11 * epact) + (22 * weekdayOffset)) / 451);
   const month = Math.floor((epact + weekdayOffset - (7 * moonCorrection) + 114) / 31);
   const day = ((epact + weekdayOffset - (7 * moonCorrection) + 114) % 31) + 1;
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -17135,6 +17139,16 @@ function setActiveTab(tabName, options = {}) {
     }
   }
 
+  if (
+    activeTab === "planning" &&
+    normalizedTabName !== "planning" &&
+    !options.skipSmartPlanningUnsavedCheck &&
+    !confirmSmartPlanningUnsavedNavigation()
+  ) {
+    updateTabVisibility();
+    return;
+  }
+
   if (handleBlockedTabAccess(normalizedTabName)) {
     updateTabVisibility();
     resetTabScrollPosition();
@@ -19663,6 +19677,195 @@ function getSmartPlanningVisibleWeeks(startWeek = getSmartPlanningSelectedWeek()
   return weeks;
 }
 
+function normalizeSmartPlanningWeekValue(weekValue = "") {
+  const normalizedWeekValue = String(weekValue || "");
+  return /^\d{4}-W\d{2}$/.test(normalizedWeekValue) ? normalizedWeekValue : "";
+}
+
+function setSmartPlanningFocusedWeek(weekValue = getSmartPlanningSelectedWeek()) {
+  const normalizedWeekValue = normalizeSmartPlanningWeekValue(weekValue);
+
+  if (normalizedWeekValue) {
+    smartPlanningFocusedWeek = normalizedWeekValue;
+  }
+
+  return smartPlanningFocusedWeek || getSmartPlanningSelectedWeek();
+}
+
+function ensureSmartPlanningFocusedWeek(data = null) {
+  const visibleWeeks = (data?.visibleWeeks || []).map((week) => week.weekValue);
+
+  if (!visibleWeeks.length) {
+    return setSmartPlanningFocusedWeek();
+  }
+
+  if (!visibleWeeks.includes(smartPlanningFocusedWeek)) {
+    smartPlanningFocusedWeek = visibleWeeks.includes(data.selectedWeek)
+      ? data.selectedWeek
+      : visibleWeeks[0];
+  }
+
+  return smartPlanningFocusedWeek;
+}
+
+function getSmartPlanningWeekElement(weekValue = smartPlanningFocusedWeek) {
+  const normalizedWeekValue = normalizeSmartPlanningWeekValue(weekValue);
+
+  if (!normalizedWeekValue) {
+    return null;
+  }
+
+  return [...document.querySelectorAll([
+    "[data-smart-planning-week-key]",
+    "[data-smart-planning-week-block]",
+    "[data-smart-planning-control-week]"
+  ].join(","))].find((element) => (
+    element.dataset.smartPlanningWeekKey === normalizedWeekValue ||
+    element.dataset.smartPlanningWeekBlock === normalizedWeekValue ||
+    element.dataset.smartPlanningControlWeek === normalizedWeekValue
+  )) || null;
+}
+
+function scrollSmartPlanningWeekIntoView(weekValue = smartPlanningFocusedWeek) {
+  const targetWeek = getSmartPlanningWeekElement(weekValue);
+
+  if (!targetWeek) {
+    return false;
+  }
+
+  targetWeek.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+  return true;
+}
+
+function scheduleSmartPlanningWeekScroll(weekValue = smartPlanningFocusedWeek) {
+  const normalizedWeekValue = normalizeSmartPlanningWeekValue(weekValue);
+
+  if (!normalizedWeekValue) {
+    return;
+  }
+
+  pendingSmartPlanningScrollWeek = normalizedWeekValue;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const weekToScroll = pendingSmartPlanningScrollWeek;
+
+      if (weekToScroll && scrollSmartPlanningWeekIntoView(weekToScroll)) {
+        pendingSmartPlanningScrollWeek = "";
+      }
+    });
+  });
+}
+
+function focusSmartPlanningWeek(weekValue, options = {}) {
+  const focusedWeek = setSmartPlanningFocusedWeek(weekValue);
+  pendingSmartPlanningScrollWeek = focusedWeek;
+
+  if (options.render === false) {
+    scheduleSmartPlanningWeekScroll(focusedWeek);
+    return;
+  }
+
+  renderSmartPlanningPanel();
+}
+
+function hasSmartPlanningUnsavedChanges() {
+  if (!smartPlanningProposalState?.weeks?.length) {
+    return false;
+  }
+
+  return smartPlanningProposalState.weeks.some((weekProposal) => (
+    Boolean(weekProposal?.cleared) ||
+    (weekProposal?.items || []).some((item) => isSmartPlanningProposalItemChanged(item))
+  ));
+}
+
+function refreshSmartPlanningDirtyState() {
+  smartPlanningDirty = hasSmartPlanningUnsavedChanges();
+  return smartPlanningDirty;
+}
+
+function clearSmartPlanningWeekSnapshots() {
+  Object.keys(smartPlanningClearedWeekSnapshots).forEach((key) => {
+    delete smartPlanningClearedWeekSnapshots[key];
+  });
+}
+
+function discardSmartPlanningProposalState(options = {}) {
+  smartPlanningProposalState = null;
+  selectedSmartPlanningOpenShiftId = "";
+  lastSmartPlanningAssignedItemId = "";
+  smartPlanningApplyConfirmVisible = false;
+  smartPlanningAdjustConfirmVisible = false;
+  smartPlanningClearServicesConfirmVisible = false;
+  smartPlanningClearWeekConfirmVisible = false;
+  smartPlanningDirty = false;
+  clearSmartPlanningWeekSnapshots();
+  invalidateSmartPlanningEffectiveEntriesCache();
+
+  if (options.resetFocus) {
+    smartPlanningFocusedWeek = getSmartPlanningSelectedWeek();
+  }
+
+  if (options.render) {
+    renderSmartPlanningPanel();
+  }
+}
+
+function confirmSmartPlanningUnsavedNavigation(options = {}) {
+  refreshSmartPlanningDirtyState();
+
+  if (!smartPlanningDirty) {
+    return true;
+  }
+
+  if (!window.confirm(smartPlanningUnsavedWarningMessage)) {
+    return false;
+  }
+
+  if (options.discardOnConfirm) {
+    discardSmartPlanningProposalState({ resetFocus: options.resetFocus });
+  }
+
+  return true;
+}
+
+function restoreSmartPlanningSelectionControls() {
+  if (!smartPlanningProposalState) {
+    return;
+  }
+
+  if (smartPlanningWeekInput && smartPlanningProposalState.startWeek) {
+    smartPlanningWeekInput.value = smartPlanningProposalState.startWeek;
+  }
+
+  if (smartPlanningDepartmentSelect) {
+    smartPlanningDepartmentSelect.value = smartPlanningProposalState.department || "all";
+  }
+}
+
+function confirmSmartPlanningSelectionReplacement(nextWeek, nextDepartment) {
+  refreshSmartPlanningDirtyState();
+
+  if (!smartPlanningDirty || !smartPlanningProposalState) {
+    return true;
+  }
+
+  const currentWeek = smartPlanningProposalState.startWeek || getSmartPlanningSelectedWeek();
+  const currentDepartment = smartPlanningProposalState.department || "all";
+
+  if (nextWeek === currentWeek && nextDepartment === currentDepartment) {
+    return true;
+  }
+
+  if (!confirmSmartPlanningUnsavedNavigation({ discardOnConfirm: true, resetFocus: true })) {
+    restoreSmartPlanningSelectionControls();
+    renderSmartPlanningPanel();
+    return false;
+  }
+
+  return true;
+}
+
 function getSmartPlanningDepartmentForShift(shift) {
   return getRosterDepartmentForEntry({
     shiftId: shift?.id || "",
@@ -20123,6 +20326,7 @@ async function applySmartPlanningToRoster() {
   }
 
   clearAppliedSmartPlanningAssignments(appliedItemIds);
+  refreshSmartPlanningDirtyState();
   smartPlanningIsSavingRoster = false;
   smartPlanningApplyConfirmVisible = false;
   render();
@@ -21134,9 +21338,10 @@ function renderSmartPlanningControlTab(data = getSmartPlanningMonthData()) {
         const hasIssues = weekSummary.issues.length > 0;
         const actionIssues = weekSummary.issues.filter((issue) => getSmartPlanningIssuePriority(issue) === "action");
         const warningIssues = weekSummary.issues.filter((issue) => getSmartPlanningIssuePriority(issue) === "warning");
+        const isFocusedWeek = weekValue === smartPlanningFocusedWeek;
 
         return `
-          <article class="smart-planning-control-week ${hasIssues ? (actionIssues.length ? "has-action" : "has-warning") : "is-ok"}" data-smart-planning-control-week="${escapeHtmlAttribute(weekValue)}">
+          <article class="smart-planning-control-week ${hasIssues ? (actionIssues.length ? "has-action" : "has-warning") : "is-ok"} ${isFocusedWeek ? "is-focused" : ""}" data-smart-planning-week-key="${escapeHtmlAttribute(weekValue)}" data-smart-planning-control-week="${escapeHtmlAttribute(weekValue)}">
             <header>
               <div>
                 <strong>${formatWeekLabel(weekValue)}</strong>
@@ -21167,14 +21372,15 @@ function goToSmartPlanningIssue(issue) {
   }
 
   if (!targetIssue.itemId) {
-    const targetWeek = targetIssue.weekValue
-      ? document.querySelector(`[data-smart-planning-control-week="${targetIssue.weekValue}"]`)
-      : null;
-    targetWeek?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    if (targetIssue.weekValue) {
+      setSmartPlanningFocusedWeek(targetIssue.weekValue);
+      scheduleSmartPlanningWeekScroll(targetIssue.weekValue);
+    }
     return;
   }
 
   activeSmartPlanningTab = "proposal";
+  setSmartPlanningFocusedWeek(targetIssue.weekValue || getSmartPlanningWeekValueForItemId(targetIssue.itemId));
   selectedSmartPlanningOpenShiftId = targetIssue.itemId;
   renderSmartPlanningPanel();
 
@@ -21182,7 +21388,7 @@ function goToSmartPlanningIssue(issue) {
     const targetButton = [...document.querySelectorAll("[data-smart-planning-open-shift]")]
       .find((button) => button.dataset.smartPlanningOpenShift === targetIssue.itemId);
     const targetWeek = targetIssue.weekValue
-      ? document.querySelector(`[data-smart-planning-week-block="${targetIssue.weekValue}"]`)
+      ? getSmartPlanningWeekElement(targetIssue.weekValue)
       : null;
 
     (targetButton || targetWeek)?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
@@ -21385,6 +21591,7 @@ function selectSmartPlanningProposalEmployee(itemId, employeeName, options = {})
   }
 
   invalidateSmartPlanningEffectiveEntriesCache();
+  refreshSmartPlanningDirtyState();
   selectedSmartPlanningOpenShiftId = employeeName ? getNextSmartPlanningOpenShiftId(itemId) : itemId;
   renderSmartPlanningPanelPreservingRosterScroll();
 }
@@ -21626,7 +21833,7 @@ function renderSmartPlanningProposalRoster(data, proposalItems) {
   const proposalEntries = mapSmartPlanningProposalToRosterEntries(proposalItems);
 
   return `
-    <section class="planning-week-grid week-roster-compact-grid smart-planning-proposal-roster">
+    <section class="planning-week-grid week-roster-compact-grid smart-planning-proposal-roster" data-smart-planning-week-key="${escapeHtmlAttribute(data.selectedWeek)}">
       ${data.weekDates.map((day) => {
         const dayRows = sortRosterEntriesForDisplay(proposalEntries.filter((entry) => entry.day === day));
         const groupedRows = groupEntriesByDepartment(dayRows);
@@ -21762,6 +21969,7 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
   const proposalDepartmentLabel = hasProposal
     ? getSmartPlanningDepartmentLabel(smartPlanningProposalState.department)
     : getSmartPlanningDepartmentLabel(data.departmentFilter);
+  const focusedWeek = ensureSmartPlanningFocusedWeek(data);
 
   updateSmartPlanningApplyButton(data);
 
@@ -21820,12 +22028,15 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
         const weekItems = getSmartPlanningProposalWeekItems(weekProposal);
         const filledCount = weekItems.filter((item) => item.chosenEmployeeName).length;
         const openCount = weekItems.length - filledCount;
+        const isFocusedWeek = weekValue === focusedWeek;
 
         return `
-          <section class="smart-planning-week-block" data-smart-planning-week-block="${escapeHtmlAttribute(weekValue)}">
+          <section class="smart-planning-week-block ${isFocusedWeek ? "is-focused" : ""}" data-smart-planning-week-key="${escapeHtmlAttribute(weekValue)}" data-smart-planning-week-block="${escapeHtmlAttribute(weekValue)}">
             <header class="smart-planning-week-block-head">
               <div>
-                <h4>${formatSmartPlanningWeekCompactLabel(weekValue)}</h4>
+                <button type="button" class="secondary smart-planning-week-select" data-smart-planning-week-select="${escapeHtmlAttribute(weekValue)}" aria-current="${isFocusedWeek ? "true" : "false"}">
+                  Week ${weekIndex + 1}: ${formatSmartPlanningWeekCompactLabel(weekValue)}
+                </button>
               </div>
               <div class="smart-planning-week-block-metrics">
                 <span>${filledCount} ingevuld</span>
@@ -21895,6 +22106,7 @@ function renderSmartPlanningPanel() {
   }
 
   const data = getSmartPlanningMonthData();
+  ensureSmartPlanningFocusedWeek(data);
   renderSmartPlanningTabs();
   renderSmartPlanningProposal(data);
   if (activeSmartPlanningTab === "checks") {
@@ -21906,6 +22118,9 @@ function renderSmartPlanningPanel() {
   }
   renderSmartPlanningTabContent();
   scheduleSmartPlanningFloatingAdvicePosition();
+  if (pendingSmartPlanningScrollWeek) {
+    scheduleSmartPlanningWeekScroll(pendingSmartPlanningScrollWeek);
+  }
 }
 
 function createSmartPlanningPlaceholderProposal() {
@@ -21941,6 +22156,8 @@ function createSmartPlanningPlaceholderProposal() {
   if (fixedStaffingCount) {
     invalidateSmartPlanningEffectiveEntriesCache();
   }
+  setSmartPlanningFocusedWeek(data.selectedWeek);
+  refreshSmartPlanningDirtyState();
   const totalOpenItems = smartPlanningProposalState.weeks.reduce((total, weekProposal) => total + weekProposal.items.length, 0);
   renderSmartPlanningPanel();
   showMessage(totalOpenItems
@@ -22016,6 +22233,8 @@ function createSmartPlanningAdjustmentProposal() {
     })
   };
   invalidateSmartPlanningEffectiveEntriesCache();
+  setSmartPlanningFocusedWeek(data.selectedWeek);
+  refreshSmartPlanningDirtyState();
 
   const totalItems = smartPlanningProposalState.weeks.reduce((total, weekProposal) => total + weekProposal.items.length, 0);
   renderSmartPlanningPanel();
@@ -22050,6 +22269,8 @@ function clearSmartPlanningRosterServices(scope = "week") {
   smartPlanningClearServicesConfirmVisible = false;
   smartPlanningApplyConfirmVisible = false;
   invalidateSmartPlanningEffectiveEntriesCache();
+  setSmartPlanningFocusedWeek(itemsToClear[0]?.weekValue || getSmartPlanningSelectedWeek());
+  refreshSmartPlanningDirtyState();
   renderSmartPlanningPanel();
   showMessage(
     `${itemsToClear.length} dienst${itemsToClear.length === 1 ? "" : "en"} leeggemaakt in het voorstel.${linkedWorkLogCount ? " Let op: er zijn al uren geregistreerd." : ""} Klik Rooster opslaan om dit te bewaren.`,
@@ -22097,6 +22318,8 @@ function clearSmartPlanningProposalWeek(weekValue = "") {
     lastSmartPlanningAssignedItemId = "";
   }
   invalidateSmartPlanningEffectiveEntriesCache();
+  setSmartPlanningFocusedWeek(targetWeek);
+  refreshSmartPlanningDirtyState();
   renderSmartPlanningPanel();
   showMessage(`${formatWeekLabel(targetWeek)} gewist. Er is niets aan het rooster gewijzigd.`, "success");
   return true;
@@ -22124,20 +22347,15 @@ function restoreSmartPlanningProposalWeek(weekValue = "") {
   smartPlanningClearWeekConfirmVisible = false;
   delete smartPlanningClearedWeekSnapshots[snapshotKey];
   invalidateSmartPlanningEffectiveEntriesCache();
+  setSmartPlanningFocusedWeek(targetWeek);
+  refreshSmartPlanningDirtyState();
   renderSmartPlanningPanel();
   showMessage(`${formatWeekLabel(targetWeek)} hersteld. Er is niets aan het rooster gewijzigd.`, "success");
   return true;
 }
 
 function clearSmartPlanningProposal() {
-  smartPlanningProposalState = null;
-  selectedSmartPlanningOpenShiftId = "";
-  lastSmartPlanningAssignedItemId = "";
-  smartPlanningApplyConfirmVisible = false;
-  smartPlanningAdjustConfirmVisible = false;
-  smartPlanningClearServicesConfirmVisible = false;
-  smartPlanningClearWeekConfirmVisible = false;
-  invalidateSmartPlanningEffectiveEntriesCache();
+  discardSmartPlanningProposalState({ resetFocus: true });
   renderSmartPlanningPanel();
   showMessage("Alle voorstellen gewist. Er is niets aan het rooster gewijzigd.", "success");
 }
@@ -28665,15 +28883,24 @@ planningOverviewMonthInput?.addEventListener("change", () => {
 smartPlanningWeekInput?.addEventListener("change", () => {
   const selectedWeek = getSmartPlanningSelectedWeek();
   smartPlanningWeekInput.value = selectedWeek;
+  if (!confirmSmartPlanningSelectionReplacement(selectedWeek, smartPlanningDepartmentSelect?.value || "all")) {
+    return;
+  }
   if (weekInput) weekInput.value = selectedWeek;
   if (weekFilterInput) weekFilterInput.value = selectedWeek;
   if (hoursWeekInput) hoursWeekInput.value = selectedWeek;
   if (copyTargetWeekInput) copyTargetWeekInput.value = selectedWeek;
   if (copySourceWeekInput) copySourceWeekInput.value = getPreviousWeekValue(selectedWeek);
+  setSmartPlanningFocusedWeek(selectedWeek);
+  pendingSmartPlanningScrollWeek = selectedWeek;
   renderSmartPlanningPanel();
 });
 
 smartPlanningDepartmentSelect?.addEventListener("change", () => {
+  if (!confirmSmartPlanningSelectionReplacement(getSmartPlanningSelectedWeek(), smartPlanningDepartmentSelect.value || "all")) {
+    return;
+  }
+  setSmartPlanningFocusedWeek(getSmartPlanningSelectedWeek());
   renderSmartPlanningPanel();
 });
 
@@ -28683,7 +28910,9 @@ smartPlanningMakeProposalButton?.addEventListener("click", () => {
     return;
   }
 
-  createSmartPlanningPlaceholderProposal();
+  if (confirmSmartPlanningUnsavedNavigation({ discardOnConfirm: true, resetFocus: true })) {
+    createSmartPlanningPlaceholderProposal();
+  }
 });
 
 smartPlanningAdjustRosterButton?.addEventListener("click", () => {
@@ -28717,6 +28946,10 @@ smartPlanningClearProposalButton?.addEventListener("click", () => {
 
 smartPlanningClearAllProposalButton?.addEventListener("click", () => {
   if (!isPlannerRole()) {
+    return;
+  }
+
+  if (!confirmSmartPlanningUnsavedNavigation()) {
     return;
   }
 
@@ -28755,10 +28988,19 @@ smartPlanningChecksList?.addEventListener("click", (event) => {
 });
 
 smartPlanningProposalList?.addEventListener("click", (event) => {
+  const weekSelectButton = event.target.closest("[data-smart-planning-week-select]");
+
+  if (weekSelectButton) {
+    focusSmartPlanningWeek(weekSelectButton.dataset.smartPlanningWeekSelect || "");
+    return;
+  }
+
   const inlineMakeProposalButton = event.target.closest("[data-smart-planning-make-proposal-inline]");
 
   if (inlineMakeProposalButton) {
-    createSmartPlanningPlaceholderProposal();
+    if (confirmSmartPlanningUnsavedNavigation({ discardOnConfirm: true, resetFocus: true })) {
+      createSmartPlanningPlaceholderProposal();
+    }
     return;
   }
 
@@ -28825,6 +29067,10 @@ smartPlanningProposalList?.addEventListener("click", (event) => {
   const adjustConfirmButton = event.target.closest("[data-smart-planning-adjust-confirm]");
 
   if (adjustConfirmButton) {
+    if (!confirmSmartPlanningUnsavedNavigation({ discardOnConfirm: true, resetFocus: true })) {
+      return;
+    }
+
     smartPlanningAdjustConfirmVisible = false;
     createSmartPlanningAdjustmentProposal();
     return;
@@ -28878,6 +29124,7 @@ smartPlanningProposalList?.addEventListener("click", (event) => {
   }
 
   selectedSmartPlanningOpenShiftId = button.dataset.smartPlanningOpenShift || "";
+  setSmartPlanningFocusedWeek(getSmartPlanningWeekValueForItemId(selectedSmartPlanningOpenShiftId));
   renderSmartPlanningPanel();
 });
 
@@ -28916,7 +29163,16 @@ window.addEventListener("scroll", positionSmartPlanningFloatingAdvice, true);
 document.querySelectorAll("[data-smart-planning-tab]").forEach((button) => {
   button.addEventListener("click", () => {
     const nextTab = button.dataset.smartPlanningTab || "proposal";
-    activeSmartPlanningTab = ["proposal", "checks", "insights"].includes(nextTab) ? nextTab : "proposal";
+    const normalizedSmartPlanningTab = ["proposal", "checks", "insights"].includes(nextTab) ? nextTab : "proposal";
+
+    if (
+      normalizedSmartPlanningTab !== activeSmartPlanningTab &&
+      !confirmSmartPlanningUnsavedNavigation()
+    ) {
+      return;
+    }
+
+    activeSmartPlanningTab = normalizedSmartPlanningTab;
     renderSmartPlanningPanel();
   });
 });
@@ -29949,6 +30205,14 @@ mobileNavButtons.forEach((button) => {
 });
 
 window.addEventListener("beforeunload", (event) => {
+  refreshSmartPlanningDirtyState();
+
+  if (smartPlanningDirty) {
+    event.preventDefault();
+    event.returnValue = smartPlanningUnsavedWarningMessage;
+    return;
+  }
+
   if (activeTab !== "employees") {
     return;
   }
