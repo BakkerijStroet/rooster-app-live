@@ -3195,40 +3195,55 @@ textarea.input-error {
 }
 
 .smart-planning-panel {
-  gap: 12px;
+  gap: 8px;
   align-content: start;
 }
 
 .smart-planning-panel .smart-planning-header {
   display: grid;
   grid-template-columns: 1fr !important;
-  gap: 10px;
+  gap: 7px;
   margin-bottom: 0;
 }
 
 .smart-planning-toolbar {
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
-  gap: 8px 12px;
-  padding: 10px;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 7px;
   border: 1px solid var(--border);
-  border-radius: 14px;
-  background: #fffaf1;
+  border-radius: 12px;
+  background: #fffdf7;
 }
 
 .smart-planning-toolbar .week-select {
   margin: 0;
-  min-width: 150px;
+  min-width: 132px;
+}
+
+.smart-planning-toolbar label {
+  gap: 2px;
+}
+
+.smart-planning-toolbar input,
+.smart-planning-toolbar select {
+  min-height: 34px;
+  padding: 6px 9px;
+}
+
+.smart-planning-toolbar button {
+  min-height: 34px;
+  padding: 7px 10px;
 }
 
 .smart-planning-info {
-  padding: 10px 12px;
-  border: 1px solid #f0c36d;
-  border-radius: 14px;
-  background: #fff7df;
-  color: #76520f;
-  font-size: 14px;
+  padding: 6px 9px;
+  border: 1px solid #f2dfbd;
+  border-radius: 10px;
+  background: #fffaf0;
+  color: #7a6453;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -3236,10 +3251,10 @@ textarea.input-error {
 .smart-planning-rules,
 .smart-planning-legacy-tools {
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  gap: 7px;
+  padding: 9px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 12px;
   background: #fff;
   min-width: 0;
 }
@@ -3247,23 +3262,24 @@ textarea.input-error {
 .smart-planning-tabs {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 5px;
+  gap: 4px;
+  padding: 4px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: #fffaf1;
+  background: #fffdf7;
   width: fit-content;
   max-width: 100%;
 }
 
 .smart-planning-tab {
   appearance: none;
-  min-height: 34px;
-  padding: 7px 13px;
+  min-height: 30px;
+  padding: 5px 10px;
   border: 1px solid transparent;
   border-radius: 999px;
   background: transparent;
   color: #6a5844;
+  font-size: 12px;
   font-weight: 800;
   cursor: pointer;
 }
@@ -3272,7 +3288,7 @@ textarea.input-error {
   border-color: #e7b35f;
   background: #f59f24;
   color: #fff;
-  box-shadow: 0 2px 8px rgba(122, 74, 18, 0.14);
+  box-shadow: none;
 }
 
 .smart-planning-tab-content {
@@ -3284,11 +3300,12 @@ textarea.input-error {
   display: flex;
   align-items: start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
 }
 
 .smart-planning-card-head h3 {
   margin: 0;
+  font-size: 16px;
 }
 
 .smart-planning-list {
@@ -3604,21 +3621,22 @@ textarea.input-error {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 6px 12px;
-  padding: 8px 10px;
+  gap: 5px 8px;
+  padding: 6px 8px;
   border: 1px solid #dbe9e4;
-  border-radius: 12px;
-  background: #f7fbf8;
+  border-radius: 10px;
+  background: #fbfdfb;
 }
 
 .smart-planning-proposal-status strong {
-  display: block;
+  display: inline;
   color: #1f3f35;
+  font-size: 13px;
 }
 
 .smart-planning-proposal-status span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -3739,37 +3757,37 @@ textarea.input-error {
 
 .smart-planning-month-proposal {
   display: grid;
-  gap: 14px;
+  gap: 9px;
   min-width: 0;
 }
 
 .smart-planning-week-block {
   display: grid;
-  gap: 7px;
+  gap: 5px;
   min-width: 0;
-  padding: 9px;
-  border: 1px solid #ead9bf;
-  border-radius: 14px;
-  background: #fffdf8;
+  padding: 6px;
+  border: 1px solid #eee0c9;
+  border-radius: 12px;
+  background: #fffefb;
 }
 
 .smart-planning-week-block-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 
 .smart-planning-week-block-head h4 {
   margin: 0;
   color: #2f2a23;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .smart-planning-week-block-head span,
 .smart-planning-week-block-metrics span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
 }
 
@@ -3777,13 +3795,13 @@ textarea.input-error {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 5px;
+  gap: 4px;
 }
 
 .smart-planning-week-block-metrics span {
-  padding: 3px 7px;
+  padding: 2px 6px;
   border-radius: 999px;
-  background: #f4efe7;
+  background: #f6f1ea;
 }
 
 .smart-planning-week-empty-state {
@@ -3817,28 +3835,31 @@ textarea.input-error {
 }
 
 .smart-planning-proposal-roster.planning-week-grid {
-  grid-template-columns: repeat(7, minmax(220px, 1fr));
-  min-width: 1540px;
-  gap: 0.18rem;
+  grid-template-columns: repeat(7, minmax(205px, 1fr));
+  min-width: 1435px;
+  gap: 0.12rem;
   overflow: visible;
 }
 
 .smart-planning-proposal-roster .smart-planning-proposal-day {
-  padding: 0.3rem;
-  gap: 0.22rem;
+  padding: 0.22rem;
+  gap: 0.16rem;
+  border-radius: 10px;
 }
 
 .smart-planning-proposal-roster .planning-day-header {
-  gap: 0.04rem;
-  margin-bottom: 0.04rem;
+  gap: 0;
+  margin-bottom: 0;
+  padding: 0.12rem 0.14rem;
 }
 
 .smart-planning-proposal-roster .planning-day-header strong {
-  font-size: 0.76rem;
+  font-size: 0.78rem;
+  text-transform: capitalize;
 }
 
 .smart-planning-proposal-roster .planning-day-header span {
-  font-size: 0.66rem;
+  font-size: 0.58rem;
 }
 
 .smart-planning-proposal-roster .smart-planning-proposal-day,
@@ -3847,21 +3868,24 @@ textarea.input-error {
 .smart-planning-proposal-roster .roster-group-list,
 .smart-planning-proposal-roster .planning-shift-lines {
   overflow: visible;
-  gap: 0.14rem;
+  gap: 0.1rem;
 }
 
 .smart-planning-proposal-roster .planning-roster-groups {
-  gap: 0.14rem;
-}
-
-.smart-planning-proposal-roster .planning-roster-group {
-  padding: 0.22rem;
   gap: 0.12rem;
 }
 
+.smart-planning-proposal-roster .planning-roster-group {
+  padding: 0.16rem;
+  gap: 0.08rem;
+  border-radius: 9px;
+}
+
 .smart-planning-proposal-roster .roster-group-title {
-  font-size: 0.66rem;
+  font-size: 0.6rem;
   margin-bottom: 0;
+  letter-spacing: 0.02em;
+  opacity: 0.78;
 }
 
 .smart-planning-proposal-roster .planning-shift-line {
@@ -3870,20 +3894,21 @@ textarea.input-error {
 
 .smart-planning-proposal-roster .smart-planning-open-shift-button {
   display: block;
-  min-height: 26px;
-  padding: 0.18rem 0.24rem;
+  min-height: 24px;
+  padding: 0.15rem 0.2rem;
   cursor: pointer;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
   overflow: hidden;
+  border-radius: 8px;
 }
 
 .smart-planning-open-shift {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr) minmax(72px, max-content);
+  grid-template-columns: max-content minmax(0, 1fr) minmax(66px, max-content);
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
   width: 100%;
 }
@@ -3895,11 +3920,11 @@ textarea.input-error {
 .smart-planning-open-label {
   display: inline-flex;
   justify-content: center;
-  padding: 0.04rem 0.22rem;
+  padding: 0.03rem 0.18rem;
   border-radius: 999px;
   background: #f97316;
   color: #fff;
-  font-size: 0.58rem;
+  font-size: 0.54rem;
   font-weight: 900;
   white-space: nowrap;
 }
@@ -3910,14 +3935,14 @@ textarea.input-error {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #2f2a23;
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   font-weight: 800;
 }
 
 .smart-planning-open-time {
   display: block;
   color: #7a6453;
-  font-size: 0.64rem;
+  font-size: 0.6rem;
   font-weight: 900;
   line-height: 1.2;
   text-align: right;
@@ -3993,13 +4018,13 @@ textarea.input-error {
 
 .smart-planning-proposal-roster .smart-planning-open-shift-button.has-choice {
   display: block;
-  min-height: 34px;
-  padding: 0.2rem 0.26rem;
+  min-height: 30px;
+  padding: 0.16rem 0.22rem;
 }
 
 .smart-planning-assigned-shift {
   display: grid;
-  gap: 1px;
+  gap: 0;
   min-width: 0;
   width: 100%;
 }
@@ -4013,20 +4038,20 @@ textarea.input-error {
 
 .smart-planning-assigned-top {
   grid-template-columns: minmax(0, 1fr) max-content;
-  gap: 4px;
+  gap: 3px;
 }
 
 .smart-planning-assigned-bottom {
-  grid-template-columns: minmax(0, 1fr) minmax(70px, max-content);
-  gap: 5px;
+  grid-template-columns: minmax(0, 1fr) minmax(66px, max-content);
+  gap: 4px;
 }
 
 .smart-planning-assigned-name {
   min-width: 0;
   color: #1f3f35;
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   font-weight: 900;
-  line-height: 1.12;
+  line-height: 1.08;
   white-space: normal;
 }
 
@@ -4036,13 +4061,13 @@ textarea.input-error {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #2f2a23;
-  font-size: 0.64rem;
+  font-size: 0.58rem;
   font-weight: 800;
 }
 
 .smart-planning-assigned-time {
   color: #7a6453;
-  font-size: 0.62rem;
+  font-size: 0.58rem;
   font-weight: 800;
   text-align: right;
   white-space: nowrap;
@@ -4061,28 +4086,28 @@ textarea.input-error {
 
 .smart-planning-open-shift-button.is-selected {
   border-color: #d97706;
-  background: #ffe7d3;
-  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.18);
+  background: #fff0df;
+  box-shadow: 0 0 0 1px rgba(217, 119, 6, 0.18);
 }
 
 .smart-planning-open-shift-button.has-warning {
   border-color: #ef9a76;
-  background: #fff0eb;
+  background: #fff7f3;
 }
 
 .smart-planning-open-shift-button.has-warning.is-selected {
   border-color: #dc2626;
-  background: #ffe4df;
-  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.18);
+  background: #fff0eb;
+  box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.18);
 }
 
 .smart-planning-shift-warning {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-left: 5px;
+  margin-left: 3px;
   color: #dc2626;
-  font-size: 0.9rem;
+  font-size: 0.78rem;
   line-height: 1;
 }
 
@@ -4144,14 +4169,14 @@ textarea.input-error {
   left: var(--smart-picker-left, 120px);
   z-index: 100000;
   display: grid;
-  width: min(270px, 88vw);
-  max-height: 310px;
-  gap: 7px;
-  padding: 8px;
+  width: min(245px, 88vw);
+  max-height: 285px;
+  gap: 5px;
+  padding: 6px;
   border: 1px solid #ead9bf;
-  border-radius: 12px;
-  background: #fffaf3;
-  box-shadow: 0 18px 35px rgba(64, 48, 31, 0.18);
+  border-radius: 10px;
+  background: #fffdf8;
+  box-shadow: 0 12px 24px rgba(64, 48, 31, 0.14);
   overflow-y: auto;
 }
 
@@ -4164,12 +4189,12 @@ textarea.input-error {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 5px 7px;
-  border-radius: 9px;
-  background: #f7ecdc;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  background: #f8f0e5;
   color: #3b3028;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 900;
 }
 
@@ -4183,41 +4208,41 @@ textarea.input-error {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
-  padding: 6px 8px;
+  gap: 5px;
+  padding: 4px 6px;
   border: 1px solid #b7dfc3;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #f3fbf6;
 }
 
 .smart-planning-inline-selected span {
   color: #236b45;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 900;
 }
 
 .smart-planning-inline-selected button {
   appearance: none;
-  min-height: 26px;
-  padding: 4px 8px;
+  min-height: 22px;
+  padding: 3px 7px;
   border: 1px solid #9ed2ac;
   border-radius: 999px;
   background: #fff;
   color: #236b45;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 900;
 }
 
 .smart-planning-inline-advice h4 {
-  margin: 0 0 4px;
-  font-size: 12px;
+  margin: 0 0 3px;
+  font-size: 11px;
 }
 
 .smart-planning-inline-choice-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 4px;
 }
 
 .smart-planning-employee-choice {
@@ -4225,11 +4250,11 @@ textarea.input-error {
   display: inline-flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 1px;
+  gap: 0;
   max-width: 100%;
-  padding: 5px 7px;
+  padding: 4px 6px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   background: #fff;
   color: #3b3028;
   cursor: pointer;
@@ -4245,12 +4270,12 @@ textarea.input-error {
 }
 
 .smart-planning-employee-choice strong {
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .smart-planning-employee-choice span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
 }
 
@@ -4278,12 +4303,12 @@ textarea.input-error {
 .smart-planning-employee-choice.is-selected {
   border-color: #2f9e6e;
   background: #dff5e7;
-  box-shadow: 0 0 0 2px rgba(47, 158, 110, 0.16);
+  box-shadow: 0 0 0 1px rgba(47, 158, 110, 0.16);
 }
 
 .smart-planning-employee-choice.is-last-selected {
   border-color: #2f9e6e;
-  box-shadow: 0 0 0 2px rgba(47, 158, 110, 0.12);
+  box-shadow: 0 0 0 1px rgba(47, 158, 110, 0.12);
 }
 
 @media (max-width: 640px) {

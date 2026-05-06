@@ -19704,6 +19704,37 @@ function getSmartPlanningDepartmentLabel(department = "all") {
   return "Alles";
 }
 
+function formatSmartPlanningDayShortLabel(dateValue) {
+  if (!dateValue) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("nl-NL", { weekday: "short" })
+    .format(new Date(`${dateValue}T00:00:00`))
+    .replace(".", "")
+    .slice(0, 2);
+}
+
+function formatSmartPlanningWeekCompactLabel(weekValue) {
+  const weekDates = getWeekDates(weekValue);
+  const weekNumber = getWeekNumber(weekValue);
+
+  if (!weekDates.length) {
+    return formatWeekLabel(weekValue);
+  }
+
+  return `Week ${weekNumber} · ${formatRosterDateLabel(weekDates[0])} t/m ${formatRosterDateLabel(weekDates[weekDates.length - 1])}`;
+}
+
+function getSmartPlanningAssignmentBadgeLabel(reason = "") {
+  const normalizedReason = String(reason || "").toLowerCase();
+
+  if (normalizedReason.includes("vaste")) return "Vast";
+  if (normalizedReason.includes("bestaand")) return "Bestaand";
+
+  return "";
+}
+
 function getSmartPlanningWeekData(weekValue = getSmartPlanningSelectedWeek()) {
   const selectedWeek = weekValue || getSmartPlanningSelectedWeek();
   const departmentFilter = smartPlanningDepartmentSelect?.value || "all";
@@ -21458,7 +21489,7 @@ function renderSmartPlanningInlineAdvice(item) {
       </div>
       ${item.chosenEmployeeName ? `
         <div class="smart-planning-inline-selected">
-          <span>${item.chosenEmployeeName} is tijdelijk gekozen.</span>
+          <span>${item.chosenEmployeeName}</span>
           <button type="button" data-smart-planning-clear-choice="${escapeHtmlAttribute(item.id)}">Wissen</button>
         </div>
       ` : ""}
@@ -21538,8 +21569,8 @@ function renderSmartPlanningProposalRoster(data, proposalItems) {
         return `
           <article class="planning-day-card week-roster-day-card smart-planning-proposal-day ${hasOpenShifts ? "is-open-day" : "is-closed"}">
             <header class="planning-day-header">
-              <strong>${formatWeekday(day)}</strong>
-              <span>${formatDate(day)}</span>
+              <strong>${formatSmartPlanningDayShortLabel(day)}</strong>
+              <span>${formatRosterDateLabel(day)}</span>
             </header>
             <div class="roster-groups planning-roster-groups">
               ${dayRows.length
@@ -21560,7 +21591,7 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
 
   return `
     <section class="roster-group roster-group--${groupType} planning-roster-group">
-      <h3 class="roster-group-title">${groupType === "shop" ? "🏪" : "🥖"} ${title}</h3>
+      <h3 class="roster-group-title">${title}</h3>
       <div class="roster-group-list planning-shift-lines">
         ${groupRows.map((row) => {
           const shiftTime = `${row.startTime}-${row.endTime}`;
@@ -21571,13 +21602,13 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
           const warningText = getSmartPlanningShiftWarning(proposalItem, { lazy: true });
           const chosenEmployeeName = proposalItem?.chosenEmployeeName || "";
           const employeeLabel = chosenEmployeeName || "OPEN";
-          const assignmentLabel = proposalItem?.assignmentReason || "Voorstel";
+          const assignmentLabel = getSmartPlanningAssignmentBadgeLabel(proposalItem?.assignmentReason || "");
           const titleText = warningText || `OPEN - ${row.shiftName} - ${shiftTime}. Klik om details te bekijken`;
           const shiftContent = chosenEmployeeName ? `
                 <span class="smart-planning-assigned-shift">
                   <span class="smart-planning-assigned-top">
                     <span class="smart-planning-assigned-name">${employeeLabel}</span>
-                    <em class="smart-planning-concept-badge">${assignmentLabel}</em>
+                    ${assignmentLabel ? `<em class="smart-planning-concept-badge">${assignmentLabel}</em>` : ""}
                   </span>
                   <span class="smart-planning-assigned-bottom">
                     <span class="smart-planning-assigned-shift-name" title="${escapeHtmlAttribute(row.shiftName)}">${displayShiftName}</span>
@@ -21670,7 +21701,7 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
 
   if (hasProposal && !proposalItems.length && !hasClearedProposalWeeks) {
     if (smartPlanningProposalSummary) {
-      smartPlanningProposalSummary.textContent = `${smartPlanningProposalState.mode === "adjust" ? "Rooster aanpassen" : "Maandvoorstel gemaakt"} · vanaf ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel}`;
+      smartPlanningProposalSummary.textContent = `${smartPlanningProposalState.mode === "adjust" ? "Rooster aanpassen" : "Voorstel"} · ${formatSmartPlanningWeekCompactLabel(data.selectedWeek)} · ${proposalDepartmentLabel}`;
     }
     setClassName(smartPlanningProposalList, "smart-planning-list empty");
     smartPlanningProposalList.innerHTML = `
@@ -21678,7 +21709,7 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
       ${renderSmartPlanningClearWeekConfirm()}
       ${renderSmartPlanningClearServicesConfirm()}
       <strong>${smartPlanningProposalState.mode === "adjust" ? "Geen diensten gevonden om aan te passen." : "Geen open diensten gevonden voor deze selectie."}</strong>
-      <span>4 weken vanaf ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel}</span>
+      <span>${formatSmartPlanningWeekCompactLabel(data.selectedWeek)} · ${proposalDepartmentLabel}</span>
     `;
     return;
   }
@@ -21699,7 +21730,7 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
 
   if (smartPlanningProposalSummary) {
     const changedCount = getSmartPlanningAssignedItems(data).length;
-    smartPlanningProposalSummary.textContent = `${smartPlanningProposalState.mode === "adjust" ? "Rooster aanpassen" : "Maandvoorstel gemaakt"} · vanaf ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel} · ${proposalItems.length} regels${smartPlanningProposalState.mode === "adjust" ? ` · ${changedCount} wijziging${changedCount === 1 ? "" : "en"}` : ""}`;
+    smartPlanningProposalSummary.textContent = `${smartPlanningProposalState.mode === "adjust" ? "Rooster aanpassen" : "Voorstel"} · ${formatSmartPlanningWeekCompactLabel(data.selectedWeek)} · ${changedCount} wijziging${changedCount === 1 ? "" : "en"} · ${proposalItems.length} diensten`;
   }
 
   setClassName(smartPlanningProposalList, "smart-planning-list");
@@ -21709,10 +21740,10 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
     ${renderSmartPlanningClearServicesConfirm()}
     <div class="smart-planning-proposal-status">
       <div>
-        <strong>${smartPlanningProposalState.mode === "adjust" ? "Rooster aanpassen" : "Maandvoorstel gemaakt"}</strong>
+        <strong>${smartPlanningProposalState.mode === "adjust" ? "Rooster aanpassen" : "Voorstel"}</strong>
         <span>${smartPlanningProposalState.mode === "adjust"
-          ? `4 weken vanaf ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel} · bestaande diensten blijven staan; alleen bewuste wijzigingen worden toegepast.`
-          : `4 weken vanaf ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel} · alle regels blijven tijdelijk tot je later bewust toepast.`}</span>
+          ? `${formatSmartPlanningWeekCompactLabel(data.selectedWeek)} · ${proposalDepartmentLabel} · alleen wijzigingen worden toegepast.`
+          : `${formatSmartPlanningWeekCompactLabel(data.selectedWeek)} · ${proposalDepartmentLabel} · tijdelijk voorstel.`}</span>
       </div>
       ${smartPlanningProposalState.mode === "adjust" ? `<button type="button" class="secondary" data-smart-planning-clear-services-open>Diensten leegmaken</button>` : ""}
     </div>
@@ -21728,8 +21759,7 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
           <section class="smart-planning-week-block" data-smart-planning-week-block="${escapeHtmlAttribute(weekValue)}">
             <header class="smart-planning-week-block-head">
               <div>
-                <h4>Week ${weekIndex + 1} · ${formatWeekLabel(weekValue)}</h4>
-                <span>${formatPlanningWeekPeriod(weekValue)}</span>
+                <h4>${formatSmartPlanningWeekCompactLabel(weekValue)}</h4>
               </div>
               <div class="smart-planning-week-block-metrics">
                 <span>${filledCount} ingevuld</span>
@@ -21848,7 +21878,7 @@ function createSmartPlanningPlaceholderProposal() {
   const totalOpenItems = smartPlanningProposalState.weeks.reduce((total, weekProposal) => total + weekProposal.items.length, 0);
   renderSmartPlanningPanel();
   showMessage(totalOpenItems
-    ? `Maandvoorstel gemaakt.${fixedStaffingCount ? ` ${fixedStaffingCount} vaste bakkerijdienst${fixedStaffingCount === 1 ? "" : "en"} alvast ingevuld.` : ""} Er is nog niets toegepast op het rooster.`
+    ? `Voorstel gemaakt.${fixedStaffingCount ? ` ${fixedStaffingCount} vaste bakkerijdienst${fixedStaffingCount === 1 ? "" : "en"} ingevuld.` : ""}`
     : "Geen open diensten gevonden voor deze selectie.", totalOpenItems ? "success" : "warning");
 }
 
