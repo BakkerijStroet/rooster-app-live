@@ -4844,6 +4844,14 @@ let smartPlanningAdjustConfirmVisible = false;
 let smartPlanningClearServicesConfirmVisible = false;
 let smartPlanningClearWeekConfirmVisible = false;
 const smartPlanningClearedWeekSnapshots = {};
+let smartPlanningProposalRevision = 0;
+let smartPlanningEffectiveEntriesCache = {
+  revision: -1,
+  sourceEntries: null,
+  sourceLength: -1,
+  entries: [],
+  entryByItemId: new Map()
+};
 let lastOpenRequestReminderKey = "";
 let lastEmployeeHoursReminderKey = "";
 const derivedDataCache = {
@@ -19904,6 +19912,7 @@ function clearAppliedSmartPlanningAssignments(appliedItemIds) {
   if (appliedItemIds.has(lastSmartPlanningAssignedItemId)) {
     lastSmartPlanningAssignedItemId = "";
   }
+  invalidateSmartPlanningEffectiveEntriesCache();
 }
 
 function applySmartPlanningToRoster() {
@@ -20099,21 +20108,62 @@ function getSmartPlanningEntriesWithoutOriginalItem(item, sourceEntries = entrie
   return sourceEntries.filter((entry) => !isSmartPlanningOriginalEntryMatch(entry, item));
 }
 
+function invalidateSmartPlanningEffectiveEntriesCache() {
+  smartPlanningProposalRevision += 1;
+  smartPlanningEffectiveEntriesCache = {
+    revision: -1,
+    sourceEntries: null,
+    sourceLength: -1,
+    entries: [],
+    entryByItemId: new Map()
+  };
+}
+
+function getSmartPlanningEffectiveEntriesCache(sourceEntries = entries) {
+  if (
+    smartPlanningEffectiveEntriesCache.revision === smartPlanningProposalRevision &&
+    smartPlanningEffectiveEntriesCache.sourceEntries === sourceEntries &&
+    smartPlanningEffectiveEntriesCache.sourceLength === sourceEntries.length
+  ) {
+    return smartPlanningEffectiveEntriesCache;
+  }
+
+  const proposalItems = getSmartPlanningProposalItems();
+  const proposalOriginals = proposalItems.filter((item) => item.isExistingRosterEntry);
+  const entryByItemId = new Map();
+  const preservedEntries = sourceEntries.filter((entry) =>
+    !proposalOriginals.some((item) => isSmartPlanningOriginalEntryMatch(entry, item))
+  );
+  const proposalEntries = proposalItems
+    .filter((item) => item.chosenEmployeeName)
+    .map((item) => {
+      const entry = createSmartPlanningRosterEntry(item, getSmartPlanningShiftFromProposalItem(item));
+      entryByItemId.set(item.id, entry);
+      return entry;
+    });
+
+  smartPlanningEffectiveEntriesCache = {
+    revision: smartPlanningProposalRevision,
+    sourceEntries,
+    sourceLength: sourceEntries.length,
+    entries: [...preservedEntries, ...proposalEntries],
+    entryByItemId
+  };
+
+  return smartPlanningEffectiveEntriesCache;
+}
+
 function getEffectivePlanningEntriesForSmartPlanningProposal(candidateItem = null, sourceEntries = entries) {
   if (smartPlanningProposalState?.mode !== "adjust") {
     return getSmartPlanningEntriesWithoutOriginalItem(candidateItem, sourceEntries);
   }
 
-  const proposalItems = getSmartPlanningProposalItems();
-  const proposalOriginals = proposalItems.filter((item) => item.isExistingRosterEntry);
-  const preservedEntries = sourceEntries.filter((entry) =>
-    !proposalOriginals.some((item) => isSmartPlanningOriginalEntryMatch(entry, item))
-  );
-  const proposalEntries = proposalItems
-    .filter((item) => item.id !== candidateItem?.id && item.chosenEmployeeName)
-    .map((item) => createSmartPlanningRosterEntry(item, getSmartPlanningShiftFromProposalItem(item)));
+  const cache = getSmartPlanningEffectiveEntriesCache(sourceEntries);
+  const candidateEntry = candidateItem?.id ? cache.entryByItemId.get(candidateItem.id) : null;
 
-  return [...preservedEntries, ...proposalEntries];
+  return candidateEntry
+    ? cache.entries.filter((entry) => entry !== candidateEntry)
+    : cache.entries;
 }
 
 function getRosterChangesForNotifications(previousEntries = [], nextEntries = []) {
@@ -20971,6 +21021,7 @@ function assignSmartPlanningSameShiftSeries(itemId, employeeName) {
     ) {
       item.chosenEmployeeName = employeeName;
       assignedCount += 1;
+      invalidateSmartPlanningEffectiveEntriesCache();
     }
   });
 
@@ -20996,6 +21047,7 @@ function selectSmartPlanningProposalEmployee(itemId, employeeName, options = {})
     lastSmartPlanningAssignedItemId = "";
   }
 
+  invalidateSmartPlanningEffectiveEntriesCache();
   selectedSmartPlanningOpenShiftId = employeeName ? getNextSmartPlanningOpenShiftId(itemId) : itemId;
   renderSmartPlanningPanelPreservingRosterScroll();
 }
@@ -21525,7 +21577,11 @@ function createSmartPlanningPlaceholderProposal() {
       }))
     }))
   };
+  invalidateSmartPlanningEffectiveEntriesCache();
   const fixedStaffingCount = applySmartPlanningFixedBakeryStaffing();
+  if (fixedStaffingCount) {
+    invalidateSmartPlanningEffectiveEntriesCache();
+  }
   const totalOpenItems = smartPlanningProposalState.weeks.reduce((total, weekProposal) => total + weekProposal.items.length, 0);
   renderSmartPlanningPanel();
   showMessage(totalOpenItems
@@ -21600,6 +21656,7 @@ function createSmartPlanningAdjustmentProposal() {
       };
     })
   };
+  invalidateSmartPlanningEffectiveEntriesCache();
 
   const totalItems = smartPlanningProposalState.weeks.reduce((total, weekProposal) => total + weekProposal.items.length, 0);
   renderSmartPlanningPanel();
@@ -21633,6 +21690,7 @@ function clearSmartPlanningRosterServices(scope = "week") {
   lastSmartPlanningAssignedItemId = "";
   smartPlanningClearServicesConfirmVisible = false;
   smartPlanningApplyConfirmVisible = false;
+  invalidateSmartPlanningEffectiveEntriesCache();
   renderSmartPlanningPanel();
   showMessage(
     `${itemsToClear.length} dienst${itemsToClear.length === 1 ? "" : "en"} leeggemaakt in het voorstel.${linkedWorkLogCount ? " Let op: er zijn al uren geregistreerd." : ""} Klik Rooster toepassen om dit op te slaan.`,
@@ -21679,6 +21737,7 @@ function clearSmartPlanningProposalWeek(weekValue = "") {
   if (lastAssignedWeek === targetWeek) {
     lastSmartPlanningAssignedItemId = "";
   }
+  invalidateSmartPlanningEffectiveEntriesCache();
   renderSmartPlanningPanel();
   showMessage(`${formatWeekLabel(targetWeek)} gewist. Er is niets aan het rooster gewijzigd.`, "success");
   return true;
@@ -21705,6 +21764,7 @@ function restoreSmartPlanningProposalWeek(weekValue = "") {
   smartPlanningApplyConfirmVisible = false;
   smartPlanningClearWeekConfirmVisible = false;
   delete smartPlanningClearedWeekSnapshots[snapshotKey];
+  invalidateSmartPlanningEffectiveEntriesCache();
   renderSmartPlanningPanel();
   showMessage(`${formatWeekLabel(targetWeek)} hersteld. Er is niets aan het rooster gewijzigd.`, "success");
   return true;
@@ -21718,6 +21778,7 @@ function clearSmartPlanningProposal() {
   smartPlanningAdjustConfirmVisible = false;
   smartPlanningClearServicesConfirmVisible = false;
   smartPlanningClearWeekConfirmVisible = false;
+  invalidateSmartPlanningEffectiveEntriesCache();
   renderSmartPlanningPanel();
   showMessage("Alle voorstellen gewist. Er is niets aan het rooster gewijzigd.", "success");
 }
