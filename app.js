@@ -4838,6 +4838,7 @@ let selectedSmartPlanningOpenShiftId = "";
 let lastSmartPlanningSelectedEmployeeName = "";
 let lastSmartPlanningAssignedItemId = "";
 let smartPlanningApplyConfirmVisible = false;
+let smartPlanningIsSavingRoster = false;
 let smartPlanningAdjustConfirmVisible = false;
 let smartPlanningClearServicesConfirmVisible = false;
 let smartPlanningClearWeekConfirmVisible = false;
@@ -19864,10 +19865,10 @@ function updateSmartPlanningApplyButton(data = getSmartPlanningMonthData()) {
   }
 
   const summary = getSmartPlanningApplySummary(data);
-  smartPlanningApplyProposalButton.disabled = summary.assignedCount === 0;
-  smartPlanningApplyProposalButton.textContent = "Rooster toepassen";
+  smartPlanningApplyProposalButton.disabled = smartPlanningIsSavingRoster || summary.assignedCount === 0;
+  smartPlanningApplyProposalButton.textContent = smartPlanningIsSavingRoster ? "Opslaan..." : "Rooster opslaan";
   smartPlanningApplyProposalButton.title = summary.assignedCount
-    ? `${summary.assignedCount} wijziging${summary.assignedCount === 1 ? "" : "en"} toepassen`
+    ? `${summary.assignedCount} wijziging${summary.assignedCount === 1 ? "" : "en"} opslaan`
     : "Kies eerst minimaal één medewerker of maak een dienst leeg.";
 }
 
@@ -19882,9 +19883,10 @@ function renderSmartPlanningApplyConfirm(data = getSmartPlanningMonthData()) {
   return `
     <section class="smart-planning-apply-confirm">
       <div>
-        <strong>Rooster toepassen?</strong>
+        <strong>Rooster opslaan?</strong>
         <p>De gekozen wijzigingen worden in het echte rooster gezet.</p>
         ${isAdjustingRoster ? `<p class="smart-planning-apply-warning">Let op: je wijzigt een bestaand rooster.</p>` : ""}
+        ${smartPlanningIsSavingRoster ? `<p class="panel-note">Rooster wordt opgeslagen...</p>` : ""}
       </div>
       <div class="smart-planning-apply-summary">
         <span>${summary.assignedCount} diensten worden aangepast/leeggemaakt/ingevuld</span>
@@ -19892,8 +19894,8 @@ function renderSmartPlanningApplyConfirm(data = getSmartPlanningMonthData()) {
         <span>${summary.warningCount} waarschuwingen blijven staan</span>
       </div>
       <div class="smart-planning-apply-actions">
-        <button type="button" class="secondary" data-smart-planning-apply-cancel>Annuleren</button>
-        <button type="button" data-smart-planning-apply-confirm ${summary.assignedCount ? "" : "disabled"}>Rooster toepassen</button>
+        <button type="button" class="secondary" data-smart-planning-apply-cancel ${smartPlanningIsSavingRoster ? "disabled" : ""}>Annuleren</button>
+        <button type="button" data-smart-planning-apply-confirm ${summary.assignedCount && !smartPlanningIsSavingRoster ? "" : "disabled"}>${smartPlanningIsSavingRoster ? "Opslaan..." : "Rooster opslaan"}</button>
       </div>
     </section>
   `;
@@ -19984,6 +19986,7 @@ function applySmartPlanningToRoster() {
   const assignedItems = getSmartPlanningAssignedItems(data);
 
   if (!assignedItems.length) {
+    smartPlanningIsSavingRoster = false;
     showMessage("Kies eerst minimaal één medewerker of maak een dienst leeg.", "warning");
     updateSmartPlanningApplyButton();
     return;
@@ -19991,11 +19994,12 @@ function applySmartPlanningToRoster() {
 
   const affectedWeeks = [...new Set(assignedItems.map((item) => item.weekValue || getWeekValueFromDate(item.day)))];
   const blockedWeek = affectedWeeks.find((weekValue) => !ensureWeekActionAllowed(weekValue, {
-    actionLabel: "het rooster toe te passen",
+    actionLabel: "het rooster op te slaan",
     blockPlannerWhenLocked: true
   }));
 
   if (blockedWeek) {
+    smartPlanningIsSavingRoster = false;
     smartPlanningApplyConfirmVisible = false;
     renderSmartPlanningPanel();
     return;
@@ -20071,7 +20075,7 @@ function applySmartPlanningToRoster() {
   });
 
   if (savedEntries.length || clearedCount) {
-    setUndoState("Rooster plannen toepassen");
+    setUndoState("Rooster plannen opslaan");
     entries.splice(0, entries.length, ...workingEntries);
     saveEntries();
     if (movedWorkLogs) {
@@ -20083,10 +20087,10 @@ function applySmartPlanningToRoster() {
     }
     logPreparedRosterChangeNotifications(preparedRosterChanges);
     persistProtectedChange({
-      reason: "Rooster plannen toegepast",
+      reason: "Rooster plannen opgeslagen",
       scope: "roster",
       action: "smart-planning-applied",
-      message: "Rooster plannen toegepast.",
+      message: "Rooster plannen opgeslagen.",
       details: {
         weekValues: affectedWeeks,
         assignmentCount: savedEntries.length,
@@ -20104,10 +20108,31 @@ function applySmartPlanningToRoster() {
   }
 
   clearAppliedSmartPlanningAssignments(appliedItemIds);
+  smartPlanningIsSavingRoster = false;
   smartPlanningApplyConfirmVisible = false;
   render();
   const changedCount = savedEntries.length + clearedCount;
-  showMessage(`Rooster bijgewerkt: ${savedEntries.length} diensten aangepast/ingevuld · ${clearedCount} leeggemaakt · ${skippedCount} overgeslagen · open diensten blijven open.`, changedCount ? "success" : "warning");
+  showMessage(`Rooster opgeslagen: ${savedEntries.length} diensten aangepast/ingevuld · ${clearedCount} leeggemaakt · ${skippedCount} overgeslagen · open diensten blijven open.`, changedCount ? "success" : "warning");
+}
+
+function startSmartPlanningRosterSave() {
+  if (smartPlanningIsSavingRoster) {
+    return;
+  }
+
+  smartPlanningIsSavingRoster = true;
+  showMessage("Rooster wordt opgeslagen...", "info");
+  renderSmartPlanningPanel();
+
+  window.setTimeout(() => {
+    try {
+      applySmartPlanningToRoster();
+    } catch (error) {
+      smartPlanningIsSavingRoster = false;
+      reportAppError("Rooster opslaan mislukt. Probeer het opnieuw.", error, "smart-planning-save");
+      renderSmartPlanningPanel();
+    }
+  }, 0);
 }
 
 function mapSmartPlanningProposalToRosterEntries(proposalItems = []) {
@@ -21980,7 +22005,7 @@ function createSmartPlanningAdjustmentProposal() {
   const totalItems = smartPlanningProposalState.weeks.reduce((total, weekProposal) => total + weekProposal.items.length, 0);
   renderSmartPlanningPanel();
   showMessage(totalItems
-    ? `Bestaand rooster geladen. Pas alleen aan wat nodig is; toepassen slaat alleen wijzigingen op.`
+    ? `Bestaand rooster geladen. Pas alleen aan wat nodig is; opslaan bewaart alleen wijzigingen.`
     : "Geen diensten gevonden om aan te passen voor deze selectie.", totalItems ? "success" : "warning");
 }
 
@@ -22012,7 +22037,7 @@ function clearSmartPlanningRosterServices(scope = "week") {
   invalidateSmartPlanningEffectiveEntriesCache();
   renderSmartPlanningPanel();
   showMessage(
-    `${itemsToClear.length} dienst${itemsToClear.length === 1 ? "" : "en"} leeggemaakt in het voorstel.${linkedWorkLogCount ? " Let op: er zijn al uren geregistreerd." : ""} Klik Rooster toepassen om dit op te slaan.`,
+    `${itemsToClear.length} dienst${itemsToClear.length === 1 ? "" : "en"} leeggemaakt in het voorstel.${linkedWorkLogCount ? " Let op: er zijn al uren geregistreerd." : ""} Klik Rooster opslaan om dit te bewaren.`,
     linkedWorkLogCount ? "warning" : "success"
   );
 }
@@ -28688,6 +28713,10 @@ smartPlanningApplyProposalButton?.addEventListener("click", () => {
     return;
   }
 
+  if (smartPlanningIsSavingRoster) {
+    return;
+  }
+
   if (!getSmartPlanningAssignedItems(getSmartPlanningMonthData()).length) {
     showMessage("Kies eerst minimaal één medewerker of maak een dienst leeg.", "warning");
     updateSmartPlanningApplyButton();
@@ -28789,6 +28818,9 @@ smartPlanningProposalList?.addEventListener("click", (event) => {
   const applyCancelButton = event.target.closest("[data-smart-planning-apply-cancel]");
 
   if (applyCancelButton) {
+    if (smartPlanningIsSavingRoster) {
+      return;
+    }
     smartPlanningApplyConfirmVisible = false;
     renderSmartPlanningPanel();
     return;
@@ -28797,7 +28829,7 @@ smartPlanningProposalList?.addEventListener("click", (event) => {
   const applyConfirmButton = event.target.closest("[data-smart-planning-apply-confirm]");
 
   if (applyConfirmButton) {
-    applySmartPlanningToRoster();
+    startSmartPlanningRosterSave();
     return;
   }
 
