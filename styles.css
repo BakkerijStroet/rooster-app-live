@@ -2896,6 +2896,55 @@ textarea.input-error {
   font-weight: 700;
 }
 
+.smart-planning-month-proposal {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.smart-planning-week-block {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid #ead9bf;
+  border-radius: 14px;
+  background: #fffdf8;
+}
+
+.smart-planning-week-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.smart-planning-week-block-head h4 {
+  margin: 0;
+  color: #2f2a23;
+  font-size: 14px;
+}
+
+.smart-planning-week-block-head span,
+.smart-planning-week-block-metrics span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.smart-planning-week-block-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.smart-planning-week-block-metrics span {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #f4efe7;
+}
+
 .smart-planning-proposal-roster {
   margin-top: 0;
 }
