@@ -3630,9 +3630,25 @@ textarea.input-error {
   background: #fff8ec;
 }
 
+.smart-planning-adjust-confirm {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #dc8b45;
+  border-radius: 16px;
+  background: #fff3e5;
+  box-shadow: 0 14px 30px rgba(99, 64, 28, 0.12);
+}
+
 .smart-planning-apply-confirm strong {
   display: block;
   color: #4f3420;
+}
+
+.smart-planning-adjust-confirm strong {
+  display: block;
+  color: #78350f;
+  font-size: 16px;
 }
 
 .smart-planning-apply-confirm p {
@@ -3640,6 +3656,17 @@ textarea.input-error {
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
+}
+
+.smart-planning-adjust-confirm p {
+  margin: 4px 0 0;
+  color: #6b4a2f;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.smart-planning-apply-warning {
+  color: #b45309 !important;
 }
 
 .smart-planning-apply-summary {

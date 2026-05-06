@@ -4840,6 +4840,7 @@ let selectedSmartPlanningOpenShiftId = "";
 let lastSmartPlanningSelectedEmployeeName = "";
 let lastSmartPlanningAssignedItemId = "";
 let smartPlanningApplyConfirmVisible = false;
+let smartPlanningAdjustConfirmVisible = false;
 let lastOpenRequestReminderKey = "";
 let lastEmployeeHoursReminderKey = "";
 const derivedDataCache = {
@@ -19776,12 +19777,14 @@ function renderSmartPlanningApplyConfirm(data = getSmartPlanningMonthData()) {
   }
 
   const summary = getSmartPlanningApplySummary(data);
+  const isAdjustingRoster = smartPlanningProposalState?.mode === "adjust";
 
   return `
     <section class="smart-planning-apply-confirm">
       <div>
         <strong>Rooster toepassen?</strong>
         <p>De ingevulde voorgestelde diensten worden in het echte rooster gezet.</p>
+        ${isAdjustingRoster ? `<p class="smart-planning-apply-warning">Let op: je wijzigt een bestaand rooster.</p>` : ""}
       </div>
       <div class="smart-planning-apply-summary">
         <span>${summary.assignedCount} diensten worden aangepast/ingevuld</span>
@@ -19947,9 +19950,11 @@ function applySmartPlanningToRoster() {
     if (movedWorkLogs) {
       saveWorkLogs();
     }
+    const preparedRosterChanges = getRosterChangesForNotifications(replacedEntries, savedEntries);
     if (replacedEntries.length) {
       markPlanningEntriesDeletedCentrally(getPlanningEntriesRemovedByReplacement(replacedEntries, savedEntries));
     }
+    logPreparedRosterChangeNotifications(preparedRosterChanges);
     persistProtectedChange({
       reason: "Rooster plannen toegepast",
       scope: "roster",
@@ -19958,7 +19963,8 @@ function applySmartPlanningToRoster() {
       details: {
         weekValues: affectedWeeks,
         assignmentCount: savedEntries.length,
-        skippedCount
+        skippedCount,
+        rosterChangeSummary: buildRosterChangeSummary(preparedRosterChanges)
       }
     });
 
@@ -20035,6 +20041,82 @@ function getSmartPlanningEntriesWithoutOriginalItem(item, sourceEntries = entrie
   }
 
   return sourceEntries.filter((entry) => !isSmartPlanningOriginalEntryMatch(entry, item));
+}
+
+function getRosterChangesForNotifications(previousEntries = [], nextEntries = []) {
+  const changes = [];
+
+  previousEntries.forEach((previousEntry) => {
+    const nextEntry = nextEntries.find((entry) =>
+      entry.day === previousEntry.day &&
+      getShiftName(entry).toLowerCase() === getShiftName(previousEntry).toLowerCase() &&
+      (entry.startTime || "") === (previousEntry.startTime || "") &&
+      (entry.endTime || "") === (previousEntry.endTime || "")
+    ) || nextEntries.find((entry) =>
+      entry.day === previousEntry.day &&
+      getShiftName(entry).toLowerCase() === getShiftName(previousEntry).toLowerCase()
+    );
+
+    if (!nextEntry) {
+      changes.push({
+        type: "removed",
+        employeeName: previousEntry.name || "",
+        previousEmployeeName: previousEntry.name || "",
+        nextEmployeeName: "",
+        day: previousEntry.day || "",
+        shiftName: getShiftName(previousEntry),
+        previousTime: `${previousEntry.startTime || ""}-${previousEntry.endTime || ""}`,
+        nextTime: ""
+      });
+      return;
+    }
+
+    const employeeChanged = (previousEntry.name || "") !== (nextEntry.name || "");
+    const timeChanged = (previousEntry.startTime || "") !== (nextEntry.startTime || "") ||
+      (previousEntry.endTime || "") !== (nextEntry.endTime || "");
+    const shiftChanged = getShiftName(previousEntry).toLowerCase() !== getShiftName(nextEntry).toLowerCase();
+
+    if (employeeChanged || timeChanged || shiftChanged) {
+      changes.push({
+        type: employeeChanged ? "employee-changed" : (timeChanged ? "time-changed" : "shift-changed"),
+        employeeName: nextEntry.name || previousEntry.name || "",
+        previousEmployeeName: previousEntry.name || "",
+        nextEmployeeName: nextEntry.name || "",
+        day: nextEntry.day || previousEntry.day || "",
+        shiftName: getShiftName(nextEntry),
+        previousShiftName: getShiftName(previousEntry),
+        previousTime: `${previousEntry.startTime || ""}-${previousEntry.endTime || ""}`,
+        nextTime: `${nextEntry.startTime || ""}-${nextEntry.endTime || ""}`
+      });
+    }
+  });
+
+  return changes;
+}
+
+function buildRosterChangeSummary(changes = []) {
+  if (!changes.length) {
+    return "Geen roosterwijzigingen gedetecteerd.";
+  }
+
+  const employeeCount = new Set(changes.flatMap((change) => [
+    change.previousEmployeeName,
+    change.nextEmployeeName
+  ].filter(Boolean))).size;
+
+  return `${changes.length} roosterwijziging${changes.length === 1 ? "" : "en"} voor ${employeeCount} medewerker${employeeCount === 1 ? "" : "s"}.`;
+}
+
+function logPreparedRosterChangeNotifications(changes = []) {
+  if (!changes.length) {
+    return;
+  }
+
+  console.info(`[Rooster plannen] Roosterwijziging gedetecteerd. ${buildRosterChangeSummary(changes)} Geen mail verstuurd.`);
+  changes.forEach((change) => {
+    const employeeName = change.nextEmployeeName || change.previousEmployeeName || change.employeeName || "onbekend";
+    console.info(`[Rooster plannen] Toekomstige melding voorbereid voor medewerker ${employeeName}. Geen mail verstuurd.`, change);
+  });
 }
 
 function isSmartPlanningEmergencyEmployee(employeeName) {
@@ -21209,6 +21291,7 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
     }
     setClassName(smartPlanningProposalList, "smart-planning-list empty");
     smartPlanningProposalList.innerHTML = `
+      ${renderSmartPlanningAdjustConfirm()}
       <strong>${smartPlanningProposalState.mode === "adjust" ? "Geen diensten gevonden om aan te passen." : "Geen open diensten gevonden voor deze selectie."}</strong>
       <span>4 weken vanaf ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel}</span>
     `;
@@ -21220,7 +21303,10 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
       smartPlanningProposalSummary.textContent = "Nog geen voorstel gemaakt.";
     }
     setClassName(smartPlanningProposalList, "smart-planning-list empty");
-    smartPlanningProposalList.textContent = "Nog geen voorstel gemaakt.";
+    smartPlanningProposalList.innerHTML = `
+      ${renderSmartPlanningAdjustConfirm()}
+      <span>Nog geen voorstel gemaakt.</span>
+    `;
     return;
   }
 
@@ -21231,6 +21317,7 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
 
   setClassName(smartPlanningProposalList, "smart-planning-list");
   smartPlanningProposalList.innerHTML = `
+    ${renderSmartPlanningAdjustConfirm()}
     <div class="smart-planning-proposal-status">
       <strong>${smartPlanningProposalState.mode === "adjust" ? "Rooster aanpassen" : "Maandvoorstel gemaakt"}</strong>
       <span>${smartPlanningProposalState.mode === "adjust"
@@ -21321,6 +21408,7 @@ function createSmartPlanningPlaceholderProposal() {
   selectedSmartPlanningOpenShiftId = "";
   lastSmartPlanningAssignedItemId = "";
   smartPlanningApplyConfirmVisible = false;
+  smartPlanningAdjustConfirmVisible = false;
 
   smartPlanningProposalState = {
     mode: "create",
@@ -21395,6 +21483,7 @@ function createSmartPlanningAdjustmentProposal() {
   selectedSmartPlanningOpenShiftId = "";
   lastSmartPlanningAssignedItemId = "";
   smartPlanningApplyConfirmVisible = false;
+  smartPlanningAdjustConfirmVisible = false;
 
   smartPlanningProposalState = {
     mode: "adjust",
@@ -21442,6 +21531,7 @@ function clearSmartPlanningProposalWeek(weekValue = "") {
   const lastAssignedWeek = getSmartPlanningWeekValueForItemId(lastSmartPlanningAssignedItemId);
   weekProposal.items = [];
   smartPlanningApplyConfirmVisible = false;
+  smartPlanningAdjustConfirmVisible = false;
   if (selectedWeek === targetWeek) {
     selectedSmartPlanningOpenShiftId = "";
   }
@@ -21458,6 +21548,7 @@ function clearSmartPlanningProposal() {
   selectedSmartPlanningOpenShiftId = "";
   lastSmartPlanningAssignedItemId = "";
   smartPlanningApplyConfirmVisible = false;
+  smartPlanningAdjustConfirmVisible = false;
   renderSmartPlanningPanel();
   showMessage("Alle voorstellen gewist. Er is niets aan het rooster gewijzigd.", "success");
 }
@@ -21682,6 +21773,26 @@ function renderDashboard() {
       </div>
     </section>
     <div class="dashboard-alert">${dashboardAlertText}</div>
+  `;
+}
+
+function renderSmartPlanningAdjustConfirm() {
+  if (!smartPlanningAdjustConfirmVisible) {
+    return "";
+  }
+
+  return `
+    <section class="smart-planning-adjust-confirm" role="dialog" aria-modal="false" aria-labelledby="smartPlanningAdjustConfirmTitle">
+      <div>
+        <strong id="smartPlanningAdjustConfirmTitle">Bestaand rooster aanpassen</strong>
+        <p>Je gaat een bestaand rooster wijzigen. Medewerkers kunnen hierdoor andere diensten krijgen.</p>
+        <p>Controleer wijzigingen goed voordat je het rooster toepast.</p>
+      </div>
+      <div class="smart-planning-apply-actions">
+        <button type="button" class="secondary" data-smart-planning-adjust-cancel>Annuleren</button>
+        <button type="button" data-smart-planning-adjust-confirm>Verder aanpassen</button>
+      </div>
+    </section>
   `;
 }
 
@@ -27911,7 +28022,9 @@ smartPlanningAdjustRosterButton?.addEventListener("click", () => {
     return;
   }
 
-  createSmartPlanningAdjustmentProposal();
+  smartPlanningAdjustConfirmVisible = true;
+  activeSmartPlanningTab = "proposal";
+  renderSmartPlanningPanel();
 });
 
 smartPlanningClearProposalButton?.addEventListener("click", () => {
@@ -27960,6 +28073,22 @@ smartPlanningChecksList?.addEventListener("click", (event) => {
 });
 
 smartPlanningProposalList?.addEventListener("click", (event) => {
+  const adjustCancelButton = event.target.closest("[data-smart-planning-adjust-cancel]");
+
+  if (adjustCancelButton) {
+    smartPlanningAdjustConfirmVisible = false;
+    renderSmartPlanningPanel();
+    return;
+  }
+
+  const adjustConfirmButton = event.target.closest("[data-smart-planning-adjust-confirm]");
+
+  if (adjustConfirmButton) {
+    smartPlanningAdjustConfirmVisible = false;
+    createSmartPlanningAdjustmentProposal();
+    return;
+  }
+
   const applyCancelButton = event.target.closest("[data-smart-planning-apply-cancel]");
 
   if (applyCancelButton) {
