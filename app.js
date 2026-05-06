@@ -19689,19 +19689,16 @@ function getSmartPlanningEmployeeAdvice(item) {
         reasons.push("Al andere dienst deze dag");
       }
 
-      if (contractHours <= 0) {
-        group = "attention";
-        reasons.push("Contracturen onbekend");
-      } else if (projectedHours > contractHours) {
+      if (contractHours > 0 && projectedHours > contractHours) {
         group = "attention";
         reasons.push("Contracturen overschreden");
-      } else if (contractHours - projectedHours <= 2) {
+      } else if (contractHours > 0 && contractHours - projectedHours <= 2) {
         group = "attention";
         reasons.push("Contracturen bijna vol");
       }
 
       if (!reasons.length) {
-        reasons.push("Past binnen contracturen");
+        reasons.push(contractHours > 0 ? "Past binnen contracturen" : "Geen vaste uren");
       }
     }
 
@@ -20289,6 +20286,17 @@ function normalizeSmartPlanningUnavailableReason(reason = "") {
   return reason || "Beschikbaarheid onbekend";
 }
 
+function getSmartPlanningContractSummary(item) {
+  const plannedHours = formatHours(item?.plannedHours || 0);
+  const contractHours = Number(item?.contractHours) || 0;
+
+  if (contractHours <= 0) {
+    return `${plannedHours} gepland · Geen vaste uren`;
+  }
+
+  return `${plannedHours} / ${formatHours(contractHours)} contract`;
+}
+
 function getSmartPlanningAuthorizedEmployeeAdvice(item) {
   const advice = getSmartPlanningEmployeeAdvice(item);
   const authorizedItems = [...advice.suitable, ...advice.attention, ...advice.unsuitable]
@@ -20299,7 +20307,7 @@ function getSmartPlanningAuthorizedEmployeeAdvice(item) {
     .map((employeeAdvice) => ({
       ...employeeAdvice,
       statusLabel: "Beschikbaar",
-      displayReason: "Beschikbaar"
+      displayReason: employeeAdvice.contractHours > 0 ? "Beschikbaar" : "Geen vaste uren"
     }))
     .sort((itemA, itemB) =>
       itemA.plannedHours - itemB.plannedHours ||
@@ -20331,7 +20339,7 @@ function renderSmartPlanningEmployeeAdviceGroup(title, items, groupType) {
           ${items.map((item) => `
             <article class="smart-planning-advice-card is-${groupType}">
               <strong>${item.employeeName}</strong>
-              <span>${formatHours(item.plannedHours)} / ${item.contractHours > 0 ? formatHours(item.contractHours) : "?"} contract</span>
+              <span>${getSmartPlanningContractSummary(item)}</span>
               <div class="smart-planning-advice-badges">
                 <em>${item.displayReason || item.statusLabel || item.reasons[0] || "Beschikbaarheid onbekend"}</em>
               </div>
@@ -20390,7 +20398,7 @@ function renderSmartPlanningInlineAdvice(item) {
         title="${escapeHtmlAttribute(`${employeeAdvice.employeeName} · ${reason}`)}"
       >
         <strong>${employeeAdvice.employeeName}${isSelected ? " gekozen" : ""}</strong>
-        <span>${isAvailable ? "Beschikbaar" : reason}</span>
+        <span>${reason}</span>
       </button>
     `;
   };
