@@ -4,8 +4,10 @@
   --bg-soft: #fbfaf8;
   --card: #ffffff;
   --card-soft: #f4efe8;
-  --text: #1f2933;
-  --muted: #667085;
+  --text: #2f2a24;
+  --text-secondary: #5b5248;
+  --text-subtle: #7a7065;
+  --muted: #7a7065;
   --accent: #e6761f;
   --accent-strong: #a84b12;
   --accent-soft: #f3b274;
@@ -1998,7 +2000,7 @@ body[data-role="employee"] [data-panel="requests"] #requestsOpenCards {
 
 .nav-tab.active {
   background: linear-gradient(180deg, #fff7ef, #ffe9d5);
-  color: #1f2933;
+  color: var(--text);
   border-color: rgba(230, 118, 31, 0.42);
   box-shadow: inset 0 -2px 0 rgba(230, 118, 31, 0.72), 0 7px 14px rgba(31, 41, 51, 0.06);
 }
@@ -4631,7 +4633,7 @@ textarea.input-error {
 }
 
 .service-department-pill.is-other {
-  color: #4b5563;
+  color: var(--text-secondary);
   background: #e5e7eb;
 }
 
@@ -5905,8 +5907,8 @@ body[data-role="employee"][data-employee-locked="true"] .director-screen-toolbar
 }
 
 .week-review-status-card.is-in-review {
-  border-color: #b9cde3;
-  background: #f4f9ff;
+  border-color: #ded3c6;
+  background: #fbf8f3;
 }
 
 .week-review-status-card.is-locked {
@@ -6007,8 +6009,8 @@ body[data-role="employee"][data-employee-locked="true"] .director-screen-toolbar
 }
 
 .planner-control-item.is-under {
-  background: #eef6ff;
-  border-color: #b7cfe8;
+  background: #fbf8f3;
+  border-color: #ded3c6;
 }
 
 .planner-control-item.is-over {
@@ -6074,8 +6076,8 @@ body[data-role="employee"][data-employee-locked="true"] .director-screen-toolbar
 }
 
 .control-contract-row.is-under {
-  border-color: #bfd2ef;
-  background: #f3f8ff;
+  border-color: #ded3c6;
+  background: #fbf8f3;
 }
 
 .control-contract-row.is-over {
@@ -6204,9 +6206,9 @@ body[data-role="employee"][data-employee-locked="true"] .director-screen-toolbar
 }
 
 .planner-contract-balance-item.is-under {
-  border-color: #bfd2ef;
-  background: #f3f8ff;
-  color: #32598f;
+  border-color: #ded3c6;
+  background: #fbf8f3;
+  color: var(--text-secondary);
 }
 
 .planner-contract-balance-item.is-match {
@@ -6244,9 +6246,9 @@ body[data-role="employee"][data-employee-locked="true"] .director-screen-toolbar
 }
 
 .planner-contract-tip.is-under {
-  background: #f3f8ff;
-  color: #32598f;
-  border: 1px solid #bfd2ef;
+  background: #fbf8f3;
+  color: var(--text-secondary);
+  border: 1px solid #ded3c6;
 }
 
 .planner-contract-tip.is-over {
@@ -6272,8 +6274,8 @@ body[data-role="employee"][data-employee-locked="true"] .director-screen-toolbar
 }
 
 .planner-contract-item.is-under {
-  border-color: #bfd2ef;
-  background: #f3f8ff;
+  border-color: #ded3c6;
+  background: #fbf8f3;
 }
 
 .planner-contract-item.is-match {
@@ -6585,8 +6587,8 @@ button.small {
 }
 
 .employee-focus-card.is-tomorrow {
-  border-color: #bed0e3;
-  background: #fbfcff;
+  border-color: #d8c4aa;
+  background: #fffaf3;
 }
 
 .employee-focus-head {
@@ -6691,13 +6693,13 @@ button.small {
 
 .desktop-day-column.is-tomorrow .desktop-day-header,
 .mobile-day-card.is-tomorrow {
-  border-color: #9fb8d4;
-  box-shadow: 0 0 0 2px rgba(118, 150, 191, 0.1);
+  border-color: #d8c4aa;
+  box-shadow: 0 0 0 2px rgba(230, 118, 31, 0.08);
 }
 
 .desktop-day-column.is-tomorrow .desktop-day-list {
-  border-color: #c9d7e7;
-  background: #fbfcff;
+  border-color: #ded3c6;
+  background: #fffaf3;
 }
 
 .desktop-day-column.has-special-day .desktop-day-header,
@@ -6807,8 +6809,8 @@ button.small {
 }
 
 .relative-day-badge.is-tomorrow {
-  background: #e7eff7;
-  color: #36597c;
+  background: #f5efe7;
+  color: var(--text-secondary);
 }
 
 .desktop-day-summary {
@@ -7553,9 +7555,9 @@ body[data-control-mode="planner"] .shift-card.is-vacation-autofill {
 }
 
 .planner-audit-badge.is-auto {
-  background: #eef5ff;
-  border-color: #bfd2ef;
-  color: #355d95;
+  background: #fbf8f3;
+  border-color: #ded3c6;
+  color: var(--text-secondary);
 }
 
 .planner-audit-badge.is-holiday {
@@ -7601,9 +7603,9 @@ body[data-control-mode="planner"] .shift-card.is-vacation-autofill {
 }
 
 .control-flag.is-auto {
-  background: #eef5ff;
-  border-color: #bfd2ef;
-  color: #355d95;
+  background: #fbf8f3;
+  border-color: #ded3c6;
+  color: var(--text-secondary);
 }
 
 .control-flag.is-deviation {
@@ -8408,6 +8410,14 @@ button.hours-reminder-banner {
 .planner-vacation-month h4 {
   margin: 0;
   color: var(--text);
+}
+
+small,
+.panel-note,
+.muted,
+.meta,
+.subtle {
+  color: var(--text-subtle);
 }
 
 .planner-vacation-filters {
@@ -10381,7 +10391,7 @@ button,
 }
 
 .planning-day-header span {
-  color: #667085;
+  color: var(--text-subtle);
   font-size: 0.72rem;
 }
 
@@ -10569,7 +10579,7 @@ body[data-role="planner"] [data-panel="week-current"] .roster-plan-link {
 
 .planning-shift-editor small,
 .planning-shift-empty {
-  color: #667085;
+  color: var(--text-subtle);
   font-size: 0.64rem;
 }
 
@@ -10582,10 +10592,10 @@ body[data-role="planner"] [data-panel="week-current"] .roster-plan-link {
 
 .planning-overview-list.empty {
   padding: 1rem;
-  border: 1px dashed #d4d8de;
+  border: 1px dashed #ded3c6;
   border-radius: 16px;
-  background: #f9fafb;
-  color: #5b6472;
+  background: #fbf8f3;
+  color: var(--text-subtle);
 }
 
 .planning-overview-header {
@@ -10618,13 +10628,13 @@ body[data-role="planner"] [data-panel="week-current"] .roster-plan-link {
 }
 
 .planning-overview-row.is-locked {
-  border-color: #d0d7e2;
-  background: #f7f8fa;
+  border-color: #ded3c6;
+  background: #f7f4ef;
 }
 
 .planning-overview-row.is-reviewed {
-  border-color: #cfe0ff;
-  background: #f7faff;
+  border-color: #d8c4aa;
+  background: #fffaf3;
 }
 
 .planning-overview-row.is-planned {
@@ -10653,7 +10663,7 @@ body[data-role="planner"] [data-panel="week-current"] .roster-plan-link {
 }
 
 .planning-overview-period {
-  color: #667085;
+  color: var(--text-subtle);
   font-size: 0.73rem;
   line-height: 1.2;
 }
@@ -11246,7 +11256,7 @@ button:not(.secondary):not(.warning):not(:disabled):hover {
 button.secondary {
   background: linear-gradient(180deg, #ffffff, #f2eee8);
   border-color: rgba(86, 69, 53, 0.16);
-  color: #2d3a46;
+  color: var(--text);
 }
 
 button.secondary:hover:not(:disabled) {
@@ -11336,7 +11346,7 @@ button.secondary:hover:not(:disabled) {
 .employee-table-row {
   border-color: rgba(86, 69, 53, 0.12);
   background: #ffffff;
-  color: #1f2933;
+  color: var(--text);
 }
 
 .employee-summary-card.is-active,
@@ -11349,13 +11359,13 @@ button.secondary:hover:not(:disabled) {
 .employee-summary-card h3,
 .employee-name-cell strong,
 .employee-table-cell strong {
-  color: #1f2933;
+  color: var(--text);
 }
 
 .employee-summary-subline,
 .employee-table-cell,
 .employee-name-cell span {
-  color: #667085;
+  color: var(--text-subtle);
 }
 
 .employee-status-badge.is-active,
@@ -11385,9 +11395,9 @@ button.secondary:hover:not(:disabled) {
 .status-empty,
 .status-neutral,
 .status-complete {
-  background: #f1f3f5;
-  border-color: #d7dde3;
-  color: #344655;
+  background: #f5f1eb;
+  border-color: #ded3c6;
+  color: var(--text-secondary);
 }
 
 button.warning:not(:disabled) {
@@ -11435,7 +11445,7 @@ textarea:focus {
 .planner-summary-chip strong,
 .smart-planning-control-summary-card strong,
 .capacity-card strong {
-  color: #1f2933;
+  color: var(--text);
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
@@ -11444,7 +11454,7 @@ textarea:focus {
 .hours-control-summary-card span,
 .planner-summary-chip span,
 .smart-planning-control-summary-card span {
-  color: #667085;
+  color: var(--text-subtle);
 }
 
 .dashboard-item:hover,
@@ -11510,6 +11520,113 @@ textarea:focus {
   border-color: #e6a091;
   background: linear-gradient(180deg, #fff2ee, #ffe7e1);
   color: #9f2b16;
+}
+
+/* Warme typografische laag: consistente tekstkleuren door de hele app. */
+.brand-copy h1,
+.view-header h2,
+.view-header h3,
+.board-header h2,
+.board-header h3,
+.dashboard-card h3,
+.dashboard-item strong,
+.week-roster-day-card h3,
+.planning-day-card h3,
+.planning-roster-group h4,
+.smart-planning-card h3,
+.smart-planning-month-week h3,
+.smart-planning-control-week header strong,
+.services-table-header,
+.service-name strong,
+.employee-detail-panel h3,
+.employee-name-cell strong,
+.employee-table-cell strong,
+.planner-request-inbox-item strong,
+.planner-vacation-item strong,
+.hours-control-item strong {
+  color: var(--text);
+}
+
+.brand-chip,
+.planner-action-group-label,
+.smart-planning-open-label,
+.dashboard-card .dashboard-action,
+.accent-text {
+  color: var(--accent-strong);
+}
+
+.view-header p,
+.view-header small,
+.board-header p,
+.board-header small,
+.dashboard-card p,
+.dashboard-item span,
+.week-roster-day-card small,
+.planning-day-card small,
+.planning-shift-meta,
+.shift-time,
+.shift-context,
+.employee-summary-subline,
+.employee-table-cell,
+.employee-name-cell span,
+.service-meta,
+.service-time,
+.planner-request-inbox-item small,
+.planner-vacation-item small,
+.hours-control-item small,
+.smart-planning-control-week header span,
+.smart-planning-control-week p,
+.smart-planning-inline-advice small,
+.smart-planning-employee-choice small {
+  color: var(--text-subtle);
+}
+
+.planning-shift-employee,
+.smart-planning-assigned-name,
+.smart-planning-shift-label,
+.mobile-shift-name,
+.shift-name {
+  color: var(--text);
+}
+
+.smart-planning-employee-choice,
+.smart-planning-control-issue,
+.request-suggestion-item,
+.employee-summary-card,
+.employee-table-row,
+.services-table-row,
+.planner-request-inbox-item,
+.planner-vacation-item,
+.hours-control-item {
+  color: var(--text-secondary);
+}
+
+.service-department-pill.is-other,
+.relative-day-badge.is-tomorrow,
+.planner-audit-badge.is-auto,
+.control-flag.is-auto,
+.planner-contract-balance-item.is-under,
+.planner-contract-tip.is-under {
+  color: var(--text-secondary);
+}
+
+.week-review-status-card.is-in-review,
+.planner-control-item.is-under,
+.control-contract-row.is-under,
+.planner-contract-balance-item.is-under,
+.planner-contract-item.is-under,
+.employee-focus-card.is-tomorrow,
+.desktop-day-column.is-tomorrow .desktop-day-list,
+.planner-audit-badge.is-auto,
+.control-flag.is-auto {
+  border-color: #ded3c6;
+  background: #fbf8f3;
+}
+
+.desktop-day-column.is-tomorrow .desktop-day-header,
+.mobile-day-card.is-tomorrow {
+  border-color: #d8c4aa;
+  box-shadow: 0 0 0 2px rgba(230, 118, 31, 0.08);
 }
 
 @media (max-width: 640px) {
