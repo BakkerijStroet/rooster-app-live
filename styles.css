@@ -2845,6 +2845,36 @@ textarea.input-error {
   background: #f1fbf9;
 }
 
+.smart-planning-proposal-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  padding: 8px 10px;
+  border: 1px solid #dbe9e4;
+  border-radius: 12px;
+  background: #f7fbf8;
+}
+
+.smart-planning-proposal-status strong {
+  color: #1f3f35;
+}
+
+.smart-planning-proposal-status span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.smart-planning-proposal-roster {
+  margin-top: 0;
+}
+
+.smart-planning-proposal-roster .planning-shift-line {
+  cursor: default;
+}
+
 .smart-planning-rules-grid,
 .smart-planning-tools-grid {
   display: grid;

@@ -18580,6 +18580,7 @@ function getSmartPlanningWeekData() {
   const weekData = getSchedulePlanningWeekData(selectedWeek, entries);
   const weekDates = getWeekDates(selectedWeek);
   const openItems = (weekData.openItems || [])
+    .filter((item) => shouldRenderPlannerOpenShiftsForDay(item.day))
     .filter((item) => matchesSmartPlanningDepartment(item.shift, departmentFilter))
     .sort((itemA, itemB) =>
       itemA.day.localeCompare(itemB.day) ||
@@ -18597,6 +18598,19 @@ function getSmartPlanningWeekData() {
     openItems,
     weekEntries
   };
+}
+
+function mapSmartPlanningProposalToRosterEntries(proposalItems = []) {
+  return proposalItems.map((item) => ({
+    name: "",
+    day: item.day,
+    startTime: item.startTime || "",
+    endTime: item.endTime || "",
+    hours: calculateHours(item.startTime || "", item.endTime || "") || 0,
+    shiftId: item.shiftId || "",
+    shiftName: item.shiftName || "Dienst",
+    isSmartPlanningProposal: true
+  }));
 }
 
 function renderSmartPlanningDemandOverview(data = getSmartPlanningWeekData()) {
@@ -18642,6 +18656,19 @@ function renderSmartPlanningDemandOverview(data = getSmartPlanningWeekData()) {
   }).join("");
 }
 
+function renderSmartPlanningProposalRoster(data, proposalItems) {
+  const proposalEntries = mapSmartPlanningProposalToRosterEntries(proposalItems);
+
+  return `
+    <section class="planning-week-grid week-roster-compact-grid smart-planning-proposal-roster">
+      ${data.weekDates.map((day) => renderCompactWeekRosterDayCard(day, proposalEntries, {
+        includeOpenShifts: false,
+        extraClassName: "smart-planning-proposal-day"
+      })).join("")}
+    </section>
+  `;
+}
+
 function renderSmartPlanningProposal(data = getSmartPlanningWeekData()) {
   if (!smartPlanningProposalList) {
     return;
@@ -18685,15 +18712,13 @@ function renderSmartPlanningProposal(data = getSmartPlanningWeekData()) {
   }
 
   setClassName(smartPlanningProposalList, "smart-planning-list");
-  smartPlanningProposalList.innerHTML = proposalItems.map((item) => `
-    <article class="smart-planning-proposal-row">
-      <div>
-        <strong>${formatWeekday(item.day)} · ${getSmartPlanningDepartmentLabel(item.department)} · ${getCompactRosterShiftLabel(item.shiftName)}</strong>
-        <span>${formatDate(item.day)} · ${item.startTime || "?"}-${item.endTime || "?"}</span>
-      </div>
-      <span class="status-pill status-open">Nog niet toegewezen</span>
-    </article>
-  `).join("");
+  smartPlanningProposalList.innerHTML = `
+    <div class="smart-planning-proposal-status">
+      <strong>Conceptvoorstel gemaakt</strong>
+      <span>${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel} · alle regels blijven OPEN / nog niet toegewezen.</span>
+    </div>
+    ${renderSmartPlanningProposalRoster(data, proposalItems)}
+  `;
 }
 
 function renderSmartPlanningChecks(data = getSmartPlanningWeekData()) {
@@ -18765,6 +18790,7 @@ function createSmartPlanningPlaceholderProposal() {
     items: data.openItems.map((item) => ({
       day: item.day,
       department: getSmartPlanningDepartmentForShift(item.shift),
+      shiftId: item.shift.id || "",
       shiftName: item.shift.name,
       startTime: item.shift.startTime,
       endTime: item.shift.endTime
