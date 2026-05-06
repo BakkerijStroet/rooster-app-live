@@ -196,6 +196,9 @@ const plannerSickRequestsContainer = document.getElementById("plannerSickRequest
 const plannerSwapRequestsContainer = document.getElementById("plannerSwapRequests");
 const requestsOpenSummary = document.getElementById("requestsOpenSummary");
 const plannerRequestsInbox = document.getElementById("plannerRequestsInbox");
+const vacationOverviewYearSelect = document.getElementById("vacationOverviewYear");
+const vacationOverviewStatusSelect = document.getElementById("vacationOverviewStatus");
+const vacationOverviewList = document.getElementById("vacationOverviewList");
 const requestsEmployeeBadge = document.getElementById("requestsEmployeeBadge");
 const requestsOpenCards = document.getElementById("requestsOpenCards");
 const plannerRequestTypeFilter = document.getElementById("plannerRequestTypeFilter");
@@ -4743,6 +4746,8 @@ const employeeMeta = loadEmployeeMeta();
 const mailSettings = loadMailSettings();
 const auditLog = loadAuditLog();
 const backupHistory = loadBackupHistory();
+// Centrale UI-config: vul weekkeys zoals "2026-W31" in om vakantieaanvragen te blokkeren.
+const blockedVacationWeeks = [];
 let editIndex = null;
 let editingShiftId = null;
 let activeTab = "week-current";
@@ -15834,10 +15839,178 @@ function sortPlannerRequestInboxItems(itemA, itemB) {
     .localeCompare(getPlannerRequestSortDate(itemB.request, itemB.requestType));
 }
 
+function getVacationDateRange(startDate, endDate = startDate) {
+  if (!startDate) {
+    return [];
+  }
+
+  const safeEndDate = endDate && endDate >= startDate ? endDate : startDate;
+  const dates = [];
+  let currentDate = startDate;
+
+  while (currentDate <= safeEndDate && dates.length < 370) {
+    dates.push(currentDate);
+    currentDate = addDaysToDateValue(currentDate, 1);
+  }
+
+  return dates;
+}
+
+function getVacationWeekKeysForRange(startDate, endDate) {
+  return [...new Set(getVacationDateRange(startDate, endDate).map((date) => getWeekValueFromDate(date)).filter(Boolean))];
+}
+
+function getVacationRequestStatusKey(request) {
+  if (isDeletedRequest(request) || request?.status === "withdrawn") {
+    return "withdrawn";
+  }
+
+  return request?.status || "open";
+}
+
+function getVacationRequestStatusLabel(request) {
+  const statusKey = getVacationRequestStatusKey(request);
+  const labels = {
+    open: "Aangevraagd",
+    approved: "Goedgekeurd",
+    rejected: "Afgewezen",
+    withdrawn: "Ingetrokken"
+  };
+
+  return labels[statusKey] || getRequestDisplayLabel(request);
+}
+
+function getVacationRequestsForYear(year) {
+  const startOfYear = `${year}-01-01`;
+  const endOfYear = `${year}-12-31`;
+
+  return timeOffRequests
+    .filter((request) => request?.type === "vakantie")
+    .filter((request) => requestOverlapsRange(request, startOfYear, endOfYear))
+    .sort((requestA, requestB) =>
+      getTimeOffStartDate(requestA).localeCompare(getTimeOffStartDate(requestB)) ||
+      String(requestA.employeeName || "").localeCompare(String(requestB.employeeName || ""), "nl")
+    );
+}
+
+function getVacationOverviewYear() {
+  const currentYear = new Date().getFullYear();
+  const selectedYear = Number(vacationOverviewYearSelect?.value);
+  return Number.isFinite(selectedYear) && selectedYear > 2000 ? selectedYear : currentYear;
+}
+
+function renderVacationOverviewYearOptions() {
+  if (!vacationOverviewYearSelect) {
+    return;
+  }
+
+  const currentYear = new Date().getFullYear();
+  const requestYears = timeOffRequests
+    .filter((request) => request?.type === "vakantie")
+    .flatMap((request) => [getTimeOffStartDate(request), getTimeOffEndDate(request)])
+    .map((date) => Number(String(date || "").slice(0, 4)))
+    .filter((year) => Number.isFinite(year));
+  const years = [...new Set([currentYear - 1, currentYear, currentYear + 1, ...requestYears])].sort((a, b) => a - b);
+  const selectedYear = getVacationOverviewYear();
+
+  vacationOverviewYearSelect.innerHTML = years
+    .map((year) => `<option value="${year}" ${year === selectedYear ? "selected" : ""}>${year}</option>`)
+    .join("");
+}
+
+function renderPlannerVacationOverview() {
+  if (!vacationOverviewList) {
+    return;
+  }
+
+  if (!isPlannerRole()) {
+    setClassName(vacationOverviewList, "planner-vacation-months hidden");
+    vacationOverviewList.innerHTML = "";
+    return;
+  }
+
+  renderVacationOverviewYearOptions();
+  const selectedYear = getVacationOverviewYear();
+  const statusFilter = vacationOverviewStatusSelect?.value || "";
+  const vacationRequests = getVacationRequestsForYear(selectedYear)
+    .filter((request) => !statusFilter || getVacationRequestStatusKey(request) === statusFilter);
+
+  if (vacationRequests.length === 0) {
+    setClassName(vacationOverviewList, "planner-vacation-months empty");
+    vacationOverviewList.innerHTML = "Nog geen vakantieaanvragen gevonden.";
+    return;
+  }
+
+  const monthGroups = vacationRequests.reduce((groups, request) => {
+    const monthKey = getMonthValueFromDate(getTimeOffStartDate(request)) || `${selectedYear}-01`;
+    if (!groups.has(monthKey)) {
+      groups.set(monthKey, []);
+    }
+    groups.get(monthKey).push(request);
+    return groups;
+  }, new Map());
+
+  setClassName(vacationOverviewList, "planner-vacation-months");
+  vacationOverviewList.innerHTML = [...monthGroups.entries()]
+    .sort(([monthA], [monthB]) => monthA.localeCompare(monthB))
+    .map(([monthValue, requests]) => `
+      <article class="planner-vacation-month">
+        <h4>${formatMonthLabel(monthValue)}</h4>
+        <div class="planner-vacation-items">
+          ${requests.map(renderPlannerVacationOverviewItem).join("")}
+        </div>
+      </article>
+    `)
+    .join("");
+}
+
+function renderPlannerVacationOverviewItem(request) {
+  const statusKey = getVacationRequestStatusKey(request);
+  const startDate = getTimeOffStartDate(request);
+  const endDate = getTimeOffEndDate(request);
+  const period = startDate === endDate
+    ? formatDate(startDate)
+    : `${formatDate(startDate)} t/m ${formatDate(endDate)}`;
+  const reason = request.reason ? `<span class="planner-vacation-note">${escapeHtmlAttribute(request.reason)}</span>` : "";
+
+  return `
+    <article class="planner-vacation-item is-${statusKey}">
+      <div>
+        <strong>${escapeHtmlAttribute(request.employeeName || "Onbekende medewerker")}</strong>
+        <span>${period}</span>
+        ${reason}
+      </div>
+      <span class="status-pill status-${statusKey === "withdrawn" ? "rejected" : statusKey}">
+        ${getVacationRequestStatusLabel(request)}
+      </span>
+    </article>
+  `;
+}
+
+function getVacationSubmitCheck(employeeName, startDate, endDate, editingRequestId = "") {
+  const weekKeys = getVacationWeekKeysForRange(startDate, endDate);
+  const blockedWeeks = weekKeys.filter((weekKey) => blockedVacationWeeks.includes(weekKey));
+  const overlappingRequest = timeOffRequests.find((request) =>
+    request?.type === "vakantie" &&
+    request.id !== editingRequestId &&
+    request.employeeName !== employeeName &&
+    ["open", "approved"].includes(getVacationRequestStatusKey(request)) &&
+    requestOverlapsRange(request, startDate, endDate)
+  );
+
+  return {
+    allowed: blockedWeeks.length === 0,
+    blockedWeeks,
+    hasOverlapWarning: Boolean(overlappingRequest)
+  };
+}
+
 function renderPlannerRequestInbox() {
   if (!plannerRequestsInbox) {
     return;
   }
+
+  renderPlannerVacationOverview();
 
   if (!isPlannerRole()) {
     setClassName(plannerRequestsInbox, "planner-request-inbox request-list hidden");
@@ -26444,6 +26617,20 @@ function submitTimeOffRequest(composer) {
     return;
   }
 
+  let vacationWarningMessage = "";
+  if (type === "vakantie") {
+    const vacationSubmitCheck = getVacationSubmitCheck(employeeName, startDate, endDate, editingTimeOffId);
+
+    if (!vacationSubmitCheck.allowed) {
+      showMessage("Deze week is geblokkeerd voor vakantieaanvragen.", "error");
+      return;
+    }
+
+    if (vacationSubmitCheck.hasOverlapWarning) {
+      vacationWarningMessage = "Let op: er heeft al iemand vakantie in deze periode. De planner beoordeelt of dit kan.";
+    }
+  }
+
   if (editingTimeOffId) {
     const request = timeOffRequests.find((item) => item.id === editingTimeOffId);
 
@@ -26514,6 +26701,9 @@ function submitTimeOffRequest(composer) {
   const latestMail = currentTimeOffRequest ? getLatestRequestMailNotification(currentTimeOffRequest) : null;
   if (latestMail?.status === "queued") {
     showMessage("Mailbevestiging wordt verzonden.", "success");
+  }
+  if (vacationWarningMessage) {
+    showMessage(vacationWarningMessage, "warning");
   }
 }
 
@@ -28517,6 +28707,9 @@ requestStatusFilter?.addEventListener("change", () => {
   renderTimeOffRequests();
   renderSwapRequests();
 });
+
+vacationOverviewYearSelect?.addEventListener("change", renderPlannerVacationOverview);
+vacationOverviewStatusSelect?.addEventListener("change", renderPlannerVacationOverview);
 
 plannerRequestsInbox?.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-request-action]");

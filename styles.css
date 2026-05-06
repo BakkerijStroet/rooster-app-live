@@ -8248,6 +8248,98 @@ button.hours-reminder-banner {
   background: #fffdfa;
 }
 
+.planner-vacation-overview {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fffdfa;
+  box-shadow: 0 4px 14px rgba(61, 42, 17, 0.04);
+}
+
+.planner-vacation-overview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.planner-vacation-overview h3,
+.planner-vacation-month h4 {
+  margin: 0;
+  color: var(--text);
+}
+
+.planner-vacation-filters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.planner-vacation-months {
+  display: grid;
+  gap: 10px;
+}
+
+.planner-vacation-month {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(111, 151, 221, 0.22);
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.planner-vacation-items {
+  display: grid;
+  gap: 8px;
+}
+
+.planner-vacation-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fffefa;
+}
+
+.planner-vacation-item > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.planner-vacation-item strong {
+  color: var(--text);
+}
+
+.planner-vacation-item span:not(.status-pill) {
+  color: #6a6153;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.planner-vacation-item.is-approved {
+  border-color: rgba(76, 140, 89, 0.28);
+  background: #f5fbf2;
+}
+
+.planner-vacation-item.is-rejected,
+.planner-vacation-item.is-withdrawn {
+  border-color: rgba(170, 91, 78, 0.24);
+  background: #fff7f5;
+}
+
+.planner-vacation-note {
+  overflow-wrap: anywhere;
+}
+
 .request-status-overview-panel {
   display: none !important;
 }
@@ -8261,6 +8353,7 @@ body[data-role="planner"] [data-panel="requests"] .employee-request-groups {
 }
 
 body[data-role="employee"] #plannerRequestsInbox,
+body[data-role="employee"] .planner-vacation-overview,
 body[data-role="employee"] .planner-request-type-control,
 body[data-role="planner"] [data-panel="requests"] .planner-request-sections,
 body[data-role="planner"] #requestTimeOffPanel,
@@ -9032,6 +9125,17 @@ button,
   .planner-request-inbox-actions {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .planner-vacation-overview-head,
+  .planner-vacation-filters {
+    display: grid;
+    justify-content: stretch;
+  }
+
+  .planner-vacation-item {
+    grid-template-columns: 1fr;
+    align-items: start;
   }
 
   .hours-control-summary-row {
