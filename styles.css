@@ -2979,6 +2979,91 @@ textarea.input-error {
   color: #5f5142;
 }
 
+.smart-planning-employee-advice {
+  display: grid;
+  gap: 10px;
+}
+
+.smart-planning-advice-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+.smart-planning-advice-group {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.smart-planning-advice-group--suitable {
+  border-color: #bfe5cf;
+  background: #f3fbf6;
+}
+
+.smart-planning-advice-group--attention {
+  border-color: #f0d49f;
+  background: #fff8ec;
+}
+
+.smart-planning-advice-group--unsuitable {
+  border-color: #efc5bd;
+  background: #fff5f2;
+}
+
+.smart-planning-advice-group h4 {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+}
+
+.smart-planning-advice-group h4 span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.smart-planning-advice-list {
+  display: grid;
+  gap: 6px;
+}
+
+.smart-planning-advice-row {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid rgba(138, 85, 54, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.smart-planning-advice-row span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.smart-planning-advice-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.smart-planning-advice-badges em {
+  display: inline-flex;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: #f4efe7;
+  color: #5f5142;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+}
+
 .smart-planning-rules-grid,
 .smart-planning-tools-grid {
   display: grid;
@@ -9353,6 +9438,7 @@ body[data-role="planner"] .request-list {
 }
 
 @media (max-width: 900px) {
+  .smart-planning-advice-grid,
   .smart-planning-tools-grid,
   .smart-planning-rules-grid {
     grid-template-columns: 1fr;

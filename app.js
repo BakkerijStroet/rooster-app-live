@@ -18621,6 +18621,139 @@ function getSelectedSmartPlanningOpenShift() {
   return items.find((item) => item.id === selectedSmartPlanningOpenShiftId) || null;
 }
 
+function getSmartPlanningShiftFromProposalItem(item) {
+  if (!item) {
+    return null;
+  }
+
+  return getSelectedShift(item.shiftId || "", item.startTime || "", item.endTime || "", item.day) || {
+    id: item.shiftId || item.shiftName || "",
+    name: item.shiftName || "Dienst",
+    startTime: item.startTime || "",
+    endTime: item.endTime || "",
+    isShopShift: item.department === "shop" || isShopShiftName(item.shiftName || "")
+  };
+}
+
+function getSmartPlanningEmployeeAdvice(item) {
+  if (!item) {
+    return { suitable: [], attention: [], unsuitable: [] };
+  }
+
+  const weekValue = smartPlanningProposalState?.weekValue || getWeekValueFromDate(item.day);
+  const shift = getSmartPlanningShiftFromProposalItem(item);
+  const shiftHours = calculateHours(item.startTime || "", item.endTime || "") || 0;
+  const advice = {
+    suitable: [],
+    attention: [],
+    unsuitable: []
+  };
+
+  employees.forEach((employeeName) => {
+    const status = getEmployeeStatus(employeeName);
+    const isActive = status === "active";
+    const isAuthorized = isEmployeeAuthorizedForShift(employeeName, shift?.name || item.shiftName);
+    const absence = getApprovedTimeOff(employeeName, item.day);
+    const overlappingEntry = findConflict(employeeName, item.day, item.startTime || "", item.endTime || "", -1);
+    const hasOtherSameDayShift = !overlappingEntry && hasEmployeeAssignmentOnDay(employeeName, item.day);
+    const contractHours = getEmployeeContractHours(employeeName);
+    const plannedHours = getEmployeeWeekHours(employeeName, weekValue, entries);
+    const projectedHours = Math.round((plannedHours + shiftHours) * 10) / 10;
+    const reasons = [];
+    let group = "suitable";
+
+    if (!isActive) {
+      group = "unsuitable";
+      reasons.push("Inactief");
+    } else if (!isAuthorized) {
+      group = "unsuitable";
+      reasons.push("Niet bevoegd");
+    } else if (absence) {
+      group = "unsuitable";
+      reasons.push(getAbsenceTypeLabel(absence.type));
+    } else if (overlappingEntry) {
+      group = "unsuitable";
+      reasons.push("Al ingepland");
+    } else {
+      if (hasOtherSameDayShift) {
+        group = "attention";
+        reasons.push("Al andere dienst deze dag");
+      }
+
+      if (contractHours <= 0) {
+        group = "attention";
+        reasons.push("Contracturen onbekend");
+      } else if (projectedHours > contractHours) {
+        group = "attention";
+        reasons.push("Contracturen overschreden");
+      } else if (contractHours - projectedHours <= 2) {
+        group = "attention";
+        reasons.push("Contracturen bijna vol");
+      }
+
+      if (!reasons.length) {
+        reasons.push("Past binnen contracturen");
+      }
+    }
+
+    advice[group].push({
+      employeeName,
+      contractHours,
+      plannedHours,
+      projectedHours,
+      reasons
+    });
+  });
+
+  Object.values(advice).forEach((items) => {
+    items.sort((itemA, itemB) =>
+      itemA.plannedHours - itemB.plannedHours ||
+      itemA.employeeName.localeCompare(itemB.employeeName, "nl")
+    );
+  });
+
+  return advice;
+}
+
+function renderSmartPlanningEmployeeAdviceGroup(title, items, groupType) {
+  const countLabel = `${items.length} medewerker${items.length === 1 ? "" : "s"}`;
+
+  return `
+    <section class="smart-planning-advice-group smart-planning-advice-group--${groupType}">
+      <h4>${title} <span>${countLabel}</span></h4>
+      ${items.length ? `
+        <div class="smart-planning-advice-list">
+          ${items.map((item) => `
+            <article class="smart-planning-advice-row">
+              <strong>${item.employeeName}</strong>
+              <span>${formatHours(item.plannedHours)} / ${item.contractHours > 0 ? formatHours(item.contractHours) : "?"} contract</span>
+              <div class="smart-planning-advice-badges">
+                ${item.reasons.map((reason) => `<em>${reason}</em>`).join("")}
+              </div>
+            </article>
+          `).join("")}
+        </div>
+      ` : `<p class="panel-note">Geen medewerkers in deze groep.</p>`}
+    </section>
+  `;
+}
+
+function renderSmartPlanningEmployeeAdvice(item) {
+  const advice = getSmartPlanningEmployeeAdvice(item);
+
+  return `
+    <section class="smart-planning-employee-advice">
+      <h4>Medewerkeradvies</h4>
+      <div class="smart-planning-advice-grid">
+        ${renderSmartPlanningEmployeeAdviceGroup("Geschikt", advice.suitable, "suitable")}
+        ${renderSmartPlanningEmployeeAdviceGroup("Aandacht nodig", advice.attention, "attention")}
+        ${renderSmartPlanningEmployeeAdviceGroup("Niet geschikt", advice.unsuitable, "unsuitable")}
+      </div>
+      <p class="panel-note">Toewijzen volgt in een volgende stap.</p>
+    </section>
+  `;
+}
+
 function renderSmartPlanningDemandOverview(data = getSmartPlanningWeekData()) {
   if (!smartPlanningDemandList) {
     return;
@@ -18749,8 +18882,7 @@ function renderSmartPlanningSelectedShiftPanel() {
         <span class="status-pill status-open">Nog niet toegewezen</span>
       </div>
       <section>
-        <h4>Beschikbare medewerkers</h4>
-        <p>Beschikbare medewerkers worden in de volgende stap berekend.</p>
+        ${renderSmartPlanningEmployeeAdvice(selectedItem)}
       </section>
       <section>
         <h4>Controle voor deze dienst</h4>
