@@ -9740,30 +9740,33 @@ function formatEmployeeWeekLabel(weekValue) {
 function getRosterDepartmentForEntry(entry) {
   const shiftName = getShiftName(entry).toLowerCase();
 
-  return shiftName.includes("winkel") ? "shop" : "bakery";
+  return shiftName.includes("winkel") || shiftName.includes("allround") ? "shop" : "bakery";
 }
 
 function getRosterShiftSortOrder(entry) {
   const shiftName = getShiftName(entry).toLowerCase();
   const isStageShift = shiftName.includes("stage");
   const shopMatch = shiftName.match(/winkeldienst\s*(\d+)/i);
+  const allroundMatch = shiftName.match(/allrounddienst\s*(\d+)/i);
 
   if (shopMatch) {
     return 200 + Number(shopMatch[1]);
   }
 
   if (shiftName.includes("winkel") && isStageShift) return 299;
+  if (allroundMatch) return 300 + Number(allroundMatch[1]);
+  if (shiftName.includes("allround")) return 399;
   if (shiftName.includes("winkel")) return 200;
   if (shiftName.includes("draai")) return 10;
   if (shiftName.includes("oven")) return 20;
   if (shiftName.includes("brood")) return 30;
   if (shiftName.includes("banket")) return 40;
-  if (shiftName.includes("productie")) return 50;
-  if (shiftName.includes("inpak")) return 60;
-  if (isStageShift) return 70;
-  if (shiftName.includes("bezorg")) return 90;
+  if (shiftName.includes("inpak")) return 50;
+  if (shiftName.includes("productie")) return 60;
+  if (shiftName.includes("bezorg")) return 70;
+  if (isStageShift) return 80;
 
-  return 80;
+  return 90;
 }
 
 function sortRosterEntriesForDisplay(entriesForDay) {
