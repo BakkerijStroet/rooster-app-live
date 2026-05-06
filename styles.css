@@ -10944,6 +10944,7 @@ body[data-role="planner"] .app-panel.is-active[data-panel="dashboard"],
 body[data-role="planner"] .app-panel.is-active[data-panel="week-current"],
 body[data-role="planner"] .app-panel.is-active[data-panel="schedule-planning"],
 body[data-role="planner"] .app-panel.is-active[data-panel="employees"],
+body[data-role="planner"] .app-panel.is-active[data-panel="vacations"],
 body[data-role="planner"] .app-panel.is-active[data-panel="services"],
 body[data-role="planner"] .app-panel.is-active[data-panel="planning"],
 body[data-role="planner"] .app-panel.is-active[data-panel="hours-approval"] {
@@ -10955,6 +10956,7 @@ body[data-role="planner"] .app-panel.is-active[data-panel="hours-approval"] {
 body[data-role="planner"] .app-panel.is-active[data-panel="schedule-planning"],
 body[data-role="planner"] .app-panel.is-active[data-panel="hours-approval"],
 body[data-role="planner"] .app-panel.is-active[data-panel="employees"],
+body[data-role="planner"] .app-panel.is-active[data-panel="vacations"],
 body[data-role="planner"] .app-panel.is-active[data-panel="services"],
 body[data-role="planner"] .app-panel.is-active[data-panel="planning"],
 body[data-role="planner"] .app-panel.is-active[data-panel="dashboard"] {
