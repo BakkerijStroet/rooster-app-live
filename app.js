@@ -144,6 +144,8 @@ const createRestorePointButton = document.getElementById("createRestorePointButt
 const backupRestoreSelect = document.getElementById("backupRestoreSelect");
 const restoreBackupButton = document.getElementById("restoreBackupButton");
 const backupSummary = document.getElementById("backupSummary");
+const exportSupabaseBackupButton = document.getElementById("exportSupabaseBackupButton");
+const supabaseBackupStatus = document.getElementById("supabaseBackupStatus");
 const mailSenderNameInput = document.getElementById("mailSenderNameInput");
 const mailSenderEmailInput = document.getElementById("mailSenderEmailInput");
 const dashboardTestMailButton = document.getElementById("dashboardTestMailButton");
@@ -316,6 +318,7 @@ const swapStorageKey = "urenrooster-swap-requests";
 const requestDataApiEndpoint = "/api/request-data";
 const workLogStorageKey = "urenrooster-work-logs";
 const workLogApiEndpoint = "/api/work-logs";
+const exportBackupApiEndpoint = "/api/export-backup";
 const employeePermissionsStorageKey = "urenrooster-employee-permissions";
 const employeeDataApiEndpoint = "/api/employee-data";
 const employeeStandardShiftStorageKey = "urenrooster-employee-standard-shifts";
@@ -7647,6 +7650,106 @@ function exportHoursForAdministration() {
 
   downloadCsvContent(csvContent, `urenadministratie-${fileLabel}.csv`);
   showMessage("Urenexport gestart.", "success");
+}
+
+function getSupabaseBackupFilename(createdAt = getNowIsoString()) {
+  const safeDate = String(createdAt || getNowIsoString())
+    .replace("T", "-")
+    .replace(/:/g, "")
+    .slice(0, 16);
+
+  return `backup-${safeDate}.json`;
+}
+
+function downloadJsonFile(filename, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json;charset=utf-8"
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function renderSupabaseBackupResult(payload) {
+  const counts = payload?.counts || {};
+  const planningCount = Number(counts.planning_entries) || 0;
+  const requestCount = Number(counts.request_data) || 0;
+  const workLogCount = Number(counts.work_logs) || 0;
+  const employeeCount = Number(counts.employee_data) || 0;
+
+  if (supabaseBackupStatus) {
+    supabaseBackupStatus.innerHTML = `
+      <strong>Back-up gemaakt:</strong>
+      <span>${planningCount} ${planningCount === 1 ? "roosterregel" : "roosterregels"}</span>
+      <span>${requestCount} ${requestCount === 1 ? "aanvraag" : "aanvragen"}</span>
+      <span>${workLogCount} ${workLogCount === 1 ? "urenregistratie" : "urenregistraties"}</span>
+      <span>${employeeCount} ${employeeCount === 1 ? "medewerker" : "medewerkers"}</span>
+    `;
+  }
+}
+
+async function exportSupabaseBackup() {
+  if (!isPlannerRole()) {
+    showMessage("Alleen planner of directie kan een Supabase back-up maken.", "error");
+    return;
+  }
+
+  if (currentDataMode !== "live") {
+    showMessage("Supabase back-up is alleen beschikbaar in live-mode.", "error");
+    if (supabaseBackupStatus) {
+      supabaseBackupStatus.textContent = "Testmodus gebruikt alleen lokale opslag. Supabase back-up is daarom geblokkeerd.";
+    }
+    return;
+  }
+
+  if (!exportSupabaseBackupButton) {
+    return;
+  }
+
+  const originalLabel = exportSupabaseBackupButton.textContent;
+  exportSupabaseBackupButton.disabled = true;
+  exportSupabaseBackupButton.textContent = "Back-up maken...";
+
+  if (supabaseBackupStatus) {
+    supabaseBackupStatus.textContent = "Supabase back-up wordt gemaakt...";
+  }
+
+  try {
+    const response = await fetch(`${exportBackupApiEndpoint}?mode=${encodeURIComponent(currentDataMode)}`, {
+      method: "GET",
+      headers: {
+        Accept: "application/json"
+      },
+      cache: "no-store"
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok || payload?.success === false) {
+      throw new Error(payload?.message || "Back-up mislukt");
+    }
+
+    downloadJsonFile(getSupabaseBackupFilename(payload.createdAt), payload);
+    renderSupabaseBackupResult(payload);
+    showMessage("Back-up succesvol gedownload.", "success");
+  } catch (error) {
+    const message = error instanceof TypeError
+      ? "Geen verbinding met server"
+      : (error instanceof Error && error.message ? error.message : "Back-up mislukt");
+
+    if (supabaseBackupStatus) {
+      supabaseBackupStatus.textContent = message;
+    }
+    showMessage(message, "error");
+  } finally {
+    exportSupabaseBackupButton.disabled = false;
+    exportSupabaseBackupButton.textContent = originalLabel;
+  }
 }
 
 function getMessageAutoHideMs(type) {
@@ -27421,6 +27524,10 @@ restoreBackupButton?.addEventListener("click", () => {
 
   render();
   showMessage("Herstelpunt teruggezet.", "success");
+});
+
+exportSupabaseBackupButton?.addEventListener("click", () => {
+  exportSupabaseBackup();
 });
 
 saveMailSettingsButton?.addEventListener("click", () => {
