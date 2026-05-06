@@ -2936,6 +2936,27 @@ textarea.input-error {
   box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.18);
 }
 
+.smart-planning-open-shift-button.has-warning {
+  border-color: #ef9a76;
+  background: #fff0eb;
+}
+
+.smart-planning-open-shift-button.has-warning.is-selected {
+  border-color: #dc2626;
+  background: #ffe4df;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.18);
+}
+
+.smart-planning-shift-warning {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 5px;
+  color: #dc2626;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
 .smart-planning-selected-shift-panel {
   display: grid;
   gap: 10px;
@@ -2977,6 +2998,15 @@ textarea.input-error {
 .smart-planning-selected-shift-panel ul {
   margin: 0;
   color: #5f5142;
+}
+
+.smart-planning-shortage-alert {
+  padding: 8px 10px;
+  border: 1px solid #efb09b;
+  border-radius: 12px;
+  background: #fff0eb;
+  color: #9f2b16;
+  font-weight: 800;
 }
 
 .smart-planning-employee-advice {

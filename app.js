@@ -18621,6 +18621,11 @@ function getSelectedSmartPlanningOpenShift() {
   return items.find((item) => item.id === selectedSmartPlanningOpenShiftId) || null;
 }
 
+function getSmartPlanningProposalItemById(itemId) {
+  const items = smartPlanningProposalState?.items || [];
+  return items.find((item) => item.id === itemId) || null;
+}
+
 function getSmartPlanningShiftFromProposalItem(item) {
   if (!item) {
     return null;
@@ -18713,6 +18718,24 @@ function getSmartPlanningEmployeeAdvice(item) {
   });
 
   return advice;
+}
+
+function hasSuitableEmployeesForSmartPlanningShift(item) {
+  return getSmartPlanningEmployeeAdvice(item).suitable.length > 0;
+}
+
+function getSmartPlanningShiftWarning(item) {
+  if (!item || hasSuitableEmployeesForSmartPlanningShift(item)) {
+    return "";
+  }
+
+  return "Geen geschikte medewerker beschikbaar";
+}
+
+function getSmartPlanningUnfillableOpenShiftIds() {
+  return (smartPlanningProposalState?.items || [])
+    .filter((item) => getSmartPlanningShiftWarning(item))
+    .map((item) => item.id);
 }
 
 function renderSmartPlanningEmployeeAdviceGroup(title, items, groupType) {
@@ -18838,17 +18861,19 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
           const shiftTime = `${row.startTime}-${row.endTime}`;
           const displayShiftName = getCompactRosterShiftLabel(row.shiftName);
           const isSelected = row.smartPlanningId && row.smartPlanningId === selectedSmartPlanningOpenShiftId;
-          const titleText = `OPEN - ${row.shiftName} - ${shiftTime}. Klik om details te bekijken`;
+          const proposalItem = getSmartPlanningProposalItemById(row.smartPlanningId);
+          const warningText = getSmartPlanningShiftWarning(proposalItem);
+          const titleText = warningText || `OPEN - ${row.shiftName} - ${shiftTime}. Klik om details te bekijken`;
 
           return `
             <button
               type="button"
-              class="planning-shift-line is-open smart-planning-open-shift-button ${isSelected ? "is-selected" : ""}"
+              class="planning-shift-line is-open smart-planning-open-shift-button ${isSelected ? "is-selected" : ""} ${warningText ? "has-warning" : ""}"
               data-smart-planning-open-shift="${escapeHtmlAttribute(row.smartPlanningId)}"
               title="${escapeHtmlAttribute(titleText)}"
             >
               <span class="planning-shift-employee">OPEN</span>
-              <span class="planning-shift-name" title="${escapeHtmlAttribute(row.shiftName)}">${displayShiftName}</span>
+              <span class="planning-shift-name" title="${escapeHtmlAttribute(row.shiftName)}">${displayShiftName}${warningText ? `<span class="smart-planning-shift-warning" title="${escapeHtmlAttribute(warningText)}">⚠</span>` : ""}</span>
               <span class="planning-shift-time">${shiftTime}</span>
             </button>
           `;
@@ -18871,6 +18896,7 @@ function renderSmartPlanningSelectedShiftPanel() {
 
   const departmentLabel = getSmartPlanningDepartmentLabel(selectedItem.department);
   const shiftTime = `${selectedItem.startTime || "?"}-${selectedItem.endTime || "?"}`;
+  const warningText = getSmartPlanningShiftWarning(selectedItem);
 
   return `
     <aside class="smart-planning-selected-shift-panel">
@@ -18881,14 +18907,15 @@ function renderSmartPlanningSelectedShiftPanel() {
         </div>
         <span class="status-pill status-open">Nog niet toegewezen</span>
       </div>
+      ${warningText ? `<div class="smart-planning-shortage-alert">${warningText}. Dienst blijft open.</div>` : ""}
       <section>
         ${renderSmartPlanningEmployeeAdvice(selectedItem)}
       </section>
       <section>
         <h4>Controle voor deze dienst</h4>
         <ul>
-          <li>Nog geen medewerker toegewezen</li>
-          <li>Geen roosterwijziging toegepast</li>
+          <li>${warningText ? "Dienst blijft OPEN" : "Nog geen medewerker toegewezen"}</li>
+          <li>${warningText ? "Rooster kan alsnog worden gemaakt" : "Geen roosterwijziging toegepast"}</li>
         </ul>
       </section>
     </aside>
@@ -18966,11 +18993,13 @@ function renderSmartPlanningChecks(data = getSmartPlanningWeekData()) {
   const hasProposal = smartPlanningProposalState?.weekValue === data.selectedWeek
     && smartPlanningProposalState?.department === data.departmentFilter;
   const proposalCount = hasProposal ? smartPlanningProposalState.items?.length || 0 : 0;
+  const unfillableCount = hasProposal ? getSmartPlanningUnfillableOpenShiftIds().length : 0;
   const missingAvailabilityCount = data.openItems.length;
   const contractCount = data.contractImbalanceEmployees?.length || 0;
   const checks = [
     { label: "Open diensten", value: `${missingAvailabilityCount} gevonden`, className: missingAvailabilityCount ? "is-warning" : "is-ok" },
     { label: "Voorgestelde regels", value: hasProposal ? `${proposalCount} conceptregels` : "Nog geen voorstel", className: hasProposal ? "is-warning" : "is-neutral" },
+    { label: "Open diensten zonder geschikte medewerker", value: hasProposal ? `${unfillableCount} tekort` : "Nog geen voorstel", className: unfillableCount ? "is-warning" : (hasProposal ? "is-ok" : "is-neutral") },
     { label: "Contracturen", value: contractCount ? `${contractCount} aandacht` : "Rustig", className: contractCount ? "is-warning" : "is-ok" },
     { label: "Dubbele diensten", value: duplicateCount ? `${duplicateCount} mogelijk dubbel` : "Geen dubbele inzet", className: duplicateCount ? "is-warning" : "is-ok" },
     { label: "Automatische toewijzing", value: hasProposal ? "Er zijn nog geen medewerkers automatisch toegewezen." : "Nog niet gestart", className: hasProposal ? "is-warning" : "is-neutral" },
