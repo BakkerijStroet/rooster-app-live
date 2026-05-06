@@ -18739,6 +18739,17 @@ function getSmartPlanningUnfillableOpenShiftIds() {
     .map((item) => item.id);
 }
 
+function selectSmartPlanningProposalEmployee(itemId, employeeName) {
+  const item = getSmartPlanningProposalItemById(itemId);
+
+  if (!item) {
+    return;
+  }
+
+  item.chosenEmployeeName = employeeName || "";
+  renderSmartPlanningPanel();
+}
+
 function normalizeSmartPlanningUnavailableReason(reason = "") {
   const normalizedReason = String(reason || "").toLowerCase();
 
@@ -18820,6 +18831,59 @@ function renderSmartPlanningEmployeeAdvice(item) {
       </div>
       <p class="panel-note">Toewijzen volgt in een volgende stap.</p>
     </section>
+  `;
+}
+
+function renderSmartPlanningInlineAdvice(item) {
+  if (!item) {
+    return "";
+  }
+
+  const advice = getSmartPlanningAuthorizedEmployeeAdvice(item);
+  const renderChoice = (employeeAdvice, isAvailable) => {
+    const isSelected = item.chosenEmployeeName === employeeAdvice.employeeName;
+    const reason = employeeAdvice.displayReason || employeeAdvice.statusLabel || employeeAdvice.reasons[0] || "Beschikbaarheid onbekend";
+
+    return `
+      <button
+        type="button"
+        class="smart-planning-employee-choice ${isAvailable ? "is-available" : "is-unavailable"} ${isSelected ? "is-selected" : ""}"
+        data-smart-planning-employee-choice="${escapeHtmlAttribute(item.id)}"
+        data-employee-name="${escapeHtmlAttribute(employeeAdvice.employeeName)}"
+        data-employee-available="${isAvailable ? "true" : "false"}"
+        data-employee-reason="${escapeHtmlAttribute(reason)}"
+        title="${escapeHtmlAttribute(`${employeeAdvice.employeeName} · ${reason}`)}"
+      >
+        <strong>${employeeAdvice.employeeName}${isSelected ? " gekozen" : ""}</strong>
+        <span>${isAvailable ? "Beschikbaar" : reason}</span>
+      </button>
+    `;
+  };
+
+  return `
+    <div class="smart-planning-inline-advice">
+      <div class="smart-planning-inline-advice-title">
+        <strong>${getCompactRosterShiftLabel(item.shiftName)} ${item.startTime || "?"}-${item.endTime || "?"}</strong>
+        <span>Alleen bevoegde medewerkers</span>
+      </div>
+      <section>
+        <h4>Beschikbaar</h4>
+        <div class="smart-planning-inline-choice-list">
+          ${advice.available.length
+            ? advice.available.map((employeeAdvice) => renderChoice(employeeAdvice, true)).join("")
+            : `<p class="panel-note">Geen beschikbare bevoegde medewerkers.</p>`}
+        </div>
+      </section>
+      <section>
+        <h4>Niet beschikbaar</h4>
+        <div class="smart-planning-inline-choice-list">
+          ${advice.unavailable.length
+            ? advice.unavailable.map((employeeAdvice) => renderChoice(employeeAdvice, false)).join("")
+            : `<p class="panel-note">Geen bevoegde medewerkers met blokkade.</p>`}
+        </div>
+      </section>
+      <p class="panel-note">Keuze is tijdelijk. Er wordt nog niets opgeslagen of toegepast.</p>
+    </div>
   `;
 }
 
@@ -18909,19 +18973,24 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
           const isSelected = row.smartPlanningId && row.smartPlanningId === selectedSmartPlanningOpenShiftId;
           const proposalItem = getSmartPlanningProposalItemById(row.smartPlanningId);
           const warningText = getSmartPlanningShiftWarning(proposalItem);
+          const chosenEmployeeName = proposalItem?.chosenEmployeeName || "";
+          const employeeLabel = chosenEmployeeName ? `${chosenEmployeeName} gekozen` : "OPEN";
           const titleText = warningText || `OPEN - ${row.shiftName} - ${shiftTime}. Klik om details te bekijken`;
 
           return `
-            <button
-              type="button"
-              class="planning-shift-line is-open smart-planning-open-shift-button ${isSelected ? "is-selected" : ""} ${warningText ? "has-warning" : ""}"
-              data-smart-planning-open-shift="${escapeHtmlAttribute(row.smartPlanningId)}"
-              title="${escapeHtmlAttribute(titleText)}"
-            >
-              <span class="planning-shift-employee">OPEN</span>
-              <span class="planning-shift-name" title="${escapeHtmlAttribute(row.shiftName)}">${displayShiftName}${warningText ? `<span class="smart-planning-shift-warning" title="${escapeHtmlAttribute(warningText)}">⚠</span>` : ""}</span>
-              <span class="planning-shift-time">${shiftTime}</span>
-            </button>
+            <div class="smart-planning-open-shift-wrap">
+              <button
+                type="button"
+                class="planning-shift-line is-open smart-planning-open-shift-button ${isSelected ? "is-selected" : ""} ${warningText ? "has-warning" : ""} ${chosenEmployeeName ? "has-choice" : ""}"
+                data-smart-planning-open-shift="${escapeHtmlAttribute(row.smartPlanningId)}"
+                title="${escapeHtmlAttribute(titleText)}"
+              >
+                <span class="planning-shift-employee">${employeeLabel}</span>
+                <span class="planning-shift-name" title="${escapeHtmlAttribute(row.shiftName)}">${displayShiftName}${warningText ? `<span class="smart-planning-shift-warning" title="${escapeHtmlAttribute(warningText)}">⚠</span>` : ""}</span>
+                <span class="planning-shift-time">${shiftTime}</span>
+              </button>
+              ${isSelected ? renderSmartPlanningInlineAdvice(proposalItem) : ""}
+            </div>
           `;
         }).join("")}
       </div>
@@ -19016,15 +19085,8 @@ function renderSmartPlanningProposal(data = getSmartPlanningWeekData()) {
       <strong>Conceptvoorstel gemaakt</strong>
       <span>${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel} · alle regels blijven OPEN / nog niet toegewezen.</span>
     </div>
-    <div class="smart-planning-proposal-content">
-      <div class="smart-planning-proposal-main">
-        <div class="smart-planning-roster-scroll">
-          ${renderSmartPlanningProposalRoster(data, proposalItems)}
-        </div>
-      </div>
-      <div class="smart-planning-side-panel">
-        ${renderSmartPlanningSelectedShiftPanel()}
-      </div>
+    <div class="smart-planning-roster-scroll">
+      ${renderSmartPlanningProposalRoster(data, proposalItems)}
     </div>
   `;
 }
@@ -25191,6 +25253,22 @@ smartPlanningApplyProposalButton?.addEventListener("click", () => {
 });
 
 smartPlanningProposalList?.addEventListener("click", (event) => {
+  const employeeChoiceButton = event.target.closest("[data-smart-planning-employee-choice]");
+
+  if (employeeChoiceButton) {
+    const isAvailable = employeeChoiceButton.dataset.employeeAvailable === "true";
+    const employeeName = employeeChoiceButton.dataset.employeeName || "";
+    const itemId = employeeChoiceButton.dataset.smartPlanningEmployeeChoice || "";
+
+    if (!isAvailable) {
+      showMessage(`${employeeName} is niet beschikbaar: ${employeeChoiceButton.dataset.employeeReason || "controle nodig"}.`, "warning");
+      return;
+    }
+
+    selectSmartPlanningProposalEmployee(itemId, employeeName);
+    return;
+  }
+
   const button = event.target.closest("[data-smart-planning-open-shift]");
 
   if (!button) {

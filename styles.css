@@ -2900,22 +2900,6 @@ textarea.input-error {
   margin-top: 0;
 }
 
-.smart-planning-proposal-content {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 16px;
-  align-items: start;
-}
-
-.smart-planning-proposal-main,
-.smart-planning-side-panel {
-  min-width: 0;
-}
-
-.smart-planning-proposal-main {
-  overflow: hidden;
-}
-
 .smart-planning-roster-scroll {
   min-width: 0;
   overflow-x: auto;
@@ -2923,16 +2907,9 @@ textarea.input-error {
   padding-bottom: 6px;
 }
 
-.smart-planning-side-panel {
-  position: sticky;
-  top: 92px;
-  max-height: calc(100vh - 220px);
-  overflow-y: auto;
-}
-
 .smart-planning-proposal-roster.planning-week-grid {
-  grid-template-columns: repeat(7, minmax(220px, 1fr));
-  min-width: 1540px;
+  grid-template-columns: repeat(7, minmax(240px, 1fr));
+  min-width: 1680px;
 }
 
 .smart-planning-proposal-roster .planning-shift-line {
@@ -2940,7 +2917,7 @@ textarea.input-error {
 }
 
 .smart-planning-proposal-roster .smart-planning-open-shift-button {
-  grid-template-columns: 54px minmax(0, 1fr) 84px;
+  grid-template-columns: 88px minmax(0, 1fr) 78px;
   gap: 8px;
   min-height: 34px;
   padding: 0.38rem 0.46rem;
@@ -2951,10 +2928,9 @@ textarea.input-error {
 
 .smart-planning-proposal-roster .planning-shift-name {
   min-width: 0;
-  overflow: visible;
-  text-overflow: clip;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.82rem;
   line-height: 1.18;
 }
@@ -2967,11 +2943,22 @@ textarea.input-error {
 }
 
 .smart-planning-proposal-roster .planning-shift-employee {
-  overflow: visible;
-  text-overflow: clip;
+  overflow: hidden;
+  text-overflow: ellipsis;
   min-width: 0;
   white-space: nowrap;
   justify-self: start;
+}
+
+.smart-planning-open-shift-button.has-choice {
+  border-color: #9fd3ad;
+  background: #f0fbf4;
+}
+
+.smart-planning-open-shift-wrap {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
 }
 
 .smart-planning-open-shift-button.is-selected {
@@ -3051,6 +3038,89 @@ textarea.input-error {
   background: #fff0eb;
   color: #9f2b16;
   font-weight: 800;
+}
+
+.smart-planning-inline-advice {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #ead9bf;
+  border-radius: 12px;
+  background: #fffaf3;
+}
+
+.smart-planning-inline-advice-title {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 8px;
+}
+
+.smart-planning-inline-advice-title span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.smart-planning-inline-advice h4 {
+  margin: 0 0 4px;
+  font-size: 12px;
+}
+
+.smart-planning-inline-choice-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.smart-planning-employee-choice {
+  appearance: none;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  max-width: 100%;
+  padding: 5px 7px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  color: #3b3028;
+  cursor: pointer;
+  text-align: left;
+}
+
+.smart-planning-employee-choice strong,
+.smart-planning-employee-choice span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.smart-planning-employee-choice strong {
+  font-size: 12px;
+}
+
+.smart-planning-employee-choice span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.smart-planning-employee-choice.is-available {
+  border-color: #9ed2ac;
+  background: #f3fbf6;
+}
+
+.smart-planning-employee-choice.is-unavailable {
+  border-color: #efc5bd;
+  background: #fff5f2;
+}
+
+.smart-planning-employee-choice.is-selected {
+  border-color: #2f9e6e;
+  background: #dff5e7;
+  box-shadow: 0 0 0 2px rgba(47, 158, 110, 0.16);
 }
 
 .smart-planning-employee-advice {
@@ -9527,15 +9597,10 @@ body[data-role="planner"] .request-list {
 }
 
 @media (max-width: 900px) {
-  .smart-planning-proposal-content,
   .smart-planning-advice-grid,
   .smart-planning-tools-grid,
   .smart-planning-rules-grid {
     grid-template-columns: 1fr;
-  }
-
-  .smart-planning-side-panel {
-    position: static;
   }
 
   body[data-role="planner"] .container {
