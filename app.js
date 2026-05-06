@@ -131,6 +131,8 @@ const employeeDetailTestMailButton = document.getElementById("employeeDetailTest
 const employeeStatusImpact = document.getElementById("employeeStatusImpact");
 const employeeDetailTitle = document.getElementById("employeeDetailTitle");
 const myAccountEmployeeBadge = document.getElementById("myAccountEmployeeBadge");
+const myAccountDetails = document.getElementById("myAccountDetails");
+const myAccountVisiblePinInput = document.getElementById("myAccountVisiblePin");
 const myAccountCurrentPinInput = document.getElementById("myAccountCurrentPin");
 const myAccountNewPinInput = document.getElementById("myAccountNewPin");
 const myAccountRepeatPinInput = document.getElementById("myAccountRepeatPin");
@@ -20879,9 +20881,13 @@ function applyRoleUI() {
     if (isPlannerRole()) {
       brandRoleChip.textContent = "Planneromgeving";
       brandRoleChip.classList.remove("hidden");
+      brandRoleChip.disabled = true;
+      brandRoleChip.title = "";
     } else {
       brandRoleChip.textContent = scopedEmployeeName || "Medewerker";
       brandRoleChip.classList.toggle("hidden", !Boolean(scopedEmployeeName));
+      brandRoleChip.disabled = !Boolean(scopedEmployeeName);
+      brandRoleChip.title = scopedEmployeeName ? "Open Mijn account" : "";
     }
   }
 
@@ -22195,6 +22201,13 @@ function renderMyAccount() {
 
   if (!employeeName) {
     myAccountPinStatus.textContent = "Geen medewerker gekoppeld.";
+    if (myAccountDetails) {
+      setClassName(myAccountDetails, "my-account-details empty");
+      myAccountDetails.textContent = "Geen medewerker gekoppeld.";
+    }
+    if (myAccountVisiblePinInput) {
+      myAccountVisiblePinInput.value = "";
+    }
     if (myAccountSavePinButton) {
       myAccountSavePinButton.disabled = true;
     }
@@ -22203,6 +22216,41 @@ function renderMyAccount() {
 
   if (myAccountSavePinButton) {
     myAccountSavePinButton.disabled = false;
+  }
+
+  if (myAccountVisiblePinInput) {
+    myAccountVisiblePinInput.value = getEmployeeLoginPin(employeeName);
+  }
+
+  if (myAccountDetails) {
+    const email = getEmployeeEmail(employeeName) || "Niet ingesteld";
+    const phone = String(employeeMeta?.[employeeName]?.phone || "").trim() || "Niet ingesteld";
+    const department = getEmployeeDepartmentSummary(employeeName);
+    const role = getEmployeeAppRole(employeeName) === "planner" ? "Planner" : "Medewerker";
+
+    setClassName(myAccountDetails, "my-account-details");
+    myAccountDetails.innerHTML = `
+      <article>
+        <span>Naam</span>
+        <strong>${escapeHtmlAttribute(employeeName)}</strong>
+      </article>
+      <article>
+        <span>Mail</span>
+        <strong>${escapeHtmlAttribute(email)}</strong>
+      </article>
+      <article>
+        <span>Telefoon</span>
+        <strong>${escapeHtmlAttribute(phone)}</strong>
+      </article>
+      <article>
+        <span>Afdeling</span>
+        <strong>${escapeHtmlAttribute(department)}</strong>
+      </article>
+      <article>
+        <span>Rol</span>
+        <strong>${escapeHtmlAttribute(role)}</strong>
+      </article>
+    `;
   }
 
   myAccountPinStatus.textContent = isEmployeeTemporaryPinActive(employeeName)
@@ -27714,6 +27762,14 @@ currentEmployeeSelect.addEventListener("change", () => {
 
 switchUserButton?.addEventListener("click", () => {
   logoutCurrentSession({ showMessageAfterLogout: true });
+});
+
+brandRoleChip?.addEventListener("click", () => {
+  if (isPlannerRole() || !getRoleScopedEmployeeName()) {
+    return;
+  }
+
+  setActiveTab("my-account");
 });
 
 resetTestDataButton?.addEventListener("click", () => {
