@@ -4,7 +4,7 @@
 
 Deze app ondersteunt Bakkerij Stroet bij roosters, urenregistratie, medewerkersbeheer, aanvragen en planning. De app heeft twee hoofdomgevingen:
 
-- Planneromgeving: beheer van rooster, diensten, medewerkers, aanvragen, urencontrole, back-up en slim plannen.
+- Planneromgeving: beheer van rooster, diensten, medewerkers, aanvragen, urencontrole, back-up en Rooster plannen.
 - Medewerkeromgeving: mobiel-first omgeving voor rooster bekijken, uren indienen, aanvragen doen, eigen aanvragen terugzien en account/pincode beheren.
 
 De app draait als frontend op Vercel met server-side API-routes voor Supabase en e-mail. Data werkt in twee standen:
@@ -19,7 +19,7 @@ LocalStorage blijft fallback/cache. Supabase is de centrale bron in live-mode, m
 ### Frontend
 
 - `index.html`: statische structuur, panelen, navigatie, login, forms en containers.
-- `styles.css`: alle layout, responsive/mobile styling, planner inboxen, slim plannen, medewerker UI en print/layoutregels.
+- `styles.css`: alle layout, responsive/mobile styling, planner inboxen, Rooster plannen, medewerker UI en print/layoutregels.
 - `app.js`: hoofdapplicatie. Bevat state, rendering, eventhandlers, sync orchestration, localStorage, businessregels en veel glue code.
 - `js/features/...`: featuremodules met helpers voor o.a. planning, uren, requests, mail, employees en rendering. Belangrijke modules:
   - `js/features/hours.js`
@@ -84,30 +84,13 @@ Relevante helpers:
 - `renderCompactWeekRosterGroup(...)`
 - `renderCompactWeekRosterShiftLine(...)`
 
-### Rooster inplannen
-
-Doel: diensten toewijzen/wijzigen in de planneromgeving.
-
-Belangrijk:
-
-- Zelfde compacte groepsopmaak als Rooster.
-- OPEN diensten blijven zichtbaar en klikbaar.
-- Maandag/zondag genereren geen automatische OPEN diensten, tenzij er handmatig entries bestaan.
-
-Relevante helpers:
-
-- `renderSchedulePlanningDayCard(...)`
-- `renderSchedulePlanningRosterGroup(...)`
-- `getPlanningOverviewShiftOptions(...)`
-- `shouldRenderPlannerOpenShiftsForDay(...)`
-
 ### Uren controleren
 
 Doel: planner-inbox voor ingediende uren.
 
 Belangrijk:
 
-- Scherm is hernoemd van "Uren accorderen" naar "Uren controleren".
+- Huidige schermnaam is "Uren controleren".
 - Compacte desktop layout met toolbar bovenaan.
 - Tellerkaarten, statusfilters, medewerkerfilter en export boven de lijst.
 - WorkLogs met status `open` zijn ingediend en moeten door planner worden gecontroleerd.
@@ -160,7 +143,7 @@ Belangrijk:
 - Compact overzicht met afdeling, tijden, status en acties.
 - Sortering en groepering worden centraal hergebruikt in roosters.
 
-### Slim plannen
+### Rooster plannen
 
 Doel: planner helpt 4 weken tegelijk voorbereiden met tijdelijke voorstellen.
 
@@ -176,15 +159,15 @@ Belangrijk:
 - Back-up/herstel/email-logica is niet herschreven.
 - E-mailtest loopt via server-side mailroute.
 
-## 5. Slim plannen
+## 5. Rooster plannen
 
-`Slim plannen` is de centrale plek voor toekomstige slimme/automatische planning. Het is bewust veilig opgebouwd: eerst tijdelijk voorstel, pas later toepassen.
+`Rooster plannen` is de centrale plek voor roosterplanning. Het is bewust veilig opgebouwd: eerst tijdelijk voorstel, pas opslaan na bewuste keuze van de planner.
 
 ### Maandweergave
 
 - Planner kiest een startweek.
 - `Voorstel maken` toont 4 opeenvolgende weken onder elkaar.
-- Elke week gebruikt dezelfde compacte roosteropmaak als Rooster/Rooster inplannen.
+- Elke week gebruikt dezelfde roosteropmaak als Rooster.
 - State wordt tijdelijk per week bijgehouden, bijvoorbeeld via week keys.
 - `Week wissen` wist een weekvoorstel.
 - `Alles wissen` wist alle 4 weken.
@@ -200,7 +183,7 @@ Belangrijke helpers:
 
 - Voorstel maakt tijdelijke OPEN regels op basis van bestaande open diensten.
 - Er wordt niets opgeslagen in `planning_entries`.
-- `Toepassen op rooster` was eerst disabled en is later bewust geactiveerd als `Rooster toepassen`.
+- `Rooster opslaan` bewaart alleen gekozen/wijzigde voorstelregels via de bestaande rooster-saveflow.
 
 ### Inline medewerkerkeuze
 
@@ -209,7 +192,7 @@ Belangrijke helpers:
 - Beschikbaar = groen.
 - Niet beschikbaar = rood met korte reden.
 - Klik op medewerker zet een tijdelijke keuze in proposal-state.
-- Geen echte roosterdata wordt aangepast totdat `Rooster toepassen` wordt gebruikt.
+- Geen echte roosterdata wordt aangepast totdat `Rooster opslaan` wordt gebruikt.
 
 ### Beschikbaarheidsadvies
 
@@ -219,7 +202,7 @@ Advies gebruikt bestaande frontenddata:
 - planning entries van gekozen weken
 - verlof/vrije dagen/ziek indien beschikbaar
 - contracturen indien beschikbaar
-- tijdelijke Slim plannen keuzes
+- tijdelijke Rooster plannen keuzes
 
 Niet-bevoegde medewerkers worden niet getoond.
 
@@ -232,7 +215,7 @@ Dubbele tijdelijke keuzes op dezelfde dag worden standaard geblokkeerd met reden
 - Productie + Bezorg
 - Winkel + Bezorg
 
-Deze combinaties gelden alleen voor tijdelijke Slim plannen keuzes.
+Deze combinaties gelden alleen voor tijdelijke Rooster plannen keuzes.
 
 ### Dienstsortering
 
@@ -265,9 +248,9 @@ Controle toont prioriteiten over alle 4 weken:
 
 Meldingen zijn compact en kunnen naar de juiste week/dienst springen.
 
-### Rooster toepassen
+### Rooster opslaan
 
-`Rooster toepassen` zet alleen gekozen conceptdiensten over naar het echte rooster.
+`Rooster opslaan` zet alleen gekozen conceptdiensten over naar het echte rooster.
 
 Belangrijk:
 
@@ -467,8 +450,7 @@ Waarschuwingen:
 Diensten worden centraal gesorteerd en gegroepeerd voor:
 
 - Rooster
-- Rooster inplannen
-- Slim plannen
+- Rooster plannen
 - medewerkerroosters
 
 Belangrijke helpers:
@@ -524,21 +506,21 @@ Recente relevante commits:
 - `335dfc5` - herstel mobiel mijn uren scherm en opslaan.
 - `a815bdf` - medewerkernaam knop naar Mijn account.
 - `a9d33c4` - vernieuw medewerkers beheer scherm.
-- `1c09cb9` - rooster toepassen in Slim plannen.
-- `bcbd2cf` - Slim plannen maandweergave.
-- `da85685` - maandcontrole in Slim plannen.
+- `1c09cb9` - rooster opslaan/toepassen-flow in Rooster plannen.
+- `bcbd2cf` - Rooster plannen maandweergave.
+- `da85685` - maandcontrole in Rooster plannen.
 - `39782fe` - controle prioriteit en overzicht.
 - `020bd51` - dienstvolgorde overal gelijk.
-- `6b00980` - centrale dienstvolgorde in Slim plannen.
+- `6b00980` - centrale dienstvolgorde in Rooster plannen.
 
 ## 13. Bekende aandachtspunten / next steps
 
 - Live testen van mobiele urenflow met meerdere medewerkers, specifiek Bernard en Bezorgdienst 08:00-12:30.
 - Controleren dat ingediende mobiele uren direct zichtbaar zijn in `Uren controleren`.
-- `Rooster toepassen` blijven bewaken op niet-overschrijven van bestaande diensten.
+- `Rooster opslaan` blijven bewaken op niet-overschrijven van bestaande diensten.
 - Productie-mail alleen bewust inschakelen en testen.
 - MailLog queued -> sent/error blijven testen in live/testmodus.
-- Slim plannen verder verbeteren met betere contracturencontrole.
+- Rooster plannen verder verbeteren met betere contracturencontrole.
 - Automatische planning/AI-logica later pas uitbreiden.
 - Echte maandpublicatie/versturen later bouwen.
 - Changelog bijhouden voor grote functionele wijzigingen.
@@ -559,4 +541,3 @@ Recente relevante commits:
   - commit met duidelijke message
   - push naar `main`
   - Vercel deployt automatisch via GitHub-koppeling
-

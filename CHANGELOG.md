@@ -11,7 +11,7 @@
 ## Planner dashboard
 
 - klein planner-dashboard toegevoegd
-- toont open aanvragen, overdue aanvragen en uren klaar voor goedkeuring
+- toont nieuwe aanvragen, wachtende aanvragen en uren klaar voor controle
 - toont open diensten, vervangingen en contract-afwijkingen
 - dashboarditems zijn klikbaar
 - bestaande filters/focus worden toegepast waar beschikbaar
