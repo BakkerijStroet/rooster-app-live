@@ -12200,7 +12200,8 @@ function getAutoPlanningPatternTier(employeeName, shift, day, weekValue, sourceE
 function canEmployeeBeAutoAssigned(employeeName, shift, day, sourceEntries, options = {}) {
   return canEmployeeBeAutoAssignedHelper(employeeName, shift, day, sourceEntries, {
     ...options,
-    isEmployeeAuthorizedForShift,
+    isEmployeeAuthorizedForShift: (candidateEmployeeName, shiftName) =>
+      isEmployeeAuthorizedForPlanningShift(candidateEmployeeName, shiftName, shift),
     getApprovedTimeOff,
     hasEmployeeAssignmentOnDay,
     findConflictInSource
@@ -20349,12 +20350,36 @@ function findSmartPlanningConflictInLookup(lookup, employeeName, item, exceptEnt
     .find((entry) => newStart < timeToMinutes(entry.endTime || "") && newEnd > timeToMinutes(entry.startTime || "")) || null;
 }
 
+function hasExplicitEmployeePermissionMatching(employeeName, matcher) {
+  const permissionMap = employeePermissions?.[employeeName];
+
+  if (!permissionMap || typeof permissionMap !== "object") {
+    return false;
+  }
+
+  return Object.entries(permissionMap).some(([permissionShiftName, permissionValue]) =>
+    permissionValue === true && matcher(String(permissionShiftName || "").toLowerCase())
+  );
+}
+
+function hasSmartPlanningInpakPermissionForProduction(employeeName, shiftOrItem = {}) {
+  const shiftFamily = getSmartPlanningShiftFamily(shiftOrItem);
+
+  return shiftFamily === "productie" &&
+    hasExplicitEmployeePermissionMatching(employeeName, (permissionShiftName) => permissionShiftName.includes("inpak"));
+}
+
+function isEmployeeAuthorizedForPlanningShift(employeeName, shiftName, shiftOrItem = {}) {
+  return isEmployeeAuthorizedForShift(employeeName, shiftName) ||
+    hasSmartPlanningInpakPermissionForProduction(employeeName, shiftOrItem);
+}
+
 function isEmployeeAuthorizedForSmartPlanningItem(employeeName, item, shift, lookup = getSmartPlanningLookupCache(entries)) {
   const shiftKey = `${employeeName}|${shift?.id || ""}|${shift?.name || item?.shiftName || ""}`;
   if (!lookup.authorizationByEmployeeShift.has(shiftKey)) {
     lookup.authorizationByEmployeeShift.set(
       shiftKey,
-      isEmployeeAuthorizedForShift(employeeName, shift?.name || item?.shiftName)
+      isEmployeeAuthorizedForPlanningShift(employeeName, shift?.name || item?.shiftName, shift || item)
     );
   }
 
@@ -20668,10 +20693,8 @@ function getSmartPlanningEmployeeAdvice(item) {
       }
 
       if (contractHours > 0 && projectedHours > contractHours) {
-        group = "attention";
         reasons.push("Contracturen overschreden");
       } else if (contractHours > 0 && contractHours - projectedHours <= 2) {
-        group = "attention";
         reasons.push("Contracturen bijna vol");
       }
 
@@ -20688,6 +20711,7 @@ function getSmartPlanningEmployeeAdvice(item) {
       isEmergencyOption,
       patternPriority,
       patternReason,
+      contractWarningPriority: reasons.some((reason) => String(reason || "").toLowerCase().includes("contract")) ? 1 : 0,
       isAuthorized,
       reasons
     });
@@ -20696,6 +20720,7 @@ function getSmartPlanningEmployeeAdvice(item) {
   Object.values(advice).forEach((items) => {
     items.sort((itemA, itemB) =>
       itemA.patternPriority - itemB.patternPriority ||
+      itemA.contractWarningPriority - itemB.contractWarningPriority ||
       itemA.plannedHours - itemB.plannedHours ||
       itemA.employeeName.localeCompare(itemB.employeeName, "nl")
     );
@@ -21375,10 +21400,13 @@ function getSmartPlanningAuthorizedEmployeeAdvice(item) {
       statusLabel: "Beschikbaar",
       displayReason: employeeAdvice.isEmergencyOption
         ? "Noodoptie"
-        : (employeeAdvice.patternReason || (employeeAdvice.contractHours > 0 ? "Beschikbaar" : "Geen vaste uren"))
+        : (employeeAdvice.reasons.find((reason) => String(reason || "").toLowerCase().includes("contract")) ||
+          employeeAdvice.patternReason ||
+          (employeeAdvice.contractHours > 0 ? "Beschikbaar" : "Geen vaste uren"))
     }))
     .sort((itemA, itemB) =>
       itemA.patternPriority - itemB.patternPriority ||
+      (itemA.contractWarningPriority || 0) - (itemB.contractWarningPriority || 0) ||
       itemA.plannedHours - itemB.plannedHours ||
       itemA.employeeName.localeCompare(itemB.employeeName, "nl")
     );
