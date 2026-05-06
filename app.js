@@ -18568,11 +18568,38 @@ function getSmartPlanningSelectedWeek() {
 }
 
 function getSmartPlanningDepartmentForShift(shift) {
-  return shift?.isShopShift || isShopShiftName(shift?.name || shift?.shiftName || "") ? "shop" : "bakery";
+  return getRosterDepartmentForEntry({
+    shiftId: shift?.id || "",
+    shiftName: shift?.name || shift?.shiftName || "",
+    startTime: shift?.startTime || "",
+    endTime: shift?.endTime || ""
+  });
 }
 
 function matchesSmartPlanningDepartment(shift, departmentFilter = "all") {
   return departmentFilter === "all" || getSmartPlanningDepartmentForShift(shift) === departmentFilter;
+}
+
+function mapSmartPlanningItemToRosterSortEntry(item = {}) {
+  const shift = item.shift || item;
+
+  return {
+    day: item.day || "",
+    shiftId: shift.id || item.shiftId || "",
+    shiftName: shift.name || item.shiftName || "Dienst",
+    startTime: shift.startTime || item.startTime || "",
+    endTime: shift.endTime || item.endTime || ""
+  };
+}
+
+function compareSmartPlanningItemsByRosterOrder(itemA, itemB) {
+  const sortEntryA = mapSmartPlanningItemToRosterSortEntry(itemA);
+  const sortEntryB = mapSmartPlanningItemToRosterSortEntry(itemB);
+
+  return sortEntryA.day.localeCompare(sortEntryB.day) ||
+    getRosterShiftSortOrder(sortEntryA) - getRosterShiftSortOrder(sortEntryB) ||
+    (sortEntryA.startTime || "").localeCompare(sortEntryB.startTime || "") ||
+    (sortEntryA.shiftName || "").localeCompare(sortEntryB.shiftName || "", "nl");
 }
 
 function getSmartPlanningDepartmentLabel(department = "all") {
@@ -18589,11 +18616,7 @@ function getSmartPlanningWeekData() {
   const openItems = (weekData.openItems || [])
     .filter((item) => shouldRenderPlannerOpenShiftsForDay(item.day))
     .filter((item) => matchesSmartPlanningDepartment(item.shift, departmentFilter))
-    .sort((itemA, itemB) =>
-      itemA.day.localeCompare(itemB.day) ||
-      (itemA.shift?.startTime || "").localeCompare(itemB.shift?.startTime || "") ||
-      (itemA.shift?.name || "").localeCompare(itemB.shift?.name || "", "nl")
-    );
+    .sort(compareSmartPlanningItemsByRosterOrder);
   const weekEntries = (weekData.weekEntries || [])
     .filter((entry) => departmentFilter === "all" || getRosterDepartmentForEntry(entry) === departmentFilter);
 
@@ -18811,7 +18834,7 @@ function renderSmartPlanningPanelPreservingRosterScroll() {
 }
 
 function getNextSmartPlanningOpenShiftId(currentItemId) {
-  const items = smartPlanningProposalState?.items || [];
+  const items = [...(smartPlanningProposalState?.items || [])].sort(compareSmartPlanningItemsByRosterOrder);
   const currentIndex = items.findIndex((item) => item.id === currentItemId);
   const currentItem = items[currentIndex];
 
@@ -18987,6 +19010,8 @@ function renderSmartPlanningInlineAdvice(item) {
   }
 
   const advice = getSmartPlanningAuthorizedEmployeeAdvice(item);
+  const shiftTime = `${item.startTime || "?"}-${item.endTime || "?"}`;
+  const shiftLabel = getCompactRosterShiftLabel(item.shiftName || "Dienst");
   const availableAdvice = [...advice.available].sort((itemA, itemB) => {
     const itemALast = itemA.employeeName === lastSmartPlanningSelectedEmployeeName ? -1 : 0;
     const itemBLast = itemB.employeeName === lastSmartPlanningSelectedEmployeeName ? -1 : 0;
@@ -19018,6 +19043,10 @@ function renderSmartPlanningInlineAdvice(item) {
 
   return `
     <div class="smart-planning-inline-advice smart-planning-floating-advice">
+      <div class="smart-planning-inline-shift-head">
+        <strong>${shiftLabel}</strong>
+        <span>${shiftTime}</span>
+      </div>
       ${item.chosenEmployeeName ? `
         <div class="smart-planning-inline-selected">
           <span>${item.chosenEmployeeName} is tijdelijk gekozen.</span>

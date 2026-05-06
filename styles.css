@@ -3245,6 +3245,24 @@ textarea.input-error {
   left: auto;
 }
 
+.smart-planning-inline-shift-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 7px;
+  border-radius: 9px;
+  background: #f7ecdc;
+  color: #3b3028;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.smart-planning-inline-shift-head span {
+  color: #7a6453;
+  white-space: nowrap;
+}
+
 .smart-planning-inline-selected {
   display: flex;
   flex-wrap: wrap;
