@@ -13180,6 +13180,191 @@ textarea:focus {
   }
 }
 
+/* Kleur-audit correcties: neutraliseer oude felle/blauwe/paarse accenten. */
+button.nav-tab.active:not(.secondary),
+button.request-switch-button.active:not(.secondary),
+button.smart-planning-tab.active:not(.secondary),
+button.mobile-nav-button.active:not(.secondary),
+body[data-role="employee"] button.mobile-nav-button.active:not(.secondary),
+button.employee-filter-button.active:not(.secondary) {
+  background: #fffaf1;
+  border-color: rgba(214, 154, 69, 0.72);
+  color: var(--text);
+  box-shadow: inset 0 -3px 0 var(--bakery-accent);
+}
+
+.app-header,
+.session-bar,
+.planner-header,
+.director-screen-header,
+.view-header {
+  color: var(--text);
+}
+
+.app-title,
+.view-header h1,
+.view-header h2,
+.director-screen-header h1,
+.director-screen-header h2,
+.panel-title,
+.card-title {
+  color: var(--text);
+}
+
+.panel-note,
+.card-note,
+.muted,
+.helper-text,
+.week-range,
+.planning-overview-line,
+.planner-audit-line {
+  color: var(--text-subtle);
+}
+
+.modal,
+.modal-content,
+.dialog,
+.dialog-card,
+.confirm-dialog,
+.confirm-dialog-card,
+.backup-panel,
+.backup-card {
+  background: #ffffff;
+  border-color: var(--border);
+  color: var(--text);
+  box-shadow: 0 18px 36px rgba(41, 35, 28, 0.16);
+}
+
+.shift-card.is-replacement,
+body[data-control-mode="planner"] .shift-card.is-replacement {
+  background: #f8fafc;
+  border-color: #d7dde3;
+  box-shadow: 0 4px 12px rgba(41, 35, 28, 0.06);
+}
+
+.shift-card.is-vacation-autofill,
+body[data-control-mode="planner"] .shift-card.is-vacation-autofill {
+  background: #fffaf1;
+  border-color: #e4a45c;
+  box-shadow: 0 4px 12px rgba(122, 74, 18, 0.08);
+}
+
+.planner-audit-badge.is-replacement,
+.control-flag.is-replacement,
+.planning-overview-alert.is-replacement,
+.planning-overview-tag.is-replacement {
+  background: #f8fafc;
+  border-color: #d7dde3;
+  color: #5f5142;
+}
+
+.planner-audit-badge.is-deviation,
+.control-flag.is-deviation,
+.planning-overview-alert.is-deviation,
+.planning-overview-tag.is-deviation,
+.planning-overview-alert.is-special,
+.planning-overview-tag.is-special,
+.planning-overview-alert.is-contract,
+.planning-overview-tag.is-contract {
+  background: #fff4e8;
+  border-color: #e4a45c;
+  color: #7a3d0d;
+}
+
+.planner-audit-badge.is-match,
+.control-flag.is-clear,
+.planning-overview-status.is-planned,
+.planning-overview-alert.is-clear,
+.planning-overview-tag.is-clear {
+  background: #edf7f0;
+  border-color: #9cc8aa;
+  color: #245a3d;
+}
+
+.planner-audit-badge.is-vacation,
+.planner-audit-badge.is-holiday,
+.control-flag.is-open,
+.planning-overview-status.is-open,
+.planning-overview-alert.is-open,
+.planning-overview-tag.is-open,
+.planning-overview-metric.is-open-count {
+  background: #fff4e8;
+  border-color: #e4a45c;
+  color: #7a3d0d;
+}
+
+.planning-overview-status.is-reviewed {
+  background: #edf7f0;
+  color: #245a3d;
+}
+
+.planning-overview-status.is-locked,
+.planning-overview-metric,
+.planning-overview-tag {
+  background: #f8fafc;
+  border-color: #d7dde3;
+  color: #5f5142;
+}
+
+.message,
+.compact-message,
+.toast,
+.login-auth-status {
+  background: #ffffff;
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.message.success,
+.compact-message.success,
+.toast.success,
+.login-auth-status.is-success {
+  background: #edf7f0;
+  border-color: #9cc8aa;
+  color: #245a3d;
+}
+
+.message.warning,
+.compact-message.warning,
+.toast.warning {
+  background: #fff4e8;
+  border-color: #e4a45c;
+  color: #7a3d0d;
+}
+
+.status-pill,
+.status-badge,
+.service-status-pill,
+.employee-status-badge,
+.planner-audit-badge,
+.control-flag,
+.planning-overview-status,
+.planning-overview-alert,
+.planning-overview-tag,
+.planning-overview-metric {
+  border-width: 1px;
+  border-style: solid;
+  font-weight: 700;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.is-planned,
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.has-complete-hours {
+  background: #edf7f0;
+  border-color: #9cc8aa;
+  color: var(--text);
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.has-open-hours {
+  background: #fffaf1;
+  border-color: #e4a45c;
+  color: var(--text);
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile em,
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile span {
+  color: var(--text-secondary);
+}
+
 
 
 
