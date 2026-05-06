@@ -24,7 +24,10 @@
   --color-text-on-primary: #ffffff;
   --color-surface: #ffffff;
   --color-surface-rgb: 255, 255, 255;
-  --color-surface-soft: #f8fafc;
+  --color-surface-soft: #fffaf3;
+  --color-surface-soft-hover: #fff3e0;
+  --color-surface-soft-active: #ffedd5;
+  --color-surface-soft-border: #fed7aa;
   --color-border: #cbd5e1;
   --color-border-rgb: 203, 213, 225;
   --color-neutral-soft: #f1f5f9;
@@ -955,13 +958,14 @@ body[data-role="employee"] .mobile-nav-button {
   background: rgba(var(--color-surface-rgb), 0.98);
   color: var(--color-text);
   font-size: 13px;
-  border: 1px solid rgba(var(--color-primary-rgb), 0.12);
+  border: 1px solid var(--color-surface-soft-border);
   box-shadow: none;
 }
 
 body[data-role="employee"] .mobile-nav-button.active {
-  background: var(--color-primary);
-  color: var(--color-surface);
+  background: var(--color-surface-soft-active);
+  border-color: var(--color-surface-soft-border);
+  color: var(--color-text);
 }
 
 body[data-role="employee"] .planner-only-tab,
@@ -1102,9 +1106,9 @@ body[data-role="employee"] [data-panel="week-current"] .employee-week-view-switc
 }
 
 body[data-role="employee"] [data-panel="week-current"] .employee-week-view-switch .secondary.active {
-  background: var(--color-primary);
-  color: var(--color-surface);
-  border-color: var(--color-primary);
+  background: var(--color-surface-soft-active);
+  color: var(--color-text);
+  border-color: var(--color-surface-soft-border);
 }
 
 body[data-role="employee"] [data-panel="week-current"] .week-switcher {
@@ -1716,7 +1720,7 @@ body[data-role="employee"] [data-panel="my-hours"] .my-hours-mobile-filters {
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-mobile-filters button {
   min-height: 40px;
   padding: 8px 12px;
-  border: 1px solid rgba(var(--color-primary-rgb), 0.12);
+  border: 1px solid var(--color-surface-soft-border);
   border-radius: 999px;
   background: var(--color-surface);
   color: var(--color-text);
@@ -1725,9 +1729,9 @@ body[data-role="employee"] [data-panel="my-hours"] .my-hours-mobile-filters butt
 }
 
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-mobile-filters button.active {
-  border-color: rgba(var(--color-primary-rgb), 0.32);
-  background: rgba(var(--color-primary-rgb), 0.14);
-  color: var(--color-primary-hover);
+  border-color: var(--color-surface-soft-border);
+  background: var(--color-surface-soft-active);
+  color: var(--color-text);
 }
 
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-worked-group h3 {
@@ -2007,19 +2011,19 @@ body[data-role="employee"] [data-panel="requests"] #requestsOpenCards {
 }
 
 .nav-tab:hover {
-  background: var(--color-primary-soft);
-  border-color: rgba(var(--color-primary-rgb), 0.25);
+  background: var(--color-surface-soft-hover);
+  border-color: var(--color-surface-soft-border);
 }
 
 .nav-tab.active {
-  background: linear-gradient(180deg, var(--color-primary-soft), var(--color-primary-border));
+  background: linear-gradient(180deg, var(--color-surface-soft-hover), var(--color-surface-soft-active));
   color: var(--color-text);
-  border-color: rgba(var(--color-primary-rgb), 0.42);
-  box-shadow: inset 0 -2px 0 rgba(var(--color-primary-rgb), 0.72), 0 7px 14px rgba(var(--color-primary-rgb), 0.06);
+  border-color: var(--color-surface-soft-border);
+  box-shadow: inset 0 -2px 0 var(--color-surface-soft-border), 0 7px 14px rgba(var(--color-shadow-rgb), 0.04);
 }
 
 .nav-tab.active::before {
-  background: var(--color-primary);
+  background: var(--color-surface-soft-border);
   box-shadow: none;
 }
 
@@ -2369,9 +2373,9 @@ textarea.input-error {
 
 .employee-filter-button.active,
 .employee-detail-tab.active {
-  background: var(--color-primary-soft);
+  background: var(--color-surface-soft-active);
   color: var(--color-text);
-  border-color: var(--color-primary-border);
+  border-color: var(--color-surface-soft-border);
 }
 
 .employee-new-form.hidden {
@@ -3280,7 +3284,7 @@ textarea.input-error {
   padding: 4px;
   border: 1px solid var(--color-border);
   border-radius: 999px;
-  background: var(--color-primary-soft);
+  background: var(--color-surface-soft);
   width: fit-content;
   max-width: 100%;
 }
@@ -3299,8 +3303,8 @@ textarea.input-error {
 }
 
 .smart-planning-tab.active {
-  border-color: var(--color-primary-border);
-  background: var(--color-primary-soft);
+  border-color: var(--color-surface-soft-border);
+  background: var(--color-surface-soft-active);
   color: var(--color-text);
   box-shadow: none;
 }
@@ -4922,13 +4926,14 @@ textarea.input-error {
   background: var(--color-surface-soft);
   color: var(--color-text);
   min-height: 50px;
-  border: 1px solid rgba(var(--color-primary-rgb), 0.12);
+  border: 1px solid var(--color-surface-soft-border);
   box-shadow: none;
 }
 
 .request-switch-button.active {
-  background: var(--color-primary);
-  color: var(--color-surface);
+  background: var(--color-surface-soft-active);
+  border-color: var(--color-surface-soft-border);
+  color: var(--color-text);
 }
 
 .mini-week-grid {
@@ -5487,8 +5492,8 @@ body[data-role="employee"][data-employee-locked="true"] .director-screen-toolbar
 
 .hours-control-summary-card.active,
 .hours-control-summary-card:hover {
-  border-color: rgba(var(--color-primary-rgb), 0.4);
-  background: var(--color-primary-soft);
+  border-color: var(--color-surface-soft-border);
+  background: var(--color-surface-soft-hover);
 }
 
 .hours-control-summary-card span {
@@ -5795,16 +5800,16 @@ body[data-role="employee"][data-employee-locked="true"] .director-screen-toolbar
 }
 
 .time-quick-button:hover:not(:disabled) {
-  border-color: var(--color-primary);
-  background: var(--color-primary-soft);
-  color: var(--color-primary-hover);
+  border-color: var(--color-surface-soft-border);
+  background: var(--color-surface-soft-hover);
+  color: var(--color-text);
   transform: translateY(-1px);
 }
 
 .time-quick-button.is-active {
-  border-color: var(--color-primary);
-  background: var(--color-primary);
-  color: var(--color-surface);
+  border-color: var(--color-surface-soft-border);
+  background: var(--color-surface-soft-active);
+  color: var(--color-text);
 }
 
 .time-quick-button.is-last-used:not(.is-active) {
@@ -6548,15 +6553,16 @@ button:disabled {
 }
 
 button.secondary {
-  background: var(--color-primary-soft);
+  background: var(--color-surface-soft);
   color: var(--color-text);
-  border-color: rgba(var(--color-primary-rgb), 0.14);
-  box-shadow: 0 4px 10px rgba(var(--color-primary-rgb), 0.04);
+  border-color: var(--color-surface-soft-border);
+  box-shadow: 0 4px 10px rgba(var(--color-shadow-rgb), 0.035);
 }
 
 button.secondary.active {
-  background: var(--color-primary);
-  color: var(--color-surface);
+  background: var(--color-surface-soft-active);
+  border-color: var(--color-surface-soft-border);
+  color: var(--color-text);
 }
 
 button.warning {
@@ -7955,8 +7961,8 @@ button.hours-reminder-banner {
 
 .planner-summary-filter.active,
 .planner-summary-filter:hover {
-  border-color: rgba(var(--color-primary-rgb), 0.4);
-  background: var(--color-primary-soft);
+  border-color: var(--color-surface-soft-border);
+  background: var(--color-surface-soft-hover);
 }
 
 .planner-summary-chip span {
@@ -10040,8 +10046,9 @@ button,
   }
 
   .mobile-nav-button.active {
-    background: var(--color-primary);
-    color: var(--color-surface);
+    background: var(--color-surface-soft-active);
+    border-color: var(--color-surface-soft-border);
+    color: var(--color-text);
   }
 
   body[data-role="planner"] {
@@ -11531,10 +11538,10 @@ body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.is-
 }
 
 .nav-tab.active {
-  background: var(--color-primary-soft);
+  background: var(--color-surface-soft-active);
   color: var(--color-text);
-  border-color: rgba(var(--color-primary-rgb), 0.52);
-  box-shadow: inset 0 -3px 0 rgba(var(--color-primary-rgb), 0.78), 0 6px 14px rgba(var(--color-primary-rgb), 0.06);
+  border-color: var(--color-surface-soft-border);
+  box-shadow: inset 0 -3px 0 var(--color-surface-soft-border), 0 6px 14px rgba(var(--color-shadow-rgb), 0.04);
 }
 
 .request-switch-button,
@@ -11547,10 +11554,10 @@ body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.is-
 
 .request-switch-button.active,
 body[data-role="employee"] .request-switch-button.active {
-  background: var(--color-primary-soft);
+  background: var(--color-surface-soft-active);
   color: var(--color-text);
-  border-color: rgba(var(--color-primary-rgb), 0.52);
-  box-shadow: inset 0 -3px 0 rgba(var(--color-primary-rgb), 0.72), 0 4px 12px rgba(var(--color-primary-rgb), 0.07);
+  border-color: var(--color-surface-soft-border);
+  box-shadow: inset 0 -3px 0 var(--color-surface-soft-border), 0 4px 12px rgba(var(--color-shadow-rgb), 0.04);
 }
 
 .mobile-bottom-nav {
@@ -11566,16 +11573,16 @@ body[data-role="employee"] .request-switch-button.active {
 }
 
 .mobile-nav-button.active {
-  background: var(--color-primary-soft);
+  background: var(--color-surface-soft-active);
   color: var(--color-text);
-  border-color: rgba(var(--color-primary-rgb), 0.48);
-  box-shadow: inset 0 3px 0 rgba(var(--color-primary-rgb), 0.72), 0 4px 12px rgba(var(--color-primary-rgb), 0.08);
+  border-color: var(--color-surface-soft-border);
+  box-shadow: inset 0 3px 0 var(--color-surface-soft-border), 0 4px 12px rgba(var(--color-shadow-rgb), 0.04);
 }
 
 body[data-role="employee"] .mobile-nav-button.active {
-  background: var(--color-primary-soft);
+  background: var(--color-surface-soft-active);
   color: var(--color-text);
-  border-color: rgba(var(--color-primary-rgb), 0.48);
+  border-color: var(--color-surface-soft-border);
 }
 
 .planning-shift-line {
@@ -11909,7 +11916,7 @@ small,
 .nav-tab {
   min-height: 40px;
   padding: 9px 14px;
-  border-color: var(--color-primary-border);
+  border-color: var(--color-surface-soft-border);
   background: var(--color-surface);
   color: var(--color-text-secondary);
   font-size: 14px;
@@ -11920,31 +11927,37 @@ small,
 .nav-tab::before {
   width: 6px;
   height: 6px;
-  background: rgba(var(--color-primary-rgb), 0.42);
+  background: var(--color-surface-soft-border);
 }
 
 .nav-tab:hover {
-  background: var(--color-primary-soft);
-  border-color: rgba(var(--color-primary-rgb), 0.28);
+  background: var(--color-surface-soft-hover);
+  border-color: var(--color-surface-soft-border);
   color: var(--color-text);
 }
 
 .nav-tab.active {
-  background: var(--color-surface);
+  background: var(--color-surface-soft-active);
   color: var(--color-text);
-  border-color: rgba(var(--color-primary-rgb), 0.48);
-  box-shadow: inset 0 -3px 0 var(--color-primary), 0 6px 16px rgba(var(--color-primary-rgb), 0.055);
+  border-color: var(--color-surface-soft-border);
+  box-shadow: inset 0 -3px 0 var(--color-surface-soft-border), 0 6px 16px rgba(var(--color-shadow-rgb), 0.04);
 }
 
-button:not(.secondary):not(.warning):not(:disabled),
-.employee-filter-button.active {
+button:not(.secondary):not(.warning):not(.nav-tab):not(.request-switch-button):not(.smart-planning-tab):not(.mobile-nav-button):not(.employee-filter-button):not(.employee-detail-tab):not(.planner-summary-filter):not(.hours-control-summary-card):not(.time-quick-button):not(:disabled) {
   background: var(--color-primary);
   border-color: var(--color-primary);
   color: var(--color-surface);
   box-shadow: 0 8px 18px rgba(var(--color-primary-rgb), 0.16);
 }
 
-button:not(.secondary):not(.warning):not(:disabled):hover {
+.employee-filter-button.active {
+  background: var(--color-surface-soft-active);
+  border-color: var(--color-surface-soft-border);
+  color: var(--color-text);
+  box-shadow: inset 0 -3px 0 var(--color-surface-soft-border);
+}
+
+button:not(.secondary):not(.warning):not(.nav-tab):not(.request-switch-button):not(.smart-planning-tab):not(.mobile-nav-button):not(.employee-filter-button):not(.employee-detail-tab):not(.planner-summary-filter):not(.hours-control-summary-card):not(.time-quick-button):not(:disabled):hover {
   background: var(--color-primary);
   border-color: var(--color-primary);
   box-shadow: 0 10px 22px rgba(var(--color-primary-rgb), 0.2);
@@ -11954,7 +11967,7 @@ button.secondary,
 .request-switch-button,
 .mobile-nav-button {
   background: var(--color-surface);
-  border-color: var(--color-border);
+  border-color: var(--color-surface-soft-border);
   color: var(--color-text);
   box-shadow: none;
 }
@@ -11962,8 +11975,8 @@ button.secondary,
 button.secondary:hover:not(:disabled),
 .request-switch-button:hover,
 .mobile-nav-button:hover {
-  background: var(--color-primary-soft);
-  border-color: rgba(var(--color-primary-rgb), 0.3);
+  background: var(--color-surface-soft-hover);
+  border-color: var(--color-surface-soft-border);
 }
 
 .request-switch-button.active,
@@ -11971,10 +11984,10 @@ body[data-role="employee"] .request-switch-button.active,
 .smart-planning-tab.active,
 .mobile-nav-button.active,
 body[data-role="employee"] .mobile-nav-button.active {
-  background: var(--color-surface);
-  border-color: rgba(var(--color-primary-rgb), 0.46);
+  background: var(--color-surface-soft-active);
+  border-color: var(--color-surface-soft-border);
   color: var(--color-text);
-  box-shadow: inset 0 -3px 0 var(--color-primary), 0 4px 12px rgba(var(--color-primary-rgb), 0.055);
+  box-shadow: inset 0 -3px 0 var(--color-surface-soft-border), 0 4px 12px rgba(var(--color-shadow-rgb), 0.04);
 }
 
 .dashboard-item,
@@ -12438,10 +12451,10 @@ body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.is-
 
   .mobile-nav-button.active,
   body[data-role="employee"] .mobile-nav-button.active {
-    background: var(--color-surface);
+    background: var(--color-surface-soft-active);
     color: var(--color-text);
-    border-color: rgba(var(--color-primary-rgb), 0.5);
-    box-shadow: inset 0 3px 0 var(--color-primary);
+    border-color: var(--color-surface-soft-border);
+    box-shadow: inset 0 3px 0 var(--color-surface-soft-border);
   }
 
   .planning-day-card,
@@ -12841,7 +12854,7 @@ body {
 .employee-filter-button,
 button.secondary {
   background: var(--color-surface);
-  border-color: var(--color-border);
+  border-color: var(--color-surface-soft-border);
   color: var(--color-text-secondary);
   box-shadow: none;
 }
@@ -12852,8 +12865,8 @@ button.secondary {
 .smart-planning-tab:hover,
 .employee-filter-button:hover,
 button.secondary:hover:not(:disabled) {
-  background: var(--color-primary-soft);
-  border-color: var(--color-primary-border);
+  background: var(--color-surface-soft-hover);
+  border-color: var(--color-surface-soft-border);
   color: var(--color-text);
 }
 
@@ -12869,13 +12882,13 @@ body[data-role="employee"] .mobile-nav-button.active,
 body[data-role="employee"] button.mobile-nav-button.active:not(.secondary),
 .employee-filter-button.active,
 button.employee-filter-button.active:not(.secondary) {
-  background: var(--color-primary-soft);
-  border-color: var(--color-primary-border);
+  background: var(--color-surface-soft-active);
+  border-color: var(--color-surface-soft-border);
   color: var(--color-text);
-  box-shadow: inset 0 -3px 0 var(--color-primary);
+  box-shadow: inset 0 -3px 0 var(--color-surface-soft-border);
 }
 
-button:not(.secondary):not(.warning):not(:disabled),
+button:not(.secondary):not(.warning):not(.nav-tab):not(.request-switch-button):not(.smart-planning-tab):not(.mobile-nav-button):not(.employee-filter-button):not(.employee-detail-tab):not(.planner-summary-filter):not(.hours-control-summary-card):not(.time-quick-button):not(:disabled),
 .primary-action,
 .button-primary {
   background: var(--color-primary);
@@ -12884,7 +12897,7 @@ button:not(.secondary):not(.warning):not(:disabled),
   box-shadow: 0 8px 18px rgba(var(--color-primary-rgb), 0.22);
 }
 
-button:not(.secondary):not(.warning):not(:disabled):hover,
+button:not(.secondary):not(.warning):not(.nav-tab):not(.request-switch-button):not(.smart-planning-tab):not(.mobile-nav-button):not(.employee-filter-button):not(.employee-detail-tab):not(.planner-summary-filter):not(.hours-control-summary-card):not(.time-quick-button):not(:disabled):hover,
 .primary-action:hover,
 .button-primary:hover {
   background: var(--color-primary-hover);
@@ -13153,10 +13166,10 @@ body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.has
 
   .mobile-nav-button.active,
   body[data-role="employee"] .mobile-nav-button.active {
-    background: var(--color-primary-soft);
+    background: var(--color-surface-soft-active);
     color: var(--color-text);
-    border-color: var(--color-primary-border);
-    box-shadow: inset 0 3px 0 var(--color-primary);
+    border-color: var(--color-surface-soft-border);
+    box-shadow: inset 0 3px 0 var(--color-surface-soft-border);
   }
 }
 
