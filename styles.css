@@ -1201,10 +1201,46 @@ body[data-role="employee"] [data-panel="week-current"] .employee-roster-actions 
 }
 
 @media (max-width: 640px) {
+  body[data-role="employee"] .app-panel[data-panel="week-current"].board-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] #schedule-board {
+    order: 1;
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] #message {
+    order: 2;
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .board-header {
+    order: 3;
+    margin: 4px 0 0;
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .board-toolbar,
+  body[data-role="employee"] [data-panel="week-current"] .employee-week-toolbar {
+    gap: 6px;
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .employee-week-label {
+    display: none !important;
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .employee-week-view-switch {
+    gap: 6px;
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .employee-week-view-switch .secondary {
+    min-height: 42px;
+  }
+
   body[data-role="employee"] [data-panel="week-current"] .employee-mobile-roster-days,
   body[data-role="employee"] [data-panel="week-current"] .employee-mobile-roster-detail {
     display: grid;
-    gap: 10px;
+    gap: 8px;
   }
 
   body[data-role="employee"] [data-panel="week-current"] .employee-mobile-roster-day {
@@ -1213,7 +1249,7 @@ body[data-role="employee"] [data-panel="week-current"] .employee-roster-actions 
     justify-content: space-between;
     gap: 12px;
     width: 100%;
-    padding: 14px;
+    padding: 10px 12px;
     border: 1px solid rgba(138, 85, 54, 0.1);
     border-radius: 16px;
     background: #fff;
@@ -1246,6 +1282,23 @@ body[data-role="employee"] [data-panel="week-current"] .employee-roster-actions 
 
   body[data-role="employee"] [data-panel="week-current"] .employee-mobile-roster-back {
     width: 100%;
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .mobile-day-card {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .mobile-day-header {
+    padding-bottom: 6px;
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .roster-group {
+    padding: 8px;
+  }
+
+  body[data-role="employee"] [data-panel="week-current"] .roster-row {
+    padding-block: 5px;
   }
 }
 
