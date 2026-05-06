@@ -8252,7 +8252,7 @@ const {
     const nextMinutes = totalMinutes % 60;
     return `${String(nextHours).padStart(2, "0")}:${String(nextMinutes).padStart(2, "0")}`;
   },
-  buildHoursManualEntry = function fallbackBuildHoursManualEntry(employeeName, day, shiftName = "Extra uren") {
+  buildHoursManualEntry = function fallbackBuildHoursManualEntry(employeeName, day, shiftName = "Extra gewerkt") {
     return {
       name: employeeName,
       day,
@@ -8416,8 +8416,34 @@ function getManualWorkLogForDate(employeeName, day) {
   return workLogs.find((log) => log.id === buildManualWorkLogId(employeeName, day)) || null;
 }
 
+function isExtraWorkedLog(log) {
+  return Boolean(log && (isManualWorkLogId(log.id) || log.shiftName === "Extra gewerkt" || log.shiftName === "Extra uren"));
+}
+
 function getSelectedHoursDate() {
   return clampHoursDateValue(hoursDateInput?.value || preferences.lastHoursDate || getTodayLocalDateValue());
+}
+
+function setSelectedHoursDateValue(dateValue) {
+  const safeDate = clampHoursDateValue(dateValue);
+  const weekValue = getWeekValueFromDate(safeDate) || getCurrentWeekValue();
+
+  if (hoursDateInput) {
+    hoursDateInput.value = safeDate;
+  }
+
+  if (hoursWeekInput) {
+    hoursWeekInput.value = weekValue;
+  }
+
+  preferences.lastHoursDate = safeDate;
+  preferences.lastHoursWeek = weekValue;
+  savePreferences();
+
+  return {
+    date: safeDate,
+    week: weekValue
+  };
 }
 
 function getWeekBounds(weekValue) {
@@ -8472,7 +8498,7 @@ function getWorkLogContextById(workLogId) {
       return {
         name: employeeName,
         day,
-        shiftName: "Extra uren",
+        shiftName: "Extra gewerkt",
         startTime: "",
         endTime: "",
         hours: 0,
@@ -8668,6 +8694,7 @@ function renderWorkLogCardMarkup(entry, workLog = getWorkLogForEntry(entry), opt
   const workLogId = options.workLogId || getWorkLogIdForEntry(entry);
   const notesLabel = options.notesLabel || (entry.isManualHours ? "Reden of type werk" : "Opmerkingen");
   const notesPlaceholder = options.notesPlaceholder || (entry.isManualHours ? "Korte reden of type werk" : "Bijzonderheden");
+  const mobileNotesLabel = options.mobileNotesLabel || (entry.isManualHours ? "Omschrijving verplicht" : "Opmerking optioneel");
   const effectiveValues = getEffectiveWorkLogValues(entry, workLog);
   const actualWorkedHours = calculateWorkedHours(effectiveValues.actualStart, effectiveValues.actualEnd, effectiveValues.breakMinutes);
   const hasDeviation = hasWorkLogDeviation(entry, effectiveValues);
@@ -8703,19 +8730,23 @@ function renderWorkLogCardMarkup(entry, workLog = getWorkLogForEntry(entry), opt
   const mobileFeedbackMarkup = activeMobileHoursFeedback.workLogId === workLogId && activeMobileHoursFeedback.text
     ? `<div class="mobile-hours-feedback is-${activeMobileHoursFeedback.type}" data-mobile-worklog-feedback>${activeMobileHoursFeedback.text}</div>`
     : `<div class="mobile-hours-feedback is-empty" data-mobile-worklog-feedback></div>`;
-  const mobileActionLabel = entry.isManualHours
+  const mobileActionLabel = options.mobileActionLabel || (entry.isManualHours
     ? (isMobileEntryActive ? "Nu invullen" : "Extra uren toevoegen")
-    : (workLog ? "Controleer uren" : "Uren invullen");
-  const submitButtonLabel = isPlannerRole() ? "Indienen" : "Uren indienen";
+    : (workLog ? "Controleer uren" : "Uren invullen"));
+  const submitButtonLabel = options.submitButtonLabel || (isPlannerRole() ? "Indienen" : "Uren indienen");
+  const mobileFlowTitle = options.mobileFlowTitle || (entry.isManualHours ? "Extra uren indienen" : "Uren invullen");
+  const mobileFlowDescription = options.mobileFlowDescription || (entry.isManualHours
+    ? "Vul datum, tijden, pauze en omschrijving in."
+    : "Controleer de tijden, vul pauze in en verstuur.");
   const workLogIdAttribute = escapeHtmlAttribute(workLogId);
   const plannedTimeMarkup = entry.startTime && entry.endTime
     ? `<span>Gepland: ${entry.startTime} - ${entry.endTime}</span>`
     : `<span class="hours-registration-flag">${entry.isManualHours ? "Geen geplande dienst nodig" : "Geen dienst gepland"}</span>`;
-  const guidanceText = entry.isManualHours
+  const guidanceText = options.guidanceText || (entry.isManualHours
     ? "Gebruik extra uren alleen voor vandaag of een eerdere datum, en alleen voor werk buiten je geplande dienst."
     : entry.startTime && entry.endTime
       ? "De geplande tijden staan al ingevuld. Pas alleen iets aan als het echt afwijkt."
-      : "Er stond geen dienst gepland. Vul alleen handmatig uren in als dat echt nodig is.";
+      : "Er stond geen dienst gepland. Vul alleen handmatig uren in als dat echt nodig is.");
 
   return `
     <article class="hours-registration-card ${workLog ? "is-saved" : ""} ${hasDeviation ? "has-deviation" : ""} ${entry.isManualHours ? "is-manual-hours" : ""} ${isMobileEntryActive ? "is-mobile-entry-active" : ""} status-${statusClass}" data-worklog-card-id="${workLogIdAttribute}">
@@ -8729,7 +8760,7 @@ function renderWorkLogCardMarkup(entry, workLog = getWorkLogForEntry(entry), opt
       <div class="hours-registration-meta">
         <span class="hours-registration-date">Datum: ${formatWeekday(entry.day)} ${formatDate(entry.day)}</span>
         ${plannedTimeMarkup}
-        ${entry.isManualHours ? `<span class="hours-registration-flag is-extra">Extra uren</span>` : ""}
+        ${entry.isManualHours ? `<span class="hours-registration-flag is-extra">Extra gewerkt</span>` : ""}
         ${hasDeviation ? `<span class="hours-registration-flag">Afwijking van planning</span>` : `<span>${entry.startTime && entry.endTime ? "Volgens planning" : "Handmatige invoer"}</span>`}
         ${actualWorkedHours !== null ? `<span>Gewerkt: ${formatHours(actualWorkedHours)}</span>` : ""}
       </div>
@@ -8750,8 +8781,8 @@ function renderWorkLogCardMarkup(entry, workLog = getWorkLogForEntry(entry), opt
             </button>`}
       </div>
       <div class="mobile-hours-entry-flow">
-        <strong>Uren invullen</strong>
-        <span>Controleer de tijden, vul pauze in en verstuur.</span>
+        <strong>${mobileFlowTitle}</strong>
+        <span>${mobileFlowDescription}</span>
       </div>
       <div class="hours-registration-validation ${validation.messages.length ? "" : "is-empty"}" data-worklog-validation>
         ${validation.messages.map((message) => `<div class="hours-validation-note is-${message.type}">${message.text}</div>`).join("")}
@@ -8784,7 +8815,7 @@ function renderWorkLogCardMarkup(entry, workLog = getWorkLogForEntry(entry), opt
         </label>
         <label class="hours-registration-notes">
           <span class="hours-desktop-field-label">${notesLabel}</span>
-          <span class="hours-mobile-field-label">Opmerking optioneel</span>
+          <span class="hours-mobile-field-label">${mobileNotesLabel}</span>
           <input type="text" maxlength="200" data-worklog-field="notes" data-worklog-id="${workLogIdAttribute}" value="${escapeHtmlAttribute(effectiveValues.notes)}" placeholder="${escapeHtmlAttribute(notesPlaceholder)}" ${isInputLockedWithFuture ? "disabled" : ""}>
         </label>
         ${(workLog?.status === "revision" || workLog?.status === "rejected" || (isPlannerRole() && workLog?.employeeReply))
@@ -8846,15 +8877,22 @@ function isEmployeeWorkLogComplete(workLog) {
 function renderMyHoursExtraEntry(employeeName, day) {
   const manualWorkLog = getManualWorkLogForDate(employeeName, day);
 
-  return renderWorkLogCardMarkup(buildHoursManualEntry(employeeName, day), manualWorkLog, {
-    shiftName: "Extra uren",
+  return renderWorkLogCardMarkup(buildHoursManualEntry(employeeName, day, "Extra gewerkt"), manualWorkLog, {
+    shiftName: "Extra gewerkt",
     workLogId: buildManualWorkLogId(employeeName, day),
-    notesLabel: "Reden of type werk",
-    notesPlaceholder: "Korte reden of type werk"
+    notesLabel: "Omschrijving/opmerking",
+    notesPlaceholder: "Bijv. extra voorbereiding, winkelhulp of opruimen",
+    mobileActionLabel: "Extra uren invullen",
+    mobileFlowTitle: "Extra uren indienen",
+    mobileFlowDescription: "Vul datum, tijden, pauze en omschrijving in.",
+    mobileNotesLabel: "Omschrijving verplicht",
+    submitButtonLabel: "Extra uren indienen",
+    guidanceText: "Dit formulier is voor werk buiten je geplande dienst. Kies de datum, vul je gewerkte tijden in en dien ze in."
   });
 }
 
-function renderMyHoursExtraWorkedView(employeeName, todayValue, employeeWorkLogs) {
+function renderMyHoursExtraWorkedView(employeeName, selectedDate, employeeWorkLogs, todayValue) {
+  const safeSelectedDate = clampHoursDateValue(selectedDate || todayValue);
   const manualLogs = employeeWorkLogs
     .filter((log) => isManualWorkLogId(log.id))
     .sort((logA, logB) => String(logB.day || "").localeCompare(String(logA.day || "")));
@@ -8862,27 +8900,38 @@ function renderMyHoursExtraWorkedView(employeeName, todayValue, employeeWorkLogs
   return `
     <section class="my-hours-extra-worked">
       <article class="my-hours-extra-card">
-        <div>
-          <strong>${formatWeekday(todayValue)} ${formatDate(todayValue)}</strong>
-          <span>Extra gewerkt?</span>
+        <div class="my-hours-extra-head">
+          <div>
+            <strong>Extra uren indienen</strong>
+            <span>Niet gekoppeld aan een geplande dienst.</span>
+          </div>
         </div>
-        ${renderMyHoursExtraEntry(employeeName, todayValue)}
+        <label class="my-hours-extra-date-field">
+          <span>Datum</span>
+          <input type="date" data-my-hours-extra-date value="${safeSelectedDate}" max="${todayValue}">
+        </label>
+        ${renderMyHoursExtraEntry(employeeName, safeSelectedDate)}
       </article>
       <div class="my-hours-extra-history">
+        <div class="my-hours-extra-history-head">
+          <strong>Eerder opgegeven extra uren</strong>
+        </div>
         ${manualLogs.length
           ? manualLogs.map((log) => {
             const workedHours = getWorkedHoursFromLog(log);
+            const timeText = log.actualStart && log.actualEnd ? `${log.actualStart} - ${log.actualEnd}` : "Nog niet ingevuld";
             return `
               <article class="my-hours-extra-history-item">
                 <div>
                   <strong>${formatWeekday(log.day)} ${formatDate(log.day)}</strong>
-                  <span>${log.notes || "Extra uren"}</span>
+                  <span>${log.notes || "Extra gewerkt"}</span>
+                  <small>${timeText} · ${getWorkLogStatusLabel(log)}</small>
                 </div>
                 <em>${workedHours !== null ? formatHours(workedHours) : "Nog open"}</em>
               </article>
             `;
           }).join("")
-          : `<div class="hours-day-empty"><strong>Nog geen extra uren.</strong></div>`}
+          : `<div class="hours-day-empty"><strong>Nog geen extra uren.</strong><span>Ingediende extra uren verschijnen hier.</span></div>`}
       </div>
     </section>
   `;
@@ -9007,7 +9056,7 @@ function renderMyWorkedHoursMobileOverview(employeeName, employeeEntries, employ
             <article class="my-hours-worked-card status-extra">
               <div class="my-hours-worked-card-main">
                 <span>${formatWeekday(log.day)} ${formatDate(log.day)}</span>
-                <strong>${log.notes || "Extra uren"}</strong>
+                <strong>${log.notes || "Extra gewerkt"}</strong>
                 <small>${workedHours !== null ? formatHours(workedHours) : "Nog open"}</small>
               </div>
               <span class="mobile-hours-status is-filled">${getWorkLogStatusLabel(log)}</span>
@@ -9098,7 +9147,7 @@ function renderMyWorkedHoursOverview(employeeName, employeeEntries, employeeWork
           <button type="button" class="my-hours-history-item" data-hours-history-date="${day}">
             <span>
               <strong>${formatWeekday(day)} ${formatDate(day)}</strong>
-              <small>${dayEntries.length ? `${dayEntries.length} geplande dienst${dayEntries.length === 1 ? "" : "en"}` : "Extra uren"}</small>
+              <small>${dayEntries.length ? `${dayEntries.length} geplande dienst${dayEntries.length === 1 ? "" : "en"}` : "Extra gewerkt"}</small>
             </span>
             <em>${statusLabel}${workedHours > 0 ? ` · ${formatHours(workedHours)}` : ""}</em>
           </button>
@@ -9147,7 +9196,7 @@ function renderMyWorkedHoursDetail(employeeName, day, employeeEntries) {
       }).join("")}
       ${manualLog ? `
         <article class="my-hours-history-card is-extra">
-          <strong>Extra uren</strong>
+          <strong>Extra gewerkt</strong>
           <span>Datum: ${formatWeekday(day)} ${formatDate(day)}</span>
           <span>Status: ${getWorkLogStatusLabel(manualLog)}</span>
           <span>Gewerkt: ${manualLog.actualStart || "-"} - ${manualLog.actualEnd || "-"} · pauze ${Number(manualLog.breakMinutes) || 0} min</span>
@@ -23466,8 +23515,9 @@ function renderMyHours() {
   let effectiveSelectedDate = selectedDate;
   const hasSelectedDateEntry = employeeEntries.some((entry) => entry.day === selectedDate);
   const hasSelectedDateManualLog = Boolean(getManualWorkLogForDate(employeeName, selectedDate));
+  const isExtraHoursChoice = !isPlannerRole() && activeMyHoursChoice === "extra";
 
-  if (!hasSelectedDateEntry && !hasSelectedDateManualLog) {
+  if (!isExtraHoursChoice && !hasSelectedDateEntry && !hasSelectedDateManualLog) {
     if (plannedTodayEntries.length) {
       effectiveSelectedDate = todayValue;
     } else if (missingPastDays.length) {
@@ -23615,14 +23665,30 @@ function renderMyHours() {
     });
 
     if (resolvedChoice === "extra") {
+      const selectedExtraDate = clampHoursDateValue(hoursDateInput?.value || effectiveSelectedDate || todayValue);
+      const extraWorkLogId = buildManualWorkLogId(employeeName, selectedExtraDate);
+      const extraWorkLog = getManualWorkLogForDate(employeeName, selectedExtraDate);
+      const canEditExtraWorkLog = !extraWorkLog || extraWorkLog.status === "draft" || extraWorkLog.status === "revision" || extraWorkLog.status === "rejected";
+
+      activeMyHoursSection = "extra";
+      activeMyHoursEntryMode = "extra";
+
+      if (canEditExtraWorkLog) {
+        activeMobileWorkLogId = extraWorkLogId;
+      } else if (activeMobileWorkLogId === extraWorkLogId) {
+        activeMobileWorkLogId = "";
+      }
+
       setClassName(myHoursHighlight, "hours-highlight");
       myHoursHighlight.innerHTML = `
+        <span class="hours-section-kicker">Buiten je planning</span>
         <strong>Extra gewerkt</strong>
+        <small>Dien uren in die niet aan een geplande dienst hangen.</small>
       `;
       setClassName(myHoursSummary, "totals");
       myHoursSummary.innerHTML = "";
       setClassName(myHoursRegistrations, "hours-registration-list");
-      myHoursRegistrations.innerHTML = renderMyHoursExtraWorkedView(employeeName, todayValue, employeeWorkLogs);
+      myHoursRegistrations.innerHTML = renderMyHoursExtraWorkedView(employeeName, selectedExtraDate, employeeWorkLogs, todayValue);
       return;
     }
 
@@ -23753,7 +23819,7 @@ function renderMyHours() {
         : `
           <div class="hours-day-empty">
             <strong>Geen dienst gepland op ${formatWeekday(effectiveSelectedDate)} ${formatDate(effectiveSelectedDate)}.</strong>
-            <span>Gebruik de tab Extra uren als je buiten het rooster hebt gewerkt.</span>
+            <span>Gebruik de tab Extra gewerkt als je buiten het rooster hebt gewerkt.</span>
           </div>
         `;
     return;
@@ -23876,7 +23942,7 @@ function renderMyHours() {
         <span>Alleen als er echt gewerkt is, kun je hieronder handmatig uren registreren.</span>
       </div>
       ${renderWorkLogCardMarkup(buildHoursManualEntry(employeeName, effectiveSelectedDate), manualWorkLog, {
-        shiftName: "Extra uren",
+        shiftName: "Extra gewerkt",
         workLogId: buildManualWorkLogId(employeeName, effectiveSelectedDate)
       })}
     `);
@@ -24142,8 +24208,8 @@ function saveWorkLogFromForm(workLogId, action = "save") {
 
   if (entry.isManualHours && !notes) {
     rememberMobileWorkLogFormValues(workLogId);
-    setWorkLogSubmitError(workLogId, "reden voor extra uren ontbreekt");
-    showMessage("Vul bij extra uren een korte reden of type werk in.", "error");
+    setWorkLogSubmitError(workLogId, "omschrijving voor extra gewerkt ontbreekt");
+    showMessage("Vul bij Extra gewerkt een korte omschrijving of opmerking in.", "error");
     return false;
   }
 
@@ -24196,7 +24262,7 @@ function saveWorkLogFromForm(workLogId, action = "save") {
       id: workLogId,
       employeeName: entry.name,
       day: entry.day,
-      shiftName: entry.isManualHours ? "Extra uren" : getShiftName(entry),
+      shiftName: entry.isManualHours ? "Extra gewerkt" : getShiftName(entry),
     plannedStart: entry.startTime,
     plannedEnd: entry.endTime,
     actualStart,
@@ -24254,7 +24320,7 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   }
 
   persistProtectedChange({
-    reason: action === "submit" ? `Uren ingediend: ${entry.name} ${entry.day} ${entry.isManualHours ? "Extra uren" : getShiftName(entry)}` : `Urenconcept bijgewerkt: ${entry.name} ${entry.day} ${entry.isManualHours ? "Extra uren" : getShiftName(entry)}`,
+    reason: action === "submit" ? `Uren ingediend: ${entry.name} ${entry.day} ${entry.isManualHours ? "Extra gewerkt" : getShiftName(entry)}` : `Urenconcept bijgewerkt: ${entry.name} ${entry.day} ${entry.isManualHours ? "Extra gewerkt" : getShiftName(entry)}`,
     scope: "worklog",
     action: action === "submit" ? "worklog-submitted" : "worklog-saved",
     message: action === "submit"
@@ -24266,7 +24332,7 @@ function saveWorkLogFromForm(workLogId, action = "save") {
       workLogId,
       employeeName: entry.name,
       day: entry.day,
-      shiftName: entry.isManualHours ? "Extra uren" : getShiftName(entry),
+      shiftName: entry.isManualHours ? "Extra gewerkt" : getShiftName(entry),
       status: nextLog.status,
       deviation: hasWorkLogDeviation(entry, nextLog)
     }
@@ -24813,7 +24879,7 @@ function renderPlannerHoursControlItem(log) {
         <div class="hours-control-meta"><span>Totaal</span><strong>${totalText}</strong></div>
         <div class="hours-control-status">
           <span class="status-pill status-${statusClass}">${getWorkLogStatusLabel(log)}</span>
-          ${log.shiftName === "Extra uren" ? `<span class="hours-registration-flag is-extra">Extra uren</span>` : ""}
+          ${isExtraWorkedLog(log) ? `<span class="hours-registration-flag is-extra">Extra gewerkt</span>` : ""}
           ${hasDeviation ? `<span class="hours-registration-flag">Afwijking</span>` : ""}
         </div>
         <div class="hours-control-note-area">
@@ -26925,9 +26991,12 @@ myHoursRegistrations?.addEventListener("click", (event) => {
 
   if (mobileOpenButton?.dataset.mobileWorklogOpen) {
     activeMobileWorkLogId = mobileOpenButton.dataset.mobileWorklogOpen;
-    activeMyHoursChoice = "today";
-    activeMyHoursSection = "today";
     const contextEntry = getWorkLogContextById(activeMobileWorkLogId);
+    const isManualEntry = Boolean(contextEntry?.isManualHours);
+
+    activeMyHoursChoice = isManualEntry ? "extra" : "today";
+    activeMyHoursSection = isManualEntry ? "extra" : "today";
+    activeMyHoursEntryMode = isManualEntry ? "extra" : "planned";
 
     if (contextEntry?.day) {
       hoursDateInput.value = contextEntry.day;
@@ -26939,7 +27008,7 @@ myHoursRegistrations?.addEventListener("click", (event) => {
       savePreferences();
     }
 
-    setMobileHoursFeedback(activeMobileWorkLogId, "Vul in en sla op.", "info");
+    setMobileHoursFeedback(activeMobileWorkLogId, isManualEntry ? "Vul je extra uren in en dien ze in." : "Vul in en sla op.", "info");
     renderMyHours();
     focusMobileWorkLogCard(activeMobileWorkLogId);
     return;
@@ -27088,6 +27157,21 @@ myHoursRegistrations?.addEventListener("click", (event) => {
 });
 
 myHoursRegistrations?.addEventListener("change", (event) => {
+  const extraDateInput = event.target.closest("[data-my-hours-extra-date]");
+
+  if (extraDateInput && !isPlannerRole()) {
+    const employeeName = getRoleScopedEmployeeName();
+    const nextSelection = setSelectedHoursDateValue(extraDateInput.value || getTodayLocalDateValue());
+
+    activeMyHoursChoice = "extra";
+    activeMyHoursSection = "extra";
+    activeMyHoursEntryMode = "extra";
+    activeMobileWorkLogId = employeeName ? buildManualWorkLogId(employeeName, nextSelection.date) : "";
+    renderMyHours();
+    focusMobileWorkLogCard(activeMobileWorkLogId);
+    return;
+  }
+
   const input = event.target.closest("[data-worklog-field][data-worklog-id]");
 
   if (!input?.dataset.worklogId) {
@@ -27107,15 +27191,14 @@ function activateMyHoursChoice(choice) {
   activeMyHoursEntryMode = choice === "extra" ? "extra" : "planned";
   activeMobileWorkLogId = "";
 
+  if (choice === "extra") {
+    const employeeName = getRoleScopedEmployeeName();
+    const selectedExtraDate = setSelectedHoursDateValue(hoursDateInput?.value || preferences.lastHoursDate || getTodayLocalDateValue()).date;
+    activeMobileWorkLogId = employeeName ? buildManualWorkLogId(employeeName, selectedExtraDate) : "";
+  }
+
   if (choice === "today" && hoursDateInput) {
-    const todayValue = getTodayLocalDateValue();
-    hoursDateInput.value = todayValue;
-    if (hoursWeekInput) {
-      hoursWeekInput.value = getWeekValueFromDate(todayValue) || getCurrentWeekValue();
-    }
-    preferences.lastHoursDate = todayValue;
-    preferences.lastHoursWeek = hoursWeekInput?.value || getCurrentWeekValue();
-    savePreferences();
+    setSelectedHoursDateValue(getTodayLocalDateValue());
   }
 
   renderMyHours();

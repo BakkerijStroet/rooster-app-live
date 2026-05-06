@@ -151,7 +151,7 @@
     return validation;
   }
 
-  function buildHoursManualEntry(employeeName, day, shiftName = "Extra uren") {
+  function buildHoursManualEntry(employeeName, day, shiftName = "Extra gewerkt") {
     return {
       name: employeeName,
       day,

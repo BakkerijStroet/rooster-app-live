@@ -1702,13 +1702,31 @@ body[data-role="employee"] [data-panel="my-hours"] .my-hours-extra-history-item 
   gap: 10px;
 }
 
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-extra-head div,
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-extra-history-head {
+  display: grid;
+  gap: 2px;
+}
+
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-extra-card span,
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-extra-history-head,
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-extra-history-item span,
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-extra-history-item small,
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-extra-history-item em {
   color: var(--color-text-muted);
   font-size: 13px;
   font-style: normal;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-extra-date-field {
+  display: grid;
+  gap: 6px;
+  color: var(--color-text);
+  font-weight: 800;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .my-hours-extra-date-field input {
+  width: 100%;
 }
 
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-extra-history-item {
@@ -9662,12 +9680,23 @@ button,
     padding: 0 2px;
   }
 
+  body[data-role="employee"] [data-panel="my-hours"] .my-hours-extra-date-field {
+    gap: 7px;
+    padding: 0 2px;
+    font-size: 14px;
+  }
+
   body[data-role="employee"] [data-panel="my-hours"] .my-hours-extra-card .hours-registration-card {
     box-shadow: none;
   }
 
   body[data-role="employee"] [data-panel="my-hours"] .my-hours-extra-history {
     gap: 8px;
+  }
+
+  body[data-role="employee"] [data-panel="my-hours"] .my-hours-extra-history-head {
+    padding: 0 2px;
+    font-size: 13px;
   }
 
   body[data-role="employee"] [data-panel="my-hours"] .my-hours-extra-history-item {
