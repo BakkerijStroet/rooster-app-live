@@ -18814,6 +18814,293 @@ function getSmartPlanningUnfillableOpenShiftIds() {
     .map((item) => item.id);
 }
 
+function getSmartPlanningControlIssueById(issueId) {
+  return getSmartPlanningControlSummary().issues.find((issue) => issue.id === issueId) || null;
+}
+
+function createSmartPlanningControlIssue({ weekValue, item = null, message, severity = "warning", type = "warning" }) {
+  const itemPart = item?.id ? item.id : "week";
+
+  return {
+    id: `${weekValue}|${type}|${itemPart}`,
+    weekValue,
+    itemId: item?.id || "",
+    day: item?.day || "",
+    severity,
+    type,
+    message
+  };
+}
+
+function getSmartPlanningChosenEmployeeIssue(item, weekValue) {
+  if (!item?.chosenEmployeeName) {
+    return [];
+  }
+
+  const employeeName = item.chosenEmployeeName;
+  const issues = [];
+  const shiftTime = `${item.startTime || "?"}-${item.endTime || "?"}`;
+  const shiftLabel = getCompactRosterShiftLabel(item.shiftName || "Dienst");
+  const absence = getApprovedTimeOff(employeeName, item.day);
+  const overlappingEntry = findConflict(employeeName, item.day, item.startTime || "", item.endTime || "", -1);
+  const contractHours = getEmployeeContractHours(employeeName);
+  const plannedHours = getEmployeeWeekHours(employeeName, weekValue, entries);
+  const shiftHours = calculateHours(item.startTime || "", item.endTime || "") || 0;
+  const projectedHours = Math.round((plannedHours + shiftHours) * 10) / 10;
+
+  if (hasBlockingSmartPlanningAssignment(employeeName, item)) {
+    issues.push(createSmartPlanningControlIssue({
+      weekValue,
+      item,
+      type: "double",
+      severity: "action",
+      message: `${employeeName} is dubbel gekozen op ${formatDate(item.day)}.`
+    }));
+  }
+
+  if (contractHours > 0 && projectedHours > contractHours) {
+    issues.push(createSmartPlanningControlIssue({
+      weekValue,
+      item,
+      type: "contract",
+      severity: "warning",
+      message: `${employeeName} gaat over contracturen heen (${formatHours(projectedHours)} / ${formatHours(contractHours)}).`
+    }));
+  }
+
+  if (absence) {
+    const absenceLabel = getAbsenceTypeLabel(absence.type);
+    const isSick = String(absence.type || absenceLabel).toLowerCase().includes("ziek");
+    issues.push(createSmartPlanningControlIssue({
+      weekValue,
+      item,
+      type: isSick ? "sick" : "time-off",
+      severity: "action",
+      message: isSick
+        ? `${employeeName} heeft een ziekmelding op ${formatDate(item.day)}.`
+        : `${employeeName} heeft verlof/vrije dag op ${formatDate(item.day)}.`
+    }));
+  }
+
+  if (overlappingEntry) {
+    issues.push(createSmartPlanningControlIssue({
+      weekValue,
+      item,
+      type: "unavailable",
+      severity: "action",
+      message: `${employeeName} is al ingepland rond ${shiftTime} (${shiftLabel}).`
+    }));
+  }
+
+  const advice = getSmartPlanningAuthorizedEmployeeAdvice(item);
+  const unavailableAdvice = advice.unavailable.find((employeeAdvice) => employeeAdvice.employeeName === employeeName);
+
+  if (unavailableAdvice && !issues.some((issue) => ["double", "contract", "sick", "time-off", "unavailable"].includes(issue.type))) {
+    issues.push(createSmartPlanningControlIssue({
+      weekValue,
+      item,
+      type: "unavailable",
+      severity: "warning",
+      message: `${employeeName} is niet beschikbaar: ${unavailableAdvice.displayReason || "controle nodig"}.`
+    }));
+  }
+
+  return issues;
+}
+
+function getSmartPlanningControlWarnings(weekKey) {
+  const weekProposal = getSmartPlanningProposalWeekByValue(weekKey);
+  const weekItems = weekProposal?.items || [];
+  const issues = [];
+  let openBakeryCount = 0;
+  let openShopCount = 0;
+
+  weekItems.forEach((item) => {
+    const shiftLabel = getCompactRosterShiftLabel(item.shiftName || "Dienst");
+    const shiftTime = `${item.startTime || "?"}-${item.endTime || "?"}`;
+    const isOpen = !item.chosenEmployeeName;
+
+    if (isOpen) {
+      if (item.department === "shop") {
+        openShopCount += 1;
+      } else {
+        openBakeryCount += 1;
+      }
+
+      issues.push(createSmartPlanningControlIssue({
+        weekValue: weekKey,
+        item,
+        type: "open",
+        severity: "action",
+        message: `OPEN dienst zonder medewerker: ${formatDate(item.day)} · ${shiftLabel} · ${shiftTime}.`
+      }));
+
+      if (!hasSuitableEmployeesForSmartPlanningShift(item)) {
+        issues.push(createSmartPlanningControlIssue({
+          weekValue: weekKey,
+          item,
+          type: "no-suitable",
+          severity: "action",
+          message: `Geen geschikte medewerker beschikbaar voor ${shiftLabel} op ${formatDate(item.day)}.`
+        }));
+      }
+    } else {
+      issues.push(...getSmartPlanningChosenEmployeeIssue(item, weekKey));
+    }
+  });
+
+  if (openShopCount) {
+    issues.push(createSmartPlanningControlIssue({
+      weekValue: weekKey,
+      type: "open-shop",
+      severity: "warning",
+      message: `Er zijn nog ${openShopCount} winkeldienst${openShopCount === 1 ? "" : "en"} open.`
+    }));
+  }
+
+  if (openBakeryCount) {
+    issues.push(createSmartPlanningControlIssue({
+      weekValue: weekKey,
+      type: "open-bakery",
+      severity: "warning",
+      message: `Er zijn nog ${openBakeryCount} bakkerijdienst${openBakeryCount === 1 ? "" : "en"} open.`
+    }));
+  }
+
+  return issues;
+}
+
+function getSmartPlanningWeekControlSummary(weekKey) {
+  const weekProposal = getSmartPlanningProposalWeekByValue(weekKey);
+  const weekItems = weekProposal?.items || [];
+  const filledCount = weekItems.filter((item) => item.chosenEmployeeName).length;
+  const openCount = weekItems.length - filledCount;
+  const issues = getSmartPlanningControlWarnings(weekKey);
+  const warningCount = issues.filter((issue) => issue.severity === "action").length;
+  const noteCount = issues.filter((issue) => issue.severity !== "action").length;
+
+  return {
+    weekKey,
+    filledCount,
+    openCount,
+    warningCount,
+    noteCount,
+    issues
+  };
+}
+
+function getSmartPlanningControlSummary(data = getSmartPlanningMonthData()) {
+  const hasProposal = smartPlanningProposalState?.startWeek === data.selectedWeek
+    && smartPlanningProposalState?.department === data.departmentFilter;
+  const weekSummaries = data.visibleWeeks.map(({ weekValue }) => getSmartPlanningWeekControlSummary(weekValue));
+  const issues = weekSummaries.flatMap((weekSummary) => weekSummary.issues);
+
+  return {
+    hasProposal,
+    weekSummaries,
+    issues,
+    filledCount: weekSummaries.reduce((total, weekSummary) => total + weekSummary.filledCount, 0),
+    openCount: weekSummaries.reduce((total, weekSummary) => total + weekSummary.openCount, 0),
+    warningCount: issues.filter((issue) => issue.severity === "action").length,
+    noteCount: issues.filter((issue) => issue.severity !== "action").length
+  };
+}
+
+function renderSmartPlanningIssueButton(issue) {
+  const severityClass = issue.severity === "action" ? "is-action" : "is-warning";
+  const isClickable = Boolean(issue.itemId);
+
+  return `
+    <button
+      type="button"
+      class="smart-planning-control-issue ${severityClass}"
+      ${isClickable ? `data-smart-planning-issue="${escapeHtmlAttribute(issue.id)}"` : "disabled"}
+    >
+      <span>${issue.message}</span>
+    </button>
+  `;
+}
+
+function renderSmartPlanningControlTab(data = getSmartPlanningMonthData()) {
+  const summary = getSmartPlanningControlSummary(data);
+
+  if (!summary.hasProposal) {
+    return `
+      <div class="smart-planning-control-empty">
+        Maak eerst een maandvoorstel om de controle te vullen.
+      </div>
+    `;
+  }
+
+  if (!summary.openCount && !summary.warningCount && !summary.noteCount) {
+    return `
+      <section class="smart-planning-control-overview is-ok">
+        <strong>Alles ziet er goed uit.</strong>
+        <span>Er zijn geen open diensten of waarschuwingen gevonden.</span>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="smart-planning-control-overview">
+      <div><strong>${summary.filledCount}</strong><span>Ingevuld</span></div>
+      <div><strong>${summary.openCount}</strong><span>Nog open</span></div>
+      <div><strong>${summary.warningCount}</strong><span>Waarschuwingen</span></div>
+      <div><strong>${summary.noteCount}</strong><span>Bijzonderheden</span></div>
+    </section>
+    <section class="smart-planning-control-weeks">
+      ${data.visibleWeeks.map(({ weekValue }) => {
+        const weekSummary = summary.weekSummaries.find((item) => item.weekKey === weekValue) || getSmartPlanningWeekControlSummary(weekValue);
+        const hasIssues = weekSummary.issues.length > 0;
+
+        return `
+          <article class="smart-planning-control-week ${hasIssues ? (weekSummary.warningCount ? "has-action" : "has-warning") : "is-ok"}">
+            <header>
+              <div>
+                <strong>${formatWeekLabel(weekValue)}</strong>
+                <span>${formatPlanningWeekPeriod(weekValue)}</span>
+              </div>
+              <div class="smart-planning-control-week-stats">
+                <span>${weekSummary.filledCount} ingevuld</span>
+                <span>${weekSummary.openCount} open</span>
+                <span>${weekSummary.warningCount} waarschuwingen</span>
+                <span>${weekSummary.noteCount} bijzonderheden</span>
+              </div>
+            </header>
+            ${hasIssues ? `
+              <div class="smart-planning-control-issues">
+                ${weekSummary.issues.map(renderSmartPlanningIssueButton).join("")}
+              </div>
+            ` : `<p>Geen problemen gevonden.</p>`}
+          </article>
+        `;
+      }).join("")}
+    </section>
+  `;
+}
+
+function goToSmartPlanningIssue(issue) {
+  const targetIssue = typeof issue === "string" ? getSmartPlanningControlIssueById(issue) : issue;
+
+  if (!targetIssue?.itemId) {
+    return;
+  }
+
+  activeSmartPlanningTab = "proposal";
+  selectedSmartPlanningOpenShiftId = targetIssue.itemId;
+  renderSmartPlanningPanel();
+
+  requestAnimationFrame(() => {
+    const targetButton = [...document.querySelectorAll("[data-smart-planning-open-shift]")]
+      .find((button) => button.dataset.smartPlanningOpenShift === targetIssue.itemId);
+    const targetWeek = targetIssue.weekValue
+      ? document.querySelector(`[data-smart-planning-week-block="${targetIssue.weekValue}"]`)
+      : null;
+
+    (targetButton || targetWeek)?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+  });
+}
+
 function getSmartPlanningShiftFamily(shiftOrItem = {}) {
   const shiftName = String(shiftOrItem.shiftName || shiftOrItem.name || "").toLowerCase();
   const department = String(shiftOrItem.department || "").toLowerCase();
@@ -19369,72 +19656,16 @@ function renderSmartPlanningChecks(data = getSmartPlanningMonthData()) {
     return;
   }
 
-  const hasProposal = smartPlanningProposalState?.startWeek === data.selectedWeek
-    && smartPlanningProposalState?.department === data.departmentFilter;
-  const proposalWeeks = hasProposal ? smartPlanningProposalState.weeks || [] : [];
-  const proposalItems = proposalWeeks.flatMap((weekProposal) => weekProposal.items || []);
-  const proposalCount = proposalItems.length;
-  const unfillableCount = hasProposal ? getSmartPlanningUnfillableOpenShiftIds().length : 0;
-  const missingAvailabilityCount = data.visibleWeeks.reduce((total, week) => total + (week.data.openItems?.length || 0), 0);
-  const contractEmployees = new Set();
-  let duplicateCount = 0;
-
-  data.visibleWeeks.forEach(({ data: weekData }) => {
-    (weekData.contractImbalanceEmployees || []).forEach((employeeName) => contractEmployees.add(employeeName));
-    duplicateCount += weekData.weekDates.reduce((total, day) => {
-      const employeeCounts = weekData.weekEntries
-        .filter((entry) => entry.day === day && entry.name)
-        .reduce((counts, entry) => {
-          counts[entry.name] = (counts[entry.name] || 0) + 1;
-          return counts;
-        }, {});
-
-      return total + Object.values(employeeCounts).filter((count) => count > 1).length;
-    }, 0);
-  });
-
-  const contractCount = contractEmployees.size;
-  const checks = [
-    { label: "Open diensten", value: `${missingAvailabilityCount} gevonden`, className: missingAvailabilityCount ? "is-warning" : "is-ok" },
-    { label: "Voorgestelde regels", value: hasProposal ? `${proposalCount} conceptregels` : "Nog geen voorstel", className: hasProposal ? "is-warning" : "is-neutral" },
-    { label: "Open diensten zonder geschikte medewerker", value: hasProposal ? `${unfillableCount} tekort` : "Nog geen voorstel", className: unfillableCount ? "is-warning" : (hasProposal ? "is-ok" : "is-neutral") },
-    { label: "Contracturen", value: contractCount ? `${contractCount} aandacht` : "Rustig", className: contractCount ? "is-warning" : "is-ok" },
-    { label: "Dubbele diensten", value: duplicateCount ? `${duplicateCount} mogelijk dubbel` : "Geen dubbele inzet", className: duplicateCount ? "is-warning" : "is-ok" },
-    { label: "Automatische toewijzing", value: hasProposal ? "Er zijn nog geen medewerkers automatisch toegewezen." : "Nog niet gestart", className: hasProposal ? "is-warning" : "is-neutral" },
-    { label: "Medewerkers zonder beschikbaarheid", value: "Niet actief gecontroleerd", className: "is-neutral" },
-    { label: "Conflicts / waarschuwingen", value: "Alleen basiscontrole in deze stap", className: "is-neutral" }
-  ];
+  const summary = getSmartPlanningControlSummary(data);
 
   if (smartPlanningChecksSummary) {
-    smartPlanningChecksSummary.textContent = `${checks.filter((check) => check.className === "is-warning").length} aandachtspunten`;
+    smartPlanningChecksSummary.textContent = summary.hasProposal
+      ? `${summary.warningCount} waarschuwingen · ${summary.noteCount} bijzonderheden`
+      : "Maak eerst een maandvoorstel.";
   }
 
-  setClassName(smartPlanningChecksList, "smart-planning-list");
-  smartPlanningChecksList.innerHTML = `
-    ${checks.map((check) => `
-      <article class="smart-planning-check-row ${check.className}">
-        <strong>${check.label}</strong>
-        <span>${check.value}</span>
-      </article>
-    `).join("")}
-    <section class="smart-planning-week-checks">
-      ${data.visibleWeeks.map(({ weekValue, data: weekData }) => {
-        const weekProposal = proposalWeeks.find((proposalWeek) => proposalWeek.weekValue === weekValue);
-        const weekItems = weekProposal?.items || [];
-        const filledCount = weekItems.filter((item) => item.chosenEmployeeName).length;
-        const openCount = weekItems.length - filledCount;
-        const warningCount = hasProposal ? weekItems.filter((item) => getSmartPlanningShiftWarning(item)).length : 0;
-        const visibleOpenCount = hasProposal ? openCount : weekData.openItems.length;
-
-        return `
-          <article class="smart-planning-check-row ${warningCount || visibleOpenCount ? "is-warning" : "is-ok"}">
-            <strong>${formatWeekLabel(weekValue)}</strong>
-            <span>${filledCount} ingevuld · ${visibleOpenCount} open · ${warningCount} waarschuwingen</span>
-          </article>
-        `;
-      }).join("")}
-    </section>
-  `;
+  setClassName(smartPlanningChecksList, "smart-planning-control-list");
+  smartPlanningChecksList.innerHTML = renderSmartPlanningControlTab(data);
 }
 
 function renderSmartPlanningTabs() {
@@ -25599,6 +25830,17 @@ smartPlanningClearAllProposalButton?.addEventListener("click", () => {
 
 smartPlanningApplyProposalButton?.addEventListener("click", () => {
   showMessage("Toepassen is hier nog niet actief. Gebruik Rooster inplannen om een gecontroleerd voorstel toe te passen.", "warning");
+});
+
+smartPlanningChecksList?.addEventListener("click", (event) => {
+  const issueButton = event.target.closest("[data-smart-planning-issue]");
+
+  if (!issueButton) {
+    return;
+  }
+
+  event.stopPropagation();
+  goToSmartPlanningIssue(issueButton.dataset.smartPlanningIssue || "");
 });
 
 smartPlanningProposalList?.addEventListener("click", (event) => {

@@ -2835,6 +2835,156 @@ textarea.input-error {
   background: #f8fafc;
 }
 
+.smart-planning-control-list {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.smart-planning-control-empty,
+.smart-planning-control-overview,
+.smart-planning-control-week {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.smart-planning-control-empty {
+  padding: 12px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.smart-planning-control-overview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+}
+
+.smart-planning-control-overview.is-ok {
+  display: block;
+  border-color: #b7dfc3;
+  background: #f0fbf5;
+  color: #236b45;
+}
+
+.smart-planning-control-overview div {
+  padding: 9px 10px;
+  border-radius: 12px;
+  background: #fff8ec;
+}
+
+.smart-planning-control-overview strong,
+.smart-planning-control-overview span {
+  display: block;
+}
+
+.smart-planning-control-overview strong {
+  color: #2f2a23;
+  font-size: 18px;
+}
+
+.smart-planning-control-overview span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.smart-planning-control-weeks {
+  display: grid;
+  gap: 8px;
+}
+
+.smart-planning-control-week {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-left-width: 5px;
+}
+
+.smart-planning-control-week.is-ok {
+  border-left-color: #2f9e6e;
+  background: #f0fbf5;
+}
+
+.smart-planning-control-week.has-warning {
+  border-left-color: #d97706;
+  background: #fff8ec;
+}
+
+.smart-planning-control-week.has-action {
+  border-left-color: #dc2626;
+  background: #fff5f2;
+}
+
+.smart-planning-control-week header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.smart-planning-control-week header strong,
+.smart-planning-control-week header span {
+  display: block;
+}
+
+.smart-planning-control-week header span,
+.smart-planning-control-week p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.smart-planning-control-week-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.smart-planning-control-week-stats span {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.smart-planning-control-issues {
+  display: grid;
+  gap: 5px;
+}
+
+.smart-planning-control-issue {
+  appearance: none;
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  color: #3b3028;
+  cursor: pointer;
+  text-align: left;
+  font-weight: 800;
+}
+
+.smart-planning-control-issue.is-action {
+  border-color: #efb0a0;
+  background: #fff0eb;
+  color: #9f2b16;
+}
+
+.smart-planning-control-issue.is-warning {
+  border-color: #f0cf92;
+  background: #fffaf0;
+  color: #805219;
+}
+
+.smart-planning-control-issue:disabled {
+  cursor: default;
+}
+
 .smart-planning-day-row strong,
 .smart-planning-proposal-row strong,
 .smart-planning-check-row strong {
