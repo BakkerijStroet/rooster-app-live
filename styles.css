@@ -182,9 +182,8 @@ h3 {
 
 .brand-logo-image {
   display: block;
-  width: auto;
+  width: 132px;
   height: 52px;
-  max-width: 132px;
   object-fit: contain;
 }
 
@@ -551,13 +550,13 @@ body[data-auth-locked="true"] .requests-card {
 }
 
 .login-brand-logo {
-  width: 84px;
-  height: 84px;
+  width: min(240px, 72vw);
+  height: 112px;
   object-fit: contain;
-  border-radius: 18px;
-  background: linear-gradient(180deg, var(--color-primary-soft), var(--color-surface));
+  border-radius: 16px;
+  background: var(--color-surface);
   border: 1px solid rgba(var(--color-primary-rgb), 0.24);
-  padding: 8px;
+  padding: 10px 12px;
   box-shadow: 0 8px 22px rgba(var(--color-primary-rgb), 0.08);
 }
 
@@ -645,8 +644,8 @@ body[data-auth-locked="true"] .requests-card {
   }
 
   .login-brand-logo {
-    width: 72px;
-    height: 72px;
+    width: min(210px, 74vw);
+    height: 96px;
   }
 
   .login-card h2 {
@@ -737,8 +736,8 @@ body[data-role="employee"] .brand-home {
 }
 
 body[data-role="employee"] .brand-logo-image {
+  width: 96px;
   height: 38px;
-  max-width: 96px;
 }
 
 body[data-role="employee"] .brand-copy {
@@ -9140,8 +9139,8 @@ button,
   }
 
   .brand-logo-image {
+    width: 124px;
     height: 52px;
-    max-width: 124px;
   }
 
   .brand-copy h1 {
@@ -10175,8 +10174,8 @@ button,
   }
 
   body[data-role="planner"] .brand-logo-image {
+    width: 124px;
     height: 48px;
-    max-width: 124px;
   }
 
   body[data-role="planner"] .brand-copy h1 {
