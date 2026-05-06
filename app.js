@@ -18919,7 +18919,7 @@ function renderSmartPlanningInlineAdvice(item) {
   };
 
   return `
-    <div class="smart-planning-inline-advice">
+    <div class="smart-planning-inline-advice smart-planning-floating-advice">
       ${item.chosenEmployeeName ? `
         <div class="smart-planning-inline-selected">
           <span>${item.chosenEmployeeName} is tijdelijk gekozen.</span>
@@ -19048,11 +19048,13 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
                   </span>
                 </span>
           ` : `
-                <span class="planning-shift-employee">
-                  <span class="smart-planning-assigned-person">${employeeLabel}</span>
+                <span class="smart-planning-open-shift">
+                  <span class="smart-planning-open-top">
+                    <span class="smart-planning-open-label">${employeeLabel}</span>
+                    <span class="smart-planning-open-shift-name" title="${escapeHtmlAttribute(row.shiftName)}">${displayShiftName}${warningText ? `<span class="smart-planning-shift-warning" title="${escapeHtmlAttribute(warningText)}">⚠</span>` : ""}</span>
+                  </span>
+                  <span class="smart-planning-open-time">${shiftTime}</span>
                 </span>
-                <span class="planning-shift-name" title="${escapeHtmlAttribute(row.shiftName)}">${displayShiftName}${warningText ? `<span class="smart-planning-shift-warning" title="${escapeHtmlAttribute(warningText)}">⚠</span>` : ""}</span>
-                <span class="planning-shift-time">${shiftTime}</span>
           `;
 
           return `
@@ -25359,6 +25361,35 @@ smartPlanningProposalList?.addEventListener("click", (event) => {
   }
 
   selectedSmartPlanningOpenShiftId = button.dataset.smartPlanningOpenShift || "";
+  renderSmartPlanningPanel();
+});
+
+document.addEventListener("click", (event) => {
+  if (!selectedSmartPlanningOpenShiftId) {
+    return;
+  }
+
+  const keepOpenTarget = event.target.closest([
+    ".smart-planning-floating-advice",
+    "[data-smart-planning-open-shift]",
+    "[data-smart-planning-employee-choice]",
+    "[data-smart-planning-clear-choice]"
+  ].join(","));
+
+  if (keepOpenTarget) {
+    return;
+  }
+
+  selectedSmartPlanningOpenShiftId = "";
+  renderSmartPlanningPanel();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || !selectedSmartPlanningOpenShiftId) {
+    return;
+  }
+
+  selectedSmartPlanningOpenShiftId = "";
   renderSmartPlanningPanel();
 });
 

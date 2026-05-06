@@ -2923,16 +2923,61 @@ textarea.input-error {
 }
 
 .smart-planning-proposal-roster .smart-planning-open-shift-button {
-  grid-template-columns: minmax(70px, 96px) minmax(92px, 1fr) minmax(104px, max-content);
-  column-gap: 10px;
-  min-height: 38px;
+  display: block;
+  min-height: 52px;
   padding: 0.46rem 0.54rem;
   cursor: pointer;
-  align-items: center;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
   overflow: hidden;
+}
+
+.smart-planning-open-shift {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  width: 100%;
+}
+
+.smart-planning-open-top {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.smart-planning-open-label {
+  display: inline-flex;
+  justify-content: center;
+  padding: 0.08rem 0.34rem;
+  border-radius: 999px;
+  background: #f97316;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.smart-planning-open-shift-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #2f2a23;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.smart-planning-open-time {
+  display: block;
+  color: #7a6453;
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1.2;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .smart-planning-proposal-roster .planning-shift-name {
