@@ -19018,7 +19018,9 @@ function renderSmartPlanningProposal(data = getSmartPlanningWeekData()) {
     </div>
     <div class="smart-planning-proposal-content">
       <div class="smart-planning-proposal-main">
-        ${renderSmartPlanningProposalRoster(data, proposalItems)}
+        <div class="smart-planning-roster-scroll">
+          ${renderSmartPlanningProposalRoster(data, proposalItems)}
+        </div>
       </div>
       <div class="smart-planning-side-panel">
         ${renderSmartPlanningSelectedShiftPanel()}
