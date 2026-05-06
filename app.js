@@ -19702,6 +19702,59 @@ function getSmartPlanningFixedBakeryEmployeeForShift(shiftName = "") {
   return "";
 }
 
+function getSmartPlanningPatternMatchForItem(employeeName, item) {
+  const shift = getSmartPlanningShiftFromProposalItem(item);
+  const weekValue = item?.weekValue || (item?.day ? getWeekValueFromDate(item.day) : getCurrentWeekValue());
+
+  return getEmployeePlanningPatternMatch(employeeName, shift, item?.day || "", weekValue, entries);
+}
+
+function getSmartPlanningPatternPriority(employeeName, item) {
+  const patternId = getEmployeeBasePatternId(employeeName);
+  const patternMatch = getSmartPlanningPatternMatchForItem(employeeName, item);
+
+  if (patternId === "director-emergency" || isSmartPlanningEmergencyEmployee(employeeName)) {
+    return 90;
+  }
+
+  if (patternId === "on-call") {
+    return 70;
+  }
+
+  if (!patternId) {
+    return 25;
+  }
+
+  if (patternMatch.score < 55) {
+    return 0;
+  }
+
+  return 45;
+}
+
+function getSmartPlanningPatternDisplayReason(employeeName, item) {
+  const patternId = getEmployeeBasePatternId(employeeName);
+  const patternMatch = getSmartPlanningPatternMatchForItem(employeeName, item);
+
+  if (patternId === "director-emergency" || isSmartPlanningEmergencyEmployee(employeeName)) {
+    return "Noodoptie";
+  }
+
+  if (patternId === "on-call") {
+    return "Oproep/flex";
+  }
+
+  if (!patternId) {
+    return "Geen vast patroon";
+  }
+
+  if (patternMatch.score < 55) {
+    return "Past binnen basispatroon";
+  }
+
+  return "Buiten normaal patroon";
+}
+
 function applySmartPlanningFixedBakeryStaffing() {
   if (!smartPlanningProposalState?.weeks?.length) {
     return 0;
@@ -19721,7 +19774,13 @@ function applySmartPlanningFixedBakeryStaffing() {
       return;
     }
 
-    if (!isSmartPlanningEmployeeAvailableForItem(fixedEmployeeName, item)) {
+    const shift = getSmartPlanningShiftFromProposalItem(item);
+    const weekValue = item.weekValue || getWeekValueFromDate(item.day);
+
+    if (
+      !canEmployeeBeAutoPlannedWithinPattern(fixedEmployeeName, shift, item.day, weekValue, entries) ||
+      !isSmartPlanningEmployeeAvailableForItem(fixedEmployeeName, item)
+    ) {
       return;
     }
 
@@ -19759,6 +19818,8 @@ function getSmartPlanningEmployeeAdvice(item) {
     const plannedHours = getEmployeeWeekHours(employeeName, weekValue, entries);
     const projectedHours = Math.round((plannedHours + shiftHours) * 10) / 10;
     const isEmergencyOption = isSmartPlanningEmergencyEmployee(employeeName);
+    const patternPriority = getSmartPlanningPatternPriority(employeeName, item);
+    const patternReason = getSmartPlanningPatternDisplayReason(employeeName, item);
     const reasons = [];
     let group = "suitable";
 
@@ -19802,6 +19863,8 @@ function getSmartPlanningEmployeeAdvice(item) {
       plannedHours,
       projectedHours,
       isEmergencyOption,
+      patternPriority,
+      patternReason,
       isAuthorized,
       reasons
     });
@@ -19809,7 +19872,7 @@ function getSmartPlanningEmployeeAdvice(item) {
 
   Object.values(advice).forEach((items) => {
     items.sort((itemA, itemB) =>
-      Number(Boolean(itemA.isEmergencyOption)) - Number(Boolean(itemB.isEmergencyOption)) ||
+      itemA.patternPriority - itemB.patternPriority ||
       itemA.plannedHours - itemB.plannedHours ||
       itemA.employeeName.localeCompare(itemB.employeeName, "nl")
     );
@@ -20406,10 +20469,10 @@ function getSmartPlanningAuthorizedEmployeeAdvice(item) {
       statusLabel: "Beschikbaar",
       displayReason: employeeAdvice.isEmergencyOption
         ? "Noodoptie"
-        : (employeeAdvice.contractHours > 0 ? "Beschikbaar" : "Geen vaste uren")
+        : (employeeAdvice.patternReason || (employeeAdvice.contractHours > 0 ? "Beschikbaar" : "Geen vaste uren"))
     }))
     .sort((itemA, itemB) =>
-      Number(Boolean(itemA.isEmergencyOption)) - Number(Boolean(itemB.isEmergencyOption)) ||
+      itemA.patternPriority - itemB.patternPriority ||
       itemA.plannedHours - itemB.plannedHours ||
       itemA.employeeName.localeCompare(itemB.employeeName, "nl")
     );
@@ -20478,7 +20541,7 @@ function renderSmartPlanningInlineAdvice(item) {
     const itemALast = itemA.employeeName === lastSmartPlanningSelectedEmployeeName ? -1 : 0;
     const itemBLast = itemB.employeeName === lastSmartPlanningSelectedEmployeeName ? -1 : 0;
 
-    return Number(Boolean(itemA.isEmergencyOption)) - Number(Boolean(itemB.isEmergencyOption)) ||
+    return itemA.patternPriority - itemB.patternPriority ||
       itemALast - itemBLast ||
       itemA.plannedHours - itemB.plannedHours ||
       itemA.employeeName.localeCompare(itemB.employeeName, "nl");
