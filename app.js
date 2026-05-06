@@ -840,9 +840,12 @@ function resetMyHoursChoiceState() {
   activeMobileWorkLogId = "";
 }
 
-function resetMyScheduleRosterState({ showYearOverview = true, scrollToCurrentWeek = showYearOverview } = {}) {
+function resetMyScheduleRosterState({ showYearOverview = true, scrollToCurrentWeek = showYearOverview, scrollTargetWeek = "" } = {}) {
   myScheduleYearOverviewVisible = showYearOverview;
-  shouldScrollMyScheduleYearToCurrentWeek = Boolean(showYearOverview && scrollToCurrentWeek);
+  pendingMyScheduleYearScrollWeek = showYearOverview
+    ? (scrollTargetWeek || (scrollToCurrentWeek ? getCurrentWeekValue() : ""))
+    : "";
+  shouldScrollMyScheduleYearToCurrentWeek = Boolean(showYearOverview && pendingMyScheduleYearScrollWeek);
   selectedMyScheduleMobileDate = "";
   selectedMobileRosterDate = "";
 }
@@ -4742,6 +4745,8 @@ let activeEmployeeWeekView = "today";
 let selectedMobileRosterDate = "";
 let myScheduleYearOverviewVisible = true;
 let shouldScrollMyScheduleYearToCurrentWeek = true;
+let pendingMyScheduleYearScrollWeek = getCurrentWeekValue();
+let lastViewedEmployeeRosterWeek = "";
 let selectedMyScheduleMobileDate = "";
 let activeRole = preferences.lastRole === "employee" ? "employee" : "planner";
 const sessionState = {
@@ -10158,7 +10163,7 @@ function renderMyScheduleYearOverview(employeeName, selectedWeek) {
             : "";
 
           return `
-            <button type="button" class="my-schedule-week-tile ${weekEntries.length ? "is-planned" : "is-empty"} ${hoursStatus.hasOpenHours ? "has-open-hours" : ""} ${hoursStatus.isComplete ? "has-complete-hours" : ""} ${isCurrentWeek ? "is-current is-current-week" : ""} ${isSelectedWeek ? "is-selected" : ""}" data-my-schedule-week="${weekValue}" ${isCurrentWeek ? 'data-my-schedule-current-week="true"' : ""}>
+            <button type="button" class="my-schedule-week-tile ${weekEntries.length ? "is-planned" : "is-empty"} ${hoursStatus.hasOpenHours ? "has-open-hours" : ""} ${hoursStatus.isComplete ? "has-complete-hours" : ""} ${isCurrentWeek ? "is-current is-current-week" : ""} ${isSelectedWeek ? "is-selected" : ""}" data-my-schedule-week="${weekValue}" data-week-number="${getWeekNumber(weekValue)}" ${isCurrentWeek ? 'data-my-schedule-current-week="true"' : ""}>
               <strong>Week ${getWeekNumber(weekValue)}</strong>
               <span>${formatDate(weekDates[0])} - ${formatDate(weekDates[6])}</span>
               <em>${isCurrentWeek ? "Deze week · " : ""}${plannedLabel}${statusLabel ? ` · ${statusLabel}` : ""}</em>
@@ -10168,6 +10173,17 @@ function renderMyScheduleYearOverview(employeeName, selectedWeek) {
       </div>
     </section>
   `;
+}
+
+function scrollMyScheduleYearOverviewToWeek(targetWeek) {
+  if (!myScheduleBoard || !targetWeek) {
+    return;
+  }
+
+  const targetTile = myScheduleBoard.querySelector(`[data-my-schedule-week="${targetWeek}"]`) ||
+    myScheduleBoard.querySelector('[data-my-schedule-current-week="true"]');
+
+  targetTile?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
 }
 
 function getMyScheduleWeekHoursStatus(weekEntries) {
@@ -16682,6 +16698,7 @@ function resetTabScrollPosition() {
 
 function setActiveTab(tabName, options = {}) {
   const normalizedTabName = getNormalizedTabName(tabName);
+  const previousTab = activeTab;
 
   if (
     activeTab === "employees" &&
@@ -16729,6 +16746,16 @@ function setActiveTab(tabName, options = {}) {
   if (normalizedTabName === "requests") {
     activeRequestType = "vrije-dag";
     activeRequestComposer = "free";
+  }
+
+  if (
+    normalizedTabName === "my-schedule" &&
+    previousTab !== "my-schedule" &&
+    !isPlannerRole() &&
+    myScheduleYearOverviewVisible
+  ) {
+    pendingMyScheduleYearScrollWeek = getCurrentWeekValue();
+    shouldScrollMyScheduleYearToCurrentWeek = true;
   }
 
   updateWeekViewTitle();
@@ -21354,11 +21381,11 @@ function renderMySchedule() {
     setClassName(myScheduleBoard, "schedule-board my-schedule-year-board");
     myScheduleBoard.innerHTML = renderMyScheduleYearOverview(employeeName, selectedWeek);
     if (shouldScrollMyScheduleYearToCurrentWeek) {
+      const targetWeek = pendingMyScheduleYearScrollWeek || getCurrentWeekValue();
       shouldScrollMyScheduleYearToCurrentWeek = false;
+      pendingMyScheduleYearScrollWeek = "";
       requestAnimationFrame(() => {
-        myScheduleBoard
-          ?.querySelector('[data-my-schedule-current-week="true"]')
-          ?.scrollIntoView({ block: "center", inline: "nearest" });
+        scrollMyScheduleYearOverviewToWeek(targetWeek);
       });
     }
     return;
@@ -25256,13 +25283,15 @@ myScheduleBoard?.addEventListener("click", (event) => {
 
   if (weekButton?.dataset.myScheduleWeek && !isPlannerRole()) {
     myScheduleWeekInput.value = weekButton.dataset.myScheduleWeek;
+    lastViewedEmployeeRosterWeek = weekButton.dataset.myScheduleWeek;
     resetMyScheduleRosterState({ showYearOverview: false });
     renderMySchedule();
     return;
   }
 
   if (event.target.closest("[data-my-schedule-year-back]") && !isPlannerRole()) {
-    resetMyScheduleRosterState({ scrollToCurrentWeek: false });
+    const targetWeek = lastViewedEmployeeRosterWeek || myScheduleWeekInput.value || getCurrentWeekValue();
+    resetMyScheduleRosterState({ scrollTargetWeek: targetWeek });
     renderMySchedule();
     return;
   }

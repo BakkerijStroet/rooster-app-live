@@ -1343,6 +1343,10 @@ body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-mobile-day {
   cursor: pointer;
 }
 
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile {
+  scroll-margin-top: 96px;
+}
+
 body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.is-planned {
   border-color: rgba(126, 174, 130, 0.45);
   background: #f5fbf3;
