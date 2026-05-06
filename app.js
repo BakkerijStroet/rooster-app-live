@@ -9321,6 +9321,8 @@ function ensureWeekActionAllowed(weekValue, {
   }
 
   const status = getWeekReviewStatus(weekValue);
+  const rawStatus = String(planningSettings.weekReviewStatus?.[weekValue] || "").toLowerCase();
+  const isClosedForEmployee = status === "locked" || ["closed", "archived", "gearchiveerd", "afgesloten"].includes(rawStatus);
 
   if (isPlannerRole()) {
     if (blockPlannerWhenLocked && status === "locked") {
@@ -9331,8 +9333,8 @@ function ensureWeekActionAllowed(weekValue, {
     return true;
   }
 
-  if (status !== "open") {
-    showMessage(`Week ${formatWeekLabel(weekValue)} staat op ${getWeekReviewStatusMeta(status).label.toLowerCase()} en kan niet meer door medewerkers worden aangepast.`, "error");
+  if (isClosedForEmployee) {
+    showMessage("Deze week is afgesloten voor urenregistratie.", "error");
     return false;
   }
 
@@ -22225,33 +22227,33 @@ function getEntryFromWorkLogId(workLogId) {
   ) || null;
 }
 
-function setWorkLogSubmitDebug(workLogId, message) {
-  setMobileHoursFeedback(workLogId, `Debug: ${message}`, "error");
+function setWorkLogSubmitError(workLogId, message) {
+  setMobileHoursFeedback(workLogId, message, "error");
 }
 
 function saveWorkLogFromForm(workLogId, action = "save") {
   const entry = getWorkLogContextById(workLogId);
 
   if (!entry) {
-    setWorkLogSubmitDebug(workLogId, `dienst kon niet worden gevonden (${workLogId || "geen id"})`);
+    setWorkLogSubmitError(workLogId, `dienst kon niet worden gevonden (${workLogId || "geen id"})`);
     showMessage("De gekoppelde dienst is niet meer gevonden.", "error");
     return false;
   }
 
   if (!ensureOwnEmployeeAccess(entry.name, "Je kunt alleen je eigen urenregistratie invullen.")) {
-    setWorkLogSubmitDebug(workLogId, `medewerker klopt niet (${entry.name || "onbekend"})`);
+    setWorkLogSubmitError(workLogId, `medewerker klopt niet (${entry.name || "onbekend"})`);
     return false;
   }
 
   if (isFutureDateValue(entry.day)) {
-    setWorkLogSubmitDebug(workLogId, `toekomstige dienst (${formatDate(entry.day)})`);
+    setWorkLogSubmitError(workLogId, `toekomstige dienst (${formatDate(entry.day)})`);
     showMessage("Uren voor toekomstige diensten kun je nog niet invullen.", "error");
     renderMyHours();
     return false;
   }
 
   if (!ensureEmployeeWeekEditable(entry.day, "uren in te dienen of te wijzigen")) {
-    setWorkLogSubmitDebug(workLogId, `week ${formatWeekLabel(getWeekValueFromDate(entry.day))} is niet open`);
+    setWorkLogSubmitError(workLogId, "Deze week is afgesloten voor urenregistratie.");
     renderMyHours();
     return false;
   }
@@ -22273,7 +22275,7 @@ function saveWorkLogFromForm(workLogId, action = "save") {
           : !breakMinutesInput
             ? "veld pauze niet gevonden"
             : "veld opmerking niet gevonden";
-    setWorkLogSubmitDebug(workLogId, missingField);
+    setWorkLogSubmitError(workLogId, missingField);
     showMessage("De urenregistratie kan niet worden geladen.", "error");
     return false;
   }
@@ -22315,13 +22317,13 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   }
 
   if (!actualStart || !actualEnd) {
-    setWorkLogSubmitDebug(workLogId, !actualStart ? "begintijd ontbreekt" : "eindtijd ontbreekt");
+    setWorkLogSubmitError(workLogId, !actualStart ? "begintijd ontbreekt" : "eindtijd ontbreekt");
     showMessage("Vul zowel de werkelijke starttijd als eindtijd in.", "error");
     return false;
   }
 
   if (entry.isManualHours && !notes) {
-    setWorkLogSubmitDebug(workLogId, "reden voor extra uren ontbreekt");
+    setWorkLogSubmitError(workLogId, "reden voor extra uren ontbreekt");
     showMessage("Vul bij extra uren een korte reden of type werk in.", "error");
     return false;
   }
@@ -22329,13 +22331,13 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   const workedHours = validation.workedHours;
 
   if (validation.isInvalidRange || workedHours === null) {
-    setWorkLogSubmitDebug(workLogId, `validatie mislukt: ${validation.isInvalidRange ? "eindtijd ligt voor begintijd" : "uren konden niet worden berekend"}`);
+    setWorkLogSubmitError(workLogId, `validatie mislukt: ${validation.isInvalidRange ? "eindtijd ligt voor begintijd" : "uren konden niet worden berekend"}`);
     showMessage("Controleer de werkelijke tijden en pauze. De eindtijd moet later zijn dan de starttijd.", "error");
     return false;
   }
 
   if (!isPlannerRole() && (existingLog?.status === "revision" || existingLog?.status === "rejected") && !employeeReply) {
-    setWorkLogSubmitDebug(workLogId, "reactie medewerker ontbreekt na afwijzing/opmerking");
+    setWorkLogSubmitError(workLogId, "reactie medewerker ontbreekt na afwijzing/opmerking");
     showMessage("Voeg een korte reactie of toelichting toe voordat je opnieuw indient.", "error");
     return false;
   }
@@ -22408,7 +22410,7 @@ function saveWorkLogFromForm(workLogId, action = "save") {
     saveWorkLogs();
   } catch (error) {
     console.error("saveWorkLogs mislukt", error);
-    setWorkLogSubmitDebug(workLogId, "saveWorkLogs gaf een fout");
+    setWorkLogSubmitError(workLogId, "saveWorkLogs gaf een fout");
     showMessage("Uren opslaan is niet gelukt.", "error");
     return false;
   }
@@ -22416,13 +22418,13 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   const savedLog = workLogs.find((log) => log.id === workLogId) || null;
 
   if (!savedLog) {
-    setWorkLogSubmitDebug(workLogId, "workLog niet aangemaakt");
+    setWorkLogSubmitError(workLogId, "workLog niet aangemaakt");
     showMessage("Uren opslaan is niet gelukt.", "error");
     return false;
   }
 
   if (action === "submit" && savedLog.status !== "open") {
-    setWorkLogSubmitDebug(workLogId, `status niet ingediend (${savedLog.status || "leeg"})`);
+    setWorkLogSubmitError(workLogId, `status niet ingediend (${savedLog.status || "leeg"})`);
     showMessage("Uren indienen is niet gelukt.", "error");
     return false;
   }
@@ -28342,14 +28344,4 @@ syncEmployeeDataFromCentral();
 syncPlanningEntriesFromCentral();
 syncRequestDataFromCentral();
 syncWorkLogsFromCentral();
-
-
-
-
-
-
-
-
-
-
 
