@@ -18832,6 +18832,54 @@ function createSmartPlanningControlIssue({ weekValue, item = null, message, seve
   };
 }
 
+function getSmartPlanningIssuePriority(issue) {
+  if (["open", "no-suitable", "double", "time-off", "sick"].includes(issue?.type)) {
+    return "action";
+  }
+
+  if (["contract", "unavailable", "open-shop", "open-bakery"].includes(issue?.type)) {
+    return "warning";
+  }
+
+  return issue?.severity === "action" ? "action" : "warning";
+}
+
+function getSmartPlanningIssueShortMessage(issue) {
+  const item = issue?.itemId ? getSmartPlanningProposalItemById(issue.itemId) : null;
+  const dayLabel = item?.day ? formatWeekday(item.day) : "";
+  const shiftLabel = item ? getCompactRosterShiftLabel(item.shiftName || "Dienst") : "";
+  const prefix = dayLabel && shiftLabel ? `${dayLabel} - ${shiftLabel}` : "";
+
+  switch (issue?.type) {
+    case "open":
+      return `${prefix} is nog open`;
+    case "no-suitable":
+      return `${prefix} heeft geen geschikte medewerker`;
+    case "double":
+      return `${prefix}: medewerker dubbel gekozen`;
+    case "time-off":
+      return `${prefix}: verlof/vrije dag conflict`;
+    case "sick":
+      return `${prefix}: ziekmelding conflict`;
+    case "contract":
+      return `${prefix}: contracturen overschreden`;
+    case "unavailable":
+      return `${prefix}: medewerker niet beschikbaar`;
+    case "open-shop":
+      return issue.message.replace("Er zijn nog ", "Winkel: ");
+    case "open-bakery":
+      return issue.message.replace("Er zijn nog ", "Bakkerij: ");
+    default:
+      return issue?.message || "Controleren";
+  }
+}
+
+function getSmartPlanningFirstIssueByPriority(summary, priority) {
+  return summary.issues.find((issue) => getSmartPlanningIssuePriority(issue) === priority && issue.itemId) ||
+    summary.issues.find((issue) => getSmartPlanningIssuePriority(issue) === priority) ||
+    null;
+}
+
 function getSmartPlanningChosenEmployeeIssue(item, weekValue) {
   if (!item?.chosenEmployeeName) {
     return [];
@@ -18976,15 +19024,16 @@ function getSmartPlanningWeekControlSummary(weekKey) {
   const filledCount = weekItems.filter((item) => item.chosenEmployeeName).length;
   const openCount = weekItems.length - filledCount;
   const issues = getSmartPlanningControlWarnings(weekKey);
-  const warningCount = issues.filter((issue) => issue.severity === "action").length;
-  const noteCount = issues.filter((issue) => issue.severity !== "action").length;
+  const actionIssues = issues.filter((issue) => getSmartPlanningIssuePriority(issue) === "action");
+  const warningIssues = issues.filter((issue) => getSmartPlanningIssuePriority(issue) === "warning");
 
   return {
     weekKey,
     filledCount,
     openCount,
-    warningCount,
-    noteCount,
+    actionCount: actionIssues.length,
+    warningCount: warningIssues.length,
+    noteCount: warningIssues.length,
     issues
   };
 }
@@ -19001,13 +19050,15 @@ function getSmartPlanningControlSummary(data = getSmartPlanningMonthData()) {
     issues,
     filledCount: weekSummaries.reduce((total, weekSummary) => total + weekSummary.filledCount, 0),
     openCount: weekSummaries.reduce((total, weekSummary) => total + weekSummary.openCount, 0),
-    warningCount: issues.filter((issue) => issue.severity === "action").length,
-    noteCount: issues.filter((issue) => issue.severity !== "action").length
+    actionCount: issues.filter((issue) => getSmartPlanningIssuePriority(issue) === "action").length,
+    warningCount: issues.filter((issue) => getSmartPlanningIssuePriority(issue) === "warning").length,
+    okWeekCount: weekSummaries.filter((weekSummary) => !weekSummary.issues.length).length
   };
 }
 
 function renderSmartPlanningIssueButton(issue) {
-  const severityClass = issue.severity === "action" ? "is-action" : "is-warning";
+  const priority = getSmartPlanningIssuePriority(issue);
+  const severityClass = priority === "action" ? "is-action" : "is-warning";
   const isClickable = Boolean(issue.itemId);
 
   return `
@@ -19016,7 +19067,37 @@ function renderSmartPlanningIssueButton(issue) {
       class="smart-planning-control-issue ${severityClass}"
       ${isClickable ? `data-smart-planning-issue="${escapeHtmlAttribute(issue.id)}"` : "disabled"}
     >
-      <span>${issue.message}</span>
+      <span>${getSmartPlanningIssueShortMessage(issue)}</span>
+    </button>
+  `;
+}
+
+function renderSmartPlanningIssueSection(title, icon, issues, className) {
+  if (!issues.length) {
+    return "";
+  }
+
+  return `
+    <section class="smart-planning-control-section ${className}">
+      <h5>${icon} ${title}</h5>
+      <div class="smart-planning-control-issues">
+        ${issues.map(renderSmartPlanningIssueButton).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderSmartPlanningSummaryButton(summary, priority, icon, label, count) {
+  const firstIssue = getSmartPlanningFirstIssueByPriority(summary, priority);
+
+  return `
+    <button
+      type="button"
+      class="smart-planning-control-summary-card is-${priority}"
+      ${firstIssue ? `data-smart-planning-issue="${escapeHtmlAttribute(firstIssue.id)}"` : "disabled"}
+    >
+      <strong>${icon} ${count}</strong>
+      <span>${label}</span>
     </button>
   `;
 }
@@ -19032,7 +19113,7 @@ function renderSmartPlanningControlTab(data = getSmartPlanningMonthData()) {
     `;
   }
 
-  if (!summary.openCount && !summary.warningCount && !summary.noteCount) {
+  if (!summary.openCount && !summary.actionCount && !summary.warningCount) {
     return `
       <section class="smart-planning-control-overview is-ok">
         <strong>Alles ziet er goed uit.</strong>
@@ -19043,35 +19124,41 @@ function renderSmartPlanningControlTab(data = getSmartPlanningMonthData()) {
 
   return `
     <section class="smart-planning-control-overview">
-      <div><strong>${summary.filledCount}</strong><span>Ingevuld</span></div>
-      <div><strong>${summary.openCount}</strong><span>Nog open</span></div>
-      <div><strong>${summary.warningCount}</strong><span>Waarschuwingen</span></div>
-      <div><strong>${summary.noteCount}</strong><span>Bijzonderheden</span></div>
+      ${renderSmartPlanningSummaryButton(summary, "action", "🔴", "acties nodig", summary.actionCount)}
+      ${renderSmartPlanningSummaryButton(summary, "warning", "🟠", "dingen controleren", summary.warningCount)}
+      <div class="smart-planning-control-summary-card is-ok">
+        <strong>🟢 ${summary.okWeekCount}</strong>
+        <span>weken in orde</span>
+      </div>
+      <div class="smart-planning-control-summary-card is-neutral">
+        <strong>${summary.filledCount}</strong>
+        <span>ingevuld</span>
+      </div>
     </section>
     <section class="smart-planning-control-weeks">
       ${data.visibleWeeks.map(({ weekValue }) => {
         const weekSummary = summary.weekSummaries.find((item) => item.weekKey === weekValue) || getSmartPlanningWeekControlSummary(weekValue);
         const hasIssues = weekSummary.issues.length > 0;
+        const actionIssues = weekSummary.issues.filter((issue) => getSmartPlanningIssuePriority(issue) === "action");
+        const warningIssues = weekSummary.issues.filter((issue) => getSmartPlanningIssuePriority(issue) === "warning");
 
         return `
-          <article class="smart-planning-control-week ${hasIssues ? (weekSummary.warningCount ? "has-action" : "has-warning") : "is-ok"}">
+          <article class="smart-planning-control-week ${hasIssues ? (actionIssues.length ? "has-action" : "has-warning") : "is-ok"}" data-smart-planning-control-week="${escapeHtmlAttribute(weekValue)}">
             <header>
               <div>
                 <strong>${formatWeekLabel(weekValue)}</strong>
                 <span>${formatPlanningWeekPeriod(weekValue)}</span>
               </div>
               <div class="smart-planning-control-week-stats">
-                <span>${weekSummary.filledCount} ingevuld</span>
-                <span>${weekSummary.openCount} open</span>
-                <span>${weekSummary.warningCount} waarschuwingen</span>
-                <span>${weekSummary.noteCount} bijzonderheden</span>
+                ${actionIssues.length ? `<span class="is-action">🔴 ${actionIssues.length} problemen</span>` : ""}
+                ${warningIssues.length ? `<span class="is-warning">🟠 ${warningIssues.length} controle</span>` : ""}
+                ${!hasIssues ? `<span class="is-ok">🟢 in orde</span>` : ""}
               </div>
             </header>
             ${hasIssues ? `
-              <div class="smart-planning-control-issues">
-                ${weekSummary.issues.map(renderSmartPlanningIssueButton).join("")}
-              </div>
-            ` : `<p>Geen problemen gevonden.</p>`}
+              ${renderSmartPlanningIssueSection("Actie nodig", "🔴", actionIssues, "is-action")}
+              ${renderSmartPlanningIssueSection("Controleren", "🟠", warningIssues, "is-warning")}
+            ` : `<p>🟢 Alles in orde</p>`}
           </article>
         `;
       }).join("")}
@@ -19082,7 +19169,15 @@ function renderSmartPlanningControlTab(data = getSmartPlanningMonthData()) {
 function goToSmartPlanningIssue(issue) {
   const targetIssue = typeof issue === "string" ? getSmartPlanningControlIssueById(issue) : issue;
 
-  if (!targetIssue?.itemId) {
+  if (!targetIssue) {
+    return;
+  }
+
+  if (!targetIssue.itemId) {
+    const targetWeek = targetIssue.weekValue
+      ? document.querySelector(`[data-smart-planning-control-week="${targetIssue.weekValue}"]`)
+      : null;
+    targetWeek?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
     return;
   }
 
@@ -19660,7 +19755,7 @@ function renderSmartPlanningChecks(data = getSmartPlanningMonthData()) {
 
   if (smartPlanningChecksSummary) {
     smartPlanningChecksSummary.textContent = summary.hasProposal
-      ? `${summary.warningCount} waarschuwingen · ${summary.noteCount} bijzonderheden`
+      ? `${summary.actionCount} acties · ${summary.warningCount} controles · ${summary.okWeekCount} weken in orde`
       : "Maak eerst een maandvoorstel.";
   }
 
