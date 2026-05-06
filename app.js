@@ -19036,6 +19036,24 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
           const employeeLabel = chosenEmployeeName || "OPEN";
           const opensLeft = getWeekdayNumberFromDate(row.day) >= 5;
           const titleText = warningText || `OPEN - ${row.shiftName} - ${shiftTime}. Klik om details te bekijken`;
+          const shiftContent = chosenEmployeeName ? `
+                <span class="smart-planning-assigned-shift">
+                  <span class="smart-planning-assigned-top">
+                    <span class="smart-planning-assigned-name">${employeeLabel}</span>
+                    <em class="smart-planning-concept-badge">Concept</em>
+                  </span>
+                  <span class="smart-planning-assigned-bottom">
+                    <span class="smart-planning-assigned-shift-name" title="${escapeHtmlAttribute(row.shiftName)}">${displayShiftName}</span>
+                    <span class="smart-planning-assigned-time">${shiftTime}</span>
+                  </span>
+                </span>
+          ` : `
+                <span class="planning-shift-employee">
+                  <span class="smart-planning-assigned-person">${employeeLabel}</span>
+                </span>
+                <span class="planning-shift-name" title="${escapeHtmlAttribute(row.shiftName)}">${displayShiftName}${warningText ? `<span class="smart-planning-shift-warning" title="${escapeHtmlAttribute(warningText)}">⚠</span>` : ""}</span>
+                <span class="planning-shift-time">${shiftTime}</span>
+          `;
 
           return `
             <div class="smart-planning-open-shift-wrap ${opensLeft ? "opens-left" : ""}">
@@ -19045,12 +19063,7 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
                 data-smart-planning-open-shift="${escapeHtmlAttribute(row.smartPlanningId)}"
                 title="${escapeHtmlAttribute(titleText)}"
               >
-                <span class="planning-shift-employee">
-                  <span class="smart-planning-assigned-person">${employeeLabel}</span>
-                  ${chosenEmployeeName ? `<em class="smart-planning-concept-badge">Concept</em>` : ""}
-                </span>
-                <span class="planning-shift-name" title="${escapeHtmlAttribute(row.shiftName)}">${displayShiftName}${warningText ? `<span class="smart-planning-shift-warning" title="${escapeHtmlAttribute(warningText)}">⚠</span>` : ""}</span>
-                <span class="planning-shift-time">${shiftTime}</span>
+                ${shiftContent}
               </button>
               ${isSelected ? renderSmartPlanningInlineAdvice(proposalItem) : ""}
             </div>

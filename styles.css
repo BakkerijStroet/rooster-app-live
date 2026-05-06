@@ -2998,6 +2998,63 @@ textarea.input-error {
   background: #f0fbf4;
 }
 
+.smart-planning-proposal-roster .smart-planning-open-shift-button.has-choice {
+  display: block;
+  min-height: 54px;
+  padding: 0.42rem 0.5rem;
+}
+
+.smart-planning-assigned-shift {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  width: 100%;
+}
+
+.smart-planning-assigned-top,
+.smart-planning-assigned-bottom {
+  display: grid;
+  align-items: center;
+  min-width: 0;
+}
+
+.smart-planning-assigned-top {
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 6px;
+}
+
+.smart-planning-assigned-bottom {
+  grid-template-columns: minmax(0, 1fr) minmax(84px, max-content);
+  gap: 8px;
+}
+
+.smart-planning-assigned-name {
+  min-width: 0;
+  color: #1f3f35;
+  font-size: 0.82rem;
+  font-weight: 900;
+  line-height: 1.2;
+  white-space: normal;
+}
+
+.smart-planning-assigned-shift-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #2f2a23;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.smart-planning-assigned-time {
+  color: #7a6453;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-align: right;
+  white-space: nowrap;
+}
+
 .smart-planning-open-shift-wrap {
   position: relative;
   display: block;
