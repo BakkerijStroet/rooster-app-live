@@ -22225,25 +22225,33 @@ function getEntryFromWorkLogId(workLogId) {
   ) || null;
 }
 
+function setWorkLogSubmitDebug(workLogId, message) {
+  setMobileHoursFeedback(workLogId, `Debug: ${message}`, "error");
+}
+
 function saveWorkLogFromForm(workLogId, action = "save") {
   const entry = getWorkLogContextById(workLogId);
 
   if (!entry) {
+    setWorkLogSubmitDebug(workLogId, `dienst kon niet worden gevonden (${workLogId || "geen id"})`);
     showMessage("De gekoppelde dienst is niet meer gevonden.", "error");
     return false;
   }
 
   if (!ensureOwnEmployeeAccess(entry.name, "Je kunt alleen je eigen urenregistratie invullen.")) {
+    setWorkLogSubmitDebug(workLogId, `medewerker klopt niet (${entry.name || "onbekend"})`);
     return false;
   }
 
   if (isFutureDateValue(entry.day)) {
+    setWorkLogSubmitDebug(workLogId, `toekomstige dienst (${formatDate(entry.day)})`);
     showMessage("Uren voor toekomstige diensten kun je nog niet invullen.", "error");
     renderMyHours();
     return false;
   }
 
   if (!ensureEmployeeWeekEditable(entry.day, "uren in te dienen of te wijzigen")) {
+    setWorkLogSubmitDebug(workLogId, `week ${formatWeekLabel(getWeekValueFromDate(entry.day))} is niet open`);
     renderMyHours();
     return false;
   }
@@ -22256,18 +22264,16 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   const employeeReplyInput = getWorkLogFieldElement(workLogId, "employeeReply", card);
 
   if (!actualStartInput || !actualEndInput || !breakMinutesInput || !notesInput) {
-    console.warn("Urenregistratie formulier onvolledig", {
-      workLogId,
-      employeeName: entry.name,
-      day: entry.day,
-      shiftName: entry.isManualHours ? "Extra uren" : getShiftName(entry),
-      hasCard: Boolean(card),
-      hasActualStart: Boolean(actualStartInput),
-      hasActualEnd: Boolean(actualEndInput),
-      hasBreakMinutes: Boolean(breakMinutesInput),
-      hasNotes: Boolean(notesInput)
-    });
-    setMobileHoursFeedback(workLogId, "De urenregistratie kan niet worden geladen.", "error");
+    const missingField = !card
+      ? "urenkaart niet gevonden"
+      : !actualStartInput
+        ? "veld start niet gevonden"
+        : !actualEndInput
+          ? "veld eind niet gevonden"
+          : !breakMinutesInput
+            ? "veld pauze niet gevonden"
+            : "veld opmerking niet gevonden";
+    setWorkLogSubmitDebug(workLogId, missingField);
     showMessage("De urenregistratie kan niet worden geladen.", "error");
     return false;
   }
@@ -22285,6 +22291,12 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   });
 
   if (!isPlannerRole() && existingLog && (existingLog.status === "open" || existingLog.status === "approved")) {
+    if (action === "submit" && existingLog.status === "open") {
+      activeMobileWorkLogId = "";
+      setMobileHoursFeedback(workLogId, "Uren ingediend", "success");
+      return true;
+    }
+
     setMobileHoursFeedback(
       workLogId,
       existingLog.status === "approved"
@@ -22303,13 +22315,13 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   }
 
   if (!actualStart || !actualEnd) {
-    setMobileHoursFeedback(workLogId, "Vul begintijd en eindtijd in.", "error");
+    setWorkLogSubmitDebug(workLogId, !actualStart ? "begintijd ontbreekt" : "eindtijd ontbreekt");
     showMessage("Vul zowel de werkelijke starttijd als eindtijd in.", "error");
     return false;
   }
 
   if (entry.isManualHours && !notes) {
-    setMobileHoursFeedback(workLogId, "Vul bij extra uren een korte reden in.", "error");
+    setWorkLogSubmitDebug(workLogId, "reden voor extra uren ontbreekt");
     showMessage("Vul bij extra uren een korte reden of type werk in.", "error");
     return false;
   }
@@ -22317,13 +22329,13 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   const workedHours = validation.workedHours;
 
   if (validation.isInvalidRange || workedHours === null) {
-    setMobileHoursFeedback(workLogId, "Controleer begintijd, eindtijd en pauze.", "error");
+    setWorkLogSubmitDebug(workLogId, `validatie mislukt: ${validation.isInvalidRange ? "eindtijd ligt voor begintijd" : "uren konden niet worden berekend"}`);
     showMessage("Controleer de werkelijke tijden en pauze. De eindtijd moet later zijn dan de starttijd.", "error");
     return false;
   }
 
   if (!isPlannerRole() && (existingLog?.status === "revision" || existingLog?.status === "rejected") && !employeeReply) {
-    setMobileHoursFeedback(workLogId, "Voeg een korte reactie toe voordat je opnieuw indient.", "error");
+    setWorkLogSubmitDebug(workLogId, "reactie medewerker ontbreekt na afwijzing/opmerking");
     showMessage("Voeg een korte reactie of toelichting toe voordat je opnieuw indient.", "error");
     return false;
   }
@@ -22392,7 +22404,29 @@ function saveWorkLogFromForm(workLogId, action = "save") {
     breakMinutes
   };
   savePreferences();
-  saveWorkLogs();
+  try {
+    saveWorkLogs();
+  } catch (error) {
+    console.error("saveWorkLogs mislukt", error);
+    setWorkLogSubmitDebug(workLogId, "saveWorkLogs gaf een fout");
+    showMessage("Uren opslaan is niet gelukt.", "error");
+    return false;
+  }
+
+  const savedLog = workLogs.find((log) => log.id === workLogId) || null;
+
+  if (!savedLog) {
+    setWorkLogSubmitDebug(workLogId, "workLog niet aangemaakt");
+    showMessage("Uren opslaan is niet gelukt.", "error");
+    return false;
+  }
+
+  if (action === "submit" && savedLog.status !== "open") {
+    setWorkLogSubmitDebug(workLogId, `status niet ingediend (${savedLog.status || "leeg"})`);
+    showMessage("Uren indienen is niet gelukt.", "error");
+    return false;
+  }
+
   persistProtectedChange({
     reason: action === "submit" ? `Uren ingediend: ${entry.name} ${entry.day} ${entry.isManualHours ? "Extra uren" : getShiftName(entry)}` : `Urenconcept bijgewerkt: ${entry.name} ${entry.day} ${entry.isManualHours ? "Extra uren" : getShiftName(entry)}`,
     scope: "worklog",
