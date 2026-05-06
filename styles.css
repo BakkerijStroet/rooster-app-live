@@ -13553,6 +13553,462 @@ body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile spa
   }
 }
 
+/* Frisse app-kleurstijl: licht oranje primair, statuskleuren consequent groen/oranje/rood. */
+:root {
+  --color-primary: #ffb15c;
+  --color-primary-soft: #fff0dc;
+  --color-primary-hover: #ff9f3d;
+  --color-primary-border: #f2b36e;
+  --color-success: #2f9e44;
+  --color-success-soft: #eaf7ee;
+  --color-success-border: #9bd3a8;
+  --color-warning: #f08c00;
+  --color-warning-soft: #fff0dc;
+  --color-warning-border: #f2b36e;
+  --color-danger: #d64545;
+  --color-danger-soft: #fff0f0;
+  --color-danger-border: #eca4a4;
+  --color-text: #1f2933;
+  --color-text-secondary: #4b5563;
+  --color-text-muted: #6b7280;
+  --color-text-on-primary: #1f2933;
+  --color-surface: #ffffff;
+  --color-surface-soft: #fff8f1;
+  --color-border: #eadfd4;
+  --color-neutral-soft: #f6f7f9;
+  --color-neutral-border: #d8dee6;
+  --bg: #fff8f1;
+  --bg-soft: #fff0dc;
+  --card: #ffffff;
+  --card-soft: #fff8f1;
+  --text: var(--color-text);
+  --text-secondary: var(--color-text-secondary);
+  --text-subtle: var(--color-text-muted);
+  --muted: var(--color-text-muted);
+  --accent: var(--color-primary);
+  --accent-strong: var(--color-primary-hover);
+  --accent-soft: var(--color-primary-soft);
+  --accent-tint: var(--color-primary-soft);
+  --border: var(--color-border);
+  --success: var(--color-success);
+  --warning: var(--color-warning);
+  --danger: var(--color-danger);
+  --shop-accent: var(--color-success);
+  --shop-tint: var(--color-success-soft);
+  --bakery-accent: var(--color-primary);
+  --bakery-tint: var(--color-primary-soft);
+  --other-accent: #8b98a8;
+  --other-tint: var(--color-neutral-soft);
+  --shadow: 0 14px 32px rgba(31, 41, 51, 0.08);
+  --shadow-soft: 0 8px 20px rgba(31, 41, 51, 0.06);
+  --shadow-hover: 0 16px 34px rgba(31, 41, 51, 0.11);
+}
+
+body {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(255, 177, 92, 0.14), transparent 24%),
+    linear-gradient(180deg, #fffaf5 0%, #fff8f1 48%, #f7f8fa 100%);
+  color: var(--color-text);
+}
+
+.card,
+.staff-panel,
+.dashboard-item,
+.dashboard-card,
+.compact-status-card,
+.quick-actions > *,
+.hours-control-summary-card,
+.planner-summary-chip,
+.smart-planning-control-summary-card,
+.capacity-card,
+.employee-summary-card,
+.employee-table-row,
+.services-table-row,
+.planner-request-inbox-item,
+.planner-vacation-item,
+.hours-control-item,
+.planning-day-card,
+.week-roster-day-card,
+.smart-planning-card,
+.smart-planning-rules,
+.smart-planning-legacy-tools,
+.employee-detail-panel,
+.services-table,
+.planner-request-inbox,
+.planner-vacation-panel,
+.hours-control-main,
+.my-schedule-week-tile,
+.request-card,
+.hours-registration-card,
+.my-hours-extra-card,
+.my-hours-worked-card,
+.planning-roster-group,
+.roster-group,
+.desktop-day-list,
+.backup-panel,
+.backup-card,
+.modal,
+.modal-content,
+.dialog,
+.dialog-card,
+.confirm-dialog,
+.confirm-dialog-card {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text);
+  box-shadow: var(--shadow-soft);
+}
+
+.smart-planning-toolbar,
+.hours-control-toolbar,
+.services-toolbar,
+.services-management-toolbar,
+.employees-toolbar,
+.planner-request-toolbar,
+.planner-vacation-filters,
+.week-switcher,
+.view-toolbar,
+.board-toolbar,
+.app-nav,
+.mobile-bottom-nav {
+  background: var(--color-surface-soft);
+  border-color: var(--color-border);
+  box-shadow: none;
+}
+
+.nav-tab,
+.request-switch-button,
+.mobile-nav-button,
+.smart-planning-tab,
+.employee-filter-button,
+button.secondary {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+  box-shadow: none;
+}
+
+.nav-tab:hover,
+.request-switch-button:hover,
+.mobile-nav-button:hover,
+.smart-planning-tab:hover,
+.employee-filter-button:hover,
+button.secondary:hover:not(:disabled) {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-border);
+  color: var(--color-text);
+}
+
+.nav-tab.active,
+button.nav-tab.active:not(.secondary),
+.request-switch-button.active,
+button.request-switch-button.active:not(.secondary),
+.smart-planning-tab.active,
+button.smart-planning-tab.active:not(.secondary),
+.mobile-nav-button.active,
+button.mobile-nav-button.active:not(.secondary),
+body[data-role="employee"] .mobile-nav-button.active,
+body[data-role="employee"] button.mobile-nav-button.active:not(.secondary),
+.employee-filter-button.active,
+button.employee-filter-button.active:not(.secondary) {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-border);
+  color: var(--color-text);
+  box-shadow: inset 0 -3px 0 var(--color-primary);
+}
+
+button:not(.secondary):not(.warning):not(:disabled),
+.primary-action,
+.button-primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-text-on-primary);
+  box-shadow: 0 8px 18px rgba(255, 159, 61, 0.22);
+}
+
+button:not(.secondary):not(.warning):not(:disabled):hover,
+.primary-action:hover,
+.button-primary:hover {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+  color: var(--color-text-on-primary);
+  box-shadow: 0 10px 22px rgba(255, 159, 61, 0.28);
+}
+
+button.warning:not(:disabled),
+.button-danger,
+.danger-action {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: #ffffff;
+}
+
+input,
+select,
+textarea {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--color-primary-border);
+  box-shadow: 0 0 0 3px rgba(255, 177, 92, 0.22);
+}
+
+.app-title,
+.view-header h1,
+.view-header h2,
+.director-screen-header h1,
+.director-screen-header h2,
+.panel-title,
+.card-title,
+h1,
+h2,
+h3 {
+  color: var(--color-text);
+}
+
+.panel-note,
+.card-note,
+.muted,
+.helper-text,
+.week-range,
+.planning-overview-line,
+.planner-audit-line,
+.shift-time,
+.planning-shift-time,
+.smart-planning-open-time,
+.smart-planning-assigned-time {
+  color: var(--color-text-muted);
+}
+
+.dashboard-item,
+.dashboard-card,
+.services-table-row.is-bakery,
+.planning-roster-group.roster-group--bakery,
+.roster-group--bakery {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  border-left-color: var(--color-primary);
+}
+
+.services-table-row.is-shop,
+.planning-roster-group.roster-group--shop,
+.roster-group--shop {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  border-left-color: var(--color-success);
+}
+
+.planning-shift-line,
+.smart-planning-proposal-roster .smart-planning-open-shift-button,
+.shift-card {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.planning-shift-line.is-open,
+.smart-planning-open-shift-button,
+.smart-planning-open-shift-button.has-warning,
+.shift-card.is-open-shift,
+body[data-control-mode="planner"] .shift-card.is-open-shift {
+  background: var(--color-warning-soft);
+  border-color: var(--color-warning-border);
+}
+
+.planning-shift-line.is-filled,
+.smart-planning-open-shift-button.has-choice,
+.shift-card.is-filled,
+.shift-card.is-planned,
+.shift-card.is-vacation-autofill,
+body[data-control-mode="planner"] .shift-card.is-vacation-autofill {
+  background: var(--color-success-soft);
+  border-color: var(--color-success-border);
+}
+
+.smart-planning-open-shift-button.is-selected,
+.smart-planning-open-shift-button.has-warning.is-selected,
+.planning-shift-line:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(255, 177, 92, 0.34);
+}
+
+.smart-planning-open-label,
+.planning-shift-line.is-open::after,
+.status-open,
+.status-waiting,
+.status-in-review,
+.status-pending,
+.status-draft,
+.employee-status-badge.is-temporary,
+.planning-overview-status.is-open,
+.planning-overview-alert.is-open,
+.planning-overview-tag.is-open,
+.planning-overview-metric.is-open-count,
+.planner-audit-badge.is-vacation,
+.planner-audit-badge.is-holiday,
+.control-flag.is-open,
+.control-flag.is-deviation,
+.planning-overview-alert.is-deviation,
+.planning-overview-tag.is-deviation,
+.planning-overview-alert.is-special,
+.planning-overview-tag.is-special,
+.planning-overview-alert.is-contract,
+.planning-overview-tag.is-contract,
+.message.warning,
+.compact-message.warning,
+.toast.warning {
+  background: var(--color-warning-soft);
+  border-color: var(--color-warning-border);
+  color: var(--color-warning);
+}
+
+.planning-shift-line.is-filled::after,
+.status-approved,
+.status-complete,
+.status-done,
+.status-success,
+.employee-status-badge.is-active,
+.smart-planning-employee-choice.is-available,
+.smart-planning-concept-badge,
+.planning-overview-status.is-planned,
+.planning-overview-status.is-reviewed,
+.planning-overview-alert.is-clear,
+.planning-overview-tag.is-clear,
+.planner-audit-badge.is-match,
+.control-flag.is-clear,
+.message.success,
+.compact-message.success,
+.toast.success,
+.login-auth-status.is-success,
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.is-planned,
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.has-complete-hours {
+  background: var(--color-success-soft);
+  border-color: var(--color-success-border);
+  color: var(--color-success);
+}
+
+.status-rejected,
+.status-overdue,
+.status-danger,
+.status-error,
+.status-conflict,
+.employee-status-badge.is-inactive,
+.employee-status-badge.is-former,
+.smart-planning-employee-choice.is-unavailable,
+.message.error,
+.compact-message.error,
+.toast.error,
+.login-auth-status.is-error,
+.planner-audit-badge.is-error,
+.control-flag.is-danger,
+.hours-registration-card.status-rejected,
+.hours-registration-card.status-revision {
+  background: var(--color-danger-soft);
+  border-color: var(--color-danger-border);
+  color: var(--color-danger);
+}
+
+.status-empty,
+.status-neutral,
+.service-department-pill.is-other,
+.planning-overview-status.is-locked,
+.planning-overview-metric,
+.planning-overview-tag,
+.planner-audit-badge.is-replacement,
+.control-flag.is-replacement,
+.planning-overview-alert.is-replacement,
+.planning-overview-tag.is-replacement,
+.shift-card.is-replacement,
+body[data-control-mode="planner"] .shift-card.is-replacement {
+  background: var(--color-neutral-soft);
+  border-color: var(--color-neutral-border);
+  color: var(--color-text-secondary);
+}
+
+.service-department-pill.is-bakery,
+.day-planner-badge.is-bakery {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-border);
+  color: var(--color-warning);
+}
+
+.service-department-pill.is-shop,
+.day-planner-badge.is-shop {
+  background: var(--color-success-soft);
+  border-color: var(--color-success-border);
+  color: var(--color-success);
+}
+
+.employee-table-row.is-active,
+.employee-summary-card.is-active,
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.is-current,
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.is-selected {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-border);
+  box-shadow: inset 4px 0 0 var(--color-primary), var(--shadow-soft);
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-week-tile.has-open-hours {
+  background: var(--color-warning-soft);
+  border-color: var(--color-warning-border);
+  color: var(--color-text);
+}
+
+.smart-planning-inline-advice,
+.smart-planning-floating-advice {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text);
+  box-shadow: 0 18px 36px rgba(31, 41, 51, 0.16);
+}
+
+.smart-planning-employee-choice {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.status-pill,
+.status-badge,
+.service-status-pill,
+.employee-status-badge,
+.planner-audit-badge,
+.control-flag,
+.planning-overview-status,
+.planning-overview-alert,
+.planning-overview-tag,
+.planning-overview-metric {
+  border-width: 1px;
+  border-style: solid;
+  font-weight: 800;
+}
+
+@media (max-width: 640px) {
+  .mobile-bottom-nav {
+    background: var(--color-surface);
+    border-top-color: var(--color-border);
+  }
+
+  .mobile-nav-button,
+  body[data-role="employee"] .mobile-nav-button {
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+  }
+
+  .mobile-nav-button.active,
+  body[data-role="employee"] .mobile-nav-button.active {
+    background: var(--color-primary-soft);
+    color: var(--color-text);
+    border-color: var(--color-primary-border);
+    box-shadow: inset 0 3px 0 var(--color-primary);
+  }
+}
+
 
 
 
