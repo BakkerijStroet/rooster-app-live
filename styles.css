@@ -2904,6 +2904,59 @@ textarea.input-error {
   cursor: default;
 }
 
+.smart-planning-proposal-roster .smart-planning-open-shift-button {
+  cursor: pointer;
+}
+
+.smart-planning-open-shift-button.is-selected {
+  border-color: #d97706;
+  background: #ffe7d3;
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.18);
+}
+
+.smart-planning-selected-shift-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e8d7bd;
+  border-radius: 14px;
+  background: #fffaf3;
+}
+
+.smart-planning-selected-shift-panel.empty {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.smart-planning-selected-shift-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.smart-planning-selected-shift-head strong,
+.smart-planning-selected-shift-head span {
+  display: block;
+}
+
+.smart-planning-selected-shift-head span:not(.status-pill) {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.smart-planning-selected-shift-panel h4 {
+  margin: 0 0 4px;
+}
+
+.smart-planning-selected-shift-panel p,
+.smart-planning-selected-shift-panel ul {
+  margin: 0;
+  color: #5f5142;
+}
+
 .smart-planning-rules-grid,
 .smart-planning-tools-grid {
   display: grid;
