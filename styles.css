@@ -119,10 +119,10 @@ h3 {
 .brand-header {
   display: flex;
   justify-content: space-between;
-  gap: 14px;
+  gap: 10px;
   align-items: center;
   flex-wrap: wrap;
-  padding: 2px 0 8px;
+  padding: 0 0 6px;
   border-bottom: 1px solid rgba(216, 116, 47, 0.12);
   position: sticky;
   top: 0;
@@ -134,7 +134,7 @@ h3 {
 .brand-lockup {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
   flex: 1 1 auto;
 }
@@ -143,11 +143,11 @@ h3 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 6px;
-  border-radius: 14px;
+  padding: 4px;
+  border-radius: 12px;
   border: 1px solid var(--border);
   background: #fffdfa;
-  box-shadow: var(--shadow-soft);
+  box-shadow: none;
   flex: 0 0 auto;
   transition: transform var(--transition-soft), box-shadow var(--transition-soft), border-color var(--transition-soft);
 }
@@ -165,8 +165,8 @@ h3 {
 .brand-logo-image {
   display: block;
   width: auto;
-  height: 62px;
-  max-width: 150px;
+  height: 52px;
+  max-width: 132px;
   object-fit: contain;
 }
 
@@ -178,7 +178,7 @@ h3 {
 
 .brand-copy h1 {
   margin: 0;
-  font-size: clamp(22px, 2vw, 30px);
+  font-size: clamp(20px, 1.7vw, 26px);
   letter-spacing: -0.02em;
   line-height: 1.1;
 }
@@ -187,7 +187,7 @@ h3 {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 4px;
   flex: 0 0 auto;
   margin-left: auto;
   max-width: 100%;
@@ -232,14 +232,14 @@ h3 {
 
 .app-nav {
   display: flex;
-  gap: var(--space-1);
+  gap: 6px;
   flex-wrap: wrap;
-  margin-bottom: var(--space-2);
-  padding: 10px 12px;
+  margin-bottom: 8px;
+  padding: 7px 8px;
   border: 1px solid rgba(216, 116, 47, 0.12);
-  border-radius: 20px;
-  background: linear-gradient(180deg, rgba(255, 253, 250, 0.98) 0%, rgba(245, 240, 234, 0.96) 100%);
-  box-shadow: var(--shadow-soft);
+  border-radius: 14px;
+  background: rgba(255, 253, 250, 0.82);
+  box-shadow: none;
   position: relative;
   z-index: 9999;
   pointer-events: auto;
@@ -1960,53 +1960,52 @@ body[data-role="employee"] [data-panel="requests"] #requestsOpenCards {
 }
 
 .nav-tab {
-  background: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.52);
   color: var(--text);
   border: 1px solid rgba(242, 140, 40, 0.06);
   border-radius: 999px;
-  padding: 10px 14px;
-  font-size: 14px;
+  padding: 7px 10px;
+  font-size: 13px;
   font-weight: 700;
   box-shadow: none;
-  transition: background-color var(--transition-soft), color var(--transition-soft), transform var(--transition-soft), box-shadow var(--transition-soft), border-color var(--transition-soft);
+  transition: background-color var(--transition-soft), color var(--transition-soft), border-color var(--transition-soft);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   position: relative;
   z-index: 10000;
   pointer-events: auto;
   cursor: pointer;
   user-select: none;
-  outline: 2px solid rgba(242, 140, 40, 0.22);
+  outline: 0;
   outline-offset: 1px;
 }
 
 .nav-tab::before {
   content: "";
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 999px;
-  background: rgba(242, 140, 40, 0.34);
-  box-shadow: 0 0 0 3px rgba(242, 140, 40, 0.08);
+  background: rgba(242, 140, 40, 0.26);
+  box-shadow: none;
   flex: 0 0 auto;
 }
 
 .nav-tab:hover {
   background: rgba(242, 140, 40, 0.12);
   border-color: rgba(242, 140, 40, 0.16);
-  transform: translateY(-1px);
 }
 
 .nav-tab.active {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-  box-shadow: 0 10px 22px rgba(216, 116, 47, 0.2);
+  background: #fff7ed;
+  color: var(--accent-strong);
+  border-color: rgba(216, 116, 47, 0.34);
+  box-shadow: inset 0 0 0 1px rgba(216, 116, 47, 0.08);
 }
 
 .nav-tab.active::before {
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18);
+  background: var(--accent);
+  box-shadow: none;
 }
 
 .mobile-bottom-nav {
@@ -10048,7 +10047,7 @@ button,
   }
 
   body[data-role="planner"] .brand-header {
-    gap: 12px;
+    gap: 8px;
   }
 
   body[data-role="planner"] .session-bar,
@@ -10109,20 +10108,21 @@ button,
   body[data-role="planner"] .app-nav {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
     position: relative;
     z-index: 99999;
     pointer-events: auto;
     isolation: isolate;
-    padding: 0;
-    background: transparent;
+    padding: 5px 6px;
+    background: rgba(255, 253, 250, 0.76);
+    border-radius: 12px;
     backdrop-filter: none;
   }
 
   body[data-role="planner"] .nav-tab {
-    min-height: 40px;
-    padding: 10px 12px;
-    font-size: 14px;
+    min-height: 32px;
+    padding: 6px 9px;
+    font-size: 13px;
     text-align: left;
     position: relative;
     z-index: 100000;
@@ -10145,12 +10145,12 @@ button,
   }
 
   body[data-role="planner"] .brand-logo-image {
-    height: 60px;
-    max-width: 150px;
+    height: 48px;
+    max-width: 124px;
   }
 
   body[data-role="planner"] .brand-copy h1 {
-    font-size: 30px;
+    font-size: 25px;
   }
 
   body[data-role="planner"] .board-header,

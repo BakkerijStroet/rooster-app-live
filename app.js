@@ -8,7 +8,6 @@ const roleSelect = document.getElementById("roleSelect");
 const currentEmployeeSelect = document.getElementById("currentEmployee");
 const currentEmployeeBadge = document.getElementById("currentEmployeeBadge");
 const roleIndicator = document.getElementById("roleIndicator");
-const brandRoleChip = document.getElementById("brandRoleChip");
 const mailTestModeBadge = document.getElementById("mailTestModeBadge");
 const testModeBadge = document.getElementById("testModeBadge");
 const switchUserButton = document.getElementById("switchUserButton");
@@ -149,7 +148,6 @@ const exportSupabaseBackupButton = document.getElementById("exportSupabaseBackup
 const supabaseBackupStatus = document.getElementById("supabaseBackupStatus");
 const mailSenderNameInput = document.getElementById("mailSenderNameInput");
 const mailSenderEmailInput = document.getElementById("mailSenderEmailInput");
-const dashboardTestMailButton = document.getElementById("dashboardTestMailButton");
 const saveMailSettingsButton = document.getElementById("saveMailSettingsButton");
 const testMailButton = document.getElementById("testMailButton");
 const mailSettingsStatus = document.getElementById("mailSettingsStatus");
@@ -22593,16 +22591,16 @@ function applyRoleUI() {
   roleSelect.disabled = true;
   roleSelect.title = "Log uit om als andere rol in te loggen.";
   currentEmployeeSelect.disabled = isPlannerRole() || employeeLocked;
-  sessionBar?.classList.toggle("hidden", !isPlannerRole());
-  sessionBar?.setAttribute("aria-hidden", isPlannerRole() ? "false" : "true");
+  sessionBar?.classList.add("hidden");
+  sessionBar?.setAttribute("aria-hidden", "true");
   if (roleLabel) {
-    roleLabel.hidden = !isPlannerRole();
+    roleLabel.hidden = true;
   }
   if (currentEmployeeLabel) {
-    currentEmployeeLabel.hidden = !isPlannerRole();
+    currentEmployeeLabel.hidden = true;
   }
   if (roleIndicator) {
-    roleIndicator.hidden = !isPlannerRole();
+    roleIndicator.hidden = true;
   }
   plannerDashboard.classList.toggle("hidden", !isPlannerRole() || activeTab !== "dashboard");
   plannerDashboard.hidden = !isPlannerRole() || activeTab !== "dashboard";
@@ -22662,20 +22660,6 @@ function applyRoleUI() {
   updateTestModeBadge();
   updateFocusModeUI();
 
-  if (brandRoleChip) {
-    if (isPlannerRole()) {
-      brandRoleChip.textContent = "Planneromgeving";
-      brandRoleChip.classList.remove("hidden");
-      brandRoleChip.disabled = true;
-      brandRoleChip.title = "";
-    } else {
-      brandRoleChip.textContent = scopedEmployeeName || "Medewerker";
-      brandRoleChip.classList.toggle("hidden", !Boolean(scopedEmployeeName));
-      brandRoleChip.disabled = !Boolean(scopedEmployeeName);
-      brandRoleChip.title = scopedEmployeeName ? "Open Mijn account" : "";
-    }
-  }
-
   if (switchUserButton) {
     switchUserButton.classList.toggle("hidden", !isAuthenticated);
     switchUserButton.textContent = "Uitloggen";
@@ -22693,11 +22677,6 @@ function applyRoleUI() {
     mailTestModeBadge.classList.toggle("hidden", !showMailTestMode);
     mailTestModeBadge.hidden = !showMailTestMode;
     mailTestModeBadge.setAttribute("aria-hidden", showMailTestMode ? "false" : "true");
-  }
-
-  if (dashboardTestMailButton) {
-    dashboardTestMailButton.classList.toggle("hidden", !isPlannerRole());
-    dashboardTestMailButton.hidden = !isPlannerRole();
   }
 
   if (!isPlannerRole()) {
@@ -28537,10 +28516,6 @@ function setTestMailButtonsDisabled(isDisabled) {
   if (testMailButton) {
     testMailButton.disabled = isDisabled;
   }
-
-  if (dashboardTestMailButton) {
-    dashboardTestMailButton.disabled = isDisabled;
-  }
 }
 
 async function handleTestMailSend() {
@@ -28577,14 +28552,9 @@ async function handleTestMailSend() {
 }
 
 testMailButton?.addEventListener("click", handleTestMailSend);
-dashboardTestMailButton?.addEventListener("click", handleTestMailSend);
 
 if (testMailButton) {
   testMailButton.dataset.mailHandlerBound = "true";
-}
-
-if (dashboardTestMailButton) {
-  dashboardTestMailButton.dataset.mailHandlerBound = "true";
 }
 
 printButton.addEventListener("click", () => {
@@ -29786,14 +29756,6 @@ currentEmployeeSelect.addEventListener("change", () => {
 
 switchUserButton?.addEventListener("click", () => {
   logoutCurrentSession({ showMessageAfterLogout: true });
-});
-
-brandRoleChip?.addEventListener("click", () => {
-  if (isPlannerRole() || !getRoleScopedEmployeeName()) {
-    return;
-  }
-
-  setActiveTab("my-account");
 });
 
 resetTestDataButton?.addEventListener("click", () => {

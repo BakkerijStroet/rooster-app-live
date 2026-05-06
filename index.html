@@ -22,33 +22,16 @@
         </div>
         <div class="brand-actions">
           <button type="button" id="switchUserButton" class="secondary session-logout-button hidden" aria-hidden="true">Uitloggen</button>
-          <button type="button" class="brand-chip employee-account-button" id="brandRoleChip">Planneromgeving</button>
-          <button type="button" id="dashboardTestMailButton" class="secondary hidden">Test mail</button>
         </div>
       </section>
-      <section class="session-bar">
-        <label>
-          Rol
-          <select id="roleSelect">
-            <option value="planner">Planner / Directie</option>
-            <option value="employee">Medewerker</option>
-          </select>
-        </label>
-        <label class="employee-picker-control">
-          Mijn naam
-          <select id="currentEmployee">
-            <option value="">Kies medewerker</option>
-          </select>
-        </label>
-        <div class="employee-context-badge role-employee-summary" id="currentEmployeeBadge">
-          <span>Ingelogd als</span>
-          <strong>Geen medewerker gekozen</strong>
-        </div>
-        <div class="role-indicator" id="roleIndicator" aria-live="polite">
-          <span>Toegang</span>
-          <strong>Planner / Directie</strong>
-          <small>Volledige toegang tot rooster en beheer.</small>
-        </div>
+      <section class="session-bar hidden" aria-hidden="true">
+        <select id="roleSelect" hidden>
+          <option value="planner">Planner / Directie</option>
+          <option value="employee">Medewerker</option>
+        </select>
+        <select id="currentEmployee" hidden>
+          <option value="">Kies medewerker</option>
+        </select>
         <div class="session-actions hidden" aria-hidden="true">
           <button type="button" id="resetTestDataButton" class="secondary hidden">Reset testdata</button>
         </div>
@@ -94,16 +77,16 @@
     <nav class="app-nav" aria-label="Hoofdnavigatie">
       <button type="button" class="nav-tab planner-only-tab" data-tab="dashboard">Dashboard</button>
       <button type="button" class="nav-tab" data-tab="week-current">Rooster</button>
+      <button type="button" class="nav-tab planner-only-tab" data-tab="planning">Rooster plannen</button>
       <button type="button" class="nav-tab planner-only-tab" data-tab="hours-approval">Uren controleren</button>
+      <button type="button" class="nav-tab planner-only-tab" data-tab="services">Diensten</button>
+      <button type="button" class="nav-tab planner-only-tab" data-tab="employees">Medewerkers</button>
+      <button type="button" class="nav-tab" data-tab="requests">Aanvragen</button>
+      <button type="button" class="nav-tab planner-only-tab" data-tab="vacations">Vakanties</button>
+      <button type="button" class="nav-tab planner-only-tab" data-tab="backup">Back-up</button>
       <button type="button" class="nav-tab" data-tab="my-schedule">Mijn rooster</button>
       <button type="button" class="nav-tab" data-tab="my-hours">Mijn uren</button>
       <button type="button" class="nav-tab" data-tab="my-account">Mijn account</button>
-      <button type="button" class="nav-tab" data-tab="requests">Aanvragen</button>
-      <button type="button" class="nav-tab planner-only-tab" data-tab="vacations">Vakanties</button>
-      <button type="button" class="nav-tab planner-only-tab" data-tab="employees">Medewerkers</button>
-      <button type="button" class="nav-tab planner-only-tab" data-tab="services">Diensten</button>
-      <button type="button" class="nav-tab planner-only-tab" data-tab="planning">Rooster plannen</button>
-      <button type="button" class="nav-tab planner-only-tab" data-tab="backup">Back-up</button>
     </nav>
       <div id="plannerDashboard" class="dashboard"></div>
 
