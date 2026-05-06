@@ -4824,6 +4824,7 @@ let activeMobileHoursFeedback = {
 };
 const pendingMobileWorkLogValues = {};
 let activeHoursApprovalFilter = "all";
+let employeeDetailSaveFeedbackTimer = null;
 let smartPlanningProposalState = null;
 let activeSmartPlanningTab = "proposal";
 let selectedSmartPlanningOpenShiftId = "";
@@ -17441,6 +17442,25 @@ function renderEmployeeDetailTabs() {
   }
 }
 
+function showEmployeeDetailSaveFeedback() {
+  if (!employeeDetailSaveButton) {
+    return;
+  }
+
+  if (employeeDetailSaveFeedbackTimer) {
+    window.clearTimeout(employeeDetailSaveFeedbackTimer);
+  }
+
+  employeeDetailSaveButton.textContent = "Opgeslagen";
+  employeeDetailSaveButton.classList.add("is-saved");
+
+  employeeDetailSaveFeedbackTimer = window.setTimeout(() => {
+    employeeDetailSaveButton.textContent = "Wijzigingen opslaan";
+    employeeDetailSaveButton.classList.remove("is-saved");
+    employeeDetailSaveFeedbackTimer = null;
+  }, 2200);
+}
+
 function renderEmployeeHoursSummary() {
   if (!employeeHoursSummary) {
     return;
@@ -26928,7 +26948,8 @@ Bewaarde historie:
   renderDayPlanner();
   render();
   if (showSuccessMessage) {
-    showToast("Medewerker opgeslagen");
+    showToast("Wijzigingen zijn opgeslagen");
+    showEmployeeDetailSaveFeedback();
   }
   return true;
 }

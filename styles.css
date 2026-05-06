@@ -2504,6 +2504,12 @@ textarea.input-error {
   gap: 8px;
 }
 
+.employee-detail-header-actions button.is-saved {
+  background: #e6f6ed;
+  border-color: #9ed2ac;
+  color: #236b45;
+}
+
 .employee-detail-tabs {
   display: flex;
   flex-wrap: wrap;
