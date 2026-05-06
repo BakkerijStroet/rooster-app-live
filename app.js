@@ -4791,6 +4791,7 @@ let activeSmartPlanningTab = "proposal";
 let selectedSmartPlanningOpenShiftId = "";
 let lastSmartPlanningSelectedEmployeeName = "";
 let lastSmartPlanningAssignedItemId = "";
+let smartPlanningApplyConfirmVisible = false;
 let lastOpenRequestReminderKey = "";
 let lastEmployeeHoursReminderKey = "";
 const derivedDataCache = {
@@ -18673,6 +18674,198 @@ function getSmartPlanningProposalWeekByValue(weekValue) {
   return (smartPlanningProposalState?.weeks || []).find((weekProposal) => weekProposal.weekValue === weekValue) || null;
 }
 
+function isSmartPlanningProposalCurrent(data = getSmartPlanningMonthData()) {
+  return smartPlanningProposalState?.startWeek === data.selectedWeek
+    && smartPlanningProposalState?.department === data.departmentFilter;
+}
+
+function getSmartPlanningAssignedItems(data = null) {
+  if (data && !isSmartPlanningProposalCurrent(data)) {
+    return [];
+  }
+
+  return getSmartPlanningProposalItems()
+    .filter((item) => item.chosenEmployeeName)
+    .sort(compareSmartPlanningItemsByRosterOrder);
+}
+
+function getSmartPlanningApplySummary(data = getSmartPlanningMonthData()) {
+  const hasProposal = isSmartPlanningProposalCurrent(data);
+  const assignedItems = getSmartPlanningAssignedItems(data);
+  const openItems = hasProposal ? getSmartPlanningProposalItems().filter((item) => !item.chosenEmployeeName) : [];
+  const controlSummary = getSmartPlanningControlSummary(data);
+
+  return {
+    assignedCount: assignedItems.length,
+    openCount: openItems.length,
+    warningCount: controlSummary.actionCount + controlSummary.warningCount
+  };
+}
+
+function updateSmartPlanningApplyButton(data = getSmartPlanningMonthData()) {
+  if (!smartPlanningApplyProposalButton) {
+    return;
+  }
+
+  const summary = getSmartPlanningApplySummary(data);
+  smartPlanningApplyProposalButton.disabled = summary.assignedCount === 0;
+  smartPlanningApplyProposalButton.textContent = "Rooster toepassen";
+  smartPlanningApplyProposalButton.title = summary.assignedCount
+    ? `${summary.assignedCount} gekozen dienst${summary.assignedCount === 1 ? "" : "en"} toepassen`
+    : "Kies eerst minimaal één medewerker.";
+}
+
+function renderSmartPlanningApplyConfirm(data = getSmartPlanningMonthData()) {
+  if (!smartPlanningApplyConfirmVisible) {
+    return "";
+  }
+
+  const summary = getSmartPlanningApplySummary(data);
+
+  return `
+    <section class="smart-planning-apply-confirm">
+      <div>
+        <strong>Rooster toepassen?</strong>
+        <p>De ingevulde conceptdiensten worden in het echte rooster gezet.</p>
+      </div>
+      <div class="smart-planning-apply-summary">
+        <span>${summary.assignedCount} diensten worden ingevuld</span>
+        <span>${summary.openCount} diensten blijven open</span>
+        <span>${summary.warningCount} waarschuwingen blijven staan</span>
+      </div>
+      <div class="smart-planning-apply-actions">
+        <button type="button" class="secondary" data-smart-planning-apply-cancel>Annuleren</button>
+        <button type="button" data-smart-planning-apply-confirm ${summary.assignedCount ? "" : "disabled"}>Rooster toepassen</button>
+      </div>
+    </section>
+  `;
+}
+
+function findMatchingOpenPlanningSlot(item, sourceEntries = entries) {
+  const shift = getSmartPlanningShiftFromProposalItem(item);
+
+  if (!item?.day || !shift?.name || !shift.startTime || !shift.endTime) {
+    return { shift: null, isOpen: false };
+  }
+
+  return {
+    shift,
+    isOpen: !getEntryForShiftOnDate(item.day, shift, sourceEntries)
+  };
+}
+
+function createSmartPlanningRosterEntry(item, shift) {
+  const employeeName = item.chosenEmployeeName || "";
+
+  return {
+    name: employeeName,
+    day: item.day,
+    startTime: shift.startTime || item.startTime || "",
+    endTime: shift.endTime || item.endTime || "",
+    hours: calculateHours(shift.startTime || item.startTime || "", shift.endTime || item.endTime || "") || 0,
+    shiftId: (shift.id || "").startsWith("shop-") ? "" : (shift.id || item.shiftId || ""),
+    shiftName: shift.name || item.shiftName || "Dienst",
+    replacementFor: isBakeryCoreShift(shift) && getPrimaryStandardEmployeeForShift(shift.name) && getPrimaryStandardEmployeeForShift(shift.name) !== employeeName
+      ? getPrimaryStandardEmployeeForShift(shift.name)
+      : ""
+  };
+}
+
+function clearAppliedSmartPlanningAssignments(appliedItemIds) {
+  if (!smartPlanningProposalState?.weeks?.length || !appliedItemIds?.size) {
+    return;
+  }
+
+  smartPlanningProposalState.weeks.forEach((weekProposal) => {
+    weekProposal.items = (weekProposal.items || []).filter((item) => !appliedItemIds.has(item.id));
+  });
+
+  if (appliedItemIds.has(selectedSmartPlanningOpenShiftId)) {
+    selectedSmartPlanningOpenShiftId = "";
+  }
+  if (appliedItemIds.has(lastSmartPlanningAssignedItemId)) {
+    lastSmartPlanningAssignedItemId = "";
+  }
+}
+
+function applySmartPlanningToRoster() {
+  const data = getSmartPlanningMonthData();
+  const assignedItems = getSmartPlanningAssignedItems(data);
+
+  if (!assignedItems.length) {
+    showMessage("Kies eerst minimaal één medewerker.", "warning");
+    updateSmartPlanningApplyButton();
+    return;
+  }
+
+  const affectedWeeks = [...new Set(assignedItems.map((item) => item.weekValue || getWeekValueFromDate(item.day)))];
+  const blockedWeek = affectedWeeks.find((weekValue) => !ensureWeekActionAllowed(weekValue, {
+    actionLabel: "het rooster toe te passen",
+    blockPlannerWhenLocked: true
+  }));
+
+  if (blockedWeek) {
+    smartPlanningApplyConfirmVisible = false;
+    renderSmartPlanningPanel();
+    return;
+  }
+
+  const appliedItemIds = new Set();
+  const newEntries = [];
+  let skippedCount = 0;
+
+  assignedItems.forEach((item) => {
+    const sourceEntries = [...entries, ...newEntries];
+    const { shift, isOpen } = findMatchingOpenPlanningSlot(item, sourceEntries);
+    const employeeName = item.chosenEmployeeName || "";
+
+    if (!shift || !isOpen || !employeeName) {
+      skippedCount += 1;
+      return;
+    }
+
+    if (
+      getAuthorizationError(employeeName, shift) ||
+      getApprovedTimeOff(employeeName, item.day) ||
+      findConflictInSource(sourceEntries, employeeName, item.day, shift.startTime, shift.endTime)
+    ) {
+      skippedCount += 1;
+      return;
+    }
+
+    newEntries.push(createSmartPlanningRosterEntry(item, shift));
+    appliedItemIds.add(item.id);
+  });
+
+  if (newEntries.length) {
+    setUndoState("Slim plannen toepassen");
+    entries.push(...newEntries);
+    saveEntries();
+    persistProtectedChange({
+      reason: "Slim plannen toegepast",
+      scope: "roster",
+      action: "smart-planning-applied",
+      message: "Slim plannen rooster toegepast.",
+      details: {
+        weekValues: affectedWeeks,
+        assignmentCount: newEntries.length,
+        skippedCount
+      }
+    });
+
+    const lastEmployee = newEntries[newEntries.length - 1]?.name || "";
+    if (lastEmployee) {
+      preferences.lastEmployee = lastEmployee;
+      savePreferences();
+    }
+  }
+
+  clearAppliedSmartPlanningAssignments(appliedItemIds);
+  smartPlanningApplyConfirmVisible = false;
+  render();
+  showMessage(`Rooster bijgewerkt: ${newEntries.length} diensten ingevuld · ${skippedCount} overgeslagen · open diensten blijven open.`, newEntries.length ? "success" : "warning");
+}
+
 function mapSmartPlanningProposalToRosterEntries(proposalItems = []) {
   return proposalItems.map((item) => ({
     name: "",
@@ -19681,10 +19874,7 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
     ? getSmartPlanningDepartmentLabel(smartPlanningProposalState.department)
     : getSmartPlanningDepartmentLabel(data.departmentFilter);
 
-  if (smartPlanningApplyProposalButton) {
-    smartPlanningApplyProposalButton.disabled = true;
-    smartPlanningApplyProposalButton.title = "Deze stap maakt nog geen toepasbaar rooster. Gebruik Rooster inplannen om een voorstel toe te passen.";
-  }
+  updateSmartPlanningApplyButton(data);
 
   if (hasProposal && !proposalItems.length) {
     if (smartPlanningProposalSummary) {
@@ -19717,6 +19907,7 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
       <strong>Maandvoorstel gemaakt</strong>
       <span>4 weken vanaf ${formatWeekLabel(data.selectedWeek)} · ${proposalDepartmentLabel} · alle regels blijven tijdelijk tot je later bewust toepast.</span>
     </div>
+    ${renderSmartPlanningApplyConfirm(data)}
     <div class="smart-planning-month-proposal">
       ${data.visibleWeeks.map(({ weekValue, data: weekData }, weekIndex) => {
         const weekProposal = proposalWeeks.find((proposalWeek) => proposalWeek.weekValue === weekValue);
@@ -19798,6 +19989,7 @@ function createSmartPlanningPlaceholderProposal() {
   const data = getSmartPlanningMonthData();
   selectedSmartPlanningOpenShiftId = "";
   lastSmartPlanningAssignedItemId = "";
+  smartPlanningApplyConfirmVisible = false;
 
   smartPlanningProposalState = {
     startWeek: data.selectedWeek,
@@ -19844,6 +20036,7 @@ function clearSmartPlanningProposalWeek(weekValue = "") {
   const selectedWeek = getSmartPlanningWeekValueForItemId(selectedSmartPlanningOpenShiftId);
   const lastAssignedWeek = getSmartPlanningWeekValueForItemId(lastSmartPlanningAssignedItemId);
   weekProposal.items = [];
+  smartPlanningApplyConfirmVisible = false;
   if (selectedWeek === targetWeek) {
     selectedSmartPlanningOpenShiftId = "";
   }
@@ -19859,6 +20052,7 @@ function clearSmartPlanningProposal() {
   smartPlanningProposalState = null;
   selectedSmartPlanningOpenShiftId = "";
   lastSmartPlanningAssignedItemId = "";
+  smartPlanningApplyConfirmVisible = false;
   renderSmartPlanningPanel();
   showMessage("Alle voorstellen gewist. Er is niets aan het rooster gewijzigd.", "success");
 }
@@ -25924,7 +26118,19 @@ smartPlanningClearAllProposalButton?.addEventListener("click", () => {
 });
 
 smartPlanningApplyProposalButton?.addEventListener("click", () => {
-  showMessage("Toepassen is hier nog niet actief. Gebruik Rooster inplannen om een gecontroleerd voorstel toe te passen.", "warning");
+  if (!isPlannerRole()) {
+    return;
+  }
+
+  if (!getSmartPlanningAssignedItems(getSmartPlanningMonthData()).length) {
+    showMessage("Kies eerst minimaal één medewerker.", "warning");
+    updateSmartPlanningApplyButton();
+    return;
+  }
+
+  smartPlanningApplyConfirmVisible = true;
+  activeSmartPlanningTab = "proposal";
+  renderSmartPlanningPanel();
 });
 
 smartPlanningChecksList?.addEventListener("click", (event) => {
@@ -25939,6 +26145,21 @@ smartPlanningChecksList?.addEventListener("click", (event) => {
 });
 
 smartPlanningProposalList?.addEventListener("click", (event) => {
+  const applyCancelButton = event.target.closest("[data-smart-planning-apply-cancel]");
+
+  if (applyCancelButton) {
+    smartPlanningApplyConfirmVisible = false;
+    renderSmartPlanningPanel();
+    return;
+  }
+
+  const applyConfirmButton = event.target.closest("[data-smart-planning-apply-confirm]");
+
+  if (applyConfirmButton) {
+    applySmartPlanningToRoster();
+    return;
+  }
+
   const clearChoiceButton = event.target.closest("[data-smart-planning-clear-choice]");
 
   if (clearChoiceButton) {

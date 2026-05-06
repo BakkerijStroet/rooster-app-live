@@ -3123,6 +3123,48 @@ textarea.input-error {
   font-weight: 700;
 }
 
+.smart-planning-apply-confirm {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e6c37f;
+  border-radius: 14px;
+  background: #fff8ec;
+}
+
+.smart-planning-apply-confirm strong {
+  display: block;
+  color: #4f3420;
+}
+
+.smart-planning-apply-confirm p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.smart-planning-apply-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.smart-planning-apply-summary span {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #fff;
+  color: #5f5142;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.smart-planning-apply-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .smart-planning-month-proposal {
   display: grid;
   gap: 14px;
