@@ -8465,21 +8465,16 @@ function renderWorkLogCardMarkup(entry, workLog = getWorkLogForEntry(entry), opt
           ? "open"
           : "draft";
   const isMobileEntryActive = !isPlannerRole() && activeMobileWorkLogId === workLogId;
-  const mobileStatusLabel = !workLog
-    ? "Nog invullen"
-    : workLog.status === "approved"
-      ? "Goedgekeurd"
-      : workLog.status === "open"
-        ? "Ingediend"
-        : (workLog.status === "rejected" || workLog.status === "revision")
-          ? "Opmerking"
-          : "Opgeslagen";
+  const mobileStatusLabel = workLog ? "Ingevuld" : "Nog invullen";
   const mobilePlannedTimeLabel = entry.startTime && entry.endTime
     ? `${entry.startTime} - ${entry.endTime}`
     : "Geen geplande tijd";
   const mobileFeedbackMarkup = activeMobileHoursFeedback.workLogId === workLogId && activeMobileHoursFeedback.text
     ? `<div class="mobile-hours-feedback is-${activeMobileHoursFeedback.type}" data-mobile-worklog-feedback>${activeMobileHoursFeedback.text}</div>`
     : `<div class="mobile-hours-feedback is-empty" data-mobile-worklog-feedback></div>`;
+  const mobileActionLabel = entry.isManualHours
+    ? (isMobileEntryActive ? "Nu invullen" : "Extra uren toevoegen")
+    : (workLog ? "Controleer uren" : "Uren invullen");
   const plannedTimeMarkup = entry.startTime && entry.endTime
     ? `<span>Gepland: ${entry.startTime} - ${entry.endTime}</span>`
     : `<span class="hours-registration-flag">${entry.isManualHours ? "Geen geplande dienst nodig" : "Geen dienst gepland"}</span>`;
@@ -8507,11 +8502,10 @@ function renderWorkLogCardMarkup(entry, workLog = getWorkLogForEntry(entry), opt
       </div>
       <div class="mobile-hours-entry-card">
         <div class="mobile-hours-entry-main">
-          <span class="mobile-hours-day">${formatWeekday(entry.day)} ${formatDate(entry.day)}</span>
           <strong>${shiftName}</strong>
           <span>${mobilePlannedTimeLabel}</span>
         </div>
-        <span class="mobile-hours-status status-${statusClass === "draft" ? "open" : statusClass === "revision" ? "rejected" : statusClass}">${mobileStatusLabel}</span>
+        <span class="mobile-hours-status ${workLog ? "is-filled" : "is-open"}">${mobileStatusLabel}</span>
         ${(workLog?.notes || workLog?.managerNote || workLog?.employeeReply)
           ? `<span class="mobile-hours-note">Opmerking</span>`
           : ""}
@@ -8519,7 +8513,7 @@ function renderWorkLogCardMarkup(entry, workLog = getWorkLogForEntry(entry), opt
         ${isInputLockedWithFuture
           ? ""
           : `<button type="button" class="mobile-hours-open-button" data-mobile-worklog-open="${workLogId}">
-              ${isMobileEntryActive ? "Nu invullen" : "Uren invullen"}
+              ${mobileActionLabel}
             </button>`}
       </div>
       <div class="mobile-hours-entry-flow">
@@ -8597,11 +8591,11 @@ function renderWorkLogCardMarkup(entry, workLog = getWorkLogForEntry(entry), opt
 
 function renderMyHoursChoiceTabs(activeChoice = "today") {
   const activeTab = activeChoice === "worked-detail"
-    ? "worked"
-    : (activeChoice === "fill" || activeChoice === "missing" || activeChoice === "extra" ? "today" : activeChoice);
+    ? "today"
+    : (activeChoice === "fill" || activeChoice === "missing" ? "today" : activeChoice);
   const choices = [
-    { value: "today", label: "Uren doorgeven" },
-    { value: "worked", label: "Mijn gewerkte uren" }
+    { value: "today", label: "Uren invullen" },
+    { value: "extra", label: "Extra gewerkt" }
   ];
 
   return choices.map((choice) => `
@@ -8624,6 +8618,40 @@ function renderMyHoursExtraEntry(employeeName, day) {
     notesLabel: "Reden of type werk",
     notesPlaceholder: "Korte reden of type werk"
   });
+}
+
+function renderMyHoursExtraWorkedView(employeeName, todayValue, employeeWorkLogs) {
+  const manualLogs = employeeWorkLogs
+    .filter((log) => isManualWorkLogId(log.id))
+    .sort((logA, logB) => String(logB.day || "").localeCompare(String(logA.day || "")));
+
+  return `
+    <section class="my-hours-extra-worked">
+      <article class="my-hours-extra-card">
+        <div>
+          <strong>${formatWeekday(todayValue)} ${formatDate(todayValue)}</strong>
+          <span>Extra gewerkt?</span>
+        </div>
+        ${renderMyHoursExtraEntry(employeeName, todayValue)}
+      </article>
+      <div class="my-hours-extra-history">
+        ${manualLogs.length
+          ? manualLogs.map((log) => {
+            const workedHours = getWorkedHoursFromLog(log);
+            return `
+              <article class="my-hours-extra-history-item">
+                <div>
+                  <strong>${formatWeekday(log.day)} ${formatDate(log.day)}</strong>
+                  <span>${log.notes || "Extra uren"}</span>
+                </div>
+                <em>${workedHours !== null ? formatHours(workedHours) : "Nog open"}</em>
+              </article>
+            `;
+          }).join("")
+          : `<div class="hours-day-empty"><strong>Nog geen extra uren.</strong></div>`}
+      </div>
+    </section>
+  `;
 }
 
 function getMyHoursDayStatusLabel(dayEntries) {
@@ -21529,7 +21557,9 @@ function renderMyHours() {
     const defaultEmployeeHoursSection = hasTodayPlannedEntries
       ? "today"
       : (missingPastDays.length ? "missing" : "fill");
-    const resolvedChoice = activeMyHoursChoice === "extra" ? "today" : (activeMyHoursChoice || "today");
+    const resolvedChoice = activeMyHoursChoice === "extra"
+      ? "extra"
+      : "today";
     activeMyHoursChoice = resolvedChoice;
     const resolvedSection = resolvedChoice === "today"
       ? "today"
@@ -21562,31 +21592,27 @@ function renderMyHours() {
       button.setAttribute("aria-pressed", resolvedSection === section ? "true" : "false");
     });
 
+    if (resolvedChoice === "extra") {
+      setClassName(myHoursHighlight, "hours-highlight");
+      myHoursHighlight.innerHTML = `
+        <strong>Extra gewerkt</strong>
+      `;
+      setClassName(myHoursSummary, "totals");
+      myHoursSummary.innerHTML = "";
+      setClassName(myHoursRegistrations, "hours-registration-list");
+      myHoursRegistrations.innerHTML = renderMyHoursExtraWorkedView(employeeName, todayValue, employeeWorkLogs);
+      return;
+    }
+
     if (resolvedChoice === "worked") {
       setClassName(myHoursHighlight, "hours-highlight");
       myHoursHighlight.innerHTML = `
-        <span class="hours-section-kicker">Mijn gewerkte uren</span>
         <strong>Terugkijken</strong>
-        <small>Bekijk per dag je geplande dienst, ingevulde uren en status.</small>
       `;
       setClassName(myHoursSummary, "totals");
       myHoursSummary.innerHTML = "";
       setClassName(myHoursRegistrations, "hours-registration-list");
       myHoursRegistrations.innerHTML = renderMyWorkedHoursOverview(employeeName, employeeEntries, employeeWorkLogs, todayValue);
-      return;
-    }
-
-    if (resolvedChoice === "worked-detail") {
-      setClassName(myHoursHighlight, "hours-highlight");
-      myHoursHighlight.innerHTML = `
-        <span class="hours-section-kicker">Mijn gewerkte uren</span>
-        <span class="hours-label">${formatWeekday(effectiveSelectedDate)} ${formatDate(effectiveSelectedDate)}</span>
-        <strong>Detail van deze dag</strong>
-      `;
-      setClassName(myHoursSummary, "totals");
-      myHoursSummary.innerHTML = "";
-      setClassName(myHoursRegistrations, "hours-registration-list");
-      myHoursRegistrations.innerHTML = renderMyWorkedHoursDetail(employeeName, effectiveSelectedDate, employeeEntries);
       return;
     }
 
@@ -21650,11 +21676,7 @@ function renderMyHours() {
 
       setClassName(myHoursHighlight, "hours-highlight");
       myHoursHighlight.innerHTML = `
-        <span class="hours-section-kicker">Uren doorgeven</span>
-        <span class="hours-label">${formatWeekday(todayValue)} ${formatDate(todayValue)}</span>
-        <strong>${hasTodayPlannedEntries ? `${plannedTodayEntries.length === 1 ? "Dienst van vandaag" : "Diensten van vandaag"}` : "Geen dienst vandaag"}</strong>
-        <small>${hasTodayPlannedEntries ? "Bevestig of pas kort aan." : "Je hebt vandaag geen dienst gepland."}</small>
-        ${weekOverviewMarkup}
+        <strong>${hasTodayPlannedEntries ? "Vandaag" : "Geen dienst vandaag"}</strong>
       `;
       setClassName(myHoursSummary, "totals");
       myHoursSummary.innerHTML = "";
@@ -21662,13 +21684,6 @@ function renderMyHours() {
       myHoursRegistrations.innerHTML = `
         ${todayHoursMarkup}
         ${openPastHoursMarkup}
-        <section class="my-hours-extra-block">
-          <div class="my-hours-open-head">
-            <span class="hours-section-kicker">Extra uren</span>
-            <strong>Extra uren doorgeven</strong>
-          </div>
-          ${renderMyHoursExtraEntry(employeeName, todayValue)}
-        </section>
       `;
       return;
     }
@@ -24797,7 +24812,7 @@ myHoursRegistrations?.addEventListener("click", (event) => {
 
   if (mobileOpenButton?.dataset.mobileWorklogOpen) {
     activeMobileWorkLogId = mobileOpenButton.dataset.mobileWorklogOpen;
-    setMobileHoursFeedback(activeMobileWorkLogId, "Vul je uren in en kies Opslaan of Indienen.", "info");
+    setMobileHoursFeedback(activeMobileWorkLogId, "Vul in en sla op.", "info");
     renderMyHours();
     focusMobileWorkLogCard(activeMobileWorkLogId);
     return;
@@ -24930,7 +24945,7 @@ myHoursChoiceTabs?.addEventListener("click", (event) => {
   const choiceButton = event.target.closest("[data-my-hours-choice]");
 
   if (choiceButton?.dataset.myHoursChoice && !isPlannerRole()) {
-    activeMyHoursChoice = choiceButton.dataset.myHoursChoice === "extra" ? "today" : choiceButton.dataset.myHoursChoice;
+    activeMyHoursChoice = choiceButton.dataset.myHoursChoice;
     if (activeMyHoursChoice === "today" && hoursDateInput) {
       const todayValue = getTodayLocalDateValue();
       hoursDateInput.value = todayValue;
@@ -24941,7 +24956,7 @@ myHoursChoiceTabs?.addEventListener("click", (event) => {
       preferences.lastHoursWeek = hoursWeekInput?.value || getCurrentWeekValue();
       savePreferences();
     }
-    activeMyHoursSection = activeMyHoursChoice === "today" ? "today" : "fill";
+    activeMyHoursSection = activeMyHoursChoice === "today" ? "today" : "extra";
     activeMyHoursEntryMode = "planned";
     renderMyHours();
   }
@@ -24951,7 +24966,7 @@ myHoursSummary?.addEventListener("click", (event) => {
   const choiceButton = event.target.closest("[data-my-hours-choice]");
 
   if (choiceButton?.dataset.myHoursChoice && !isPlannerRole()) {
-    activeMyHoursChoice = choiceButton.dataset.myHoursChoice === "extra" ? "today" : choiceButton.dataset.myHoursChoice;
+    activeMyHoursChoice = choiceButton.dataset.myHoursChoice;
     if (activeMyHoursChoice === "today" && hoursDateInput) {
       const todayValue = getTodayLocalDateValue();
       hoursDateInput.value = todayValue;
@@ -24962,7 +24977,7 @@ myHoursSummary?.addEventListener("click", (event) => {
       preferences.lastHoursWeek = hoursWeekInput?.value || getCurrentWeekValue();
       savePreferences();
     }
-    activeMyHoursSection = activeMyHoursChoice === "today" ? "today" : "fill";
+    activeMyHoursSection = activeMyHoursChoice === "today" ? "today" : "extra";
     activeMyHoursEntryMode = "planned";
     renderMyHours();
     return;
