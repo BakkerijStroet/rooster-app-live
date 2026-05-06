@@ -9085,6 +9085,9 @@ button,
     padding: 12px;
     border-radius: 20px;
     gap: 10px;
+    max-width: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
     box-shadow: 0 8px 22px rgba(74, 52, 32, 0.06);
   }
 
@@ -9108,18 +9111,30 @@ button,
     position: sticky;
     top: 0;
     z-index: 5;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-width: 100%;
+    box-sizing: border-box;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
     gap: 8px;
     padding: 6px 0 10px;
     margin-bottom: 4px;
     background: linear-gradient(180deg, var(--surface) 0%, rgba(255, 253, 248, 0.92) 100%);
   }
 
+  body[data-role="employee"] [data-panel="my-hours"] .my-hours-choice-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
   body[data-role="employee"] [data-panel="my-hours"] .my-hours-choice-tabs .request-switch-button {
+    flex: 0 0 auto;
     min-height: 48px;
     border-radius: 999px;
-    font-size: 13px;
-    padding-inline: 8px;
+    font-size: 12px;
+    padding: 9px 12px;
+    white-space: nowrap;
   }
 
   body[data-role="employee"] [data-panel="my-hours"] .hours-registration-card:not(.is-mobile-entry-active) .hours-registration-head,
@@ -9139,6 +9154,9 @@ button,
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: start;
     gap: 8px 10px;
+    max-width: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
   }
 
   body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-entry-main {
@@ -9219,10 +9237,12 @@ button,
   body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-open-button {
     grid-column: 1 / -1;
     width: 100%;
+    max-width: 100%;
     min-height: 56px;
     margin-top: 4px;
     border-radius: 16px;
     font-size: 17px;
+    box-sizing: border-box;
   }
 
   body[data-role="employee"] [data-panel="my-hours"] .is-mobile-entry-active .mobile-hours-entry-flow {
