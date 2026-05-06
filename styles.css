@@ -9130,6 +9130,9 @@ button,
 
   body[data-role="employee"] [data-panel="my-hours"] .my-hours-choice-tabs .request-switch-button {
     flex: 0 0 auto;
+    width: auto;
+    min-width: max-content;
+    max-width: none;
     min-height: 48px;
     border-radius: 999px;
     font-size: 12px;

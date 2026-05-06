@@ -21836,15 +21836,17 @@ function renderMyHours() {
         activeMobileEntry.day !== todayValue
         ? renderWorkLogCardMarkup(activeMobileEntry)
         : "";
-      const openPastHoursMarkup = missingPastEntries.length
+      const openPastEntriesForList = missingPastEntries
+        .filter((entry) => getWorkLogIdForEntry(entry) !== activeMobileWorkLogId);
+      const openPastHoursMarkup = openPastEntriesForList.length
         ? `
           <section class="my-hours-open-block">
             <div class="my-hours-open-head">
               <span class="hours-section-kicker">Nog openstaande uren</span>
-              <strong>${missingPastEntries.length} ${missingPastEntries.length === 1 ? "dienst" : "diensten"}</strong>
+              <strong>${openPastEntriesForList.length} ${openPastEntriesForList.length === 1 ? "dienst" : "diensten"}</strong>
             </div>
             <div class="hours-missing-list">
-              ${missingPastEntries.map((entry) => {
+              ${openPastEntriesForList.map((entry) => {
                 const workLog = getWorkLogForEntry(entry);
                 const statusText = workLog ? "Nog niet ingediend" : "Nog niet ingevuld";
                 return `
@@ -25070,7 +25072,8 @@ myHoursRegistrations?.addEventListener("click", (event) => {
 
   const workLogAction = button.dataset.worklogAction || "";
   const workLogId = button.dataset.worklogId || "";
-  const effectiveWorkLogAction = !isPlannerRole() && mobileMediaQuery.matches && workLogAction === "save"
+  const isEmployeeActiveMobileHoursCard = !isPlannerRole() && Boolean(button.closest(".is-mobile-entry-active"));
+  const effectiveWorkLogAction = isEmployeeActiveMobileHoursCard && workLogAction === "save"
     ? "submit"
     : workLogAction;
   const isMobileSubmitAction = !isPlannerRole() && effectiveWorkLogAction === "submit" && Boolean(workLogId);
