@@ -2903,13 +2903,19 @@ textarea.input-error {
 .smart-planning-roster-scroll {
   min-width: 0;
   overflow-x: auto;
-  overflow-y: hidden;
   padding-bottom: 6px;
 }
 
 .smart-planning-proposal-roster.planning-week-grid {
-  grid-template-columns: repeat(7, minmax(240px, 1fr));
-  min-width: 1680px;
+  grid-template-columns: repeat(7, minmax(255px, 1fr));
+  min-width: 1785px;
+  overflow: visible;
+}
+
+.smart-planning-proposal-roster .smart-planning-proposal-day,
+.smart-planning-proposal-roster .planning-roster-groups,
+.smart-planning-proposal-roster .planning-shift-lines {
+  overflow: visible;
 }
 
 .smart-planning-proposal-roster .planning-shift-line {
@@ -2917,7 +2923,7 @@ textarea.input-error {
 }
 
 .smart-planning-proposal-roster .smart-planning-open-shift-button {
-  grid-template-columns: 96px minmax(0, 1fr) 78px;
+  grid-template-columns: 104px minmax(78px, 1fr) 78px;
   gap: 8px;
   min-height: 34px;
   padding: 0.38rem 0.46rem;
@@ -2931,7 +2937,7 @@ textarea.input-error {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   line-height: 1.18;
 }
 
@@ -2972,8 +2978,8 @@ textarea.input-error {
 }
 
 .smart-planning-open-shift-wrap {
-  display: grid;
-  gap: 6px;
+  position: relative;
+  display: block;
   min-width: 0;
 }
 
@@ -3057,25 +3063,25 @@ textarea.input-error {
 }
 
 .smart-planning-inline-advice {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 8px);
+  z-index: 30;
   display: grid;
-  gap: 8px;
+  width: min(270px, 88vw);
+  max-height: 310px;
+  gap: 7px;
   padding: 8px;
   border: 1px solid #ead9bf;
   border-radius: 12px;
   background: #fffaf3;
+  box-shadow: 0 18px 35px rgba(64, 48, 31, 0.18);
+  overflow-y: auto;
 }
 
-.smart-planning-inline-advice-title {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 4px 8px;
-}
-
-.smart-planning-inline-advice-title span {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 800;
+.smart-planning-open-shift-wrap.opens-left .smart-planning-inline-advice {
+  right: calc(100% + 8px);
+  left: auto;
 }
 
 .smart-planning-inline-selected {

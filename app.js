@@ -18866,14 +18866,10 @@ function renderSmartPlanningInlineAdvice(item) {
 
   return `
     <div class="smart-planning-inline-advice">
-      <div class="smart-planning-inline-advice-title">
-        <strong>${getCompactRosterShiftLabel(item.shiftName)} ${item.startTime || "?"}-${item.endTime || "?"}</strong>
-        <span>Alleen bevoegde medewerkers</span>
-      </div>
       ${item.chosenEmployeeName ? `
         <div class="smart-planning-inline-selected">
           <span>${item.chosenEmployeeName} is tijdelijk gekozen.</span>
-          <button type="button" data-smart-planning-clear-choice="${escapeHtmlAttribute(item.id)}">Keuze wissen</button>
+          <button type="button" data-smart-planning-clear-choice="${escapeHtmlAttribute(item.id)}">Wissen</button>
         </div>
       ` : ""}
       <section>
@@ -18892,7 +18888,6 @@ function renderSmartPlanningInlineAdvice(item) {
             : `<p class="panel-note">Geen bevoegde medewerkers met blokkade.</p>`}
         </div>
       </section>
-      <p class="panel-note">Keuze is tijdelijk. Er wordt nog niets opgeslagen of toegepast.</p>
     </div>
   `;
 }
@@ -18985,10 +18980,11 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
           const warningText = getSmartPlanningShiftWarning(proposalItem);
           const chosenEmployeeName = proposalItem?.chosenEmployeeName || "";
           const employeeLabel = chosenEmployeeName || "OPEN";
+          const opensLeft = getWeekdayNumberFromDate(row.day) >= 5;
           const titleText = warningText || `OPEN - ${row.shiftName} - ${shiftTime}. Klik om details te bekijken`;
 
           return `
-            <div class="smart-planning-open-shift-wrap">
+            <div class="smart-planning-open-shift-wrap ${opensLeft ? "opens-left" : ""}">
               <button
                 type="button"
                 class="planning-shift-line is-open smart-planning-open-shift-button ${isSelected ? "is-selected" : ""} ${warningText ? "has-warning" : ""} ${chosenEmployeeName ? "has-choice" : ""}"
