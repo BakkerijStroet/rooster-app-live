@@ -23528,8 +23528,14 @@ function renderHoursApproval() {
   const selectedEmployee = approvalEmployeeSelect?.value || "";
   const weekReviewState = getHoursWeekReviewState(selectedWeek, selectedEmployee);
   const allWeekLogs = getWorkLogsForWeek(selectedWeek, selectedEmployee);
-  const openLogs = allWeekLogs.filter((log) => log.status === "open");
-  const reviewLogs = allWeekLogs.filter((log) => log.status === "revision" || log.status === "rejected");
+  const controllableWeekLogs = allWeekLogs.filter((log) =>
+    log.status === "open" ||
+    log.status === "approved" ||
+    log.status === "revision" ||
+    log.status === "rejected"
+  );
+  const openLogs = controllableWeekLogs.filter((log) => log.status === "open");
+  const reviewLogs = controllableWeekLogs.filter((log) => log.status === "revision" || log.status === "rejected");
   const approvedLogs = Array.isArray(weekReviewState.approvedLogs) ? weekReviewState.approvedLogs : [];
   const missingDays = Array.isArray(weekReviewState.missingDays) ? weekReviewState.missingDays : [];
   const availableHoursApprovalFilters = new Set(["all", "open", "approved", "review", "missing"]);
@@ -23538,14 +23544,14 @@ function renderHoursApproval() {
     activeHoursApprovalFilter = "all";
   }
 
-  const summary = getHoursControlSummary({ allWeekLogs, openLogs, approvedLogs, reviewLogs });
+  const summary = getHoursControlSummary({ allWeekLogs: controllableWeekLogs, openLogs, approvedLogs, reviewLogs });
 
   if (activeHoursApprovalFilter === "missing") {
     renderHoursControlMissingDays({ selectedWeek, selectedEmployee, weekReviewState, summary, openLogs, missingDays });
     return;
   }
 
-  const filteredLogs = getPlannerHoursControlItems({ allWeekLogs, openLogs, approvedLogs, reviewLogs });
+  const filteredLogs = getPlannerHoursControlItems({ allWeekLogs: controllableWeekLogs, openLogs, approvedLogs, reviewLogs });
 
   if (!filteredLogs.length) {
     setClassName(hoursApprovalQueue, "hours-control-list empty");
