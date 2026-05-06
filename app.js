@@ -19981,7 +19981,23 @@ function clearAppliedSmartPlanningAssignments(appliedItemIds) {
   invalidateSmartPlanningEffectiveEntriesCache();
 }
 
-function applySmartPlanningToRoster() {
+async function persistSmartPlanningRosterSaveToCentral(deletedEntries = [], nextEntries = entries) {
+  if (!isPlanningEntriesCentralSyncEnabled()) {
+    return;
+  }
+
+  const removedEntries = getPlanningEntriesRemovedByReplacement(deletedEntries, nextEntries);
+
+  if (removedEntries.length) {
+    await sendPlanningEntryDeletionsToCentral(removedEntries);
+  }
+
+  await sendPlanningEntriesToCentral(nextEntries);
+  lastPlanningEntriesCentralSyncError = null;
+  window.lastPlanningEntriesCentralSyncError = null;
+}
+
+async function applySmartPlanningToRoster() {
   const data = getSmartPlanningMonthData();
   const assignedItems = getSmartPlanningAssignedItems(data);
 
@@ -20017,7 +20033,7 @@ function applySmartPlanningToRoster() {
     const employeeName = item.chosenEmployeeName || "";
     const shift = getSmartPlanningShiftFromProposalItem(item);
 
-    if (!shift || !employeeName) {
+    if (!shift) {
       skippedCount += 1;
       return;
     }
@@ -20076,14 +20092,13 @@ function applySmartPlanningToRoster() {
 
   if (savedEntries.length || clearedCount) {
     setUndoState("Rooster plannen opslaan");
+    const preparedRosterChanges = getRosterChangesForNotifications(replacedEntries, savedEntries);
+    await persistSmartPlanningRosterSaveToCentral(replacedEntries, workingEntries);
+
     entries.splice(0, entries.length, ...workingEntries);
     saveEntries();
     if (movedWorkLogs) {
       saveWorkLogs();
-    }
-    const preparedRosterChanges = getRosterChangesForNotifications(replacedEntries, savedEntries);
-    if (replacedEntries.length) {
-      markPlanningEntriesDeletedCentrally(getPlanningEntriesRemovedByReplacement(replacedEntries, savedEntries));
     }
     logPreparedRosterChangeNotifications(preparedRosterChanges);
     persistProtectedChange({
@@ -20124,9 +20139,9 @@ function startSmartPlanningRosterSave() {
   showMessage("Rooster wordt opgeslagen...", "info");
   renderSmartPlanningPanel();
 
-  window.setTimeout(() => {
+  window.setTimeout(async () => {
     try {
-      applySmartPlanningToRoster();
+      await applySmartPlanningToRoster();
     } catch (error) {
       smartPlanningIsSavingRoster = false;
       reportAppError("Rooster opslaan mislukt. Probeer het opnieuw.", error, "smart-planning-save");
