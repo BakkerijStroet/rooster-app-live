@@ -836,6 +836,7 @@ function resetMyHoursChoiceState() {
   activeMyHoursChoice = null;
   activeMyHoursSection = "";
   activeMyHoursEntryMode = "planned";
+  activeMyHoursHistoryFilter = "week";
   activeMobileWorkLogId = "";
 }
 
@@ -4804,6 +4805,7 @@ let activeEmployeeDetailTab = "details";
 let activeMyHoursSection = "";
 let activeMyHoursEntryMode = "planned";
 let activeMyHoursChoice = null;
+let activeMyHoursHistoryFilter = "week";
 let activeMobileWorkLogId = "";
 let activeMobileHoursFeedback = {
   workLogId: "",
@@ -8595,6 +8597,7 @@ function renderMyHoursChoiceTabs(activeChoice = "today") {
     : (activeChoice === "fill" || activeChoice === "missing" ? "today" : activeChoice);
   const choices = [
     { value: "today", label: "Uren invullen" },
+    { value: "worked", label: "Mijn gewerkte uren" },
     { value: "extra", label: "Extra gewerkt" }
   ];
 
@@ -8650,6 +8653,156 @@ function renderMyHoursExtraWorkedView(employeeName, todayValue, employeeWorkLogs
           }).join("")
           : `<div class="hours-day-empty"><strong>Nog geen extra uren.</strong></div>`}
       </div>
+    </section>
+  `;
+}
+
+function getMyHoursMobileHistoryStatus(entry, workLog) {
+  if (!workLog) {
+    return {
+      key: "open",
+      label: "Nog invullen",
+      action: "Uren invullen"
+    };
+  }
+
+  if (workLog.status === "approved") {
+    return {
+      key: "approved",
+      label: "Goedgekeurd",
+      action: "Bekijken"
+    };
+  }
+
+  if (workLog.status === "rejected" || workLog.status === "revision") {
+    return {
+      key: "revision",
+      label: "Aanpassen",
+      action: "Uren invullen"
+    };
+  }
+
+  return {
+    key: "filled",
+    label: "Ingevuld",
+    action: "Bekijken"
+  };
+}
+
+function renderMyHoursMobileHistoryFilters(activeFilter = "week") {
+  const filters = [
+    { value: "week", label: "Deze week" },
+    { value: "previous", label: "Vorige week" },
+    { value: "all", label: "Alles" }
+  ];
+
+  return `
+    <div class="my-hours-mobile-filters">
+      ${filters.map((filter) => `
+        <button type="button" class="${activeFilter === filter.value ? "active" : ""}" data-my-hours-history-filter="${filter.value}">
+          ${filter.label}
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function getMyHoursHistoryFilterBounds(filterValue, todayValue) {
+  const thisWeekValue = getWeekValueFromDate(todayValue);
+
+  if (filterValue === "previous") {
+    return {
+      weekValue: getPreviousWeekValue(thisWeekValue)
+    };
+  }
+
+  if (filterValue === "all") {
+    return {
+      weekValue: ""
+    };
+  }
+
+  return {
+    weekValue: thisWeekValue
+  };
+}
+
+function renderMyWorkedHoursMobileOverview(employeeName, employeeEntries, employeeWorkLogs, todayValue, activeFilter = "week") {
+  const filterBounds = getMyHoursHistoryFilterBounds(activeFilter, todayValue);
+  const plannedEntries = employeeEntries
+    .filter((entry) => entry.day <= todayValue)
+    .filter((entry) => !filterBounds.weekValue || getWeekValueFromDate(entry.day) === filterBounds.weekValue)
+    .sort((entryA, entryB) => entryB.day.localeCompare(entryA.day) || entryA.startTime.localeCompare(entryB.startTime));
+  const manualLogs = employeeWorkLogs
+    .filter((log) => isManualWorkLogId(log.id))
+    .filter((log) => !filterBounds.weekValue || getWeekValueFromDate(log.day) === filterBounds.weekValue)
+    .sort((logA, logB) => String(logB.day || "").localeCompare(String(logA.day || "")));
+  const groups = [
+    { key: "open", title: "Nog invullen", items: [] },
+    { key: "filled", title: "Ingevuld", items: [] },
+    { key: "approved", title: "Goedgekeurd", items: [] },
+    { key: "revision", title: "Afgewezen / aanpassen", items: [] }
+  ];
+
+  plannedEntries.forEach((entry) => {
+    const workLog = getWorkLogForEntry(entry);
+    const status = getMyHoursMobileHistoryStatus(entry, workLog);
+    const workedHours = getWorkedHoursFromLog(workLog);
+    const itemMarkup = `
+      <article class="my-hours-worked-card status-${status.key}">
+        <div class="my-hours-worked-card-main">
+          <span>${formatWeekday(entry.day)} ${formatDate(entry.day)}</span>
+          <strong>${getShiftName(entry)}</strong>
+          <small>${entry.startTime || "--:--"} - ${entry.endTime || "--:--"}</small>
+          ${workLog ? `<small>${workLog.actualStart || "-"} - ${workLog.actualEnd || "-"}${workedHours !== null ? ` · ${formatHours(workedHours)}` : ""}</small>` : ""}
+        </div>
+        <span class="mobile-hours-status is-${status.key}">${status.label}</span>
+        <button type="button" class="secondary my-hours-worked-action" data-mobile-worklog-open="${getWorkLogIdForEntry(entry)}">
+          ${status.action}
+        </button>
+      </article>
+    `;
+    const targetGroup = groups.find((group) => group.key === status.key) || groups[0];
+    targetGroup.items.push(itemMarkup);
+  });
+
+  const extraMarkup = manualLogs.length
+    ? `
+      <section class="my-hours-worked-group is-extra">
+        <h3>Extra gewerkt</h3>
+        ${manualLogs.map((log) => {
+          const workedHours = getWorkedHoursFromLog(log);
+          return `
+            <article class="my-hours-worked-card status-extra">
+              <div class="my-hours-worked-card-main">
+                <span>${formatWeekday(log.day)} ${formatDate(log.day)}</span>
+                <strong>${log.notes || "Extra uren"}</strong>
+                <small>${workedHours !== null ? formatHours(workedHours) : "Nog open"}</small>
+              </div>
+              <span class="mobile-hours-status is-filled">${getWorkLogStatusLabel(log)}</span>
+            </article>
+          `;
+        }).join("")}
+      </section>
+    `
+    : "";
+  const groupsMarkup = groups
+    .filter((group) => group.items.length)
+    .map((group) => `
+      <section class="my-hours-worked-group status-${group.key}">
+        <h3>${group.title}</h3>
+        ${group.items.join("")}
+      </section>
+    `).join("");
+
+  return `
+    <section class="my-hours-worked-mobile">
+      ${renderMyHoursMobileHistoryFilters(activeFilter)}
+      ${groupsMarkup || extraMarkup ? `${groupsMarkup}${extraMarkup}` : `
+        <div class="hours-day-empty">
+          <strong>Geen uren gevonden.</strong>
+        </div>
+      `}
     </section>
   `;
 }
@@ -21559,7 +21712,7 @@ function renderMyHours() {
       : (missingPastDays.length ? "missing" : "fill");
     const resolvedChoice = activeMyHoursChoice === "extra"
       ? "extra"
-      : "today";
+      : (activeMyHoursChoice === "worked" ? "worked" : "today");
     activeMyHoursChoice = resolvedChoice;
     const resolvedSection = resolvedChoice === "today"
       ? "today"
@@ -21607,12 +21760,18 @@ function renderMyHours() {
     if (resolvedChoice === "worked") {
       setClassName(myHoursHighlight, "hours-highlight");
       myHoursHighlight.innerHTML = `
-        <strong>Terugkijken</strong>
+        <strong>Mijn gewerkte uren</strong>
       `;
       setClassName(myHoursSummary, "totals");
       myHoursSummary.innerHTML = "";
       setClassName(myHoursRegistrations, "hours-registration-list");
-      myHoursRegistrations.innerHTML = renderMyWorkedHoursOverview(employeeName, employeeEntries, employeeWorkLogs, todayValue);
+      myHoursRegistrations.innerHTML = renderMyWorkedHoursMobileOverview(
+        employeeName,
+        employeeEntries,
+        employeeWorkLogs,
+        todayValue,
+        activeMyHoursHistoryFilter || "week"
+      );
       return;
     }
 
@@ -21643,6 +21802,13 @@ function renderMyHours() {
     }
 
     if (resolvedSection === "today") {
+      const activeMobileEntry = activeMobileWorkLogId ? getWorkLogContextById(activeMobileWorkLogId) : null;
+      const activeSelectedEntryMarkup = activeMobileEntry &&
+        !activeMobileEntry.isManualHours &&
+        activeMobileEntry.name === employeeName &&
+        activeMobileEntry.day !== todayValue
+        ? renderWorkLogCardMarkup(activeMobileEntry)
+        : "";
       const openPastHoursMarkup = missingPastEntries.length
         ? `
           <section class="my-hours-open-block">
@@ -21683,6 +21849,7 @@ function renderMyHours() {
       setClassName(myHoursRegistrations, "hours-registration-list is-today-quick");
       myHoursRegistrations.innerHTML = `
         ${todayHoursMarkup}
+        ${activeSelectedEntryMarkup}
         ${openPastHoursMarkup}
       `;
       return;
@@ -24808,10 +24975,33 @@ myHoursRegistrations?.addEventListener("click", (event) => {
     return;
   }
 
+  const historyFilterButton = event.target.closest("[data-my-hours-history-filter]");
+
+  if (historyFilterButton?.dataset.myHoursHistoryFilter && !isPlannerRole()) {
+    activeMyHoursHistoryFilter = historyFilterButton.dataset.myHoursHistoryFilter;
+    activeMyHoursChoice = "worked";
+    renderMyHours();
+    return;
+  }
+
   const mobileOpenButton = event.target.closest("[data-mobile-worklog-open]");
 
   if (mobileOpenButton?.dataset.mobileWorklogOpen) {
     activeMobileWorkLogId = mobileOpenButton.dataset.mobileWorklogOpen;
+    activeMyHoursChoice = "today";
+    activeMyHoursSection = "today";
+    const contextEntry = getWorkLogContextById(activeMobileWorkLogId);
+
+    if (contextEntry?.day) {
+      hoursDateInput.value = contextEntry.day;
+      if (hoursWeekInput) {
+        hoursWeekInput.value = getWeekValueFromDate(contextEntry.day) || getCurrentWeekValue();
+      }
+      preferences.lastHoursDate = contextEntry.day;
+      preferences.lastHoursWeek = hoursWeekInput?.value || getCurrentWeekValue();
+      savePreferences();
+    }
+
     setMobileHoursFeedback(activeMobileWorkLogId, "Vul in en sla op.", "info");
     renderMyHours();
     focusMobileWorkLogCard(activeMobileWorkLogId);
@@ -24956,7 +25146,7 @@ myHoursChoiceTabs?.addEventListener("click", (event) => {
       preferences.lastHoursWeek = hoursWeekInput?.value || getCurrentWeekValue();
       savePreferences();
     }
-    activeMyHoursSection = activeMyHoursChoice === "today" ? "today" : "extra";
+    activeMyHoursSection = activeMyHoursChoice === "today" ? "today" : activeMyHoursChoice;
     activeMyHoursEntryMode = "planned";
     renderMyHours();
   }
@@ -24977,7 +25167,7 @@ myHoursSummary?.addEventListener("click", (event) => {
       preferences.lastHoursWeek = hoursWeekInput?.value || getCurrentWeekValue();
       savePreferences();
     }
-    activeMyHoursSection = activeMyHoursChoice === "today" ? "today" : "extra";
+    activeMyHoursSection = activeMyHoursChoice === "today" ? "today" : activeMyHoursChoice;
     activeMyHoursEntryMode = "planned";
     renderMyHours();
     return;
