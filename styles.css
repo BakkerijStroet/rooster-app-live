@@ -163,21 +163,22 @@ h3 {
   justify-content: center;
   padding: 4px;
   border-radius: 12px;
-  border: 1px solid rgba(var(--color-primary-rgb), 0.14);
-  background: var(--color-surface);
-  box-shadow: 0 8px 18px rgba(var(--color-primary-rgb), 0.06);
+  border: 1px solid var(--color-surface-soft-border);
+  background: var(--color-surface-soft);
+  box-shadow: 0 8px 18px rgba(var(--color-shadow-rgb), 0.05), var(--surface-glow);
   flex: 0 0 auto;
-  transition: transform var(--transition-soft), box-shadow var(--transition-soft), border-color var(--transition-soft);
+  transition: transform var(--transition-soft), box-shadow var(--transition-soft), border-color var(--transition-soft), background-color var(--transition-soft);
 }
 
 .brand-home:hover {
+  background: var(--color-surface-soft-hover);
   transform: translateY(-1px);
 }
 
 .brand-home:focus-visible {
   outline: none;
-  border-color: rgba(var(--color-primary-rgb), 0.55);
-  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.12);
+  border-color: var(--color-surface-soft-border);
+  box-shadow: 0 0 0 3px var(--color-surface-soft-hover), 0 8px 18px rgba(var(--color-shadow-rgb), 0.06);
 }
 
 .brand-logo-image {
@@ -555,9 +556,9 @@ body[data-auth-locked="true"] .requests-card {
   object-fit: contain;
   border-radius: 16px;
   background: var(--color-surface);
-  border: 1px solid rgba(var(--color-primary-rgb), 0.24);
+  border: 1px solid var(--color-surface-soft-border);
   padding: 10px 12px;
-  box-shadow: 0 8px 22px rgba(var(--color-primary-rgb), 0.08);
+  box-shadow: 0 8px 22px rgba(var(--color-shadow-rgb), 0.05);
 }
 
 .login-brand-copy {
@@ -11900,8 +11901,9 @@ small,
 }
 
 .brand-home {
-  border-color: var(--color-border);
-  box-shadow: none;
+  background: var(--color-surface-soft);
+  border-color: var(--color-surface-soft-border);
+  box-shadow: 0 8px 18px rgba(var(--color-shadow-rgb), 0.045), var(--surface-glow);
 }
 
 .app-nav {
@@ -11942,7 +11944,7 @@ small,
   box-shadow: inset 0 -3px 0 var(--color-surface-soft-border), 0 6px 16px rgba(var(--color-shadow-rgb), 0.04);
 }
 
-button:not(.secondary):not(.warning):not(.nav-tab):not(.request-switch-button):not(.smart-planning-tab):not(.mobile-nav-button):not(.employee-filter-button):not(.employee-detail-tab):not(.planner-summary-filter):not(.hours-control-summary-card):not(.time-quick-button):not(:disabled) {
+button:not(.secondary):not(.warning):not(.brand-home):not(.nav-tab):not(.request-switch-button):not(.smart-planning-tab):not(.mobile-nav-button):not(.employee-filter-button):not(.employee-detail-tab):not(.planner-summary-filter):not(.hours-control-summary-card):not(.time-quick-button):not(:disabled) {
   background: var(--color-primary);
   border-color: var(--color-primary);
   color: var(--color-surface);
@@ -11956,7 +11958,7 @@ button:not(.secondary):not(.warning):not(.nav-tab):not(.request-switch-button):n
   box-shadow: inset 0 -3px 0 var(--color-surface-soft-border);
 }
 
-button:not(.secondary):not(.warning):not(.nav-tab):not(.request-switch-button):not(.smart-planning-tab):not(.mobile-nav-button):not(.employee-filter-button):not(.employee-detail-tab):not(.planner-summary-filter):not(.hours-control-summary-card):not(.time-quick-button):not(:disabled):hover {
+button:not(.secondary):not(.warning):not(.brand-home):not(.nav-tab):not(.request-switch-button):not(.smart-planning-tab):not(.mobile-nav-button):not(.employee-filter-button):not(.employee-detail-tab):not(.planner-summary-filter):not(.hours-control-summary-card):not(.time-quick-button):not(:disabled):hover {
   background: var(--color-primary);
   border-color: var(--color-primary);
   box-shadow: 0 10px 22px rgba(var(--color-primary-rgb), 0.2);
@@ -12887,7 +12889,7 @@ button.employee-filter-button.active:not(.secondary) {
   box-shadow: inset 0 -3px 0 var(--color-surface-soft-border);
 }
 
-button:not(.secondary):not(.warning):not(.nav-tab):not(.request-switch-button):not(.smart-planning-tab):not(.mobile-nav-button):not(.employee-filter-button):not(.employee-detail-tab):not(.planner-summary-filter):not(.hours-control-summary-card):not(.time-quick-button):not(:disabled),
+button:not(.secondary):not(.warning):not(.brand-home):not(.nav-tab):not(.request-switch-button):not(.smart-planning-tab):not(.mobile-nav-button):not(.employee-filter-button):not(.employee-detail-tab):not(.planner-summary-filter):not(.hours-control-summary-card):not(.time-quick-button):not(:disabled),
 .primary-action,
 .button-primary {
   background: var(--color-primary);
@@ -12896,7 +12898,7 @@ button:not(.secondary):not(.warning):not(.nav-tab):not(.request-switch-button):n
   box-shadow: 0 8px 18px rgba(var(--color-primary-rgb), 0.22);
 }
 
-button:not(.secondary):not(.warning):not(.nav-tab):not(.request-switch-button):not(.smart-planning-tab):not(.mobile-nav-button):not(.employee-filter-button):not(.employee-detail-tab):not(.planner-summary-filter):not(.hours-control-summary-card):not(.time-quick-button):not(:disabled):hover,
+button:not(.secondary):not(.warning):not(.brand-home):not(.nav-tab):not(.request-switch-button):not(.smart-planning-tab):not(.mobile-nav-button):not(.employee-filter-button):not(.employee-detail-tab):not(.planner-summary-filter):not(.hours-control-summary-card):not(.time-quick-button):not(:disabled):hover,
 .primary-action:hover,
 .button-primary:hover {
   background: var(--color-primary-hover);
