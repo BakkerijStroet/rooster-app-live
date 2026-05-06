@@ -1,22 +1,22 @@
 ﻿:root {
   color-scheme: light;
-  --bg: #fbf4ea;
-  --bg-soft: #fffaf2;
-  --card: #fffdf8;
-  --card-soft: #fff3df;
-  --text: #30261d;
-  --muted: #6f6255;
-  --accent: #f59e0b;
-  --accent-strong: #c96512;
-  --accent-soft: #f6c46f;
-  --accent-tint: #fff1d6;
-  --border: #ead8bf;
-  --success: #347451;
-  --warning: #b76510;
-  --danger: #a7432f;
-  --shadow: 0 18px 40px rgba(91, 55, 19, 0.13);
-  --shadow-soft: 0 10px 24px rgba(91, 55, 19, 0.08);
-  --shadow-hover: 0 20px 34px rgba(91, 55, 19, 0.18);
+  --bg: #f7f5f2;
+  --bg-soft: #fbfaf8;
+  --card: #ffffff;
+  --card-soft: #f4efe8;
+  --text: #1f2933;
+  --muted: #667085;
+  --accent: #b8662b;
+  --accent-strong: #7c3f1d;
+  --accent-soft: #d8a06a;
+  --accent-tint: #f7eadc;
+  --border: #ddd6cd;
+  --success: #3f7a58;
+  --warning: #a76516;
+  --danger: #a04a3b;
+  --shadow: 0 18px 38px rgba(31, 41, 51, 0.1);
+  --shadow-soft: 0 10px 22px rgba(31, 41, 51, 0.07);
+  --shadow-hover: 0 18px 32px rgba(31, 41, 51, 0.14);
   --surface-glow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
   --transition-soft: 180ms ease;
   --space-1: 6px;
@@ -34,9 +34,9 @@ body {
   margin: 0;
   font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif;
   background:
-    radial-gradient(circle at top left, rgba(245, 158, 11, 0.16) 0, transparent 28%),
-    radial-gradient(circle at top right, rgba(167, 67, 47, 0.08) 0, transparent 25%),
-    linear-gradient(180deg, #fff8eb 0%, #fbf4ea 48%, #f8efe2 100%);
+    radial-gradient(circle at top left, rgba(184, 102, 43, 0.08) 0, transparent 28%),
+    radial-gradient(circle at top right, rgba(31, 41, 51, 0.04) 0, transparent 24%),
+    linear-gradient(180deg, #fbfaf8 0%, #f7f5f2 52%, #f2eee8 100%);
   color: var(--text);
 }
 
@@ -50,8 +50,8 @@ body {
 }
 
 .card {
-  background: linear-gradient(180deg, #fffefa 0%, var(--card) 62%, #fff8ec 100%);
-  border: 1px solid rgba(198, 132, 61, 0.22);
+  background: linear-gradient(180deg, #ffffff 0%, var(--card) 70%, #fbf8f3 100%);
+  border: 1px solid rgba(86, 69, 53, 0.14);
   border-radius: 24px;
   padding: 20px;
   box-shadow: var(--shadow);
@@ -123,11 +123,11 @@ h3 {
   align-items: center;
   flex-wrap: wrap;
   padding: 0 0 6px;
-  border-bottom: 1px solid rgba(201, 101, 18, 0.18);
+  border-bottom: 1px solid rgba(86, 69, 53, 0.14);
   position: sticky;
   top: 0;
   z-index: 40;
-  background: linear-gradient(180deg, rgba(255, 251, 244, 0.98), rgba(255, 244, 226, 0.94));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(247, 245, 242, 0.94));
   backdrop-filter: blur(8px);
 }
 
@@ -145,9 +145,9 @@ h3 {
   justify-content: center;
   padding: 4px;
   border-radius: 12px;
-  border: 1px solid rgba(198, 132, 61, 0.24);
-  background: #fff8eb;
-  box-shadow: 0 8px 18px rgba(91, 55, 19, 0.08);
+  border: 1px solid rgba(86, 69, 53, 0.14);
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(31, 41, 51, 0.06);
   flex: 0 0 auto;
   transition: transform var(--transition-soft), box-shadow var(--transition-soft), border-color var(--transition-soft);
 }
@@ -1960,9 +1960,9 @@ body[data-role="employee"] [data-panel="requests"] #requestsOpenCards {
 }
 
 .nav-tab {
-  background: rgba(255, 250, 240, 0.72);
+  background: rgba(255, 255, 255, 0.74);
   color: var(--text);
-  border: 1px solid rgba(198, 101, 18, 0.12);
+  border: 1px solid rgba(86, 69, 53, 0.1);
   border-radius: 999px;
   padding: 7px 10px;
   font-size: 13px;
@@ -1986,21 +1986,21 @@ body[data-role="employee"] [data-panel="requests"] #requestsOpenCards {
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  background: rgba(245, 158, 11, 0.36);
+  background: rgba(184, 102, 43, 0.34);
   box-shadow: none;
   flex: 0 0 auto;
 }
 
 .nav-tab:hover {
-  background: rgba(255, 235, 199, 0.86);
-  border-color: rgba(201, 101, 18, 0.28);
+  background: rgba(247, 234, 220, 0.82);
+  border-color: rgba(184, 102, 43, 0.22);
 }
 
 .nav-tab.active {
-  background: linear-gradient(180deg, #fff1c8, #ffe3a3);
-  color: var(--accent-strong);
-  border-color: rgba(201, 101, 18, 0.42);
-  box-shadow: inset 0 0 0 1px rgba(201, 101, 18, 0.08), 0 7px 14px rgba(91, 55, 19, 0.08);
+  background: linear-gradient(180deg, #fff, #f7eadc);
+  color: #203040;
+  border-color: rgba(184, 102, 43, 0.36);
+  box-shadow: inset 0 -2px 0 rgba(184, 102, 43, 0.5), 0 7px 14px rgba(31, 41, 51, 0.06);
 }
 
 .nav-tab.active::before {
@@ -11206,7 +11206,7 @@ body[data-role="planner"] .request-list {
   }
 }
 
-/* Warme Bakkerij Stroet opfrislaag: alleen kleur, contrast en uitstraling. */
+/* Professionele Bakkerij Stroet kleurlaag: rustig contrast met koper als accent. */
 .board-card,
 .totals-card,
 .requests-card,
@@ -11221,8 +11221,8 @@ body[data-role="planner"] .request-list {
 .planner-request-inbox,
 .planner-vacation-panel,
 .hours-control-main {
-  border-color: rgba(198, 132, 61, 0.22);
-  background: linear-gradient(180deg, rgba(255, 253, 248, 0.98), rgba(255, 247, 234, 0.96));
+  border-color: rgba(86, 69, 53, 0.14);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 248, 245, 0.96));
   box-shadow: var(--shadow-soft);
 }
 
@@ -11231,26 +11231,27 @@ button:not(.secondary):not(.warning):not(:disabled),
 .employee-filter-button.active,
 .smart-planning-tab.active,
 .mobile-nav-button.active {
-  background: linear-gradient(180deg, #f7aa25, #d46f16);
-  border-color: rgba(151, 72, 18, 0.18);
+  background: linear-gradient(180deg, #2d3a46, #1f2933);
+  border-color: rgba(31, 41, 51, 0.24);
   color: #fff;
-  box-shadow: 0 11px 22px rgba(180, 89, 19, 0.22);
+  box-shadow: 0 11px 22px rgba(31, 41, 51, 0.18);
 }
 
 button:not(.secondary):not(.warning):not(:disabled):hover {
-  background: linear-gradient(180deg, #fbbf3d, #c96512);
-  box-shadow: 0 15px 26px rgba(180, 89, 19, 0.28);
+  background: linear-gradient(180deg, #344655, #25313d);
+  border-color: rgba(184, 102, 43, 0.38);
+  box-shadow: 0 15px 26px rgba(31, 41, 51, 0.22);
 }
 
 button.secondary {
-  background: linear-gradient(180deg, #fff8ec, #f4eadb);
-  border-color: rgba(167, 106, 45, 0.22);
-  color: #4b3928;
+  background: linear-gradient(180deg, #ffffff, #f2eee8);
+  border-color: rgba(86, 69, 53, 0.16);
+  color: #2d3a46;
 }
 
 button.secondary:hover:not(:disabled) {
-  border-color: rgba(201, 101, 18, 0.34);
-  background: linear-gradient(180deg, #fff3d8, #f2dfc2);
+  border-color: rgba(184, 102, 43, 0.34);
+  background: linear-gradient(180deg, #ffffff, #f7eadc);
 }
 
 .status-pill,
@@ -11260,7 +11261,7 @@ button.secondary:hover:not(:disabled) {
 .mobile-hours-status,
 .planner-audit-badge {
   border-width: 1px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.68);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .status-open,
@@ -11269,9 +11270,9 @@ button.secondary:hover:not(:disabled) {
 .planning-shift-line.is-open,
 .day-planner-row.is-open .day-planner-badge,
 .smart-planning-open-shift-button.has-warning {
-  border-color: #efb56f;
-  background: #fff3df;
-  color: #8a4b08;
+  border-color: #d89b45;
+  background: #fff7e8;
+  color: #70430a;
 }
 
 .status-approved,
@@ -11279,9 +11280,9 @@ button.secondary:hover:not(:disabled) {
 .smart-planning-open-shift-button.has-choice,
 .smart-planning-employee-choice.is-available,
 .smart-planning-concept-badge {
-  border-color: #92c9a4;
-  background: #ecf9ef;
-  color: #24643f;
+  border-color: #9cc8aa;
+  background: #edf7f0;
+  color: #245a3d;
 }
 
 .status-rejected,
@@ -11289,45 +11290,109 @@ button.secondary:hover:not(:disabled) {
 .smart-planning-employee-choice.is-unavailable,
 .planner-note.warning,
 .message.warning {
-  border-color: #e6a091;
-  background: #fff0eb;
-  color: #9f2b16;
+  border-color: #d9a19a;
+  background: #fff2ef;
+  color: #843325;
 }
 
 .planning-day-card.is-open-day,
 .smart-planning-day-row.has-open,
 .smart-planning-check-row.is-warning {
-  border-color: #efbd7a;
-  background: linear-gradient(180deg, #fffaf2, #fff2df);
+  border-color: #d89b45;
+  background: linear-gradient(180deg, #fffdfa, #fff7e8);
 }
 
 .planning-day-card.is-today,
 .week-roster-day-card.is-today {
-  border-color: #d87a1f;
-  box-shadow: inset 0 0 0 1px rgba(216, 122, 31, 0.18), 0 10px 22px rgba(91, 55, 19, 0.12);
+  border-color: #b8662b;
+  box-shadow: inset 0 0 0 1px rgba(184, 102, 43, 0.18), 0 10px 22px rgba(31, 41, 51, 0.09);
 }
 
 .planning-roster-group.roster-group--bakery,
 .roster-group--bakery {
-  border-color: rgba(214, 111, 22, 0.22);
-  background: linear-gradient(180deg, rgba(255, 248, 235, 0.95), rgba(255, 239, 211, 0.82));
+  border-color: rgba(184, 102, 43, 0.18);
+  background: linear-gradient(180deg, rgba(255, 253, 249, 0.96), rgba(247, 234, 220, 0.74));
 }
 
 .planning-roster-group.roster-group--shop,
 .roster-group--shop {
   border-color: rgba(64, 132, 83, 0.2);
-  background: linear-gradient(180deg, rgba(245, 252, 246, 0.95), rgba(234, 247, 237, 0.84));
+  background: linear-gradient(180deg, rgba(250, 253, 250, 0.96), rgba(237, 247, 240, 0.82));
 }
 
 .smart-planning-inline-advice {
-  border-color: rgba(198, 132, 61, 0.32);
-  background: linear-gradient(180deg, #fffdf8, #fff4e3);
-  box-shadow: 0 18px 34px rgba(91, 55, 19, 0.22);
+  border-color: rgba(86, 69, 53, 0.18);
+  background: linear-gradient(180deg, #ffffff, #f8f5f0);
+  box-shadow: 0 18px 34px rgba(31, 41, 51, 0.18);
 }
 
 .smart-planning-open-label {
-  background: linear-gradient(180deg, #f59e0b, #d46f16);
-  box-shadow: 0 2px 5px rgba(180, 89, 19, 0.18);
+  background: #7c3f1d;
+  color: #fff;
+  box-shadow: 0 2px 5px rgba(31, 41, 51, 0.12);
+}
+
+.employee-summary-card,
+.employee-table-row {
+  border-color: rgba(86, 69, 53, 0.12);
+  background: #ffffff;
+  color: #1f2933;
+}
+
+.employee-summary-card.is-active,
+.employee-table-row.is-active {
+  border-color: rgba(184, 102, 43, 0.36);
+  background: linear-gradient(180deg, #ffffff, #faf3eb);
+  box-shadow: 0 10px 22px rgba(31, 41, 51, 0.08);
+}
+
+.employee-summary-card h3,
+.employee-name-cell strong,
+.employee-table-cell strong {
+  color: #1f2933;
+}
+
+.employee-summary-subline,
+.employee-table-cell,
+.employee-name-cell span {
+  color: #667085;
+}
+
+.employee-status-badge.is-active,
+.status-approved {
+  background: #edf7f0;
+  border-color: #9cc8aa;
+  color: #245a3d;
+}
+
+.employee-status-badge.is-inactive,
+.employee-status-badge.is-former,
+.status-rejected {
+  background: #fff2ef;
+  border-color: #d9a19a;
+  color: #843325;
+}
+
+.employee-status-badge.is-temporary,
+.status-open,
+.status-waiting,
+.status-in-review {
+  background: #fff7e8;
+  border-color: #d8b06e;
+  color: #70430a;
+}
+
+.status-empty,
+.status-neutral,
+.status-complete {
+  background: #f1f3f5;
+  border-color: #d7dde3;
+  color: #344655;
+}
+
+button.warning:not(:disabled) {
+  background: linear-gradient(180deg, #b95a48, #8f3d31);
+  color: #fff;
 }
 
 body::before {
@@ -11337,17 +11402,17 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    linear-gradient(120deg, rgba(255, 255, 255, 0.34), transparent 36%),
-    radial-gradient(circle at 8% 18%, rgba(255, 206, 101, 0.18), transparent 18%),
-    radial-gradient(circle at 88% 14%, rgba(201, 101, 18, 0.1), transparent 22%);
+    linear-gradient(120deg, rgba(255, 255, 255, 0.36), transparent 36%),
+    radial-gradient(circle at 8% 18%, rgba(184, 102, 43, 0.08), transparent 18%),
+    radial-gradient(circle at 88% 14%, rgba(31, 41, 51, 0.04), transparent 22%);
 }
 
 input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: rgba(201, 101, 18, 0.48);
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  border-color: rgba(184, 102, 43, 0.5);
+  box-shadow: 0 0 0 3px rgba(184, 102, 43, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .dashboard-item,
@@ -11358,11 +11423,11 @@ textarea:focus {
 .planner-summary-chip,
 .smart-planning-control-summary-card,
 .capacity-card {
-  border-color: rgba(198, 132, 61, 0.2);
+  border-color: rgba(86, 69, 53, 0.13);
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(255, 245, 225, 0.88)),
-    radial-gradient(circle at top right, rgba(255, 204, 94, 0.2), transparent 38%);
-  box-shadow: 0 10px 24px rgba(91, 55, 19, 0.09);
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(247, 245, 242, 0.9)),
+    radial-gradient(circle at top right, rgba(184, 102, 43, 0.08), transparent 38%);
+  box-shadow: 0 10px 24px rgba(31, 41, 51, 0.07);
 }
 
 .dashboard-item strong,
@@ -11370,7 +11435,7 @@ textarea:focus {
 .planner-summary-chip strong,
 .smart-planning-control-summary-card strong,
 .capacity-card strong {
-  color: #2c2118;
+  color: #1f2933;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
@@ -11379,7 +11444,7 @@ textarea:focus {
 .hours-control-summary-card span,
 .planner-summary-chip span,
 .smart-planning-control-summary-card span {
-  color: #7a6044;
+  color: #667085;
 }
 
 .dashboard-item:hover,
@@ -11389,7 +11454,7 @@ textarea:focus {
 .planner-request-inbox-item:hover,
 .planner-vacation-item:hover,
 .hours-control-item:hover {
-  border-color: rgba(201, 101, 18, 0.34);
+  border-color: rgba(184, 102, 43, 0.28);
   box-shadow: var(--shadow-hover);
 }
 
@@ -11400,8 +11465,8 @@ textarea:focus {
 .planner-request-toolbar,
 .planner-vacation-filters,
 .week-switcher {
-  border-color: rgba(198, 132, 61, 0.2);
-  background: linear-gradient(180deg, rgba(255, 250, 240, 0.96), rgba(255, 241, 214, 0.82));
+  border-color: rgba(86, 69, 53, 0.13);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(242, 239, 235, 0.84));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
@@ -11417,20 +11482,20 @@ textarea:focus {
 
 .smart-planning-open-shift-button.is-selected,
 .planning-shift-line:focus-visible {
-  border-color: #c96512;
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.18), 0 8px 18px rgba(91, 55, 19, 0.1);
+  border-color: #b8662b;
+  box-shadow: 0 0 0 2px rgba(184, 102, 43, 0.14), 0 8px 18px rgba(31, 41, 51, 0.08);
 }
 
 .smart-planning-employee-choice.is-emergency-option,
 .smart-planning-advice-card.is-emergency-option {
-  border-color: #e5b84d;
-  background: linear-gradient(180deg, #fff8df, #ffefbd);
-  color: #7a4b00;
+  border-color: #d3a44f;
+  background: linear-gradient(180deg, #fffaf0, #f7ead0);
+  color: #6b430a;
 }
 
 .smart-planning-employee-choice.is-last-selected {
   border-color: #2f9e6e;
-  box-shadow: 0 0 0 2px rgba(47, 158, 110, 0.16);
+  box-shadow: 0 0 0 2px rgba(47, 158, 110, 0.13);
 }
 
 .message.success,
@@ -11450,8 +11515,8 @@ textarea:focus {
 @media (max-width: 640px) {
   body {
     background:
-      radial-gradient(circle at top left, rgba(245, 158, 11, 0.12), transparent 30%),
-      linear-gradient(180deg, #fff8eb 0%, #fbf4ea 100%);
+      radial-gradient(circle at top left, rgba(184, 102, 43, 0.07), transparent 30%),
+      linear-gradient(180deg, #fbfaf8 0%, #f7f5f2 100%);
   }
 
   .card,
@@ -11461,13 +11526,13 @@ textarea:focus {
   .hours-registration-card,
   .my-hours-extra-card,
   .my-hours-worked-card {
-    box-shadow: 0 8px 18px rgba(91, 55, 19, 0.08);
+    box-shadow: 0 8px 18px rgba(31, 41, 51, 0.07);
   }
 
   button,
   .request-switch-button,
   .mobile-nav-button {
-    box-shadow: 0 8px 16px rgba(91, 55, 19, 0.08);
+    box-shadow: 0 8px 16px rgba(31, 41, 51, 0.07);
   }
 }
 
