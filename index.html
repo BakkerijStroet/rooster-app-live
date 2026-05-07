@@ -838,28 +838,33 @@
             <strong>Geen medewerker gekoppeld</strong>
           </div>
           <div id="myAccountDetails" class="my-account-details empty">Geen medewerker gekoppeld.</div>
-          <label class="my-account-current-pin">
-            Huidige pincode
-            <input type="text" id="myAccountVisiblePin" readonly>
-          </label>
-          <div class="staff-actions my-account-pin-form">
-            <label>
-              Huidige pin
-              <input type="password" id="myAccountCurrentPin" inputmode="numeric" autocomplete="current-password" maxlength="6">
+          <section class="my-account-pin-card" aria-labelledby="myAccountPinTitle">
+            <div class="my-account-pin-head">
+              <strong id="myAccountPinTitle">Pincode wijzigen</strong>
+            </div>
+            <label class="my-account-current-pin">
+              Huidige pincode
+              <input type="text" id="myAccountVisiblePin" readonly>
             </label>
-            <label>
-              Nieuwe pin
-              <input type="password" id="myAccountNewPin" inputmode="numeric" autocomplete="new-password" maxlength="6">
-            </label>
-            <label>
-              Herhaal nieuwe pin
-              <input type="password" id="myAccountRepeatPin" inputmode="numeric" autocomplete="new-password" maxlength="6">
-            </label>
-          </div>
-          <div class="form-actions compact-actions">
-            <button type="button" id="myAccountSavePinButton">Pincode opslaan</button>
-          </div>
-          <div id="myAccountPinStatus" class="panel-note" aria-live="polite"></div>
+            <div class="staff-actions my-account-pin-form">
+              <label>
+                Huidige pin
+                <input type="password" id="myAccountCurrentPin" inputmode="numeric" autocomplete="current-password" maxlength="6">
+              </label>
+              <label>
+                Nieuwe pin
+                <input type="password" id="myAccountNewPin" inputmode="numeric" autocomplete="new-password" maxlength="6">
+              </label>
+              <label>
+                Herhaal nieuwe pin
+                <input type="password" id="myAccountRepeatPin" inputmode="numeric" autocomplete="new-password" maxlength="6">
+              </label>
+            </div>
+            <div class="form-actions compact-actions">
+              <button type="button" id="myAccountSavePinButton">Pincode opslaan</button>
+            </div>
+            <div id="myAccountPinStatus" class="panel-note" aria-live="polite"></div>
+          </section>
         </div>
       </section>
 

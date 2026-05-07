@@ -24388,38 +24388,19 @@ function renderMyAccount() {
 
   if (myAccountDetails) {
     const email = getEmployeeEmail(employeeName) || "Niet ingesteld";
-    const phone = String(employeeMeta?.[employeeName]?.phone || "").trim() || "Niet ingesteld";
-    const department = getEmployeeDepartmentSummary(employeeName);
-    const role = getEmployeeAppRole(employeeName) === "planner" ? "Planner" : "Medewerker";
 
-    setClassName(myAccountDetails, "my-account-details");
+    setClassName(myAccountDetails, "my-account-details is-compact");
     myAccountDetails.innerHTML = `
-      <article>
-        <span>Naam</span>
-        <strong>${escapeHtmlAttribute(employeeName)}</strong>
-      </article>
       <article>
         <span>Mail</span>
         <strong>${escapeHtmlAttribute(email)}</strong>
-      </article>
-      <article>
-        <span>Telefoon</span>
-        <strong>${escapeHtmlAttribute(phone)}</strong>
-      </article>
-      <article>
-        <span>Afdeling</span>
-        <strong>${escapeHtmlAttribute(department)}</strong>
-      </article>
-      <article>
-        <span>Rol</span>
-        <strong>${escapeHtmlAttribute(role)}</strong>
       </article>
     `;
   }
 
   myAccountPinStatus.textContent = isEmployeeTemporaryPinActive(employeeName)
-    ? "Je gebruikt nu een tijdelijke pin. Kies zelf een nieuwe pincode."
-    : "Je kunt hier je eigen pincode wijzigen.";
+    ? "Tijdelijke pin actief. Kies een nieuwe pincode."
+    : "";
 }
 
 function refreshWorkLogValidationForCard(workLogId) {
