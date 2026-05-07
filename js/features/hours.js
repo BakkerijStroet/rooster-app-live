@@ -119,9 +119,13 @@
 
     if (normalizedValues.actualStart && normalizedValues.actualEnd && validation.workedHours === null) {
       validation.isInvalidRange = true;
+      const startMinutes = getTimeValueMinutes(normalizedValues.actualStart);
+      const endMinutes = getTimeValueMinutes(normalizedValues.actualEnd);
       validation.messages.push({
         type: "error",
-        text: "Eindtijd ligt voor begintijd of de pauze is onlogisch."
+        text: startMinutes !== null && endMinutes !== null && endMinutes > startMinutes
+          ? "Controleer de pauze in minuten."
+          : "De eindtijd moet later zijn dan de starttijd."
       });
     }
 

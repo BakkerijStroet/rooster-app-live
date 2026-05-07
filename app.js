@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260507-mobile-refresh-fresh";
+const APP_VERSION = "20260507-validation-feedback";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -8091,6 +8091,162 @@ function showRequestSubmittedMessage() {
   triggerSuccess("Aanvraag verzonden");
 }
 
+function clearFormFieldValidation(field) {
+  if (!field || !field.classList) {
+    return;
+  }
+
+  field.classList.remove("input-error");
+  field.removeAttribute("aria-invalid");
+  field.removeAttribute("aria-describedby");
+  if (field.dataset.validationTitle === "true") {
+    field.removeAttribute("title");
+    delete field.dataset.validationTitle;
+  }
+}
+
+function markFormFieldInvalid(field, message) {
+  if (!field || !field.classList) {
+    return;
+  }
+
+  field.classList.add("input-error");
+  field.setAttribute("aria-invalid", "true");
+  if (message) {
+    field.setAttribute("title", message);
+    field.dataset.validationTitle = "true";
+  }
+}
+
+function getInlineFormFeedbackElement(container) {
+  if (!container) {
+    return null;
+  }
+
+  let feedbackElement = container.querySelector("[data-form-feedback]");
+
+  if (!feedbackElement) {
+    feedbackElement = document.createElement("div");
+    feedbackElement.dataset.formFeedback = "true";
+    feedbackElement.setAttribute("role", "status");
+    feedbackElement.setAttribute("aria-live", "polite");
+    const anchor = container.querySelector(".request-composer-head, .my-account-pin-head, .hours-registration-head");
+    if (anchor?.parentNode === container) {
+      anchor.insertAdjacentElement("afterend", feedbackElement);
+    } else {
+      container.insertBefore(feedbackElement, container.firstChild);
+    }
+  }
+
+  return feedbackElement;
+}
+
+function clearFormValidationFeedback(container) {
+  if (!container) {
+    return;
+  }
+
+  container.querySelectorAll(".input-error").forEach((field) => clearFormFieldValidation(field));
+  container.querySelectorAll("[data-form-feedback]").forEach((feedbackElement) => {
+    feedbackElement.remove();
+  });
+}
+
+function setInlineFormFeedback(container, message, type = "error") {
+  const feedbackElement = getInlineFormFeedbackElement(container);
+
+  if (!feedbackElement) {
+    return null;
+  }
+
+  feedbackElement.textContent = message || "";
+  setClassName(feedbackElement, `form-feedback is-${type || "info"}`);
+  return feedbackElement;
+}
+
+function focusFormValidationTarget(field, container) {
+  const target = field || container;
+
+  if (!target || typeof target.scrollIntoView !== "function") {
+    return;
+  }
+
+  requestAnimationFrame(() => {
+    target.scrollIntoView({ behavior: "smooth", block: field ? "center" : "start" });
+    if (field && typeof field.focus === "function" && !field.disabled) {
+      window.setTimeout(() => {
+        try {
+          field.focus({ preventScroll: true });
+        } catch (error) {
+          field.focus();
+        }
+      }, 120);
+    }
+  });
+}
+
+function showFormValidationError(container, field, message, options = {}) {
+  const { toast = true } = options;
+
+  clearFormValidationFeedback(container);
+  markFormFieldInvalid(field, message);
+  setInlineFormFeedback(container, message, "error");
+  if (toast) {
+    showMessage(message, "error");
+  }
+  focusFormValidationTarget(field, container);
+  return false;
+}
+
+function runButtonLoading(button, loadingText, callback) {
+  if (button?.dataset?.submitting === "true") {
+    return false;
+  }
+
+  const originalText = button?.textContent || "";
+  if (button) {
+    button.dataset.submitting = "true";
+    button.disabled = true;
+    if (loadingText) {
+      button.textContent = loadingText;
+    }
+  }
+
+  try {
+    return callback();
+  } finally {
+    if (button) {
+      delete button.dataset.submitting;
+      if (document.contains(button)) {
+        button.disabled = false;
+        if (loadingText) {
+          button.textContent = originalText;
+        }
+      }
+    }
+  }
+}
+
+function clearChangedFieldValidation(event) {
+  const field = event?.target?.closest?.("input, select, textarea");
+
+  if (!field) {
+    return;
+  }
+
+  clearFormFieldValidation(field);
+  const container = field.closest(".request-composer-card, .my-account-pin-card, .hours-registration-card");
+
+  if (container && !container.querySelector(".input-error")) {
+    container.querySelectorAll("[data-form-feedback]").forEach((feedbackElement) => feedbackElement.remove());
+    const accountPinStatus = container.querySelector("#myAccountPinStatus.form-feedback.is-error");
+    if (accountPinStatus) {
+      accountPinStatus.textContent = "";
+      setClassName(accountPinStatus, "panel-note");
+    }
+  }
+}
+
 function confirmAction(text = "Weet je het zeker?") {
   return window.confirm(text);
 }
@@ -8533,9 +8689,13 @@ const {
 
     if (normalizedValues.actualStart && normalizedValues.actualEnd && validation.workedHours === null) {
       validation.isInvalidRange = true;
+      const startMinutes = getTimeValueMinutes(normalizedValues.actualStart);
+      const endMinutes = getTimeValueMinutes(normalizedValues.actualEnd);
       validation.messages.push({
         type: "error",
-        text: "Eindtijd ligt voor begintijd of de pauze is onlogisch."
+        text: startMinutes !== null && endMinutes !== null && endMinutes > startMinutes
+          ? "Controleer de pauze in minuten."
+          : "De eindtijd moet later zijn dan de starttijd."
       });
     }
 
@@ -8894,7 +9054,7 @@ function getMobileWorkLogSubmitResult(workLogId) {
   if (workLog?.status === "open") {
     return {
       isSubmitted: true,
-      message: "Uren ingediend"
+      message: isExtraWorkedLog(workLog) ? "Extra uren opgeslagen." : "Uren succesvol ingediend."
     };
   }
 
@@ -16097,18 +16257,25 @@ function submitEscalatedSwapRequest() {
   const date = swapDateInput.value;
   const entryDetails = getSwapEntryDetails(swapEntrySelect?.value || "");
   const entry = entryDetails?.entry || null;
+  const showEscalateError = (field, message) => showFormValidationError(requestSwapComposer, field, message);
 
-  if (!employeeName || !date || !entry) {
-    showMessage(
-      isPlannerRole()
-        ? "Kies eerst medewerker, datum en dienst voordat je directie inschakelt."
-        : "Kies eerst een datum en dienst voordat je directie inschakelt.",
-      "error"
-    );
-    return;
+  clearFormValidationFeedback(requestSwapComposer);
+
+  if (!employeeName) {
+    return showEscalateError(swapEmployeeSelect, "Kies eerst een medewerker.");
+  }
+
+  if (!date) {
+    return showEscalateError(swapDateInput, "Kies eerst een datum.");
+  }
+
+  if (!entry) {
+    return showEscalateError(swapEntrySelect, "Kies eerst een dienst voordat je directie inschakelt.");
   }
 
   if (!ensureEmployeeWeekEditable(date, "directie om hulp te vragen bij een ruil")) {
+    setInlineFormFeedback(requestSwapComposer, "Deze week is afgesloten. Je kunt directie hiervoor niet meer inschakelen.", "error");
+    focusFormValidationTarget(swapDateInput, requestSwapComposer);
     return;
   }
 
@@ -24515,25 +24682,38 @@ function setWorkLogSubmitError(workLogId, message) {
   setMobileHoursFeedback(workLogId, message, "error");
 }
 
+function showWorkLogValidationError(workLogId, field, message) {
+  rememberMobileWorkLogFormValues(workLogId);
+  setWorkLogSubmitError(workLogId, message);
+  const card = getWorkLogCardElement(workLogId);
+
+  if (card) {
+    return showFormValidationError(card, field, message);
+  }
+
+  showMessage(message, "error");
+  return false;
+}
+
 function saveWorkLogFromForm(workLogId, action = "save") {
   const entry = getWorkLogContextById(workLogId);
 
   if (!entry) {
     rememberMobileWorkLogFormValues(workLogId);
-    setWorkLogSubmitError(workLogId, `dienst kon niet worden gevonden (${workLogId || "geen id"})`);
-    showMessage("De gekoppelde dienst is niet meer gevonden.", "error");
+    setWorkLogSubmitError(workLogId, "De gekoppelde dienst is niet meer beschikbaar. Vernieuw de gegevens en probeer opnieuw.");
+    showMessage("De gekoppelde dienst is niet meer beschikbaar. Vernieuw de gegevens en probeer opnieuw.", "error");
     return false;
   }
 
   if (!ensureOwnEmployeeAccess(entry.name, "Je kunt alleen je eigen urenregistratie invullen.")) {
     rememberMobileWorkLogFormValues(workLogId);
-    setWorkLogSubmitError(workLogId, `medewerker klopt niet (${entry.name || "onbekend"})`);
+    setWorkLogSubmitError(workLogId, "Je kunt alleen je eigen uren invullen.");
     return false;
   }
 
   if (isFutureDateValue(entry.day)) {
     rememberMobileWorkLogFormValues(workLogId);
-    setWorkLogSubmitError(workLogId, `toekomstige dienst (${formatDate(entry.day)})`);
+    setWorkLogSubmitError(workLogId, "Uren voor toekomstige diensten kun je nog niet invullen.");
     showMessage("Uren voor toekomstige diensten kun je nog niet invullen.", "error");
     renderMyHours();
     return false;
@@ -24555,16 +24735,7 @@ function saveWorkLogFromForm(workLogId, action = "save") {
 
   if (!actualStartInput || !actualEndInput || !breakMinutesInput || !notesInput) {
     rememberMobileWorkLogFormValues(workLogId);
-    const missingField = !card
-      ? "urenkaart niet gevonden"
-      : !actualStartInput
-        ? "veld start niet gevonden"
-        : !actualEndInput
-          ? "veld eind niet gevonden"
-          : !breakMinutesInput
-            ? "veld pauze niet gevonden"
-            : "veld opmerking niet gevonden";
-    setWorkLogSubmitError(workLogId, missingField);
+    setWorkLogSubmitError(workLogId, "De urenkaart kan niet goed worden geladen. Vernieuw de gegevens en probeer opnieuw.");
     showMessage("De urenregistratie kan niet worden geladen.", "error");
     return false;
   }
@@ -24585,7 +24756,7 @@ function saveWorkLogFromForm(workLogId, action = "save") {
     if (action === "submit" && existingLog.status === "open") {
       activeMobileWorkLogId = "";
       clearMobileWorkLogFormValues(workLogId);
-      setMobileHoursFeedback(workLogId, "Uren ingediend", "success");
+      setMobileHoursFeedback(workLogId, entry.isManualHours ? "Extra uren opgeslagen." : "Uren succesvol ingediend.", "success");
       return true;
     }
 
@@ -24607,33 +24778,32 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   }
 
   if (!actualStart || !actualEnd) {
-    rememberMobileWorkLogFormValues(workLogId);
-    setWorkLogSubmitError(workLogId, !actualStart ? "begintijd ontbreekt" : "eindtijd ontbreekt");
-    showMessage("Vul zowel de werkelijke starttijd als eindtijd in.", "error");
-    return false;
+    return showWorkLogValidationError(
+      workLogId,
+      !actualStart ? actualStartInput : actualEndInput,
+      "Vul een start- en eindtijd in."
+    );
   }
 
   if (entry.isManualHours && !notes) {
-    rememberMobileWorkLogFormValues(workLogId);
-    setWorkLogSubmitError(workLogId, "omschrijving voor extra gewerkt ontbreekt");
-    showMessage("Vul bij Extra gewerkt een korte omschrijving of opmerking in.", "error");
-    return false;
+    return showWorkLogValidationError(workLogId, notesInput, "Vul een korte omschrijving in voor extra gewerkt.");
   }
 
   const workedHours = validation.workedHours;
 
   if (validation.isInvalidRange || workedHours === null) {
-    rememberMobileWorkLogFormValues(workLogId);
-    setWorkLogSubmitError(workLogId, `validatie mislukt: ${validation.isInvalidRange ? "eindtijd ligt voor begintijd" : "uren konden niet worden berekend"}`);
-    showMessage("Controleer de werkelijke tijden en pauze. De eindtijd moet later zijn dan de starttijd.", "error");
-    return false;
+    const startMinutes = getTimeValueMinutes(actualStart);
+    const endMinutes = getTimeValueMinutes(actualEnd);
+    const hasInvalidBreak = startMinutes !== null && endMinutes !== null && endMinutes > startMinutes;
+    return showWorkLogValidationError(
+      workLogId,
+      hasInvalidBreak ? breakMinutesInput : actualEndInput,
+      hasInvalidBreak ? "Controleer de pauze in minuten." : "De eindtijd moet later zijn dan de starttijd."
+    );
   }
 
   if (!isPlannerRole() && (existingLog?.status === "revision" || existingLog?.status === "rejected") && !employeeReply) {
-    rememberMobileWorkLogFormValues(workLogId);
-    setWorkLogSubmitError(workLogId, "reactie medewerker ontbreekt na afwijzing/opmerking");
-    showMessage("Voeg een korte reactie of toelichting toe voordat je opnieuw indient.", "error");
-    return false;
+    return showWorkLogValidationError(workLogId, employeeReplyInput || notesInput, "Voeg een korte reactie of toelichting toe voordat je opnieuw indient.");
   }
 
   const deviationSummaryParts = [];
@@ -24705,8 +24875,8 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   } catch (error) {
     console.error("saveWorkLogs mislukt", error);
     rememberMobileWorkLogFormValues(workLogId);
-    setWorkLogSubmitError(workLogId, "saveWorkLogs gaf een fout");
-    showMessage("Uren opslaan is niet gelukt.", "error");
+    setWorkLogSubmitError(workLogId, "Uren opslaan is niet gelukt. Probeer opnieuw.");
+    showMessage("Uren opslaan is niet gelukt. Probeer opnieuw.", "error");
     return false;
   }
 
@@ -24714,15 +24884,15 @@ function saveWorkLogFromForm(workLogId, action = "save") {
 
   if (!savedLog) {
     rememberMobileWorkLogFormValues(workLogId);
-    setWorkLogSubmitError(workLogId, "workLog niet aangemaakt");
-    showMessage("Uren opslaan is niet gelukt.", "error");
+    setWorkLogSubmitError(workLogId, "Uren opslaan is niet gelukt. Probeer opnieuw.");
+    showMessage("Uren opslaan is niet gelukt. Probeer opnieuw.", "error");
     return false;
   }
 
   if (action === "submit" && savedLog.status !== "open") {
     rememberMobileWorkLogFormValues(workLogId);
-    setWorkLogSubmitError(workLogId, `status niet ingediend (${savedLog.status || "leeg"})`);
-    showMessage("Uren indienen is niet gelukt.", "error");
+    setWorkLogSubmitError(workLogId, "Uren indienen is niet gelukt. Probeer opnieuw.");
+    showMessage("Uren indienen is niet gelukt. Probeer opnieuw.", "error");
     return false;
   }
 
@@ -24747,7 +24917,13 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   if (!isPlannerRole()) {
     activeMobileWorkLogId = "";
     clearMobileWorkLogFormValues(workLogId);
-    setMobileHoursFeedback(workLogId, action === "submit" ? "Uren ingediend" : "Uren opgeslagen", "success");
+    setMobileHoursFeedback(
+      workLogId,
+      action === "submit"
+        ? (entry.isManualHours ? "Extra uren opgeslagen." : "Uren succesvol ingediend.")
+        : "Uren opgeslagen.",
+      "success"
+    );
   }
   renderMyHours();
   if (validation.isLongShift || validation.isLargeEndDeviation) {
@@ -24766,7 +24942,7 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   }
 
   const successMessage = action === "submit"
-    ? "Uren ingediend."
+    ? (entry.isManualHours ? "Extra uren opgeslagen." : "Uren succesvol ingediend.")
     : isPlannerCorrectionOnApproved
       ? "Goedgekeurde uren bijgewerkt."
       : entry.day === getTodayLocalDateValue()
@@ -24787,6 +24963,7 @@ function renderMyAccount() {
 
   if (!employeeName) {
     myAccountPinStatus.textContent = "Geen medewerker gekoppeld.";
+    setClassName(myAccountPinStatus, "panel-note");
     if (myAccountDetails) {
       setClassName(myAccountDetails, "my-account-details empty");
       myAccountDetails.textContent = "Geen medewerker gekoppeld.";
@@ -24820,9 +24997,11 @@ function renderMyAccount() {
     `;
   }
 
-  myAccountPinStatus.textContent = isEmployeeTemporaryPinActive(employeeName)
+  const temporaryPinActive = isEmployeeTemporaryPinActive(employeeName);
+  myAccountPinStatus.textContent = temporaryPinActive
     ? "Tijdelijke pin actief. Kies een nieuwe pincode."
     : "";
+  setClassName(myAccountPinStatus, temporaryPinActive ? "form-feedback is-warning" : "panel-note");
 }
 
 function refreshWorkLogValidationForCard(workLogId) {
@@ -27443,6 +27622,7 @@ myHoursRegistrations?.addEventListener("click", (event) => {
     ? "submit"
     : workLogAction;
   const isMobileSubmitAction = !isPlannerRole() && effectiveWorkLogAction === "submit" && Boolean(workLogId);
+  const originalWorkLogButtonText = button.textContent;
 
   if (isMobileSubmitAction) {
     activeMobileWorkLogId = workLogId;
@@ -27522,6 +27702,13 @@ myHoursRegistrations?.addEventListener("click", (event) => {
         if (activeMobileHoursFeedback.workLogId !== workLogId || !activeMobileHoursFeedback.text || activeMobileHoursFeedback.type === "info") {
           setMobileHoursFeedback(workLogId, "Uren indienen is niet gelukt. Probeer opnieuw.", "error");
         }
+        const cardWithInlineError = getWorkLogCardElement(workLogId);
+        if (cardWithInlineError?.querySelector(".input-error, [data-form-feedback]")) {
+          button.disabled = false;
+          button.textContent = originalWorkLogButtonText;
+          focusMobileWorkLogCard(workLogId);
+          return;
+        }
         renderMyHours();
         focusMobileWorkLogCard(workLogId);
         return;
@@ -27566,6 +27753,7 @@ myHoursRegistrations?.addEventListener("change", (event) => {
     return;
   }
 
+  clearFormFieldValidation(input);
   refreshWorkLogValidationForCard(input.dataset.worklogId);
 });
 
@@ -28352,37 +28540,34 @@ function findOpenTimeOffDuplicateRequest(employeeName, startDate, endDate, exclu
   ) || null;
 }
 
-function showTimeOffDuplicateMessage(employeeName, startDate, endDate, excludedRequestId = "") {
-  const duplicateRequest = findOpenTimeOffDuplicateRequest(employeeName, startDate, endDate, excludedRequestId);
-
-  if (!duplicateRequest) {
-    return false;
-  }
-
-  showMessage(
-    isPlannerRole()
-      ? "Voor deze medewerker staat al een open afwezigheidsaanvraag in deze periode."
-      : "Je hebt voor deze datum al een aanvraag openstaan.",
-    "error"
-  );
-  return true;
-}
-
 function checkTimeOffDuplicateForComposer(composer = activeRequestComposer) {
   syncTimeOffFormStateFromFields(composer);
   const formState = getRequestComposerState(composer);
+  const formElements = getTimeOffFormElements(composer);
   const employeeName = !isPlannerRole()
     ? getEmployeeIdentity()
     : formState.employeeName;
   const type = formState.type || getComposerTimeOffType(composer);
   const startDate = type === "vakantie" ? formState.startDate : formState.date;
   const endDate = type === "vakantie" ? (formState.endDate || startDate) : startDate;
+  const dateField = type === "vakantie" ? formElements?.startDateInput : formElements?.dateInput;
 
   if (!employeeName || !startDate) {
     return false;
   }
 
-  return showTimeOffDuplicateMessage(employeeName, startDate, endDate, editingTimeOffId);
+  if (findOpenTimeOffDuplicateRequest(employeeName, startDate, endDate, editingTimeOffId)) {
+    return showFormValidationError(
+      formElements?.composerSection || null,
+      dateField || null,
+      isPlannerRole()
+        ? "Voor deze medewerker staat al een open aanvraag in deze periode."
+        : "Je hebt voor deze datum al een aanvraag staan.",
+      { toast: false }
+    );
+  }
+
+  return false;
 }
 
 function submitTimeOffRequest(composer) {
@@ -28401,32 +28586,61 @@ function submitTimeOffRequest(composer) {
   const endDate = type === "vakantie" ? (currentTimeOffForm.endDate || startDate) : startDate;
   const date = startDate;
   const reason = (currentTimeOffForm.reason || "").trim();
+  const composerSection = formElements?.composerSection || null;
+  const employeeField = formElements?.employeeSelect || null;
+  const startDateField = type === "vakantie" ? formElements?.startDateInput : formElements?.dateInput;
+  const endDateField = formElements?.endDateInput || startDateField;
+  const reasonField = formElements?.reasonInput || null;
+  const showTimeOffError = (field, message) => showFormValidationError(composerSection, field, message);
+
+  clearFormValidationFeedback(composerSection);
+
+  if (!employeeName) {
+    return showTimeOffError(employeeField, "Kies eerst een medewerker.");
+  }
+
+  if (!startDate) {
+    return showTimeOffError(startDateField, type === "vakantie" ? "Kies eerst een begindatum." : "Kies eerst een datum.");
+  }
+
+  if (type === "vakantie" && !currentTimeOffForm.endDate) {
+    return showTimeOffError(endDateField, "Kies eerst een einddatum.");
+  }
+
+  if (type === "vakantie" && endDate < startDate) {
+    return showTimeOffError(endDateField, "De einddatum kan niet vóór de begindatum liggen.");
+  }
+
+  if ((type === "vakantie" || type === "vrij") && startDate < getTodayLocalDateValue()) {
+    return showTimeOffError(
+      startDateField,
+      type === "vakantie"
+        ? "Vakantie aanvragen in het verleden is niet mogelijk."
+        : "Vrije dagen aanvragen in het verleden is niet mogelijk."
+    );
+  }
+
+  if (!reason) {
+    return showTimeOffError(reasonField, "Vul een korte reden in voor deze aanvraag.");
+  }
 
   if (!ensureOwnRequestAction(employeeName, "een afwezigheidsaanvraag")) {
     return;
   }
 
-  if (!employeeName || !startDate || !reason || (type === "vakantie" && !endDate)) {
-    showMessage(
-      isPlannerRole()
-        ? "Kies medewerker, status, datum of periode en reden voor de afwezigheid."
-        : "Kies type aanvraag, datum of periode en reden.",
-      "error"
-    );
-    return;
-  }
-
-  if (type === "vakantie" && endDate < startDate) {
-    showMessage("De einddatum van de vakantie moet gelijk zijn aan of later zijn dan de begindatum.", "error");
-    return;
-  }
-
   if (!ensureEmployeeDateRangeEditable(startDate, endDate, "een afwezigheidsaanvraag te doen of te wijzigen")) {
+    setInlineFormFeedback(composerSection, "Deze week is afgesloten. Je kunt deze aanvraag niet meer aanpassen.", "error");
+    focusFormValidationTarget(startDateField, composerSection);
     return;
   }
 
-  if (showTimeOffDuplicateMessage(employeeName, startDate, endDate, editingTimeOffId)) {
-    return;
+  if (findOpenTimeOffDuplicateRequest(employeeName, startDate, endDate, editingTimeOffId)) {
+    return showTimeOffError(
+      startDateField,
+      isPlannerRole()
+        ? "Voor deze medewerker staat al een open aanvraag in deze periode."
+        : "Je hebt voor deze datum al een aanvraag staan."
+    );
   }
 
   let vacationWarningMessage = "";
@@ -28434,8 +28648,7 @@ function submitTimeOffRequest(composer) {
     const vacationSubmitCheck = getVacationSubmitCheck(employeeName, startDate, endDate, editingTimeOffId);
 
     if (!vacationSubmitCheck.allowed) {
-      showMessage("Deze week is geblokkeerd voor vakantieaanvragen.", "error");
-      return;
+      return showTimeOffError(startDateField, "Deze week is geblokkeerd voor vakantieaanvragen.");
     }
 
     if (vacationSubmitCheck.hasOverlapWarning) {
@@ -28509,10 +28722,15 @@ function submitTimeOffRequest(composer) {
     activeRequestsView = "mine";
   }
   render();
-  showMessage("Aanvraag ingediend.", "success");
+  const requestSuccessMessage = type === "vakantie"
+    ? "Vakantie succesvol opgeslagen."
+    : type === "ziek"
+      ? "Ziekmelding succesvol verstuurd."
+      : "Aanvraag succesvol verstuurd.";
+  showMessage(requestSuccessMessage, "success");
   const latestMail = currentTimeOffRequest ? getLatestRequestMailNotification(currentTimeOffRequest) : null;
   if (latestMail?.status === "queued") {
-    showMessage("Mailbevestiging wordt verzonden.", "success");
+    showMessage(`${requestSuccessMessage} Mailbevestiging wordt verzonden.`, "success");
   }
   if (vacationWarningMessage) {
     showMessage(vacationWarningMessage, "warning");
@@ -28520,18 +28738,23 @@ function submitTimeOffRequest(composer) {
 }
 
 submitFreeDayButton?.addEventListener("click", () => {
-  submitTimeOffRequest("free");
+  runButtonLoading(submitFreeDayButton, "Versturen...", () => submitTimeOffRequest("free"));
 });
 
 submitVacationButton?.addEventListener("click", () => {
-  submitTimeOffRequest("vacation");
+  runButtonLoading(submitVacationButton, "Versturen...", () => submitTimeOffRequest("vacation"));
 });
 
 submitSickButton?.addEventListener("click", () => {
-  submitTimeOffRequest("sick");
+  runButtonLoading(submitSickButton, "Versturen...", () => submitTimeOffRequest("sick"));
 });
 
-submitSwapButton.addEventListener("click", () => {
+[requestFreeComposer, requestVacationComposer, requestSickComposer, requestSwapComposer].forEach((composerSection) => {
+  composerSection?.addEventListener("input", clearChangedFieldValidation);
+  composerSection?.addEventListener("change", clearChangedFieldValidation);
+});
+
+submitSwapButton.addEventListener("click", () => runButtonLoading(submitSwapButton, "Versturen...", () => {
   const ownEmployeeName = !isPlannerRole() ? getOwnEmployeeNameOrWarn() : "";
 
   if (!isPlannerRole() && !ownEmployeeName) {
@@ -28545,29 +28768,38 @@ submitSwapButton.addEventListener("click", () => {
   const targetEmployeeName = currentSwapForm.targetEmployeeName || swapTargetEmployeeSelect.value;
   const entryDetails = getSwapEntryDetails(entryValue);
   const date = entryDetails?.date || currentSwapForm.date || swapDateInput.value;
+  const showSwapError = (field, message) => showFormValidationError(requestSwapComposer, field, message);
 
-  if (!employeeName || !date || !entryValue || !targetEmployeeName) {
-    showMessage(
-      isPlannerRole()
-        ? "Kies medewerker, datum, dienst en een overnemer of open aanbieden."
-        : "Kies datum, dienst en een geschikte collega.",
-      "error"
-    );
-    return;
+  clearFormValidationFeedback(requestSwapComposer);
+
+  if (!employeeName) {
+    return showSwapError(swapEmployeeSelect, "Kies eerst een medewerker.");
+  }
+
+  if (!date) {
+    return showSwapError(swapDateInput, "Kies eerst een datum.");
+  }
+
+  if (!entryValue) {
+    return showSwapError(swapEntrySelect, "Kies eerst een dienst om te ruilen.");
+  }
+
+  if (!targetEmployeeName) {
+    return showSwapError(swapTargetEmployeeSelect, "Kies een geschikte collega of schakel directie in.");
   }
 
   if (!ensureEmployeeWeekEditable(date, "een ruilverzoek te doen of te wijzigen")) {
+    setInlineFormFeedback(requestSwapComposer, "Deze week is afgesloten. Je kunt dit ruilverzoek niet meer aanpassen.", "error");
+    focusFormValidationTarget(swapDateInput, requestSwapComposer);
     return;
   }
 
   if (employeeName === targetEmployeeName) {
-    showMessage("Een medewerker kan niet zijn eigen dienst overnemen.", "error");
-    return;
+    return showSwapError(swapTargetEmployeeSelect, "Een medewerker kan niet zijn eigen dienst overnemen.");
   }
 
   if (!isPlannerRole() && targetEmployeeName === "__open__") {
-    showMessage("Kies een geschikte collega of schakel directie in.", "error");
-    return;
+    return showSwapError(swapTargetEmployeeSelect, "Kies een geschikte collega of schakel directie in.");
   }
 
   if (!ensureOwnRequestAction(employeeName, "een ruilverzoek")) {
@@ -28577,7 +28809,7 @@ submitSwapButton.addEventListener("click", () => {
   const entry = entryDetails?.entry || null;
 
   if (!entry) {
-    showMessage("De gekozen dienst is niet meer gevonden.", "error");
+    showFormValidationError(requestSwapComposer, swapEntrySelect, "De gekozen dienst is niet meer gevonden. Kies opnieuw een dienst.");
     render();
     return;
   }
@@ -28586,7 +28818,7 @@ submitSwapButton.addEventListener("click", () => {
     const replacementCandidates = getSwapCandidatesForEntryDetails(entryDetails);
 
     if (!replacementCandidates.includes(targetEmployeeName)) {
-      showMessage("Deze collega is niet bevoegd of niet beschikbaar voor deze dienst.", "error");
+      showFormValidationError(requestSwapComposer, swapTargetEmployeeSelect, "Deze collega is niet bevoegd of niet beschikbaar voor deze dienst.");
       renderSwapTargetOptions();
       return;
     }
@@ -28607,8 +28839,7 @@ submitSwapButton.addEventListener("click", () => {
     request.startTime === entry.startTime &&
     request.endTime === entry.endTime
   )) {
-    showMessage("Voor deze dienst bestaat al een open ruilverzoek.", "error");
-    return;
+    return showSwapError(swapEntrySelect, "Voor deze dienst bestaat al een open ruilverzoek.");
   }
 
     if (editingSwapId) {
@@ -28705,12 +28936,13 @@ submitSwapButton.addEventListener("click", () => {
       activeRequestsView = "mine";
     }
     render();
-    showMessage("Aanvraag ingediend.", "success");
+    const swapSuccessMessage = "Ruilverzoek succesvol verstuurd.";
+    showMessage(swapSuccessMessage, "success");
     const latestMail = currentRequest ? getLatestRequestMailNotification(currentRequest) : null;
     if (latestMail?.status === "queued") {
-      showMessage("Mailbevestiging wordt verzonden.", "success");
+      showMessage(`${swapSuccessMessage} Mailbevestiging wordt verzonden.`, "success");
     }
-  });
+  }));
 
 removeEmployeeButton?.addEventListener("click", () => {
   if (!isPlannerRole()) {
@@ -29048,33 +29280,46 @@ employeeDetailSaveButton?.addEventListener("click", () => {
   saveSelectedEmployeeDetails({ showSuccessMessage: true });
 });
 
-myAccountSavePinButton?.addEventListener("click", () => {
+myAccountSavePinButton?.addEventListener("click", () => runButtonLoading(myAccountSavePinButton, "Opslaan...", () => {
   const employeeName = getRoleScopedEmployeeName();
   const currentPin = String(myAccountCurrentPinInput?.value || "").trim();
   const nextPin = normalizeEmployeeLoginPin(myAccountNewPinInput?.value);
   const repeatPin = normalizeEmployeeLoginPin(myAccountRepeatPinInput?.value);
+  const pinContainer = myAccountPinStatus?.closest(".my-account-pin-card") || null;
+  const showPinError = (field, message) => {
+    clearFormValidationFeedback(pinContainer);
+    markFormFieldInvalid(field, message);
+    if (myAccountPinStatus) {
+      myAccountPinStatus.textContent = message;
+      setClassName(myAccountPinStatus, "form-feedback is-error");
+    } else {
+      setInlineFormFeedback(pinContainer, message, "error");
+    }
+    showMessage(message, "error");
+    focusFormValidationTarget(field, pinContainer);
+    return false;
+  };
+
+  clearFormValidationFeedback(pinContainer);
+  if (myAccountPinStatus) {
+    myAccountPinStatus.textContent = "";
+    setClassName(myAccountPinStatus, "panel-note");
+  }
 
   if (!employeeName) {
-    showMessage("Geen medewerker gekoppeld.", "error");
-    return;
+    return showPinError(null, "Geen medewerker gekoppeld.");
   }
 
   if (currentPin !== getEmployeeLoginPin(employeeName)) {
-    showMessage("Huidige pin klopt niet.", "error");
-    myAccountPinStatus.textContent = "Huidige pin klopt niet.";
-    return;
+    return showPinError(myAccountCurrentPinInput, "De huidige pincode klopt niet.");
   }
 
   if (!isValidEmployeeLoginPin(nextPin)) {
-    showMessage("Vul een nieuwe pincode van 4 tot 6 cijfers in.", "error");
-    myAccountPinStatus.textContent = "Vul een nieuwe pincode van 4 tot 6 cijfers in.";
-    return;
+    return showPinError(myAccountNewPinInput, "De nieuwe pincode moet uit 4 tot 6 cijfers bestaan.");
   }
 
   if (nextPin !== repeatPin) {
-    showMessage("Nieuwe pincodes komen niet overeen.", "error");
-    myAccountPinStatus.textContent = "Nieuwe pincodes komen niet overeen.";
-    return;
+    return showPinError(myAccountRepeatPinInput, "De nieuwe pincodes zijn niet gelijk.");
   }
 
   employeeMeta[employeeName] = {
@@ -29098,7 +29343,15 @@ myAccountSavePinButton?.addEventListener("click", () => {
     myAccountRepeatPinInput.value = "";
   }
   renderMyAccount();
-  showMessage("Pincode gewijzigd", "success");
+  if (myAccountPinStatus) {
+    myAccountPinStatus.textContent = "Pincode succesvol gewijzigd.";
+    setClassName(myAccountPinStatus, "form-feedback is-success");
+  }
+  showMessage("Pincode succesvol gewijzigd.", "success");
+}));
+
+[myAccountCurrentPinInput, myAccountNewPinInput, myAccountRepeatPinInput].forEach((input) => {
+  input?.addEventListener("input", clearChangedFieldValidation);
 });
 
 employeeDetailTestMailButton?.addEventListener("click", async () => {
