@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260507-validation-feedback";
+const APP_VERSION = "20260507-employee-lifecycle-requests";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -114,6 +114,7 @@ const employeeNewForm = document.getElementById("employeeNewForm");
 const removeEmployeeSelect = document.getElementById("removeEmployeeSelect");
 const employeeStatusSelect = document.getElementById("employeeStatusSelect");
 const employeeRoleSelect = document.getElementById("employeeRoleSelect");
+const employeeLoginAllowedInput = document.getElementById("employeeLoginAllowedInput");
 const employeeEmailInput = document.getElementById("employeeEmailInput");
 const employeeEmailError = document.getElementById("employeeEmailError");
 const employeeLoginPinInput = document.getElementById("employeeLoginPinInput");
@@ -179,6 +180,7 @@ const vacationReasonInput = document.getElementById("vacationReason");
 const submitVacationButton = document.getElementById("submitVacationButton");
 const sickEmployeeSelect = document.getElementById("sickEmployee");
 const sickDateInput = document.getElementById("sickDate");
+const sickEndDateInput = document.getElementById("sickEndDate");
 const sickReasonInput = document.getElementById("sickReason");
 const submitSickButton = document.getElementById("submitSickButton");
 const swapEmployeeSelect = document.getElementById("swapEmployee");
@@ -666,6 +668,7 @@ function getEmployeeMetaForMode(mode, modeEmployees = getEmployeesForMode(mode))
     modeEmployees.forEach((employeeName) => {
       normalized[employeeName] = {
         status: normalizeEmployeeStatus(parsedMeta?.[employeeName]?.status),
+        loginAllowed: parsedMeta?.[employeeName]?.loginAllowed !== false,
         updatedAt: typeof parsedMeta?.[employeeName]?.updatedAt === "string" ? parsedMeta[employeeName].updatedAt : "",
         updatedByRole: parsedMeta?.[employeeName]?.updatedByRole === "planner" ? "planner" : (parsedMeta?.[employeeName]?.updatedByRole === "employee" ? "employee" : ""),
         updatedByName: typeof parsedMeta?.[employeeName]?.updatedByName === "string" ? parsedMeta[employeeName].updatedByName : ""
@@ -949,7 +952,8 @@ function getAvailableLoginEmployees() {
   const modeEmployees = getEmployeesForMode(selectedMode);
   const modeEmployeeMeta = getEmployeeMetaForMode(selectedMode, modeEmployees);
   return modeEmployees.filter((employeeName) =>
-    normalizeEmployeeStatus(modeEmployeeMeta?.[employeeName]?.status) === "active"
+    normalizeEmployeeStatus(modeEmployeeMeta?.[employeeName]?.status) === "active" &&
+    modeEmployeeMeta?.[employeeName]?.loginAllowed !== false
   );
 }
 
@@ -2897,10 +2901,12 @@ function saveEmployees() {
       role: "employee",
       contractHours: 0,
       email: "",
+      loginAllowed: true,
       mailTestUser: false,
       lastTestMailAt: "",
       lastTestMailStatus: "",
       lastTestMailMessage: "",
+      employmentEndDate: "",
       updatedAt: "",
       updatedByRole: "",
       updatedByName: ""
@@ -4939,7 +4945,7 @@ let vrijeDagForm = {
   date: "",
   startDate: "",
   endDate: "",
-  reason: ""
+  reason: "Vrije dag aanvraag"
 };
 let vakantieForm = {
   employeeName: "",
@@ -4947,7 +4953,7 @@ let vakantieForm = {
   date: "",
   startDate: "",
   endDate: "",
-  reason: ""
+  reason: "Vakantie aanvraag"
 };
 let ziekmeldingForm = {
   employeeName: "",
@@ -4962,6 +4968,10 @@ let ruilForm = {
   date: "",
   entryValue: "",
   targetEmployeeName: ""
+};
+const DEFAULT_TIME_OFF_REASONS = {
+  vrij: "Vrije dag aanvraag",
+  vakantie: "Vakantie aanvraag"
 };
 let showSuitableEmployees = false;
 let autoFillPreviewEntries = [];
@@ -5148,12 +5158,14 @@ function loadEmployeeMeta() {
           : normalizeContractHours(getConfiguredEmployeeContractHours()[employeeName] ?? 0),
         email: Object.prototype.hasOwnProperty.call(currentMeta, "email") ? currentMeta.email : "",
         loginPin: Object.prototype.hasOwnProperty.call(currentMeta, "loginPin") ? currentMeta.loginPin : "",
+        loginAllowed: Object.prototype.hasOwnProperty.call(currentMeta, "loginAllowed") ? currentMeta.loginAllowed !== false : true,
         mailTestUser: Object.prototype.hasOwnProperty.call(currentMeta, "mailTestUser")
           ? currentMeta.mailTestUser
           : (!hasExplicitMailTestUser && employeeName === "Twan"),
         lastTestMailAt: Object.prototype.hasOwnProperty.call(currentMeta, "lastTestMailAt") ? currentMeta.lastTestMailAt : "",
         lastTestMailStatus: Object.prototype.hasOwnProperty.call(currentMeta, "lastTestMailStatus") ? currentMeta.lastTestMailStatus : "",
         lastTestMailMessage: Object.prototype.hasOwnProperty.call(currentMeta, "lastTestMailMessage") ? currentMeta.lastTestMailMessage : "",
+        employmentEndDate: Object.prototype.hasOwnProperty.call(currentMeta, "employmentEndDate") ? currentMeta.employmentEndDate : "",
         updatedAt: Object.prototype.hasOwnProperty.call(currentMeta, "updatedAt") ? currentMeta.updatedAt : "",
         updatedByRole: Object.prototype.hasOwnProperty.call(currentMeta, "updatedByRole") ? currentMeta.updatedByRole : "",
         updatedByName: Object.prototype.hasOwnProperty.call(currentMeta, "updatedByName") ? currentMeta.updatedByName : ""
@@ -5231,6 +5243,10 @@ function getEmployeeEmail(employeeName) {
   return normalizeEmployeeEmail(employeeMeta?.[employeeName]?.email);
 }
 
+function getEmployeeLoginAllowed(employeeName) {
+  return employeeMeta?.[employeeName]?.loginAllowed !== false;
+}
+
 function getAppMailSentMessage() {
   return getAppMailSentMessageHelper({
     appMailTestModeEnabled: APP_MAIL_TEST_MODE_ENABLED,
@@ -5299,6 +5315,7 @@ function createEmployeeEditorDraft(employeeName) {
   return createEmployeeEditorDraftHelper({
     getEmployeeEmail,
     getConfiguredEmployeeLoginPin,
+    getEmployeeLoginAllowed,
     getEmployeeAppRole,
     getEmployeeStatus,
     isEmployeeMailTestEnabled,
@@ -5347,6 +5364,7 @@ function getEmployeeEditorSnapshot(employeeName, draftOverride = null) {
   return {
     email: normalizeEmployeeEmail(draft?.email),
     loginPin: normalizeEmployeeLoginPin(draft?.loginPin),
+    loginAllowed: draft?.loginAllowed !== false,
     role: normalizeEmployeeAppRole(draft?.role),
     status: normalizeEmployeeStatus(draft?.status),
     mailTestUser: Boolean(draft?.mailTestUser),
@@ -5869,10 +5887,12 @@ function syncEmployeeMeta() {
         contractHours: normalizeContractHours(configuredContractHours[employeeName] ?? 0),
         email: "",
         loginPin: "",
+        loginAllowed: true,
         mailTestUser: false,
         lastTestMailAt: "",
         lastTestMailStatus: "",
         lastTestMailMessage: "",
+        employmentEndDate: "",
         updatedAt: "",
         updatedByRole: "",
         updatedByName: ""
@@ -8519,13 +8539,9 @@ const {
       return "";
     }
 
-    if (request.type === "vakantie") {
-      return typeof request.endDate === "string" && request.endDate
-        ? request.endDate
-        : getTimeOffStartDate(request);
-    }
-
-    return getTimeOffStartDate(request);
+    return typeof request.endDate === "string" && request.endDate
+      ? request.endDate
+      : getTimeOffStartDate(request);
   },
   requestIncludesDate = function fallbackRequestIncludesDate(request, date) {
     const startDate = getTimeOffStartDate(request);
@@ -8555,7 +8571,7 @@ const {
       return "";
     }
 
-    if (request?.type === "vakantie" && endDate && endDate !== startDate) {
+    if (endDate && endDate !== startDate) {
       return `${formatDate(startDate)} t/m ${formatDate(endDate)}`;
     }
 
@@ -10233,7 +10249,10 @@ function populateLoginEmployeeSelect() {
   const previewMode = "live";
   const modeEmployees = getEmployeesForMode(previewMode);
   const modeEmployeeMeta = getEmployeeMetaForMode(previewMode, modeEmployees);
-  const availableEmployees = modeEmployees.filter((employeeName) => normalizeEmployeeStatus(modeEmployeeMeta?.[employeeName]?.status) === "active");
+  const availableEmployees = modeEmployees.filter((employeeName) =>
+    normalizeEmployeeStatus(modeEmployeeMeta?.[employeeName]?.status) === "active" &&
+    modeEmployeeMeta?.[employeeName]?.loginAllowed !== false
+  );
   const options = buildEmployeeOptions(getEmployeesWithFavoritesFirst(availableEmployees));
   loginEmployeeSelect.innerHTML = `<option value="">Kies medewerker</option>${options}`;
   if (availableEmployees.includes(selectedValue)) {
@@ -16819,7 +16838,13 @@ function renderPlannerRequestInboxItem(item) {
         ${requestType === "swap" && !request.targetEmployeeName ? `<button type="button" class="small secondary" data-request-type="swap" data-request-action="assign-replacement" data-request-id="${request.id}">Vervanger kiezen</button>` : ""}
       </div>
     `
-    : "";
+    : (requestType === "timeoff" && request.status === "approved"
+      ? `
+        <div class="actions planner-request-actions planner-request-inbox-actions">
+          <button type="button" class="small secondary" data-request-type="timeoff" data-request-action="edit" data-request-id="${request.id}">Wijzigen</button>
+        </div>
+      `
+      : "");
 
   return `
     <article class="request-card planner-request-card planner-request-inbox-item is-${displayStatus}${requestType === "timeoff" ? ` absence-${getAbsenceCardClass(request.type)}` : ""}">
@@ -16889,7 +16914,13 @@ function renderPlannerRequestCards(target, requests, emptyText, requestType) {
           ${requestType === "swap" && !request.targetEmployeeName ? `<button type="button" class="small secondary" data-request-type="swap" data-request-action="assign-replacement" data-request-id="${request.id}">Vervanger kiezen</button>` : ""}
         </div>
       `
-      : "";
+      : (requestType === "timeoff" && request.status === "approved"
+        ? `
+          <div class="actions planner-request-actions">
+            <button type="button" class="small secondary" data-request-type="timeoff" data-request-action="edit" data-request-id="${request.id}">Wijzigen</button>
+          </div>
+        `
+        : "");
     const swapExtra = viewModel.swapExtraText
       ? `<div class="request-impact${request.targetEmployeeName ? "" : " request-attention-note"}">${viewModel.swapExtraText}</div>`
       : "";
@@ -16937,6 +16968,14 @@ function getComposerTimeOffType(composer) {
   }
 
   return "vrij";
+}
+
+function getDefaultTimeOffReason(type) {
+  return DEFAULT_TIME_OFF_REASONS[type] || "";
+}
+
+function isRangeTimeOffType(type) {
+  return type === "vakantie" || type === "ziek";
 }
 
 function getRequestTypeFromComposer(composer) {
@@ -17004,9 +17043,9 @@ function getTimeOffFormElements(composer = activeRequestComposer) {
     return {
       composerSection: requestSickComposer,
       employeeSelect: sickEmployeeSelect,
-      dateInput: sickDateInput,
-      startDateInput: null,
-      endDateInput: null,
+      dateInput: null,
+      startDateInput: sickDateInput,
+      endDateInput: sickEndDateInput,
       reasonInput: sickReasonInput,
       submitButton: submitSickButton
     };
@@ -17041,6 +17080,9 @@ function syncTimeOffFormStateFromFields(composer = activeRequestComposer) {
   formState.startDate = formElements.startDateInput?.value || "";
   formState.endDate = formElements.endDateInput?.value || "";
   formState.reason = formElements.reasonInput?.value || "";
+  if (!formState.reason) {
+    formState.reason = getDefaultTimeOffReason(formState.type);
+  }
 }
 
 function syncSwapFormStateFromFields() {
@@ -17104,8 +17146,12 @@ function applyActiveRequestComposerStateToFields() {
     formElements.endDateInput.value = formState.endDate || "";
   }
 
-  if (formElements.reasonInput && formElements.reasonInput.value !== (formState.reason || "")) {
-    formElements.reasonInput.value = formState.reason || "";
+  if (formElements.reasonInput) {
+    const fallbackReason = getDefaultTimeOffReason(formState.type);
+    const nextReason = formState.reason || fallbackReason || "";
+    if (formElements.reasonInput.value !== nextReason) {
+      formElements.reasonInput.value = nextReason;
+    }
   }
 }
 
@@ -17126,7 +17172,7 @@ function resetTimeOffComposer(options = {}) {
     formState.date = "";
     formState.startDate = "";
     formState.endDate = "";
-    formState.reason = "";
+    formState.reason = getDefaultTimeOffReason(formState.type);
   }
 
   if (!formElements) {
@@ -17150,7 +17196,7 @@ function resetTimeOffComposer(options = {}) {
   }
 
   if (formElements.reasonInput) {
-    formElements.reasonInput.value = "";
+    formElements.reasonInput.value = getDefaultTimeOffReason(formState?.type);
   }
 }
 
@@ -17214,21 +17260,50 @@ function resetRequestComposerForms(nextComposer = activeRequestComposer) {
 }
 
 function activateRequestComposer(nextComposer, options = {}) {
+  const timeOffComposers = ["free", "vacation", "sick"];
+  const normalizedComposer = typeof nextComposer === "string" ? nextComposer : "";
+  const preserveTimeOffEdit = Boolean(
+    editingTimeOffId &&
+    isPlannerRole() &&
+    timeOffComposers.includes(activeRequestComposer) &&
+    timeOffComposers.includes(normalizedComposer)
+  );
+  const previousEditId = editingTimeOffId;
+  const previousTimeOffState = preserveTimeOffEdit
+    ? { ...getRequestComposerState(activeRequestComposer) }
+    : null;
+
   if (activeRequestComposer === "swap") {
     syncSwapFormStateFromFields();
   } else if (activeRequestComposer === "free" || activeRequestComposer === "vacation" || activeRequestComposer === "sick") {
     syncTimeOffFormStateFromFields(activeRequestComposer);
+    if (preserveTimeOffEdit) {
+      Object.assign(previousTimeOffState, getRequestComposerState(activeRequestComposer));
+    }
   }
 
   const { preserveValues = false } = options;
-  const normalizedComposer = typeof nextComposer === "string" ? nextComposer : "";
 
-  if (!preserveValues) {
+  if (!preserveValues && !preserveTimeOffEdit) {
     resetRequestComposerForms(normalizedComposer);
   }
 
   activeRequestComposer = normalizedComposer;
   activeRequestType = getRequestTypeFromComposer(normalizedComposer);
+
+  if (preserveTimeOffEdit) {
+    const targetFormState = getRequestComposerState(normalizedComposer);
+    const previousStartDate = previousTimeOffState.startDate || previousTimeOffState.date || "";
+    const previousEndDate = previousTimeOffState.endDate || previousStartDate;
+    targetFormState.employeeName = previousTimeOffState.employeeName || "";
+    targetFormState.type = getComposerTimeOffType(normalizedComposer);
+    targetFormState.date = previousStartDate;
+    targetFormState.startDate = previousStartDate;
+    targetFormState.endDate = isRangeTimeOffType(targetFormState.type) ? previousEndDate : "";
+    targetFormState.reason = previousTimeOffState.reason || getDefaultTimeOffReason(targetFormState.type);
+    editingTimeOffId = previousEditId;
+  }
+
   renderRequestComposerState();
 }
 
@@ -18300,6 +18375,10 @@ function matchesEmployeeAdminFilter(employeeName, filterName = activeEmployeeAdm
     return status !== "active";
   }
 
+  if (filterName === "former") {
+    return status === "former";
+  }
+
   if (filterName === "bakery") {
     return department.includes("bakkerij");
   }
@@ -18544,8 +18623,11 @@ function updateEmployeeStatusQuick(employeeName, nextStatus) {
   const linkedRequestCount = timeOffRequests.filter((request) => request.employeeName === employeeName).length +
     swapRequests.filter((request) => request.employeeName === employeeName || request.targetEmployeeName === employeeName).length;
   const linkedWorkLogCount = workLogs.filter((log) => log.employeeName === employeeName).length;
+  const confirmMessage = normalizedStatus === "former"
+    ? `Weet je zeker dat je deze medewerker uit dienst wilt zetten? Oude roosters en uren blijven bewaard.\n\nHistorie blijft bewaard:\n- ${linkedEntryCount} roosterregels\n- ${linkedRequestCount} aanvragen of ruilverzoeken\n- ${linkedWorkLogCount} urenregistraties`
+    : `${employeeName} krijgt status ${getEmployeeStatusLabel(normalizedStatus)}.\n\nHistorie blijft bewaard:\n- ${linkedEntryCount} roosterregels\n- ${linkedRequestCount} aanvragen of ruilverzoeken\n- ${linkedWorkLogCount} urenregistraties\n\nWeet je zeker dat je dit wilt opslaan?`;
 
-  if (!confirmAction(`${employeeName} krijgt status ${getEmployeeStatusLabel(normalizedStatus)}.\n\nHistorie blijft bewaard:\n- ${linkedEntryCount} roosterregels\n- ${linkedRequestCount} aanvragen of ruilverzoeken\n- ${linkedWorkLogCount} urenregistraties\n\nWeet je zeker dat je dit wilt opslaan?`)) {
+  if (!confirmAction(confirmMessage)) {
     return false;
   }
 
@@ -18553,6 +18635,8 @@ function updateEmployeeStatusQuick(employeeName, nextStatus) {
     ...getEmployeeStatusMetaDefaults(),
     ...employeeMeta[employeeName],
     status: normalizedStatus,
+    loginAllowed: normalizedStatus === "active",
+    employmentEndDate: normalizedStatus === "former" ? getTodayLocalDateValue() : "",
     updatedAt: getNowIsoString(),
     updatedByRole: "planner",
     updatedByName: "Planner / Directie"
@@ -18724,7 +18808,7 @@ function renderEmployeeList() {
       const warnings = getEmployeeWarningLabels(employee);
       const temporaryPinActive = isEmployeeTemporaryPinActive(employee);
       const roleLabels = getEmployeeRoleLabels(employee);
-      const nextStatus = employeeStatus === "active" ? "inactive" : "active";
+      const nextStatus = employeeStatus === "former" ? "active" : "former";
 
       return `
         <article class="employee-table-row ${employee === selectedEmployee ? "is-active" : ""}" data-employee-select="${escapeHtmlAttribute(employee)}">
@@ -18746,7 +18830,7 @@ function renderEmployeeList() {
             <button type="button" class="secondary" data-employee-select="${escapeHtmlAttribute(employee)}">Bewerken</button>
             <button type="button" class="secondary" data-employee-reset-pin="${escapeHtmlAttribute(employee)}">Reset pin</button>
             <button type="button" class="secondary" data-employee-toggle-status="${escapeHtmlAttribute(employee)}" data-next-status="${nextStatus}">
-              ${employeeStatus === "active" ? "Inactief" : "Actief"}
+              ${employeeStatus === "former" ? "Heractiveren" : "Uit dienst zetten"}
             </button>
           </div>
         </article>
@@ -19024,6 +19108,10 @@ function renderEmployeeStatusControls() {
     if (employeeMailTestUserInput) {
       employeeMailTestUserInput.checked = false;
     }
+    if (employeeLoginAllowedInput) {
+      employeeLoginAllowedInput.checked = false;
+      employeeLoginAllowedInput.disabled = true;
+    }
     if (employeeDetailTitle) {
       employeeDetailTitle.textContent = "Kies links een medewerker";
     }
@@ -19061,6 +19149,10 @@ function renderEmployeeStatusControls() {
     employeeMailTestUserInput.title = EMPLOYEE_MAIL_TEST_MODE_ENABLED
       ? `Tijdelijke testmodus actief: alleen ${EMPLOYEE_MAIL_TEST_EMPLOYEE} ontvangt medewerker-mails.`
       : "";
+  }
+  if (employeeLoginAllowedInput) {
+    employeeLoginAllowedInput.checked = employeeDraft?.loginAllowed !== false && employeeStatusSelect.value === "active";
+    employeeLoginAllowedInput.disabled = employeeStatusSelect.value !== "active";
   }
   clearEmployeeEmailFieldError();
   clearEmployeeLoginPinFieldError();
@@ -26860,6 +26952,11 @@ function handlePlannerInboxTimeOffAction(button) {
     return;
   }
 
+  if (button.dataset.requestAction === "edit") {
+    startEditingTimeOffRequest(request);
+    return;
+  }
+
   if (button.dataset.requestAction === "note") {
     request.managerNote = getPlannerRequestNoteFromButton(button);
     request.updatedAt = getNowIsoString();
@@ -27076,6 +27173,51 @@ requestsOpenCards?.addEventListener("click", (event) => {
   }
 });
 
+function startEditingTimeOffRequest(request) {
+  if (!request) {
+    showMessage("De aanvraag is niet gevonden.", "error");
+    return false;
+  }
+
+  if (request.status === "approved" && !isPlannerRole()) {
+    showMessage("Goedgekeurde aanvragen kunnen alleen door de planner worden aangepast.", "error");
+    return false;
+  }
+
+  if (!ensureOwnRequestAction(request.employeeName, "het wijzigen van deze aanvraag")) {
+    return false;
+  }
+
+  if (!ensureEmployeeDateRangeEditable(getTimeOffStartDate(request), getTimeOffEndDate(request), "deze aanvraag te wijzigen")) {
+    return false;
+  }
+
+  activeRequestComposer = request.type === "vakantie"
+    ? "vacation"
+    : request.type === "ziek"
+      ? "sick"
+      : "free";
+  activeRequestType = getRequestTypeFromComposer(activeRequestComposer);
+  activeRequestsView = "form";
+  editingTimeOffId = request.id;
+  const targetFormState = getRequestComposerState(activeRequestComposer);
+  targetFormState.employeeName = request.employeeName;
+  targetFormState.type = request.type || "vrij";
+  targetFormState.date = getTimeOffStartDate(request);
+  targetFormState.startDate = getTimeOffStartDate(request);
+  targetFormState.endDate = getTimeOffEndDate(request);
+  targetFormState.reason = request.reason || getDefaultTimeOffReason(request.type);
+  renderRequestComposerState();
+  requestTimeOffPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
+  showMessage(
+    request.status === "approved"
+      ? "Pas de goedgekeurde aanvraag aan en klik op Aanvraag indienen."
+      : "Pas je aanvraag aan en klik op Aanvraag indienen.",
+    "success"
+  );
+  return true;
+}
+
 timeOffRequestsContainer.addEventListener("click", (event) => {
   const button = event.target.closest("button");
 
@@ -27091,30 +27233,7 @@ timeOffRequestsContainer.addEventListener("click", (event) => {
   }
 
   if (button.dataset.requestAction === "edit") {
-    if (!ensureOwnRequestAction(request.employeeName, "het wijzigen van deze aanvraag")) {
-      return;
-    }
-
-    if (!ensureEmployeeDateRangeEditable(getTimeOffStartDate(request), getTimeOffEndDate(request), "deze aanvraag te wijzigen")) {
-      return;
-    }
-
-    activeRequestComposer = request.type === "vakantie"
-      ? "vacation"
-      : request.type === "ziek"
-        ? "sick"
-        : "free";
-    activeRequestType = getRequestTypeFromComposer(activeRequestComposer);
-    editingTimeOffId = request.id;
-    const targetFormState = getRequestComposerState(activeRequestComposer);
-    targetFormState.employeeName = request.employeeName;
-    targetFormState.type = request.type || "vrij";
-    targetFormState.date = getTimeOffStartDate(request);
-    targetFormState.startDate = getTimeOffStartDate(request);
-    targetFormState.endDate = getTimeOffEndDate(request);
-    targetFormState.reason = request.reason || "";
-    renderRequestComposerState();
-    showMessage("Pas je aanvraag aan en klik op Aanvraag indienen.", "success");
+    startEditingTimeOffRequest(request);
     return;
   }
 
@@ -27980,6 +28099,10 @@ addEmployeeButton.addEventListener("click", () => {
     status: "active",
     role: employeeRole || getDefaultEmployeeAppRole(employeeName),
     email: employeeEmail,
+    loginPin: "",
+    loginAllowed: true,
+    tempLoginPinActive: true,
+    employmentEndDate: "",
     updatedAt: getNowIsoString(),
     updatedByRole: isPlannerRole() ? "planner" : "employee",
     updatedByName: isPlannerRole() ? "Planner / Directie" : (getRoleScopedEmployeeName() || "Medewerker")
@@ -28015,7 +28138,7 @@ addEmployeeButton.addEventListener("click", () => {
     newEmployeeRoleSelect.value = "employee";
   }
   employeeNewForm?.classList.add("hidden");
-  showSavedMessage();
+  showMessage("Medewerker toegevoegd. Deze medewerker kan nu inloggen en ingepland worden.", "success");
 });
 
 addShiftButton.addEventListener("click", () => {
@@ -28535,7 +28658,7 @@ function findOpenTimeOffDuplicateRequest(employeeName, startDate, endDate, exclu
   return timeOffRequests.find((request) =>
     request.id !== excludedRequestId &&
     request.employeeName === employeeName &&
-    request.status === "open" &&
+    ["open", "approved"].includes(request.status) &&
     requestOverlapsRange(request, startDate, normalizedEndDate)
   ) || null;
 }
@@ -28548,9 +28671,10 @@ function checkTimeOffDuplicateForComposer(composer = activeRequestComposer) {
     ? getEmployeeIdentity()
     : formState.employeeName;
   const type = formState.type || getComposerTimeOffType(composer);
-  const startDate = type === "vakantie" ? formState.startDate : formState.date;
-  const endDate = type === "vakantie" ? (formState.endDate || startDate) : startDate;
-  const dateField = type === "vakantie" ? formElements?.startDateInput : formElements?.dateInput;
+  const isRangeType = isRangeTimeOffType(type);
+  const startDate = isRangeType ? formState.startDate : formState.date;
+  const endDate = isRangeType ? (formState.endDate || startDate) : startDate;
+  const dateField = isRangeType ? formElements?.startDateInput : formElements?.dateInput;
 
   if (!employeeName || !startDate) {
     return false;
@@ -28561,7 +28685,7 @@ function checkTimeOffDuplicateForComposer(composer = activeRequestComposer) {
       formElements?.composerSection || null,
       dateField || null,
       isPlannerRole()
-        ? "Voor deze medewerker staat al een open aanvraag in deze periode."
+        ? "Voor deze medewerker staat al een aanvraag in deze periode."
         : "Je hebt voor deze datum al een aanvraag staan.",
       { toast: false }
     );
@@ -28582,13 +28706,15 @@ function submitTimeOffRequest(composer) {
   const formElements = getTimeOffFormElements(composer);
   const employeeName = !isPlannerRole() ? ownEmployeeName : (currentTimeOffForm.employeeName || formElements?.employeeSelect?.value || "");
   const type = currentTimeOffForm.type || getComposerTimeOffType(composer);
-  const startDate = type === "vakantie" ? currentTimeOffForm.startDate : currentTimeOffForm.date;
-  const endDate = type === "vakantie" ? (currentTimeOffForm.endDate || startDate) : startDate;
+  const isRangeType = isRangeTimeOffType(type);
+  const startDate = isRangeType ? currentTimeOffForm.startDate : currentTimeOffForm.date;
+  const endDate = isRangeType ? (currentTimeOffForm.endDate || startDate) : startDate;
   const date = startDate;
-  const reason = (currentTimeOffForm.reason || "").trim();
+  const defaultReason = getDefaultTimeOffReason(type);
+  const reason = (currentTimeOffForm.reason || defaultReason || "").trim();
   const composerSection = formElements?.composerSection || null;
   const employeeField = formElements?.employeeSelect || null;
-  const startDateField = type === "vakantie" ? formElements?.startDateInput : formElements?.dateInput;
+  const startDateField = isRangeType ? formElements?.startDateInput : formElements?.dateInput;
   const endDateField = formElements?.endDateInput || startDateField;
   const reasonField = formElements?.reasonInput || null;
   const showTimeOffError = (field, message) => showFormValidationError(composerSection, field, message);
@@ -28600,14 +28726,14 @@ function submitTimeOffRequest(composer) {
   }
 
   if (!startDate) {
-    return showTimeOffError(startDateField, type === "vakantie" ? "Kies eerst een begindatum." : "Kies eerst een datum.");
+    return showTimeOffError(startDateField, isRangeType ? "Kies eerst een begindatum." : "Kies eerst een datum.");
   }
 
   if (type === "vakantie" && !currentTimeOffForm.endDate) {
     return showTimeOffError(endDateField, "Kies eerst een einddatum.");
   }
 
-  if (type === "vakantie" && endDate < startDate) {
+  if (isRangeType && endDate < startDate) {
     return showTimeOffError(endDateField, "De einddatum kan niet vóór de begindatum liggen.");
   }
 
@@ -28624,6 +28750,11 @@ function submitTimeOffRequest(composer) {
     return showTimeOffError(reasonField, "Vul een korte reden in voor deze aanvraag.");
   }
 
+  if (reasonField && reasonField.value !== reason) {
+    reasonField.value = reason;
+    currentTimeOffForm.reason = reason;
+  }
+
   if (!ensureOwnRequestAction(employeeName, "een afwezigheidsaanvraag")) {
     return;
   }
@@ -28638,7 +28769,7 @@ function submitTimeOffRequest(composer) {
     return showTimeOffError(
       startDateField,
       isPlannerRole()
-        ? "Voor deze medewerker staat al een open aanvraag in deze periode."
+        ? "Voor deze medewerker staat al een aanvraag in deze periode."
         : "Je hebt voor deze datum al een aanvraag staan."
     );
   }
@@ -28656,6 +28787,11 @@ function submitTimeOffRequest(composer) {
     }
   }
 
+  const existingTimeOffRequest = editingTimeOffId
+    ? timeOffRequests.find((item) => item.id === editingTimeOffId)
+    : null;
+  const isApprovedPlannerCorrection = Boolean(existingTimeOffRequest?.status === "approved" && isPlannerRole());
+
   if (editingTimeOffId) {
     const request = timeOffRequests.find((item) => item.id === editingTimeOffId);
 
@@ -28664,13 +28800,17 @@ function submitTimeOffRequest(composer) {
         return;
       }
 
+      if (request.status === "approved" && !isPlannerRole()) {
+        return showTimeOffError(startDateField, "Goedgekeurde aanvragen kunnen alleen door de planner worden aangepast.");
+      }
+
       request.employeeName = employeeName;
       request.type = type;
       request.date = startDate;
       request.startDate = startDate;
       request.endDate = endDate;
       request.reason = reason;
-      request.status = "open";
+      request.status = isApprovedPlannerCorrection ? "approved" : "open";
       request.updatedAt = getNowIsoString();
       request.mailLog = Array.isArray(request.mailLog) ? request.mailLog : [];
     }
@@ -28692,7 +28832,7 @@ function submitTimeOffRequest(composer) {
     ? timeOffRequests.find((item) => item.id === editingTimeOffId)
     : timeOffRequests[timeOffRequests.length - 1];
 
-  if (currentTimeOffRequest) {
+  if (currentTimeOffRequest && !isApprovedPlannerCorrection) {
     registerTimeOffMailNotification(currentTimeOffRequest, "submitted", [employeeName], {
       notifyUser: true,
       notifySuccessMessage: getAppMailSentMessage(),
@@ -28701,17 +28841,23 @@ function submitTimeOffRequest(composer) {
   }
   saveTimeOffRequests();
   persistProtectedChange({
-    reason: editingTimeOffId ? `Afwezigheidsaanvraag gewijzigd: ${employeeName} ${startDate}` : `Afwezigheidsaanvraag ingediend: ${employeeName} ${startDate}`,
+    reason: isApprovedPlannerCorrection
+      ? `Goedgekeurde afwezigheidsaanvraag gecorrigeerd: ${employeeName} ${startDate}`
+      : editingTimeOffId
+        ? `Afwezigheidsaanvraag gewijzigd: ${employeeName} ${startDate}`
+        : `Afwezigheidsaanvraag ingediend: ${employeeName} ${startDate}`,
     scope: "request",
-    action: editingTimeOffId ? "timeoff-updated" : "timeoff-created",
-    message: `${getAbsenceTypeLabel(type)} opgeslagen voor ${employeeName}.`,
+    action: isApprovedPlannerCorrection ? "timeoff-approved-updated" : (editingTimeOffId ? "timeoff-updated" : "timeoff-created"),
+    message: isApprovedPlannerCorrection
+      ? `Goedgekeurde aanvraag bijgewerkt voor ${employeeName}.`
+      : `${getAbsenceTypeLabel(type)} opgeslagen voor ${employeeName}.`,
     details: {
       employeeName,
       date: startDate,
       startDate,
       endDate,
       type,
-      status: "open"
+      status: currentTimeOffRequest?.status || "open"
     }
   });
   resetTimeOffComposer({
@@ -28722,14 +28868,16 @@ function submitTimeOffRequest(composer) {
     activeRequestsView = "mine";
   }
   render();
-  const requestSuccessMessage = type === "vakantie"
-    ? "Vakantie succesvol opgeslagen."
-    : type === "ziek"
-      ? "Ziekmelding succesvol verstuurd."
-      : "Aanvraag succesvol verstuurd.";
+  const requestSuccessMessage = isApprovedPlannerCorrection
+    ? "Goedgekeurde aanvraag bijgewerkt."
+    : type === "vakantie"
+      ? "Vakantie succesvol opgeslagen."
+      : type === "ziek"
+        ? "Ziekmelding succesvol verstuurd."
+        : "Aanvraag succesvol verstuurd.";
   showMessage(requestSuccessMessage, "success");
   const latestMail = currentTimeOffRequest ? getLatestRequestMailNotification(currentTimeOffRequest) : null;
-  if (latestMail?.status === "queued") {
+  if (!isApprovedPlannerCorrection && latestMail?.status === "queued") {
     showMessage(`${requestSuccessMessage} Mailbevestiging wordt verzonden.`, "success");
   }
   if (vacationWarningMessage) {
@@ -28995,6 +29143,8 @@ Bewaarde historie:
     ...getEmployeeStatusMetaDefaults(),
     ...employeeMeta[employeeName],
     status: nextStatus,
+    loginAllowed: nextStatus === "active",
+    employmentEndDate: nextStatus === "former" ? getTodayLocalDateValue() : "",
     updatedAt: getNowIsoString(),
     updatedByRole: isPlannerRole() ? "planner" : "employee",
     updatedByName: isPlannerRole() ? "Planner / Directie" : (getRoleScopedEmployeeName() || "Medewerker")
@@ -29026,9 +29176,16 @@ employeeStatusSelect?.addEventListener("change", () => {
 
   if (employeeDraft) {
     employeeDraft.status = normalizeEmployeeStatus(employeeStatusSelect.value);
+    if (employeeDraft.status !== "active") {
+      employeeDraft.loginAllowed = false;
+    }
   }
 
   employeeStatusImpact.textContent = formatEmployeeStatusImpact(employeeStatusSelect.value);
+  if (employeeLoginAllowedInput) {
+    employeeLoginAllowedInput.checked = employeeStatusSelect.value === "active" && employeeDraft?.loginAllowed !== false;
+    employeeLoginAllowedInput.disabled = employeeStatusSelect.value !== "active";
+  }
 });
 
 employeeRoleSelect?.addEventListener("change", () => {
@@ -29062,6 +29219,15 @@ employeeLoginPinInput?.addEventListener("input", () => {
   }
 
   renderEmployeeLoginPinStatus(employeeName);
+});
+
+employeeLoginAllowedInput?.addEventListener("change", () => {
+  const employeeName = getSelectedEmployeeAdminName();
+  const employeeDraft = getEmployeeEditorDraft(employeeName);
+
+  if (employeeDraft) {
+    employeeDraft.loginAllowed = Boolean(employeeLoginAllowedInput.checked);
+  }
 });
 
 employeeMailTestUserInput?.addEventListener("change", () => {
@@ -29124,6 +29290,7 @@ function saveSelectedEmployeeDetails(options = {}) {
   const normalizedLoginPin = normalizeEmployeeLoginPin(employeeLoginPinInput?.value);
   const normalizedRole = normalizeEmployeeAppRole(employeeRoleSelect?.value);
   const nextStatus = normalizeEmployeeStatus(employeeStatusSelect?.value);
+  const normalizedLoginAllowed = nextStatus === "active" && employeeDraft?.loginAllowed !== false;
   const shouldEnableMailTestUser = Boolean(employeeDraft?.mailTestUser);
   const normalizedContractHours = normalizeContractHours(employeeDraft?.contractHours);
   const normalizedPermissions = Object.fromEntries(
@@ -29201,7 +29368,9 @@ Bewaarde historie:
     role: normalizedRole,
     email: normalizedEmail,
     loginPin: normalizedLoginPin,
+    loginAllowed: normalizedLoginAllowed,
     status: nextStatus,
+    employmentEndDate: nextStatus === "former" ? (employeeMeta[employeeName]?.employmentEndDate || getTodayLocalDateValue()) : "",
     mailTestUser: shouldEnableMailTestUser,
     contractHours: normalizedContractHours,
     updatedAt: getNowIsoString(),
@@ -29234,6 +29403,7 @@ Bewaarde historie:
       email: normalizedEmail,
       role: normalizedRole,
       status: nextStatus,
+      loginAllowed: normalizedLoginAllowed,
       mailTestUser: shouldEnableMailTestUser,
       contractHours: normalizedContractHours,
       standardShiftName: normalizedStandardShift,
@@ -30500,6 +30670,11 @@ sickEmployeeSelect?.addEventListener("change", () => {
 });
 
 sickDateInput?.addEventListener("input", () => {
+  syncTimeOffFormStateFromFields("sick");
+  checkTimeOffDuplicateForComposer("sick");
+});
+
+sickEndDateInput?.addEventListener("input", () => {
   syncTimeOffFormStateFromFields("sick");
   checkTimeOffDuplicateForComposer("sick");
 });

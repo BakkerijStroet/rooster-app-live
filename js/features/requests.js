@@ -67,13 +67,9 @@
       return "";
     }
 
-    if (request.type === "vakantie") {
-      return typeof request.endDate === "string" && request.endDate
-        ? request.endDate
-        : getTimeOffStartDate(request);
-    }
-
-    return getTimeOffStartDate(request);
+    return typeof request.endDate === "string" && request.endDate
+      ? request.endDate
+      : getTimeOffStartDate(request);
   }
 
   function requestIncludesDate(request, date) {
@@ -106,7 +102,7 @@
       return "";
     }
 
-    if (request?.type === "vakantie" && endDate && endDate !== startDate) {
+    if (endDate && endDate !== startDate) {
       return `${formatDate(startDate)} t/m ${formatDate(endDate)}`;
     }
 

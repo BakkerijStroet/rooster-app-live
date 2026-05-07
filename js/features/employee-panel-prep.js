@@ -3,6 +3,7 @@
     return {
       email: getters.getEmployeeEmail(employeeName),
       loginPin: getters.getConfiguredEmployeeLoginPin(employeeName),
+      loginAllowed: typeof getters.getEmployeeLoginAllowed === "function" ? getters.getEmployeeLoginAllowed(employeeName) : true,
       role: getters.getEmployeeAppRole(employeeName),
       status: getters.getEmployeeStatus(employeeName),
       mailTestUser: getters.isEmployeeMailTestEnabled(employeeName),

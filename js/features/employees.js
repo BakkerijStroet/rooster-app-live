@@ -6,10 +6,12 @@
       contractHours: 0,
       email: "",
       loginPin: "",
+      loginAllowed: true,
       mailTestUser: false,
       lastTestMailAt: "",
       lastTestMailStatus: "",
       lastTestMailMessage: "",
+      employmentEndDate: "",
       updatedAt: "",
       updatedByRole: "",
       updatedByName: ""

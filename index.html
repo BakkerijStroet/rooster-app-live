@@ -6,7 +6,7 @@
   <title>Bakkerij Stroet | Rooster app</title>
   <meta name="theme-color" content="#fffaf3">
   <link rel="icon" type="image/jpeg" href="Logo%202020.jpg">
-  <link rel="stylesheet" href="styles.css?v=20260507-validation-feedback">
+  <link rel="stylesheet" href="styles.css?v=20260507-employee-lifecycle-requests">
 </head>
 <body>
   <main class="container">
@@ -130,6 +130,7 @@
             <button type="button" class="employee-filter-button active" data-employee-admin-filter="all">Alles</button>
             <button type="button" class="employee-filter-button" data-employee-admin-filter="active">Actief</button>
             <button type="button" class="employee-filter-button" data-employee-admin-filter="inactive">Inactief</button>
+            <button type="button" class="employee-filter-button" data-employee-admin-filter="former">Uit dienst</button>
             <button type="button" class="employee-filter-button" data-employee-admin-filter="bakery">Bakkerij</button>
             <button type="button" class="employee-filter-button" data-employee-admin-filter="shop">Winkel</button>
             <button type="button" class="employee-filter-button" data-employee-admin-filter="planner">Planner</button>
@@ -986,7 +987,7 @@
               </label>
               <label class="request-form-full">
                 <span>Reden of toelichting</span>
-                <input type="text" id="freeDayReason" placeholder="Korte toelichting">
+                <input type="text" id="freeDayReason" placeholder="Vrije dag aanvraag">
               </label>
             </div>
             <button type="button" id="submitFreeDayButton">Aanvraag indienen</button>
@@ -1015,7 +1016,7 @@
               </label>
               <label class="request-form-full">
                 <span>Reden of toelichting</span>
-                <input type="text" id="vacationReason" placeholder="Korte toelichting">
+                <input type="text" id="vacationReason" placeholder="Vakantie aanvraag">
               </label>
             </div>
             <button type="button" id="submitVacationButton">Aanvraag indienen</button>
@@ -1025,6 +1026,7 @@
             <div class="request-composer-head">
               <div>
                 <h3>Ziekmelding doorgeven</h3>
+                <p class="panel-note">Gebruik dit ook voor geplande afwezigheid door operatie of herstel.</p>
               </div>
             </div>
             <div class="request-form-grid">
@@ -1035,8 +1037,12 @@
                 </select>
               </label>
               <label>
-                <span>Datum ziekmelding</span>
+                <span>Startdatum ziekmelding</span>
                 <input type="date" id="sickDate">
+              </label>
+              <label>
+                <span>Einddatum (optioneel)</span>
+                <input type="date" id="sickEndDate">
               </label>
               <label class="request-form-full">
                 <span>Reden of toelichting</span>
@@ -1346,25 +1352,25 @@
     <button type="button" class="mobile-nav-button" data-go-tab="requests">Aanvragen</button>
   </nav>
 
-  <script src="js/utils/dom.js?v=20260507-validation-feedback"></script>
-  <script src="js/utils/date.js?v=20260507-validation-feedback"></script>
-  <script src="js/utils/format.js?v=20260507-validation-feedback"></script>
-  <script src="js/features/requests.js?v=20260507-validation-feedback"></script>
-  <script src="js/features/hours.js?v=20260507-validation-feedback"></script>
-  <script src="js/features/employees.js?v=20260507-validation-feedback"></script>
-  <script src="js/features/mail.js?v=20260507-validation-feedback"></script>
-  <script src="js/features/backup.js?v=20260507-validation-feedback"></script>
-  <script src="js/features/planning-core.js?v=20260507-validation-feedback"></script>
-  <script src="js/features/day-planner.js?v=20260507-validation-feedback"></script>
-  <script src="js/features/planning-status.js?v=20260507-validation-feedback"></script>
-  <script src="js/features/planning-assignments.js?v=20260507-validation-feedback"></script>
-  <script src="js/features/planning-panel-prep.js?v=20260507-validation-feedback"></script>
-  <script src="js/features/navigation.js?v=20260507-validation-feedback"></script>
-  <script src="js/features/render-helpers.js?v=20260507-validation-feedback"></script>
-  <script src="js/features/bootstrap-helpers.js?v=20260507-validation-feedback"></script>
-  <script src="js/features/employee-panel-prep.js?v=20260507-validation-feedback"></script>
-  <script src="js/features/requests-panel-prep.js?v=20260507-validation-feedback"></script>
-  <script src="js/features/hours-panel-prep.js?v=20260507-validation-feedback"></script>
-  <script src="app.js?v=20260507-validation-feedback"></script>
+  <script src="js/utils/dom.js?v=20260507-employee-lifecycle-requests"></script>
+  <script src="js/utils/date.js?v=20260507-employee-lifecycle-requests"></script>
+  <script src="js/utils/format.js?v=20260507-employee-lifecycle-requests"></script>
+  <script src="js/features/requests.js?v=20260507-employee-lifecycle-requests"></script>
+  <script src="js/features/hours.js?v=20260507-employee-lifecycle-requests"></script>
+  <script src="js/features/employees.js?v=20260507-employee-lifecycle-requests"></script>
+  <script src="js/features/mail.js?v=20260507-employee-lifecycle-requests"></script>
+  <script src="js/features/backup.js?v=20260507-employee-lifecycle-requests"></script>
+  <script src="js/features/planning-core.js?v=20260507-employee-lifecycle-requests"></script>
+  <script src="js/features/day-planner.js?v=20260507-employee-lifecycle-requests"></script>
+  <script src="js/features/planning-status.js?v=20260507-employee-lifecycle-requests"></script>
+  <script src="js/features/planning-assignments.js?v=20260507-employee-lifecycle-requests"></script>
+  <script src="js/features/planning-panel-prep.js?v=20260507-employee-lifecycle-requests"></script>
+  <script src="js/features/navigation.js?v=20260507-employee-lifecycle-requests"></script>
+  <script src="js/features/render-helpers.js?v=20260507-employee-lifecycle-requests"></script>
+  <script src="js/features/bootstrap-helpers.js?v=20260507-employee-lifecycle-requests"></script>
+  <script src="js/features/employee-panel-prep.js?v=20260507-employee-lifecycle-requests"></script>
+  <script src="js/features/requests-panel-prep.js?v=20260507-employee-lifecycle-requests"></script>
+  <script src="js/features/hours-panel-prep.js?v=20260507-employee-lifecycle-requests"></script>
+  <script src="app.js?v=20260507-employee-lifecycle-requests"></script>
 </body>
 </html>
