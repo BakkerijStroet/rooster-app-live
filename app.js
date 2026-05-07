@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260507-employee-lifecycle-requests";
+const APP_VERSION = "20260507-former-employee-filtering";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -702,7 +702,7 @@ function buildSessionSnapshot(sourcePreferences = preferences) {
         : ""
     },
     employees,
-    isEmployeeActive
+    isEmployeeLoginActive
   );
   const rememberedUserSession = hasRememberedUserSessionHelper(sourcePreferences);
   const isAuthenticated = !needsLoginSelectionHelper(
@@ -1074,7 +1074,7 @@ function startEmployeeSession(employeeName, { showStartupMessage = false } = {})
   const availableEmployees = getAvailableLoginEmployees();
 
   if (!employeeName || !availableEmployees.includes(employeeName)) {
-    showMessage("Kies eerst een actieve medewerker.", "error");
+    showMessage(employeeName ? "Dit account is niet meer actief." : "Kies eerst een actieve medewerker.", "error");
     openSessionLogin({
       preferredRole: "employee",
       preferredEmployee: ""
@@ -1093,7 +1093,7 @@ function startEmployeeSession(employeeName, { showStartupMessage = false } = {})
   reloadScopedData();
 
   if (!getEmployeeIdentity()) {
-    showMessage("De gekozen medewerker is niet meer beschikbaar. Log opnieuw in.", "error");
+    showMessage("Dit account is niet meer actief.", "error");
     applySessionSnapshot({
       isAuthenticated: false,
       role: "employee",
@@ -1138,7 +1138,7 @@ function restoreSessionState({
     });
 
     if (employeeSessionExpired) {
-      showMessage("De medewerker is niet meer actief of niet meer beschikbaar. Log opnieuw in.", "warning");
+      showMessage("Dit account is niet meer actief.", "warning");
     }
 
     return false;
@@ -4988,7 +4988,7 @@ const employeeAllowedTabs = ["week-current", "my-schedule", "my-hours", "my-acco
 let planningDataRevision = 0;
 let requestDataRevision = 0;
 let previewDataRevision = 0;
-let activeEmployeeAdminFilter = "all";
+let activeEmployeeAdminFilter = "active";
 let activeEmployeeDetailTab = "details";
 let activeMyHoursSection = "";
 let activeMyHoursEntryMode = "planned";
@@ -5295,7 +5295,13 @@ function getSelectedEmployeeAdminName() {
   }
 
   const selectedName = removeEmployeeSelect?.value || "";
-  return employees.includes(selectedName) ? selectedName : employees[0];
+  const filteredEmployees = getFilteredEmployeeAdminNames();
+
+  if (filteredEmployees.includes(selectedName)) {
+    return selectedName;
+  }
+
+  return filteredEmployees[0] || "";
 }
 
 function getExplicitSelectedEmployeeAdminName() {
@@ -5483,6 +5489,14 @@ function discardEmployeeEditorChanges(employeeName) {
 
 function isEmployeeActive(employeeName) {
   return getEmployeeStatus(employeeName) === "active";
+}
+
+function isEmployeeFormer(employeeName) {
+  return getEmployeeStatus(employeeName) === "former";
+}
+
+function isEmployeeLoginActive(employeeName) {
+  return isEmployeeActive(employeeName) && getEmployeeLoginAllowed(employeeName);
 }
 
 function getActiveEmployees() {
@@ -9836,7 +9850,7 @@ function getEmployeeIdentity() {
       employeeIdentity: sessionState.employeeIdentity || preferences.employeeIdentity
     },
     employees,
-    isEmployeeActive
+    isEmployeeLoginActive
   );
 }
 
@@ -18367,16 +18381,20 @@ function matchesEmployeeAdminFilter(employeeName, filterName = activeEmployeeAdm
   const status = getEmployeeStatus(employeeName);
   const department = getEmployeeDepartmentSummary(employeeName).toLowerCase();
 
-  if (filterName === "active") {
+  if (filterName === "all" || filterName === "active") {
     return status === "active";
   }
 
   if (filterName === "inactive") {
-    return status !== "active";
+    return status === "inactive";
   }
 
   if (filterName === "former") {
-    return status === "former";
+    return isEmployeeFormer(employeeName);
+  }
+
+  if (!isEmployeeActive(employeeName)) {
+    return false;
   }
 
   if (filterName === "bakery") {
@@ -18391,7 +18409,19 @@ function matchesEmployeeAdminFilter(employeeName, filterName = activeEmployeeAdm
     return getEmployeeAppRole(employeeName) === "planner";
   }
 
-  return true;
+  return isEmployeeActive(employeeName);
+}
+
+function getEmployeeAdminEmptyText() {
+  if (activeEmployeeAdminFilter === "former") {
+    return "Geen oud werknemers gevonden.";
+  }
+
+  if (activeEmployeeAdminFilter === "inactive") {
+    return "Geen inactieve medewerkers gevonden.";
+  }
+
+  return "Geen actieve medewerkers gevonden voor deze selectie.";
 }
 
 function getFilteredEmployeeAdminNames() {
@@ -18687,9 +18717,11 @@ function renderEmployeeSelectors() {
   const filteredPlanningEmployees = filterEmployeesBySearch(suitableEmployees, planningEmployeeSearchInput);
   const activeEmployees = getEmployeesWithFavoritesFirst(getActiveEmployees());
   const allEmployeesSorted = getEmployeesWithFavoritesFirst(employees);
+  const filteredAdminEmployees = getFilteredEmployeeAdminNames();
   const filteredPortalEmployees = filterEmployeesBySearch(allEmployeesSorted, portalEmployeeSearchInput);
   const filteredHoursEmployees = filterEmployeesBySearch(allEmployeesSorted, hoursEmployeeSearchInput);
   const options = buildEmployeeOptions(allEmployeesSorted);
+  const adminOptions = buildEmployeeOptions(filteredAdminEmployees);
   const activeOptions = buildEmployeeOptions(activeEmployees);
   const planningOptions = buildEmployeeOptions(filteredPlanningEmployees);
   const employeeIdentity = getEmployeeIdentity();
@@ -18704,7 +18736,7 @@ function renderEmployeeSelectors() {
   });
 
   nameSelect.innerHTML = `<option value="">${planningPlaceholder}</option>${planningOptions}`;
-  removeEmployeeSelect.innerHTML = `<option value="">Kies medewerker voor statuswijziging</option>${options}`;
+  removeEmployeeSelect.innerHTML = `<option value="">Kies medewerker voor statuswijziging</option>${adminOptions}`;
   getAllTimeOffEmployeeSelects().forEach((select) => {
     select.innerHTML = isPlannerRole()
       ? `<option value="">Kies medewerker</option>${activeOptions}`
@@ -18722,7 +18754,9 @@ function renderEmployeeSelectors() {
   currentEmployeeSelect.innerHTML = `<option value="">Kies medewerker</option>${activeOptions}`;
 
   nameSelect.value = suitableEmployees.includes(selectedName) ? selectedName : "";
-  removeEmployeeSelect.value = employees.includes(selectedRemoveName) ? selectedRemoveName : "";
+  removeEmployeeSelect.value = filteredAdminEmployees.includes(selectedRemoveName)
+    ? selectedRemoveName
+    : (filteredAdminEmployees[0] || "");
   getAllTimeOffEmployeeSelects().forEach((select, index) => {
     const selectedValue = selectedTimeOffEmployees[index] || "";
     select.value = getActiveEmployees().includes(selectedValue) ? selectedValue : "";
@@ -18797,7 +18831,7 @@ function renderEmployeeList() {
 
   if (!filteredEmployees.length) {
     setClassName(employeeListCard, "employee-table-list empty");
-    employeeListCard.textContent = "Geen medewerkers gevonden voor deze selectie.";
+    employeeListCard.textContent = getEmployeeAdminEmptyText();
     return;
   }
 
@@ -25728,7 +25762,7 @@ function render() {
           preferredRole: validatedSession.role,
           preferredEmployee: ""
         });
-        showMessage("De medewerker is niet meer actief of niet meer beschikbaar. Log opnieuw in.", "warning");
+        showMessage("Dit account is niet meer actief.", "warning");
       }
     }
 
@@ -28126,6 +28160,7 @@ addEmployeeButton.addEventListener("click", () => {
   if (removeEmployeeSelect) {
     removeEmployeeSelect.value = employeeName;
   }
+  activeEmployeeAdminFilter = "active";
   render();
   nameSelect.value = employeeName;
   preferences.lastEmployee = employeeName;
@@ -28378,7 +28413,7 @@ employeeAdminFilters?.addEventListener("click", (event) => {
     return;
   }
 
-  activeEmployeeAdminFilter = button.dataset.employeeAdminFilter || "all";
+  activeEmployeeAdminFilter = button.dataset.employeeAdminFilter || "active";
   renderEmployeeList();
 });
 
