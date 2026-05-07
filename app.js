@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260507-former-employee-filtering";
+const APP_VERSION = "20260507-sick-leave-overrides-vacation";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -8495,11 +8495,16 @@ function getApprovedTimeOff(employeeName, date) {
     return null;
   }
 
-  return timeOffRequests.find((request) =>
-    request.status === "approved" &&
+  const matchingRequests = timeOffRequests.filter((request) =>
+    !isDeletedRequest(request) &&
+    (request.status === "approved" || (request.type === "ziek" && request.status === "open")) &&
     request.employeeName === employeeName &&
     requestIncludesDate(request, date)
-  ) || null;
+  );
+
+  return matchingRequests.find((request) => request.type === "ziek") ||
+    matchingRequests[0] ||
+    null;
 }
 
 const {
@@ -16938,6 +16943,7 @@ function renderPlannerRequestCards(target, requests, emptyText, requestType) {
     const swapExtra = viewModel.swapExtraText
       ? `<div class="request-impact${request.targetEmployeeName ? "" : " request-attention-note"}">${viewModel.swapExtraText}</div>`
       : "";
+    const sickOverlapNotice = requestType === "timeoff" ? getSickLeaveOverlapNotice(request) : "";
     const replacementField = requestType === "swap" && request.status === "open" && !request.targetEmployeeName
       ? `
         <label class="request-note-field">
@@ -16965,6 +16971,7 @@ function renderPlannerRequestCards(target, requests, emptyText, requestType) {
         </div>
         ${swapExtra}
         ${viewModel.rosterEffectText ? `<div class="request-impact">${viewModel.rosterEffectText}</div>` : ""}
+        ${sickOverlapNotice ? `<div class="request-impact request-attention-note">${sickOverlapNotice}</div>` : ""}
         ${viewModel.attentionText ? `<div class="request-impact request-attention-note">${viewModel.attentionText}</div>` : ""}
         ${plannerNote}
       </article>
@@ -20216,6 +20223,7 @@ function renderTimeOffRequests() {
         ${isPlannerRole() ? `<div class="request-meta">${getAbsenceTypeLabel(request.type)}</div>` : ""}
         <div class="request-meta">${getTimeOffDisplayRange(request)}${request.reason ? ` - ${request.reason}` : ""}</div>
         <div class="request-impact">${getRequestRosterEffectText(request, "timeoff")}</div>
+        ${getSickLeaveOverlapNotice(request) ? `<div class="request-impact request-attention-note">${getSickLeaveOverlapNotice(request)}</div>` : ""}
         ${request.status === "open" && getRequestAttentionText(request) ? `<div class="request-impact request-attention-note">${getRequestAttentionText(request)}</div>` : ""}
         ${renderRequestMailStatus(request, getTimeOffMailStatusText)}
         ${request.managerNote ? `<div class="request-impact"><strong>Opmerking:</strong> ${request.managerNote}</div>` : ""}
@@ -28684,18 +28692,59 @@ employeeListCard?.addEventListener("click", (event) => {
   selectEmployeeForAdmin(employeeName);
 });
 
-function findOpenTimeOffDuplicateRequest(employeeName, startDate, endDate, excludedRequestId = "") {
+function getOverlappingTimeOffRequests(employeeName, startDate, endDate, {
+  excludedRequestId = "",
+  types = null,
+  statuses = ["open", "approved"]
+} = {}) {
   if (!employeeName || !startDate) {
-    return null;
+    return [];
   }
 
   const normalizedEndDate = endDate || startDate;
-  return timeOffRequests.find((request) =>
+
+  return timeOffRequests.filter((request) =>
+    !isDeletedRequest(request) &&
     request.id !== excludedRequestId &&
     request.employeeName === employeeName &&
-    ["open", "approved"].includes(request.status) &&
+    statuses.includes(request.status) &&
+    (!Array.isArray(types) || types.includes(request.type)) &&
     requestOverlapsRange(request, startDate, normalizedEndDate)
-  ) || null;
+  );
+}
+
+function findOpenTimeOffDuplicateRequest(employeeName, startDate, endDate, excludedRequestId = "", type = "") {
+  const duplicateTypes = type === "ziek" ? ["ziek"] : null;
+  return getOverlappingTimeOffRequests(employeeName, startDate, endDate, {
+    excludedRequestId,
+    types: duplicateTypes
+  })[0] || null;
+}
+
+function getSickLeaveOverrideOverlap(employeeName, startDate, endDate, excludedRequestId = "") {
+  return getOverlappingTimeOffRequests(employeeName, startDate, endDate, {
+    excludedRequestId,
+    types: ["vrij", "vakantie"]
+  })[0] || null;
+}
+
+function getSickLeaveOverrideMessage() {
+  return "Er staat al vakantie/vrije dag in deze periode. De ziekmelding wordt alsnog opgeslagen en krijgt voorrang.";
+}
+
+function getSickLeaveOverlapNotice(request) {
+  if (!request || request.type !== "ziek") {
+    return "";
+  }
+
+  return getSickLeaveOverrideOverlap(
+    request.employeeName,
+    getTimeOffStartDate(request),
+    getTimeOffEndDate(request),
+    request.id
+  )
+    ? getSickLeaveOverrideMessage()
+    : "";
 }
 
 function checkTimeOffDuplicateForComposer(composer = activeRequestComposer) {
@@ -28710,12 +28759,13 @@ function checkTimeOffDuplicateForComposer(composer = activeRequestComposer) {
   const startDate = isRangeType ? formState.startDate : formState.date;
   const endDate = isRangeType ? (formState.endDate || startDate) : startDate;
   const dateField = isRangeType ? formElements?.startDateInput : formElements?.dateInput;
+  clearFormValidationFeedback(formElements?.composerSection || null);
 
   if (!employeeName || !startDate) {
     return false;
   }
 
-  if (findOpenTimeOffDuplicateRequest(employeeName, startDate, endDate, editingTimeOffId)) {
+  if (findOpenTimeOffDuplicateRequest(employeeName, startDate, endDate, editingTimeOffId, type)) {
     return showFormValidationError(
       formElements?.composerSection || null,
       dateField || null,
@@ -28724,6 +28774,15 @@ function checkTimeOffDuplicateForComposer(composer = activeRequestComposer) {
         : "Je hebt voor deze datum al een aanvraag staan.",
       { toast: false }
     );
+  }
+
+  if (type === "ziek" && getSickLeaveOverrideOverlap(employeeName, startDate, endDate, editingTimeOffId)) {
+    setInlineFormFeedback(
+      formElements?.composerSection || null,
+      getSickLeaveOverrideMessage(),
+      "warning"
+    );
+    return false;
   }
 
   return false;
@@ -28800,7 +28859,7 @@ function submitTimeOffRequest(composer) {
     return;
   }
 
-  if (findOpenTimeOffDuplicateRequest(employeeName, startDate, endDate, editingTimeOffId)) {
+  if (findOpenTimeOffDuplicateRequest(employeeName, startDate, endDate, editingTimeOffId, type)) {
     return showTimeOffError(
       startDateField,
       isPlannerRole()
@@ -28810,6 +28869,7 @@ function submitTimeOffRequest(composer) {
   }
 
   let vacationWarningMessage = "";
+  let sickOverrideWarningMessage = "";
   if (type === "vakantie") {
     const vacationSubmitCheck = getVacationSubmitCheck(employeeName, startDate, endDate, editingTimeOffId);
 
@@ -28820,6 +28880,9 @@ function submitTimeOffRequest(composer) {
     if (vacationSubmitCheck.hasOverlapWarning) {
       vacationWarningMessage = "Let op: er heeft al iemand vakantie in deze periode. De planner beoordeelt of dit kan.";
     }
+  }
+  if (type === "ziek" && getSickLeaveOverrideOverlap(employeeName, startDate, endDate, editingTimeOffId)) {
+    sickOverrideWarningMessage = getSickLeaveOverrideMessage();
   }
 
   const existingTimeOffRequest = editingTimeOffId
@@ -28917,6 +28980,9 @@ function submitTimeOffRequest(composer) {
   }
   if (vacationWarningMessage) {
     showMessage(vacationWarningMessage, "warning");
+  }
+  if (sickOverrideWarningMessage) {
+    showMessage(sickOverrideWarningMessage, "warning");
   }
 }
 
