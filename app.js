@@ -156,9 +156,7 @@ const FIXED_TEST_MAIL_RECIPIENT = "info@bakkerijstroet.nl";
 const APP_MAIL_TEST_MODE_ENABLED = true;
 const EMPLOYEE_MAIL_TEST_MODE_ENABLED = true;
 const EMPLOYEE_MAIL_TEST_EMPLOYEE = "Twan";
-// TODO: replace this temporary local planner PIN with settings-backed or server-side auth.
 const PLANNER_LOGIN_PIN = "1234";
-// TODO: replace this temporary default employee PIN with per-employee settings or server-side auth.
 const DEFAULT_EMPLOYEE_LOGIN_PIN = "1234";
 const employeeListCard = document.getElementById("employeeListCard");
 const employeeStandardShiftList = document.getElementById("employeeStandardShiftList");
@@ -20352,7 +20350,6 @@ async function applySmartPlanningToRoster() {
     if (movedWorkLogs) {
       saveWorkLogs();
     }
-    logPreparedRosterChangeNotifications(preparedRosterChanges);
     persistProtectedChange({
       reason: "Rooster plannen opgeslagen",
       scope: "roster",
@@ -20789,18 +20786,6 @@ function buildRosterChangeSummary(changes = []) {
   ].filter(Boolean))).size;
 
   return `${changes.length} roosterwijziging${changes.length === 1 ? "" : "en"} voor ${employeeCount} medewerker${employeeCount === 1 ? "" : "s"}.`;
-}
-
-function logPreparedRosterChangeNotifications(changes = []) {
-  if (!changes.length) {
-    return;
-  }
-
-  console.info(`[Rooster plannen] Roosterwijziging gedetecteerd. ${buildRosterChangeSummary(changes)} Geen mail verstuurd.`);
-  changes.forEach((change) => {
-    const employeeName = change.nextEmployeeName || change.previousEmployeeName || change.employeeName || "onbekend";
-    console.info(`[Rooster plannen] Toekomstige melding voorbereid voor medewerker ${employeeName}. Geen mail verstuurd.`, change);
-  });
 }
 
 function isSmartPlanningEmergencyEmployee(employeeName) {
