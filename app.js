@@ -24,6 +24,8 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
+const APP_VERSION = "20260507-mobile-refresh-fresh";
+window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
 const newButton = document.getElementById("newButton");
@@ -756,11 +758,11 @@ function setCurrentDataMode(nextDataMode) {
   preferences.lastDataMode = normalizedDataMode;
 }
 
-function syncCentralDataForCurrentMode() {
-  syncEmployeeDataFromCentral();
-  syncPlanningEntriesFromCentral();
-  syncRequestDataFromCentral();
-  syncWorkLogsFromCentral();
+function syncCentralDataForCurrentMode({ preferCentral = false } = {}) {
+  syncEmployeeDataFromCentral({ preferCentral });
+  syncPlanningEntriesFromCentral({ preferCentral });
+  syncRequestDataFromCentral({ preferCentral });
+  syncWorkLogsFromCentral({ preferCentral });
 }
 
 function formatEmployeeDataRefreshTime(value = new Date()) {
@@ -841,6 +843,28 @@ function getEmployeeDataRefreshErrors() {
   ].filter(Boolean);
 }
 
+function logEmployeeRosterRefreshDiagnostics() {
+  const todayValue = getTodayDateValue();
+  const todayEntries = entries.filter((entry) => entry.day === todayValue);
+  const todayShiftNames = new Set(todayEntries.map((entry) => getShiftName(entry).toLowerCase()));
+  const requiredTodayShifts = getRequiredDayPlannerShifts(todayValue);
+  const hasDraai = todayShiftNames.has("draaidienst") ||
+    requiredTodayShifts.some((shift) => String(shift.name || "").toLowerCase() === "draaidienst");
+  const hasWinkel1 = todayShiftNames.has("winkeldienst 1") ||
+    requiredTodayShifts.some((shift) => String(shift.name || "").toLowerCase() === "winkeldienst 1");
+
+  console.info("[app]", {
+    version: APP_VERSION,
+    mode: currentDataMode,
+    refreshedAt: new Date().toISOString(),
+    today: todayValue,
+    todayEntryCount: todayEntries.length,
+    requiredTodayShiftCount: requiredTodayShifts.length,
+    hasDraaidienst: hasDraai,
+    hasWinkeldienst1: hasWinkel1
+  });
+}
+
 async function refreshEmployeeAppData() {
   if (employeeDataRefreshInFlight || isPlannerRole() || !sessionState.isAuthenticated) {
     return;
@@ -868,10 +892,10 @@ async function refreshEmployeeAppData() {
 
     resetEmployeeDataRefreshSyncMarkers();
     await Promise.all([
-      syncEmployeeDataFromCentral({ queueMissingCentralSave: false }),
-      syncPlanningEntriesFromCentral({ queueMissingCentralSave: false }),
-      syncRequestDataFromCentral({ queueMissingCentralSave: false }),
-      syncWorkLogsFromCentral({ queueMissingCentralSave: false })
+      syncEmployeeDataFromCentral({ queueMissingCentralSave: false, preferCentral: true }),
+      syncPlanningEntriesFromCentral({ queueMissingCentralSave: false, preferCentral: true }),
+      syncRequestDataFromCentral({ queueMissingCentralSave: false, preferCentral: true }),
+      syncWorkLogsFromCentral({ queueMissingCentralSave: false, preferCentral: true })
     ]);
 
     const syncErrors = getEmployeeDataRefreshErrors();
@@ -881,6 +905,7 @@ async function refreshEmployeeAppData() {
     }
 
     rememberActiveMobileWorkLogFormValues();
+    logEmployeeRosterRefreshDiagnostics();
     render();
     employeeDataRefreshState.status = "success";
     employeeDataRefreshState.message = "Gegevens bijgewerkt";
@@ -1081,7 +1106,7 @@ function startEmployeeSession(employeeName, { showStartupMessage = false } = {})
 
   closeSessionLogin();
   reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
-  syncCentralDataForCurrentMode();
+  syncCentralDataForCurrentMode({ preferCentral: true });
 
   if (showStartupMessage) {
     showMessage("Medewerker geladen.", "success");
@@ -1623,7 +1648,7 @@ async function syncWorkLogsToCentral() {
   }
 }
 
-async function syncWorkLogsFromCentral({ queueMissingCentralSave = true } = {}) {
+async function syncWorkLogsFromCentral({ queueMissingCentralSave = true, preferCentral = false } = {}) {
   if (!isWorkLogCentralSyncEnabled() || workLogCentralSyncLoaded) {
     return;
   }
@@ -1633,7 +1658,7 @@ async function syncWorkLogsFromCentral({ queueMissingCentralSave = true } = {}) 
 
   try {
     const centralLogs = sanitizeWorkLogsForStorage(await fetchCentralWorkLogs());
-    const mergedLogs = mergeWorkLogCollections(localBeforeSync, centralLogs);
+    const mergedLogs = preferCentral ? centralLogs : mergeWorkLogCollections(localBeforeSync, centralLogs);
     const localSignature = serializeWorkLogsForComparison(localBeforeSync);
     const centralSignature = serializeWorkLogsForComparison(centralLogs);
     const mergedSignature = serializeWorkLogsForComparison(mergedLogs);
@@ -1945,7 +1970,7 @@ async function syncEmployeeDataToCentral() {
   }
 }
 
-async function syncEmployeeDataFromCentral({ queueMissingCentralSave = true } = {}) {
+async function syncEmployeeDataFromCentral({ queueMissingCentralSave = true, preferCentral = false } = {}) {
   if (!isEmployeeDataCentralSyncEnabled() || employeeDataCentralSyncLoaded) {
     return;
   }
@@ -1955,7 +1980,7 @@ async function syncEmployeeDataFromCentral({ queueMissingCentralSave = true } = 
 
   try {
     const centralData = await fetchCentralEmployeeData();
-    const mergedData = mergeEmployeeDataCollections(localBeforeSync, centralData);
+    const mergedData = preferCentral ? normalizeCentralEmployeeData(centralData) : mergeEmployeeDataCollections(localBeforeSync, centralData);
     const localSignature = serializeEmployeeDataForComparison(localBeforeSync);
     const centralSignature = serializeEmployeeDataForComparison(centralData);
     const mergedSignature = serializeEmployeeDataForComparison(mergedData);
@@ -2226,7 +2251,7 @@ async function syncPlanningEntriesToCentral() {
   }
 }
 
-async function syncPlanningEntriesFromCentral({ queueMissingCentralSave = true } = {}) {
+async function syncPlanningEntriesFromCentral({ queueMissingCentralSave = true, preferCentral = false } = {}) {
   if (!isPlanningEntriesCentralSyncEnabled() || planningEntriesCentralSyncLoaded) {
     return;
   }
@@ -2237,7 +2262,9 @@ async function syncPlanningEntriesFromCentral({ queueMissingCentralSave = true }
   try {
     const centralData = await fetchCentralPlanningEntries();
     const centralEntries = centralData.entries;
-    const mergedEntries = mergePlanningEntryCollections(localBeforeSync, centralEntries, centralData.deletedEntryIds);
+    const mergedEntries = preferCentral
+      ? mergePlanningEntryCollections([], centralEntries, centralData.deletedEntryIds)
+      : mergePlanningEntryCollections(localBeforeSync, centralEntries, centralData.deletedEntryIds);
     const localSignature = serializePlanningEntriesForComparison(localBeforeSync);
     const centralSignature = serializePlanningEntriesForComparison(centralEntries);
     const mergedSignature = serializePlanningEntriesForComparison(mergedEntries);
@@ -2541,7 +2568,7 @@ async function syncRequestDataToCentral() {
   }
 }
 
-async function syncRequestDataFromCentral({ queueMissingCentralSave = true } = {}) {
+async function syncRequestDataFromCentral({ queueMissingCentralSave = true, preferCentral = false } = {}) {
   if (!isRequestDataCentralSyncEnabled() || requestDataCentralSyncLoaded) {
     return;
   }
@@ -2551,7 +2578,7 @@ async function syncRequestDataFromCentral({ queueMissingCentralSave = true } = {
 
   try {
     const centralData = await fetchCentralRequestData();
-    const mergedData = mergeRequestDataCollections(localBeforeSync, centralData);
+    const mergedData = preferCentral ? normalizeCentralRequestData(centralData) : mergeRequestDataCollections(localBeforeSync, centralData);
     const localSignature = serializeRequestDataForComparison(localBeforeSync);
     const centralSignature = serializeRequestDataForComparison(centralData);
     const mergedSignature = serializeRequestDataForComparison(mergedData);
@@ -30775,8 +30802,5 @@ applySavedPreferences();
 activeTab = getDefaultTabForCurrentRole();
 updateTabVisibility();
 restoreSessionState({ resetToDefaultTab: true, resetWeekToCurrent: true });
-syncEmployeeDataFromCentral();
-syncPlanningEntriesFromCentral();
-syncRequestDataFromCentral();
-syncWorkLogsFromCentral();
+syncCentralDataForCurrentMode({ preferCentral: !isPlannerRole() });
 
