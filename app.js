@@ -8642,26 +8642,54 @@ function clearMobileWorkLogFormValues(workLogId = "") {
   });
 }
 
+function getMobileHoursTargetEntryForDate(employeeName, dateValue) {
+  if (!employeeName || !dateValue) {
+    return null;
+  }
+
+  const safeDate = clampHoursDateValue(dateValue);
+  const dayEntries = entries
+    .filter((entry) => entry.name === employeeName && entry.day === safeDate)
+    .sort((entryA, entryB) =>
+      entryA.startTime.localeCompare(entryB.startTime) ||
+      getShiftName(entryA).localeCompare(getShiftName(entryB), "nl")
+    );
+
+  if (!dayEntries.length) {
+    return null;
+  }
+
+  return dayEntries.find((entry) => {
+    const workLog = getWorkLogForEntry(entry);
+    return !isFutureDateValue(entry.day) && workLog?.status !== "open" && workLog?.status !== "approved";
+  }) || dayEntries[0];
+}
+
+function getMobileHoursTargetWorkLogIdForDate(employeeName, dateValue) {
+  const entry = getMobileHoursTargetEntryForDate(employeeName, dateValue);
+  return entry ? getWorkLogIdForEntry(entry) : "";
+}
+
 function focusMobileWorkLogCard(workLogId) {
   if (!workLogId || isPlannerRole()) {
     return;
   }
 
-  window.setTimeout(() => {
+  window.requestAnimationFrame(() => {
     const card = getWorkLogCardElement(workLogId);
 
     if (!card) {
       return;
     }
 
-    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    card.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
     const firstEditableField = Array.from(card.querySelectorAll("[data-worklog-field][data-worklog-id]:not(:disabled)"))
       .find((input) => input.dataset.worklogId === workLogId) || null;
 
     if (firstEditableField) {
       firstEditableField.focus({ preventScroll: true });
     }
-  }, 0);
+  });
 }
 
 function getMobileWorkLogSubmitResult(workLogId) {
@@ -24103,16 +24131,23 @@ function renderMyHours() {
   myHoursRegistrations.innerHTML = selectedDateMarkup;
 }
 
-function openHoursForDate(targetDate) {
+function openHoursForDate(targetDate, options = {}) {
   if (!targetDate || !hoursDateInput || !hoursWeekInput) {
     return;
   }
 
+  const {
+    focusWorkLogId = ""
+  } = options;
   const safeDate = clampHoursDateValue(targetDate);
   const targetWeek = getWeekValueFromDate(safeDate) || getCurrentWeekValue();
   const scopedEmployeeName = ensureEmployeeIdentityForCurrentRole();
   if (!isPlannerRole()) {
     resetMyHoursChoiceState();
+    activeMyHoursChoice = "today";
+    activeMyHoursSection = "today";
+    activeMyHoursEntryMode = "planned";
+    activeMobileWorkLogId = focusWorkLogId || getMobileHoursTargetWorkLogIdForDate(scopedEmployeeName, safeDate);
   }
   hoursDateInput.value = safeDate;
   hoursWeekInput.value = targetWeek;
@@ -24129,6 +24164,8 @@ function openHoursForDate(targetDate) {
   renderSchedule();
   if (isPlannerRole()) {
     renderDashboard();
+  } else if (activeMobileWorkLogId) {
+    focusMobileWorkLogCard(activeMobileWorkLogId);
   }
 }
 

@@ -1599,6 +1599,16 @@ body[data-role="employee"] [data-panel="my-hours"] .hours-date-picker-control {
   display: none;
 }
 
+body[data-role="employee"] [data-panel="my-hours"],
+body[data-role="employee"] [data-panel="my-hours"] * {
+  box-sizing: border-box;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-section-switch {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1613,14 +1623,19 @@ body[data-role="employee"] [data-panel="my-hours"] .my-hours-section-switch .req
 
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-choice-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
   gap: 8px;
   margin-bottom: 10px;
+  max-width: 100%;
 }
 
 body[data-role="employee"] [data-panel="my-hours"] .my-hours-choice-tabs .request-switch-button {
   min-height: 48px;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 body[data-role="employee"] [data-panel="my-hours"] .hours-highlight {
@@ -1879,15 +1894,46 @@ body[data-role="employee"] [data-panel="my-hours"] .hours-missing-list {
 body[data-role="employee"] [data-panel="my-hours"] .hours-registration-list {
   gap: 10px;
   margin-top: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 body[data-role="employee"] [data-panel="my-hours"] .hours-registration-card {
   gap: 8px;
   padding: 12px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 body[data-role="employee"] [data-panel="my-hours"] .hours-registration-head {
   align-items: start;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .hours-registration-head > div,
+body[data-role="employee"] [data-panel="my-hours"] .hours-registration-meta,
+body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-entry-card,
+body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-entry-main,
+body[data-role="employee"] [data-panel="my-hours"] .hours-missing-list,
+body[data-role="employee"] [data-panel="my-hours"] .hours-missing-item,
+body[data-role="employee"] [data-panel="my-hours"] .hours-day-empty {
+  min-width: 0;
+  max-width: 100%;
+}
+
+body[data-role="employee"] [data-panel="my-hours"] .hours-registration-head strong,
+body[data-role="employee"] [data-panel="my-hours"] .hours-registration-head span,
+body[data-role="employee"] [data-panel="my-hours"] .hours-registration-meta span,
+body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-entry-main strong,
+body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-entry-main span,
+body[data-role="employee"] [data-panel="my-hours"] .hours-missing-item span,
+body[data-role="employee"] [data-panel="my-hours"] .hours-missing-item small,
+body[data-role="employee"] [data-panel="my-hours"] .hours-day-empty strong,
+body[data-role="employee"] [data-panel="my-hours"] .hours-day-empty span {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 body[data-role="employee"] [data-panel="my-hours"] .hours-registration-head strong {
@@ -9500,7 +9546,7 @@ button,
     top: 0;
     z-index: 5;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
     overflow: visible;
     max-width: 100%;
     box-sizing: border-box;
@@ -9516,9 +9562,9 @@ button,
     max-width: 100%;
     min-height: 46px;
     border-radius: 999px;
-    font-size: 11.5px;
-    line-height: 1.12;
-    padding: 8px 6px;
+    font-size: 13px;
+    line-height: 1.15;
+    padding: 8px 9px;
     white-space: normal;
     overflow-wrap: anywhere;
   }
@@ -9537,27 +9583,37 @@ button,
 
   body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-entry-card {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     align-items: start;
-    gap: 8px 10px;
+    gap: 8px;
+    width: 100%;
     max-width: 100%;
-    overflow: hidden;
+    min-width: 0;
+    overflow: visible;
     box-sizing: border-box;
   }
 
   body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-entry-main {
     display: grid;
     gap: 4px;
+    min-width: 0;
+    max-width: 100%;
   }
 
   body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-entry-main strong {
     font-size: 21px;
     line-height: 1.15;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-entry-main span {
     color: var(--color-text-muted);
     font-size: 14px;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-day {
@@ -9568,12 +9624,15 @@ button,
   body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-status,
   body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-note {
     justify-self: start;
+    max-width: 100%;
     padding: 5px 9px;
     border-radius: 999px;
     background: rgba(var(--color-primary-rgb), 0.12);
     color: var(--color-primary-hover);
     font-size: 12px;
     font-weight: 800;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-status.is-filled,
@@ -9598,12 +9657,16 @@ button,
 
   body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-feedback {
     display: block;
+    width: 100%;
+    max-width: 100%;
     padding: 10px 12px;
     border-radius: 12px;
     background: rgba(var(--color-primary-rgb), 0.1);
     color: var(--color-primary-hover);
     font-size: 14px;
     font-weight: 800;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   body[data-role="employee"] [data-panel="my-hours"] .mobile-hours-feedback.is-success {
@@ -9698,9 +9761,16 @@ button,
   }
 
   body[data-role="employee"] [data-panel="my-hours"] .hours-missing-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
     min-height: 48px;
     padding: 10px 12px;
     border-radius: 14px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    text-align: left;
   }
 
   body[data-role="employee"] [data-panel="my-hours"] .my-hours-extra-card {
