@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260507-mobile-sick-overlap-validation";
+const APP_VERSION = "20260507-approved-request-mail-audit";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -3071,6 +3071,8 @@ const {
     const templateMap = {
       submitted: "timeoffSubmitted",
       approved: "timeoffApproved",
+      updated: "timeoffUpdated",
+      "approved-updated": "timeoffUpdated",
       rejected: "timeoffRejected"
     };
 
@@ -16167,6 +16169,8 @@ function getTimeOffMailStatusText(request) {
     labelMap: {
       submitted: "Mail verzonden.",
       approved: "Mail verzonden.",
+      updated: "Mail verzonden.",
+      "approved-updated": "Mail verzonden.",
       rejected: "Mail verzonden."
     },
     recipientFallback: request?.employeeName || "betrokken medewerker",
@@ -27006,15 +27010,15 @@ function handlePlannerInboxTimeOffAction(button) {
     return;
   }
 
+  if (button.dataset.requestAction === "edit") {
+    startEditingTimeOffRequest(request);
+    return;
+  }
+
   if (!ensureDateRangeActionAllowed(getTimeOffStartDate(request), getTimeOffEndDate(request), {
     actionLabel: "aanvragen te verwerken",
     blockPlannerWhenLocked: true
   })) {
-    return;
-  }
-
-  if (button.dataset.requestAction === "edit") {
-    startEditingTimeOffRequest(request);
     return;
   }
 
@@ -27253,9 +27257,10 @@ function startEditingTimeOffRequest(request) {
     return false;
   }
 
-  activeRequestComposer = request.type === "vakantie"
+  const normalizedRequestType = normalizeTimeOffRequestType(request.type);
+  activeRequestComposer = normalizedRequestType === "vakantie"
     ? "vacation"
-    : request.type === "ziek"
+    : normalizedRequestType === "ziek"
       ? "sick"
       : "free";
   activeRequestType = getRequestTypeFromComposer(activeRequestComposer);
@@ -27263,11 +27268,11 @@ function startEditingTimeOffRequest(request) {
   editingTimeOffId = request.id;
   const targetFormState = getRequestComposerState(activeRequestComposer);
   targetFormState.employeeName = request.employeeName;
-  targetFormState.type = request.type || "vrij";
+  targetFormState.type = normalizedRequestType || "vrij";
   targetFormState.date = getTimeOffStartDate(request);
   targetFormState.startDate = getTimeOffStartDate(request);
   targetFormState.endDate = getTimeOffEndDate(request);
-  targetFormState.reason = request.reason || getDefaultTimeOffReason(request.type);
+  targetFormState.reason = request.reason || getDefaultTimeOffReason(normalizedRequestType);
   renderRequestComposerState();
   requestTimeOffPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
   showMessage(
@@ -28954,7 +28959,14 @@ function submitTimeOffRequest(composer) {
     ? timeOffRequests.find((item) => item.id === editingTimeOffId)
     : timeOffRequests[timeOffRequests.length - 1];
 
-  if (currentTimeOffRequest && !isApprovedPlannerCorrection) {
+  if (currentTimeOffRequest && isApprovedPlannerCorrection) {
+    registerTimeOffMailNotification(currentTimeOffRequest, "updated", [employeeName], {
+      periodKey: `updated:${currentTimeOffRequest.updatedAt || getNowIsoString()}`,
+      notifyUser: true,
+      notifySuccessMessage: getAppMailSentMessage(),
+      notifyErrorMessage: "Aanvraag bijgewerkt, mail niet verzonden"
+    });
+  } else if (currentTimeOffRequest) {
     registerTimeOffMailNotification(currentTimeOffRequest, "submitted", [employeeName], {
       notifyUser: true,
       notifySuccessMessage: getAppMailSentMessage(),
@@ -28971,7 +28983,7 @@ function submitTimeOffRequest(composer) {
     scope: "request",
     action: isApprovedPlannerCorrection ? "timeoff-approved-updated" : (editingTimeOffId ? "timeoff-updated" : "timeoff-created"),
     message: isApprovedPlannerCorrection
-      ? `Goedgekeurde aanvraag bijgewerkt voor ${employeeName}.`
+      ? `Aanvraag bijgewerkt voor ${employeeName}.`
       : `${getAbsenceTypeLabel(type)} opgeslagen voor ${employeeName}.`,
     details: {
       employeeName,
@@ -28991,7 +29003,7 @@ function submitTimeOffRequest(composer) {
   }
   render();
   const requestSuccessMessage = isApprovedPlannerCorrection
-    ? "Goedgekeurde aanvraag bijgewerkt."
+    ? "Aanvraag bijgewerkt."
     : type === "vakantie"
       ? "Vakantie succesvol opgeslagen."
       : type === "ziek"
@@ -28999,7 +29011,7 @@ function submitTimeOffRequest(composer) {
         : "Aanvraag succesvol verstuurd.";
   showMessage(requestSuccessMessage, "success");
   const latestMail = currentTimeOffRequest ? getLatestRequestMailNotification(currentTimeOffRequest) : null;
-  if (!isApprovedPlannerCorrection && latestMail?.status === "queued") {
+  if (latestMail?.status === "queued") {
     showMessage(`${requestSuccessMessage} Mailbevestiging wordt verzonden.`, "success");
   }
   if (vacationWarningMessage) {

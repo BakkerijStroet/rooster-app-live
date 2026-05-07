@@ -113,6 +113,10 @@
       subject: "Uw aanvraag is goedgekeurd",
       message: "Uw aanvraag is goedgekeurd."
     }),
+    timeoffUpdated: () => ({
+      subject: "Wijziging in je aanvraag",
+      message: "Je aanvraag is aangepast door de planner. Controleer de gewijzigde gegevens in de Rooster & uren app."
+    }),
     timeoffRejected: () => ({
       subject: "Uw aanvraag is afgekeurd",
       message: "Uw aanvraag is afgekeurd."
@@ -210,6 +214,8 @@
     const templateMap = {
       submitted: "timeoffSubmitted",
       approved: "timeoffApproved",
+      updated: "timeoffUpdated",
+      "approved-updated": "timeoffUpdated",
       rejected: "timeoffRejected"
     };
 
