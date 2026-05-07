@@ -11,6 +11,9 @@ const roleIndicator = document.getElementById("roleIndicator");
 const mailTestModeBadge = document.getElementById("mailTestModeBadge");
 const testModeBadge = document.getElementById("testModeBadge");
 const switchUserButton = document.getElementById("switchUserButton");
+const employeeDataRefreshControl = document.getElementById("employeeDataRefreshControl");
+const employeeDataRefreshButton = document.getElementById("employeeDataRefreshButton");
+const employeeDataRefreshStatus = document.getElementById("employeeDataRefreshStatus");
 const resetTestDataButton = document.getElementById("resetTestDataButton");
 const loginOverlay = document.getElementById("loginOverlay");
 const loginRoleSelect = document.getElementById("loginRoleSelect");
@@ -760,6 +763,139 @@ function syncCentralDataForCurrentMode() {
   syncWorkLogsFromCentral();
 }
 
+function formatEmployeeDataRefreshTime(value = new Date()) {
+  if (!value) {
+    return "";
+  }
+
+  const parsedDate = value instanceof Date ? value : new Date(value);
+
+  if (!Number.isFinite(parsedDate.getTime())) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("nl-NL", {
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(parsedDate);
+}
+
+function getEmployeeDataRefreshStatusText() {
+  if (employeeDataRefreshInFlight) {
+    return "Vernieuwen...";
+  }
+
+  if (employeeDataRefreshState.status === "error") {
+    return employeeDataRefreshState.message || "Vernieuwen mislukt";
+  }
+
+  const refreshedAt = formatEmployeeDataRefreshTime(employeeDataRefreshState.updatedAt);
+
+  if (refreshedAt) {
+    return `Bijgewerkt om ${refreshedAt}`;
+  }
+
+  return employeeDataRefreshState.message || "Nog niet vernieuwd";
+}
+
+function renderEmployeeDataRefreshControl() {
+  if (!employeeDataRefreshControl || !employeeDataRefreshButton || !employeeDataRefreshStatus) {
+    return;
+  }
+
+  const showRefreshControl = sessionState.isAuthenticated && !isPlannerRole();
+  employeeDataRefreshControl.classList.toggle("hidden", !showRefreshControl);
+  employeeDataRefreshControl.hidden = !showRefreshControl;
+  employeeDataRefreshControl.setAttribute("aria-hidden", showRefreshControl ? "false" : "true");
+
+  employeeDataRefreshButton.disabled = employeeDataRefreshInFlight;
+  employeeDataRefreshButton.textContent = employeeDataRefreshInFlight ? "Vernieuwen..." : "Vernieuwen";
+
+  employeeDataRefreshStatus.textContent = getEmployeeDataRefreshStatusText();
+  employeeDataRefreshStatus.classList.toggle("is-loading", employeeDataRefreshInFlight);
+  employeeDataRefreshStatus.classList.toggle("is-error", employeeDataRefreshState.status === "error");
+  employeeDataRefreshStatus.classList.toggle("is-success", employeeDataRefreshState.status === "success");
+}
+
+function resetEmployeeDataRefreshSyncMarkers() {
+  employeeDataCentralSyncLoaded = false;
+  planningEntriesCentralSyncLoaded = false;
+  requestDataCentralSyncLoaded = false;
+  workLogCentralSyncLoaded = false;
+  lastEmployeeDataCentralSyncError = null;
+  lastPlanningEntriesCentralSyncError = null;
+  lastRequestDataCentralSyncError = null;
+  lastWorkLogCentralSyncError = null;
+  window.lastEmployeeDataCentralSyncError = null;
+  window.lastPlanningEntriesCentralSyncError = null;
+  window.lastRequestDataCentralSyncError = null;
+  window.lastWorkLogCentralSyncError = null;
+}
+
+function getEmployeeDataRefreshErrors() {
+  return [
+    lastEmployeeDataCentralSyncError,
+    lastPlanningEntriesCentralSyncError,
+    lastRequestDataCentralSyncError,
+    lastWorkLogCentralSyncError
+  ].filter(Boolean);
+}
+
+async function refreshEmployeeAppData() {
+  if (employeeDataRefreshInFlight || isPlannerRole() || !sessionState.isAuthenticated) {
+    return;
+  }
+
+  rememberActiveMobileWorkLogFormValues();
+  employeeDataRefreshInFlight = true;
+  employeeDataRefreshState.status = "loading";
+  employeeDataRefreshState.message = "";
+  renderEmployeeDataRefreshControl();
+
+  try {
+    if (currentDataMode === "test") {
+      render();
+      employeeDataRefreshState.status = "success";
+      employeeDataRefreshState.message = "Testmodus: lokale data vernieuwd";
+      employeeDataRefreshState.updatedAt = new Date();
+      showMessage("Testmodus: lokale data vernieuwd", "success");
+      return;
+    }
+
+    if (typeof fetch !== "function") {
+      throw new Error("Deze browser kan geen data-refresh uitvoeren.");
+    }
+
+    resetEmployeeDataRefreshSyncMarkers();
+    await Promise.all([
+      syncEmployeeDataFromCentral({ queueMissingCentralSave: false }),
+      syncPlanningEntriesFromCentral({ queueMissingCentralSave: false }),
+      syncRequestDataFromCentral({ queueMissingCentralSave: false }),
+      syncWorkLogsFromCentral({ queueMissingCentralSave: false })
+    ]);
+
+    const syncErrors = getEmployeeDataRefreshErrors();
+
+    if (syncErrors.length) {
+      throw syncErrors[0];
+    }
+
+    rememberActiveMobileWorkLogFormValues();
+    render();
+    employeeDataRefreshState.status = "success";
+    employeeDataRefreshState.message = "Gegevens bijgewerkt";
+    employeeDataRefreshState.updatedAt = new Date();
+    showMessage("Gegevens bijgewerkt", "success");
+  } catch (error) {
+    reportAppError("Vernieuwen mislukt. Probeer opnieuw.", error, "employeeDataRefresh");
+    employeeDataRefreshState.status = "error";
+    employeeDataRefreshState.message = "Vernieuwen mislukt";
+  } finally {
+    employeeDataRefreshInFlight = false;
+    renderEmployeeDataRefreshControl();
+  }
+}
+
 function applySessionSnapshot(nextSessionState, { persist = false, dataMode = "" } = {}) {
   const normalizedRole = nextSessionState?.role === "employee" ? "employee" : "planner";
   const normalizedEmployeeIdentity = normalizedRole === "employee"
@@ -1487,7 +1623,7 @@ async function syncWorkLogsToCentral() {
   }
 }
 
-async function syncWorkLogsFromCentral() {
+async function syncWorkLogsFromCentral({ queueMissingCentralSave = true } = {}) {
   if (!isWorkLogCentralSyncEnabled() || workLogCentralSyncLoaded) {
     return;
   }
@@ -1510,7 +1646,7 @@ async function syncWorkLogsFromCentral() {
       renderDashboard();
     }
 
-    if (mergedSignature !== centralSignature) {
+    if (queueMissingCentralSave && mergedSignature !== centralSignature) {
       queueWorkLogCentralSave();
     }
   } catch (error) {
@@ -1809,7 +1945,7 @@ async function syncEmployeeDataToCentral() {
   }
 }
 
-async function syncEmployeeDataFromCentral() {
+async function syncEmployeeDataFromCentral({ queueMissingCentralSave = true } = {}) {
   if (!isEmployeeDataCentralSyncEnabled() || employeeDataCentralSyncLoaded) {
     return;
   }
@@ -1837,7 +1973,7 @@ async function syncEmployeeDataFromCentral() {
       renderEmployeePermissions();
     }
 
-    if (mergedSignature !== centralSignature) {
+    if (queueMissingCentralSave && mergedSignature !== centralSignature) {
       queueEmployeeDataCentralSave();
     }
   } catch (error) {
@@ -2090,7 +2226,7 @@ async function syncPlanningEntriesToCentral() {
   }
 }
 
-async function syncPlanningEntriesFromCentral() {
+async function syncPlanningEntriesFromCentral({ queueMissingCentralSave = true } = {}) {
   if (!isPlanningEntriesCentralSyncEnabled() || planningEntriesCentralSyncLoaded) {
     return;
   }
@@ -2119,7 +2255,7 @@ async function syncPlanningEntriesFromCentral() {
       renderDashboard();
     }
 
-    if (mergedSignature !== centralSignature) {
+    if (queueMissingCentralSave && mergedSignature !== centralSignature) {
       // Upsert-only: ontbrekende centrale rows worden aangevuld, verwijderingen syncen we later expliciet.
       queuePlanningEntriesCentralSave();
     }
@@ -2405,7 +2541,7 @@ async function syncRequestDataToCentral() {
   }
 }
 
-async function syncRequestDataFromCentral() {
+async function syncRequestDataFromCentral({ queueMissingCentralSave = true } = {}) {
   if (!isRequestDataCentralSyncEnabled() || requestDataCentralSyncLoaded) {
     return;
   }
@@ -2433,7 +2569,7 @@ async function syncRequestDataFromCentral() {
       renderDashboard();
     }
 
-    if (mergedSignature !== centralSignature) {
+    if (queueMissingCentralSave && mergedSignature !== centralSignature) {
       // Upsert-only: ingetrokken/verwijderde centrale rows worden later apart en expliciet opgelost.
       queueRequestDataCentralSave();
     }
@@ -4828,6 +4964,12 @@ let activeMobileHoursFeedback = {
   type: "info"
 };
 const pendingMobileWorkLogValues = {};
+let employeeDataRefreshInFlight = false;
+const employeeDataRefreshState = {
+  status: "idle",
+  message: "",
+  updatedAt: null
+};
 let activeHoursApprovalFilter = "all";
 let employeeDetailSaveFeedbackTimer = null;
 let smartPlanningProposalState = null;
@@ -8540,9 +8682,9 @@ function moveWorkLogToEntry(previousEntry, nextEntry) {
   return true;
 }
 
-function getEffectiveWorkLogValues(entry, workLog = getWorkLogForEntry(entry)) {
+function getEffectiveWorkLogValues(entry, workLog = getWorkLogForEntry(entry), workLogIdOverride = "") {
   const defaults = getDefaultWorkLogValues(entry);
-  const workLogId = getWorkLogIdForEntry(entry);
+  const workLogId = workLogIdOverride || getWorkLogIdForEntry(entry);
   const pendingValues = pendingMobileWorkLogValues[workLogId];
 
   const storedValues = !workLog
@@ -8629,6 +8771,33 @@ function rememberMobileWorkLogFormValues(workLogId) {
     notes: getWorkLogFieldElement(workLogId, "notes", card)?.value || "",
     employeeReply: getWorkLogFieldElement(workLogId, "employeeReply", card)?.value || ""
   };
+}
+
+function rememberVisibleMobileWorkLogFormValues() {
+  if (isPlannerRole() || !myHoursRegistrations) {
+    return;
+  }
+
+  const visibleWorkLogIds = new Set(
+    Array.from(myHoursRegistrations.querySelectorAll("[data-worklog-field][data-worklog-id]"))
+      .filter((field) => field.offsetParent !== null)
+      .map((field) => field.dataset.worklogId)
+      .filter(Boolean)
+  );
+
+  visibleWorkLogIds.forEach((workLogId) => rememberMobileWorkLogFormValues(workLogId));
+}
+
+function rememberActiveMobileWorkLogFormValues() {
+  if (isPlannerRole()) {
+    return;
+  }
+
+  if (activeMobileWorkLogId) {
+    rememberMobileWorkLogFormValues(activeMobileWorkLogId);
+  }
+
+  rememberVisibleMobileWorkLogFormValues();
 }
 
 function clearMobileWorkLogFormValues(workLogId = "") {
@@ -8721,7 +8890,7 @@ function renderWorkLogCardMarkup(entry, workLog = getWorkLogForEntry(entry), opt
   const notesLabel = options.notesLabel || (entry.isManualHours ? "Reden of type werk" : "Opmerkingen");
   const notesPlaceholder = options.notesPlaceholder || (entry.isManualHours ? "Korte reden of type werk" : "Bijzonderheden");
   const mobileNotesLabel = options.mobileNotesLabel || (entry.isManualHours ? "Omschrijving verplicht" : "Opmerking optioneel");
-  const effectiveValues = getEffectiveWorkLogValues(entry, workLog);
+  const effectiveValues = getEffectiveWorkLogValues(entry, workLog, workLogId);
   const actualWorkedHours = calculateWorkedHours(effectiveValues.actualStart, effectiveValues.actualEnd, effectiveValues.breakMinutes);
   const hasDeviation = hasWorkLogDeviation(entry, effectiveValues);
   const isApprovedLocked = !isPlannerRole() && workLog?.status === "approved";
@@ -23174,6 +23343,7 @@ function applyRoleUI() {
   updateRoleIndicator();
   updateTestModeBadge();
   updateFocusModeUI();
+  renderEmployeeDataRefreshControl();
 
   if (switchUserButton) {
     switchUserButton.classList.toggle("hidden", !isAuthenticated);
@@ -30340,6 +30510,10 @@ currentEmployeeSelect.addEventListener("change", () => {
 
 switchUserButton?.addEventListener("click", () => {
   logoutCurrentSession({ showMessageAfterLogout: true });
+});
+
+employeeDataRefreshButton?.addEventListener("click", () => {
+  refreshEmployeeAppData();
 });
 
 resetTestDataButton?.addEventListener("click", () => {

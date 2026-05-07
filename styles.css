@@ -13656,6 +13656,89 @@ body[data-control-mode="planner"] .shift-card.is-vacation-autofill {
   }
 }
 
+.employee-refresh-control {
+  display: none;
+}
+
+body[data-role="employee"] .employee-refresh-control:not(.hidden) {
+  display: grid;
+  gap: 3px;
+  justify-items: end;
+  align-items: center;
+  min-width: 0;
+  max-width: 168px;
+}
+
+body[data-role="employee"] #employeeDataRefreshButton.employee-refresh-button.secondary {
+  width: auto !important;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 34px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  border-color: var(--color-surface-soft-border);
+  color: var(--color-text);
+  font-size: 13px;
+  line-height: 1.1;
+  white-space: nowrap;
+  box-shadow: none;
+}
+
+body[data-role="employee"] #employeeDataRefreshButton.employee-refresh-button.secondary:hover,
+body[data-role="employee"] #employeeDataRefreshButton.employee-refresh-button.secondary:focus-visible {
+  background: var(--color-surface-soft-hover);
+  border-color: var(--color-surface-soft-border);
+}
+
+body[data-role="employee"] #employeeDataRefreshButton.employee-refresh-button.secondary:disabled {
+  cursor: progress;
+  opacity: 0.78;
+}
+
+body[data-role="employee"] .employee-refresh-status {
+  max-width: 100%;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+body[data-role="employee"] .employee-refresh-status.is-loading {
+  color: var(--color-text-secondary);
+}
+
+body[data-role="employee"] .employee-refresh-status.is-success {
+  color: var(--color-success);
+}
+
+body[data-role="employee"] .employee-refresh-status.is-error {
+  color: var(--color-danger);
+}
+
+@media (max-width: 640px) {
+  body[data-role="employee"] .brand-actions {
+    align-items: center;
+    gap: 5px;
+  }
+
+  body[data-role="employee"] .employee-refresh-control:not(.hidden) {
+    max-width: min(46vw, 154px);
+  }
+
+  body[data-role="employee"] #employeeDataRefreshButton.employee-refresh-button.secondary {
+    min-height: 32px;
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+
+  body[data-role="employee"] .employee-refresh-status {
+    font-size: 10px;
+  }
+}
+
 
 
 
