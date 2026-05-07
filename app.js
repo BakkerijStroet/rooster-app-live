@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260507-sick-leave-overrides-vacation";
+const APP_VERSION = "20260507-mobile-sick-overlap-validation";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -8497,12 +8497,12 @@ function getApprovedTimeOff(employeeName, date) {
 
   const matchingRequests = timeOffRequests.filter((request) =>
     !isDeletedRequest(request) &&
-    (request.status === "approved" || (request.type === "ziek" && request.status === "open")) &&
+    (request.status === "approved" || (normalizeTimeOffRequestType(request.type) === "ziek" && request.status === "open")) &&
     request.employeeName === employeeName &&
     requestIncludesDate(request, date)
   );
 
-  return matchingRequests.find((request) => request.type === "ziek") ||
+  return matchingRequests.find((request) => normalizeTimeOffRequestType(request.type) === "ziek") ||
     matchingRequests[0] ||
     null;
 }
@@ -16991,12 +16991,31 @@ function getComposerTimeOffType(composer) {
   return "vrij";
 }
 
+function normalizeTimeOffRequestType(type = "") {
+  const normalizedType = String(type || "").trim().toLowerCase();
+
+  if (["ziek", "sick", "sickness", "ziekmelding"].includes(normalizedType)) {
+    return "ziek";
+  }
+
+  if (["vakantie", "vacation", "verlof"].includes(normalizedType)) {
+    return "vakantie";
+  }
+
+  if (["vrij", "vrije-dag", "vrije dag", "free", "timeoff"].includes(normalizedType)) {
+    return "vrij";
+  }
+
+  return normalizedType;
+}
+
 function getDefaultTimeOffReason(type) {
-  return DEFAULT_TIME_OFF_REASONS[type] || "";
+  return DEFAULT_TIME_OFF_REASONS[normalizeTimeOffRequestType(type)] || "";
 }
 
 function isRangeTimeOffType(type) {
-  return type === "vakantie" || type === "ziek";
+  const normalizedType = normalizeTimeOffRequestType(type);
+  return normalizedType === "vakantie" || normalizedType === "ziek";
 }
 
 function getRequestTypeFromComposer(composer) {
@@ -28708,13 +28727,14 @@ function getOverlappingTimeOffRequests(employeeName, startDate, endDate, {
     request.id !== excludedRequestId &&
     request.employeeName === employeeName &&
     statuses.includes(request.status) &&
-    (!Array.isArray(types) || types.includes(request.type)) &&
+    (!Array.isArray(types) || types.map(normalizeTimeOffRequestType).includes(normalizeTimeOffRequestType(request.type))) &&
     requestOverlapsRange(request, startDate, normalizedEndDate)
   );
 }
 
 function findOpenTimeOffDuplicateRequest(employeeName, startDate, endDate, excludedRequestId = "", type = "") {
-  const duplicateTypes = type === "ziek" ? ["ziek"] : null;
+  const normalizedType = normalizeTimeOffRequestType(type);
+  const duplicateTypes = normalizedType === "ziek" ? ["ziek"] : null;
   return getOverlappingTimeOffRequests(employeeName, startDate, endDate, {
     excludedRequestId,
     types: duplicateTypes
@@ -28733,7 +28753,7 @@ function getSickLeaveOverrideMessage() {
 }
 
 function getSickLeaveOverlapNotice(request) {
-  if (!request || request.type !== "ziek") {
+  if (!request || normalizeTimeOffRequestType(request.type) !== "ziek") {
     return "";
   }
 
@@ -28754,7 +28774,7 @@ function checkTimeOffDuplicateForComposer(composer = activeRequestComposer) {
   const employeeName = !isPlannerRole()
     ? getEmployeeIdentity()
     : formState.employeeName;
-  const type = formState.type || getComposerTimeOffType(composer);
+  const type = normalizeTimeOffRequestType(formState.type || getComposerTimeOffType(composer));
   const isRangeType = isRangeTimeOffType(type);
   const startDate = isRangeType ? formState.startDate : formState.date;
   const endDate = isRangeType ? (formState.endDate || startDate) : startDate;
@@ -28769,7 +28789,9 @@ function checkTimeOffDuplicateForComposer(composer = activeRequestComposer) {
     return showFormValidationError(
       formElements?.composerSection || null,
       dateField || null,
-      isPlannerRole()
+      type === "ziek"
+        ? "Er staat al een ziekmelding in deze periode."
+        : isPlannerRole()
         ? "Voor deze medewerker staat al een aanvraag in deze periode."
         : "Je hebt voor deze datum al een aanvraag staan.",
       { toast: false }
@@ -28799,7 +28821,7 @@ function submitTimeOffRequest(composer) {
   const currentTimeOffForm = getRequestComposerState(composer);
   const formElements = getTimeOffFormElements(composer);
   const employeeName = !isPlannerRole() ? ownEmployeeName : (currentTimeOffForm.employeeName || formElements?.employeeSelect?.value || "");
-  const type = currentTimeOffForm.type || getComposerTimeOffType(composer);
+  const type = normalizeTimeOffRequestType(currentTimeOffForm.type || getComposerTimeOffType(composer));
   const isRangeType = isRangeTimeOffType(type);
   const startDate = isRangeType ? currentTimeOffForm.startDate : currentTimeOffForm.date;
   const endDate = isRangeType ? (currentTimeOffForm.endDate || startDate) : startDate;
@@ -28862,7 +28884,9 @@ function submitTimeOffRequest(composer) {
   if (findOpenTimeOffDuplicateRequest(employeeName, startDate, endDate, editingTimeOffId, type)) {
     return showTimeOffError(
       startDateField,
-      isPlannerRole()
+      type === "ziek"
+        ? "Er staat al een ziekmelding in deze periode."
+        : isPlannerRole()
         ? "Voor deze medewerker staat al een aanvraag in deze periode."
         : "Je hebt voor deze datum al een aanvraag staan."
     );
