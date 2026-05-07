@@ -13528,6 +13528,57 @@ body[data-control-mode="planner"] .shift-card.is-vacation-autofill {
   text-overflow: clip;
 }
 
+.planning-day-card.has-duplicate-slot,
+.employee-roster-day-card.has-duplicate-slot {
+  border-color: var(--color-danger-border);
+  box-shadow: inset 0 0 0 1px rgba(var(--color-danger-rgb), 0.14), 0 8px 18px rgba(var(--color-danger-rgb), 0.08);
+}
+
+.planning-shift-line.has-duplicate-slot,
+.smart-planning-open-shift-button.has-duplicate-slot,
+.roster-row.has-duplicate-slot,
+.employee-roster-line.has-duplicate-slot {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-soft);
+  color: var(--color-text);
+}
+
+.planning-shift-line.has-duplicate-slot .planning-shift-employee,
+.planning-shift-line.has-duplicate-slot .planning-shift-name,
+.planning-shift-line.has-duplicate-slot .planning-shift-time,
+.smart-planning-open-shift-button.has-duplicate-slot .smart-planning-open-label,
+.smart-planning-open-shift-button.has-duplicate-slot .smart-planning-open-shift-name,
+.smart-planning-open-shift-button.has-duplicate-slot .smart-planning-open-time,
+.smart-planning-open-shift-button.has-duplicate-slot .smart-planning-assigned-name,
+.smart-planning-open-shift-button.has-duplicate-slot .smart-planning-assigned-shift-name,
+.smart-planning-open-shift-button.has-duplicate-slot .smart-planning-assigned-time {
+  color: var(--color-danger);
+}
+
+.planning-shift-conflict-label,
+.roster-duplicate-warning {
+  grid-column: 1 / -1;
+  justify-self: start;
+  color: var(--color-danger);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.roster-duplicate-slot-notice {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-danger-border);
+  border-radius: 12px;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
 @media (max-width: 760px) {
   .planning-shift-line,
   .smart-planning-proposal-roster .smart-planning-open-shift-button {
