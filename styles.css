@@ -4466,6 +4466,21 @@ textarea.input-error {
   font-weight: 900;
 }
 
+.smart-planning-inline-keep-open {
+  border-color: var(--color-warning-border);
+  background: var(--color-warning-soft);
+}
+
+.smart-planning-inline-keep-open span,
+.smart-planning-inline-keep-open button {
+  color: var(--color-warning);
+}
+
+.smart-planning-inline-keep-open.is-active {
+  border-color: var(--color-primary-border);
+  background: var(--color-primary-soft);
+}
+
 .smart-planning-inline-advice h4 {
   margin: 0 0 3px;
   font-size: 11px;
@@ -13649,6 +13664,13 @@ body[data-control-mode="planner"] .shift-card.is-vacation-autofill {
   background: var(--color-success-soft);
   border: 1px solid var(--color-success-border);
   color: var(--color-success);
+}
+
+.smart-planning-proposal-roster .smart-planning-concept-badge.is-kept-open,
+.smart-planning-open-shift-button.is-kept-open .smart-planning-concept-badge {
+  background: var(--color-warning-soft);
+  border-color: var(--color-warning-border);
+  color: var(--color-warning);
 }
 
 .smart-planning-proposal-roster .smart-planning-assigned-shift-name {
