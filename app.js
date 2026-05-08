@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260508-hide-open-employee-mobile-shifts";
+const APP_VERSION = "20260508-sick-range-planning-availability";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -5088,6 +5088,7 @@ let smartPlanningEffectiveEntriesCache = {
 };
 let smartPlanningLookupCache = {
   revision: -1,
+  requestRevision: -1,
   sourceEntries: null,
   sourceLength: -1,
   effectiveEntries: [],
@@ -5101,6 +5102,7 @@ let smartPlanningLookupCache = {
 };
 let smartPlanningEmployeeAdviceCache = {
   revision: -1,
+  requestRevision: -1,
   itemAdvice: new Map(),
   authorizedAdvice: new Map()
 };
@@ -8544,16 +8546,17 @@ function getApprovedTimeOff(employeeName, date) {
     return null;
   }
 
+  const normalizedEmployeeName = String(employeeName || "").trim();
   const matchingRequests = timeOffRequests.filter((request) => {
     const requestType = normalizeTimeOffRequestType(request?.type);
     const requestStatus = String(request?.status || "").trim().toLowerCase();
 
     return !isDeletedRequest(request) &&
-      request.employeeName === employeeName &&
+      String(request.employeeName || "").trim() === normalizedEmployeeName &&
       requestIncludesDate(request, date) &&
       (
         requestStatus === "approved" ||
-        (requestType === "ziek" && (requestStatus === "open" || requestStatus === "pending"))
+        (requestType === "ziek" && ["open", "pending", "submitted", "ingediend"].includes(requestStatus))
       );
   });
 
@@ -17128,7 +17131,7 @@ function getComposerTimeOffType(composer) {
 function normalizeTimeOffRequestType(type = "") {
   const normalizedType = String(type || "").trim().toLowerCase();
 
-  if (["ziek", "sick", "sickness", "ziekmelding"].includes(normalizedType)) {
+  if (["ziek", "ziekte", "sick", "sickness", "ziekmelding", "operatie", "operation", "herstel", "herstelperiode", "recovery"].includes(normalizedType)) {
     return "ziek";
   }
 
@@ -21523,6 +21526,7 @@ function invalidateSmartPlanningEffectiveEntriesCache() {
   };
   smartPlanningLookupCache = {
     revision: -1,
+    requestRevision: -1,
     sourceEntries: null,
     sourceLength: -1,
     effectiveEntries: [],
@@ -21536,6 +21540,7 @@ function invalidateSmartPlanningEffectiveEntriesCache() {
   };
   smartPlanningEmployeeAdviceCache = {
     revision: -1,
+    requestRevision: -1,
     itemAdvice: new Map(),
     authorizedAdvice: new Map()
   };
@@ -21584,6 +21589,7 @@ function getSmartPlanningEffectiveEntriesCache(sourceEntries = entries) {
 function getSmartPlanningLookupCache(sourceEntries = entries) {
   if (
     smartPlanningLookupCache.revision === smartPlanningProposalRevision &&
+    smartPlanningLookupCache.requestRevision === requestDataRevision &&
     smartPlanningLookupCache.sourceEntries === sourceEntries &&
     smartPlanningLookupCache.sourceLength === sourceEntries.length
   ) {
@@ -21630,6 +21636,7 @@ function getSmartPlanningLookupCache(sourceEntries = entries) {
 
   smartPlanningLookupCache = {
     revision: smartPlanningProposalRevision,
+    requestRevision: requestDataRevision,
     sourceEntries,
     sourceLength: sourceEntries.length,
     effectiveEntries,
@@ -22043,6 +22050,32 @@ function getSmartPlanningAutoFillBlockReason(item) {
   return "basispatroon ontbreekt";
 }
 
+function getSmartPlanningSickLeaveDebugSummary(data = getSmartPlanningMonthData()) {
+  const visibleWeeks = Array.isArray(data?.visibleWeeks) ? data.visibleWeeks : [];
+  const firstDay = visibleWeeks[0]?.dates?.[0] || "";
+  const lastWeekDates = visibleWeeks[visibleWeeks.length - 1]?.dates || [];
+  const lastDay = lastWeekDates[lastWeekDates.length - 1] || "";
+
+  if (!firstDay || !lastDay) {
+    return [];
+  }
+
+  return timeOffRequests
+    .filter((request) =>
+      !isDeletedRequest(request) &&
+      normalizeTimeOffRequestType(request?.type) === "ziek" &&
+      ["open", "pending", "submitted", "ingediend", "approved"].includes(String(request?.status || "").trim().toLowerCase()) &&
+      requestOverlapsRange(request, firstDay, lastDay)
+    )
+    .map((request) => ({
+      employeeName: request.employeeName,
+      startDate: getTimeOffStartDate(request),
+      endDate: getTimeOffEndDate(request),
+      status: request.status || "",
+      type: request.type || ""
+    }));
+}
+
 function autoFillSmartPlanningProposal() {
   const data = getSmartPlanningMonthData();
   if (!isSmartPlanningProposalCurrent(data)) {
@@ -22066,6 +22099,11 @@ function autoFillSmartPlanningProposal() {
   const openItems = [...getSmartPlanningProposalItems()]
     .filter((item) => isSmartPlanningOpenProposalItem(item))
     .sort(compareSmartPlanningItemsByRosterOrder);
+  const sickLeaveDebugSummary = getSmartPlanningSickLeaveDebugSummary(data);
+
+  if (sickLeaveDebugSummary.length) {
+    console.info("[smart-planning:auto-fill:sick-leave]", sickLeaveDebugSummary);
+  }
 
   openItems.forEach((item) => {
     const candidate = getBestSmartPlanningAutoFillCandidate(item);
@@ -22134,6 +22172,7 @@ function getSmartPlanningEmployeeAdvice(item) {
 
   if (
     smartPlanningEmployeeAdviceCache.revision === smartPlanningProposalRevision &&
+    smartPlanningEmployeeAdviceCache.requestRevision === requestDataRevision &&
     smartPlanningEmployeeAdviceCache.itemAdvice.has(item.id)
   ) {
     return smartPlanningEmployeeAdviceCache.itemAdvice.get(item.id);
@@ -22233,6 +22272,7 @@ function getSmartPlanningEmployeeAdvice(item) {
   });
 
   smartPlanningEmployeeAdviceCache.revision = smartPlanningProposalRevision;
+  smartPlanningEmployeeAdviceCache.requestRevision = requestDataRevision;
   smartPlanningEmployeeAdviceCache.itemAdvice.set(item.id, advice);
   return advice;
 }
@@ -22244,6 +22284,7 @@ function hasSuitableEmployeesForSmartPlanningShift(item) {
 function hasCachedSmartPlanningEmployeeAdvice(item) {
   return !!item?.id &&
     smartPlanningEmployeeAdviceCache.revision === smartPlanningProposalRevision &&
+    smartPlanningEmployeeAdviceCache.requestRevision === requestDataRevision &&
     smartPlanningEmployeeAdviceCache.authorizedAdvice.has(item.id);
 }
 
@@ -23027,6 +23068,7 @@ function getSmartPlanningAuthorizedEmployeeAdvice(item) {
   if (
     item?.id &&
     smartPlanningEmployeeAdviceCache.revision === smartPlanningProposalRevision &&
+    smartPlanningEmployeeAdviceCache.requestRevision === requestDataRevision &&
     smartPlanningEmployeeAdviceCache.authorizedAdvice.has(item.id)
   ) {
     return smartPlanningEmployeeAdviceCache.authorizedAdvice.get(item.id);
@@ -23068,6 +23110,7 @@ function getSmartPlanningAuthorizedEmployeeAdvice(item) {
   const authorizedAdvice = { available, unavailable };
   if (item?.id) {
     smartPlanningEmployeeAdviceCache.revision = smartPlanningProposalRevision;
+    smartPlanningEmployeeAdviceCache.requestRevision = requestDataRevision;
     smartPlanningEmployeeAdviceCache.authorizedAdvice.set(item.id, authorizedAdvice);
   }
 

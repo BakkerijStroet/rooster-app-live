@@ -12,12 +12,32 @@
     return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
   }
 
+  function normalizeTimeOffRequestType(type = "") {
+    const normalizedType = String(type || "").trim().toLowerCase();
+
+    if (["ziek", "ziekte", "sick", "sickness", "ziekmelding", "operatie", "operation", "herstel", "herstelperiode", "recovery"].includes(normalizedType)) {
+      return "ziek";
+    }
+
+    if (["vakantie", "vacation", "verlof"].includes(normalizedType)) {
+      return "vakantie";
+    }
+
+    if (["vrij", "vrije-dag", "vrije dag", "free", "timeoff"].includes(normalizedType)) {
+      return "vrij";
+    }
+
+    return normalizedType;
+  }
+
   function getAbsenceTypeLabel(type) {
-    if (type === "vakantie") {
+    const normalizedType = normalizeTimeOffRequestType(type);
+
+    if (normalizedType === "vakantie") {
       return "Vakantie";
     }
 
-    if (type === "ziek") {
+    if (normalizedType === "ziek") {
       return "Ziek";
     }
 
@@ -25,11 +45,13 @@
   }
 
   function getAbsenceCardClass(type) {
-    if (type === "vakantie") {
+    const normalizedType = normalizeTimeOffRequestType(type);
+
+    if (normalizedType === "vakantie") {
       return "vacation";
     }
 
-    if (type === "ziek") {
+    if (normalizedType === "ziek") {
       return "sick";
     }
 
