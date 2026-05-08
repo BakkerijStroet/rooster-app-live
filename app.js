@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260508-full-planning-card-colors";
+const APP_VERSION = "20260508-hide-open-employee-mobile-shifts";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -10919,6 +10919,11 @@ function getRosterDuplicateSlotEmployeeDisplay(row = {}, fallback = "Open") {
   return employees.length ? employees.join(", ") : fallback;
 }
 
+function hasAssignedRosterEmployee(entry = {}) {
+  const employeeName = String(entry?.name || entry?.employeeName || "").trim();
+  return Boolean(employeeName) && employeeName.toLowerCase() !== "open";
+}
+
 function formatRosterDuplicateSlotConflictText(conflict) {
   if (!conflict) {
     return "";
@@ -11026,7 +11031,7 @@ function renderMobileTodayGroupedRoster(day, entriesForDay, approvedRequestsForD
   return renderMobileGroupedRosterDayCard(day, entriesForDay, approvedRequestsForDay, `Vandaag - ${formatWeekday(day)}`, {
     showEmployeeName: true,
     subtitle: formatDate(day),
-    includeOpenShifts: true
+    includeOpenShifts: false
   });
 }
 
@@ -24351,7 +24356,8 @@ function renderSchedule() {
   const roleVisibleEntriesAll = getEntriesVisibleForCurrentRole();
   const visibleEntries = getFilteredEntries(roleVisibleEntriesAll);
   const employeeRosterEntries = getSortedEntries(entries).filter((entry) =>
-    getWeekValueFromDate(entry.day) === selectedWeek
+    getWeekValueFromDate(entry.day) === selectedWeek &&
+    hasAssignedRosterEmployee(entry)
   );
   const employeeFilter = employeeFilterInput.value.trim().toLowerCase();
   const employeeSearch = employeeSearchInput.value.trim().toLowerCase();
@@ -24408,7 +24414,7 @@ function renderSchedule() {
             : renderEmployeeRosterDayCard(todayDate, todayEntries, todayRequests, `Vandaag - ${formatWeekday(todayDate)}`, {
               showEmployeeName: true,
               subtitle: formatDate(todayDate),
-              includeOpenShifts: true
+              includeOpenShifts: false
             })}
           </section>
         `;
@@ -24438,7 +24444,7 @@ function renderSchedule() {
                 showEmployeeName: true,
                 subtitle: formatDate(selectedMobileRosterDate),
                 emptyText: "Geen dienst gepland",
-                includeOpenShifts: true
+                includeOpenShifts: false
               }
             )}
           </section>
@@ -24450,7 +24456,7 @@ function renderSchedule() {
         <section class="employee-mobile-roster-days" aria-label="Kies een dag">
           ${weekDates.map((day) => {
             const dayRosterRows = getRosterRowsForDay(day, employeeRosterEntries, {
-              includeOpenShifts: shouldRenderPlannerOpenShiftsForDay(day)
+              includeOpenShifts: false
             });
             const dayRequests = approvedTimeOffRequests.filter((request) => requestIncludesDate(request, day));
             const isTodayButton = day === getTodayDateValue();
@@ -24482,7 +24488,7 @@ function renderSchedule() {
           employeeRosterEntries.filter((entry) => entry.day === day),
           approvedTimeOffRequests.filter((request) => requestIncludesDate(request, day)),
           undefined,
-          { showEmployeeName: true, includeOpenShifts: true }
+          { showEmployeeName: true, includeOpenShifts: false }
         )).join("")}
       </section>
     `;
