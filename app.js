@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260508-smart-planning-keep-open";
+const APP_VERSION = "20260508-sick-range-availability";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -470,13 +470,9 @@ function sanitizeTimeOffRequestsForStorage(sourceRequests = timeOffRequests) {
       return;
     }
 
-    const normalizedType = typeof request.type === "string" ? request.type : "vrij";
-    const normalizedStartDate = typeof request.startDate === "string" && request.startDate
-      ? request.startDate
-      : (typeof request.date === "string" ? request.date : "");
-    const normalizedEndDate = normalizedType === "vakantie"
-      ? ((typeof request.endDate === "string" && request.endDate) ? request.endDate : normalizedStartDate)
-      : normalizedStartDate;
+    const normalizedType = normalizeTimeOffRequestType(typeof request.type === "string" ? request.type : "vrij");
+    const normalizedStartDate = getTimeOffRequestStartDateValue(request);
+    const normalizedEndDate = getTimeOffRequestEndDateValue(request, normalizedStartDate, normalizedType);
 
     if (!normalizedStartDate) {
       return;
@@ -1328,32 +1324,26 @@ function loadTimeOffRequests() {
       typeof request.employeeName === "string" &&
       typeof request.reason === "string" &&
       typeof request.status === "string"
-    ).map((request) => ({
-      ...request,
-      employeeName: request.employeeName.trim(),
-      reason: request.reason.trim(),
-      managerNote: typeof request.managerNote === "string" ? request.managerNote.trim() : "",
-      mailLog: sanitizeRequestMailLog(request.mailLog),
-      status: request.status === "pending" ? "open" : request.status,
-      type: typeof request.type === "string" ? request.type : "vrij",
-      date: typeof request.startDate === "string" && request.startDate
-        ? request.startDate
-        : (typeof request.date === "string" ? request.date : ""),
-      startDate: typeof request.startDate === "string" && request.startDate
-        ? request.startDate
-        : (typeof request.date === "string" ? request.date : ""),
-      endDate: (typeof request.type === "string" ? request.type : "vrij") === "vakantie"
-        ? ((typeof request.endDate === "string" && request.endDate)
-          ? request.endDate
-          : ((typeof request.startDate === "string" && request.startDate)
-            ? request.startDate
-            : (typeof request.date === "string" ? request.date : "")))
-        : ((typeof request.startDate === "string" && request.startDate)
-          ? request.startDate
-          : (typeof request.date === "string" ? request.date : "")),
-      createdAt: typeof request.createdAt === "string" ? request.createdAt : "",
-      updatedAt: typeof request.updatedAt === "string" ? request.updatedAt : (typeof request.createdAt === "string" ? request.createdAt : "")
-    })).filter((request) => typeof request.date === "string" && request.date);
+    ).map((request) => {
+      const normalizedType = normalizeTimeOffRequestType(typeof request.type === "string" ? request.type : "vrij");
+      const normalizedStartDate = getTimeOffRequestStartDateValue(request);
+      const normalizedEndDate = getTimeOffRequestEndDateValue(request, normalizedStartDate, normalizedType);
+
+      return {
+        ...request,
+        employeeName: request.employeeName.trim(),
+        reason: request.reason.trim(),
+        managerNote: typeof request.managerNote === "string" ? request.managerNote.trim() : "",
+        mailLog: sanitizeRequestMailLog(request.mailLog),
+        status: request.status === "pending" ? "open" : request.status,
+        type: normalizedType,
+        date: normalizedStartDate,
+        startDate: normalizedStartDate,
+        endDate: normalizedEndDate,
+        createdAt: typeof request.createdAt === "string" ? request.createdAt : "",
+        updatedAt: typeof request.updatedAt === "string" ? request.updatedAt : (typeof request.createdAt === "string" ? request.createdAt : "")
+      };
+    }).filter((request) => typeof request.date === "string" && request.date);
 
     return normalizedRequests.filter((request, index, source) =>
       source.findIndex((candidate) => candidate.id === request.id) === index
@@ -8547,12 +8537,18 @@ function getApprovedTimeOff(employeeName, date) {
     return null;
   }
 
-  const matchingRequests = timeOffRequests.filter((request) =>
-    !isDeletedRequest(request) &&
-    (request.status === "approved" || (normalizeTimeOffRequestType(request.type) === "ziek" && request.status === "open")) &&
-    request.employeeName === employeeName &&
-    requestIncludesDate(request, date)
-  );
+  const matchingRequests = timeOffRequests.filter((request) => {
+    const requestType = normalizeTimeOffRequestType(request?.type);
+    const requestStatus = String(request?.status || "").trim().toLowerCase();
+
+    return !isDeletedRequest(request) &&
+      request.employeeName === employeeName &&
+      requestIncludesDate(request, date) &&
+      (
+        requestStatus === "approved" ||
+        (requestType === "ziek" && (requestStatus === "open" || requestStatus === "pending"))
+      );
+  });
 
   return matchingRequests.find((request) => normalizeTimeOffRequestType(request.type) === "ziek") ||
     matchingRequests[0] ||
@@ -8603,7 +8599,11 @@ const {
 
     return typeof request.startDate === "string" && request.startDate
       ? request.startDate
-      : (typeof request.date === "string" ? request.date : "");
+      : (typeof request.date === "string" && request.date
+        ? request.date
+        : (typeof request.day === "string" && request.day
+          ? request.day
+          : (typeof request.from === "string" ? request.from : "")));
   },
   getTimeOffEndDate = function fallbackGetTimeOffEndDate(request) {
     if (!request) {
@@ -8612,7 +8612,11 @@ const {
 
     return typeof request.endDate === "string" && request.endDate
       ? request.endDate
-      : getTimeOffStartDate(request);
+      : (typeof request.to === "string" && request.to
+        ? request.to
+        : (typeof request.until === "string" && request.until
+          ? request.until
+          : getTimeOffStartDate(request)));
   },
   requestIncludesDate = function fallbackRequestIncludesDate(request, date) {
     const startDate = getTimeOffStartDate(request);
@@ -17127,6 +17131,40 @@ function normalizeTimeOffRequestType(type = "") {
   return normalizedType;
 }
 
+function getTimeOffRequestStartDateValue(request) {
+  if (!request) {
+    return "";
+  }
+
+  return typeof request.startDate === "string" && request.startDate
+    ? request.startDate
+    : (typeof request.date === "string" && request.date
+      ? request.date
+      : (typeof request.day === "string" && request.day
+        ? request.day
+        : (typeof request.from === "string" ? request.from : "")));
+}
+
+function getTimeOffRequestEndDateValue(request, startDate = "", type = "") {
+  if (!request) {
+    return startDate || "";
+  }
+
+  const normalizedType = normalizeTimeOffRequestType(type || request.type || "vrij");
+
+  if (!isRangeTimeOffType(normalizedType)) {
+    return startDate || getTimeOffRequestStartDateValue(request);
+  }
+
+  return typeof request.endDate === "string" && request.endDate
+    ? request.endDate
+    : (typeof request.to === "string" && request.to
+      ? request.to
+      : (typeof request.until === "string" && request.until
+        ? request.until
+        : (startDate || getTimeOffRequestStartDateValue(request))));
+}
+
 function getDefaultTimeOffReason(type) {
   return DEFAULT_TIME_OFF_REASONS[normalizeTimeOffRequestType(type)] || "";
 }
@@ -22073,7 +22111,7 @@ function getSmartPlanningEmployeeAdvice(item) {
       reasons.push("Niet bevoegd");
     } else if (absence) {
       group = "unsuitable";
-      reasons.push(getAbsenceTypeLabel(absence.type));
+      reasons.push(normalizeTimeOffRequestType(absence.type) === "ziek" ? "Ziek/herstel" : getAbsenceTypeLabel(absence.type));
     } else if (overlappingEntry) {
       group = "unsuitable";
       reasons.push("Al ingepland");
@@ -22821,7 +22859,7 @@ function normalizeSmartPlanningUnavailableReason(reason = "") {
   const normalizedReason = String(reason || "").toLowerCase();
 
   if (normalizedReason.includes("vrij")) return "Vrije dag";
-  if (normalizedReason.includes("ziek")) return "Ziek";
+  if (normalizedReason.includes("ziek")) return "Ziek/herstel";
   if (normalizedReason.includes("vakantie") || normalizedReason.includes("verlof")) return "Verlof";
   if (normalizedReason.includes("overlap")) return "Overlap";
   if (normalizedReason.includes("gekozen")) return "Al gekozen";

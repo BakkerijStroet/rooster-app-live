@@ -59,7 +59,11 @@
 
     return typeof request.startDate === "string" && request.startDate
       ? request.startDate
-      : (typeof request.date === "string" ? request.date : "");
+      : (typeof request.date === "string" && request.date
+        ? request.date
+        : (typeof request.day === "string" && request.day
+          ? request.day
+          : (typeof request.from === "string" ? request.from : "")));
   }
 
   function getTimeOffEndDate(request) {
@@ -69,7 +73,11 @@
 
     return typeof request.endDate === "string" && request.endDate
       ? request.endDate
-      : getTimeOffStartDate(request);
+      : (typeof request.to === "string" && request.to
+        ? request.to
+        : (typeof request.until === "string" && request.until
+          ? request.until
+          : getTimeOffStartDate(request)));
   }
 
   function requestIncludesDate(request, date) {
