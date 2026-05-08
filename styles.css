@@ -1296,6 +1296,92 @@ body[data-role="employee"] [data-panel="my-schedule"] .employee-roster-empty {
   color: var(--color-text-muted);
 }
 
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-own-week-list {
+  display: grid;
+  gap: 8px;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-own-day-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--color-surface);
+  border: 1px solid rgba(var(--color-border-rgb), 0.9);
+  box-shadow: 0 4px 14px rgba(var(--color-shadow-rgb), 0.04);
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-own-day-card.has-shift {
+  border-color: rgba(var(--color-primary-rgb), 0.24);
+  box-shadow: inset 3px 0 0 var(--color-primary), 0 4px 14px rgba(var(--color-shadow-rgb), 0.04);
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-own-day-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-own-day-head strong {
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-own-day-head span {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--color-neutral-soft);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-own-day-card.has-shift .my-schedule-own-day-head span {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-own-shifts {
+  display: grid;
+  gap: 6px;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-own-shift {
+  display: grid;
+  gap: 2px;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-own-shift strong {
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-own-shift span,
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-own-empty {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-roster-context {
+  margin-top: 10px;
+  border-top: 1px solid rgba(var(--color-border-rgb), 0.8);
+  padding-top: 10px;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-roster-context summary {
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .my-schedule-roster-context[open] summary {
+  margin-bottom: 8px;
+}
+
 body[data-role="employee"] .employee-roster-line.is-own-shift,
 body[data-role="employee"] .roster-row.is-own-shift {
   border-color: rgba(var(--color-primary-rgb), 0.34);
