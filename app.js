@@ -11105,6 +11105,48 @@ function hasAssignedRosterEmployee(entry = {}) {
   return Boolean(employeeName) && employeeName.toLowerCase() !== "open";
 }
 
+function getAssignedRosterEntriesForWeek(weekValue, sourceEntries = entries) {
+  return getSortedEntries(sourceEntries).filter((entry) =>
+    getWeekValueFromDate(entry.day) === weekValue &&
+    hasAssignedRosterEmployee(entry)
+  );
+}
+
+function isRosterRowForEmployee(row = {}, employeeName = "") {
+  const employeeKey = normalizeEmployeeAvailabilityLookupName(employeeName);
+  if (!employeeKey) {
+    return false;
+  }
+
+  const rows = Array.isArray(row.duplicateSlotRows) && row.duplicateSlotRows.length
+    ? row.duplicateSlotRows
+    : [row];
+
+  return rows.some((rowItem) =>
+    normalizeEmployeeAvailabilityLookupName(rowItem?.entry?.name || rowItem?.name || rowItem?.chosenEmployeeName || "") === employeeKey
+  );
+}
+
+function renderEmployeeRosterSelfBadge(isOwnShift) {
+  return isOwnShift ? '<em class="employee-roster-self-badge">Jij</em>' : "";
+}
+
+function renderEmployeeRosterAbsenceChips(requests = [], { showEmployeeName = true } = {}) {
+  if (!requests.length) {
+    return "";
+  }
+
+  return `
+    <div class="employee-roster-absence-chips" aria-label="Afwezig">
+      ${requests.map((request) => `
+        <span class="employee-roster-absence-chip absence-${getAbsenceCardClass(request.type)}">
+          ${getRosterAbsenceLabel(request, { includeEmployeeName: showEmployeeName })}
+        </span>
+      `).join("")}
+    </div>
+  `;
+}
+
 function formatRosterDuplicateSlotConflictText(conflict) {
   if (!conflict) {
     return "";
@@ -11130,7 +11172,9 @@ function renderRosterDuplicateSlotNotice(conflicts = []) {
 
 function renderMobileTodayRosterGroup(title, groupEntries, groupType, options = {}) {
   const {
-    showEmployeeName = true
+    showEmployeeName = true,
+    currentEmployeeName = "",
+    highlightOwnShifts = false
   } = options;
 
   if (!groupEntries.length) {
@@ -11144,10 +11188,11 @@ function renderMobileTodayRosterGroup(title, groupEntries, groupType, options = 
         ${groupEntries.map((entry) => {
           const employeeName = getRosterDuplicateSlotEmployeeDisplay(entry, "Open");
           const duplicateText = formatRosterDuplicateSlotConflictText(entry.duplicateSlotConflict);
+          const isOwnShift = highlightOwnShifts && isRosterRowForEmployee(entry, currentEmployeeName);
 
           return `
-            <div class="roster-row ${showEmployeeName ? "" : "roster-row--no-name"} ${entry.duplicateSlotConflict ? "has-duplicate-slot" : ""}" ${duplicateText ? `title="${escapeHtmlAttribute(duplicateText)}"` : ""}>
-              ${showEmployeeName ? `<span class="roster-row-name">${employeeName || "Open"}</span>` : ""}
+            <div class="roster-row ${showEmployeeName ? "" : "roster-row--no-name"} ${isOwnShift ? "is-own-shift" : ""} ${entry.duplicateSlotConflict ? "has-duplicate-slot" : ""}" ${duplicateText ? `title="${escapeHtmlAttribute(duplicateText)}"` : ""}>
+              ${showEmployeeName ? `<span class="roster-row-name">${employeeName || "Open"}${renderEmployeeRosterSelfBadge(isOwnShift)}</span>` : renderEmployeeRosterSelfBadge(isOwnShift)}
               <strong class="roster-row-shift">${getShiftName(entry)}</strong>
               <span class="roster-row-time">${entry.startTime}-${entry.endTime}</span>
               ${entry.duplicateSlotConflict ? `<span class="roster-duplicate-warning">${escapeHtmlAttribute(duplicateText)}</span>` : ""}
@@ -11164,7 +11209,10 @@ function renderMobileGroupedRosterDayCard(day, entriesForDay, approvedRequestsFo
     showEmployeeName = true,
     subtitle = "",
     emptyText = "",
-    includeOpenShifts = false
+    includeOpenShifts = false,
+    currentEmployeeName = "",
+    highlightOwnShifts = false,
+    showAbsenceChips = false
   } = options;
   const displayRows = includeOpenShifts
     ? getRosterRowsForDay(day, entriesForDay, { includeOpenShifts: shouldRenderPlannerOpenShiftsForDay(day) })
@@ -11176,6 +11224,7 @@ function renderMobileGroupedRosterDayCard(day, entriesForDay, approvedRequestsFo
   const approvedAbsenceLabel = approvedRequestsForDay.length
     ? approvedRequestsForDay.map((request) => getRosterAbsenceLabel(request, { includeEmployeeName: showEmployeeName })).join(", ")
     : "";
+  const emptyAbsenceText = showAbsenceChips ? "" : approvedAbsenceLabel;
   const dayStatus = assignedEntries.length ? getDayWorkLogStatusForEntries(assignedEntries) : "";
   const statusMarkup = dayStatus
     ? `<span class="status-pill status-${dayStatus === "goedgekeurd" ? "approved" : dayStatus === "ingediend" ? "open" : "empty"}">${dayStatus === "goedgekeurd" ? "Goedgekeurd" : dayStatus === "ingediend" ? "Ingediend" : "Ingevuld"}</span>`
@@ -11193,9 +11242,10 @@ function renderMobileGroupedRosterDayCard(day, entriesForDay, approvedRequestsFo
       </div>
       <div class="roster-groups">
         ${visibleRows.length
-          ? `${renderMobileTodayRosterGroup("Bakkerij", groupedEntries.bakery, "bakery", { showEmployeeName })}${renderMobileTodayRosterGroup("Winkel", groupedEntries.shop, "shop", { showEmployeeName })}`
-          : `<div class="employee-roster-empty">${approvedAbsenceLabel || emptyText || (isClosedPlannerDay(day) ? "Gesloten" : "Geen dienst")}</div>`}
+          ? `${renderMobileTodayRosterGroup("Bakkerij", groupedEntries.bakery, "bakery", { showEmployeeName, currentEmployeeName, highlightOwnShifts })}${renderMobileTodayRosterGroup("Winkel", groupedEntries.shop, "shop", { showEmployeeName, currentEmployeeName, highlightOwnShifts })}`
+          : `<div class="employee-roster-empty">${emptyAbsenceText || emptyText || (isClosedPlannerDay(day) ? "Gesloten" : "Geen dienst")}</div>`}
         ${renderRosterDuplicateSlotNotice(duplicateConflicts)}
+        ${showAbsenceChips ? renderEmployeeRosterAbsenceChips(approvedRequestsForDay, { showEmployeeName: true }) : ""}
       </div>
       ${canCompleteToday ? `
         <div class="employee-roster-actions">
@@ -11212,7 +11262,10 @@ function renderMobileTodayGroupedRoster(day, entriesForDay, approvedRequestsForD
   return renderMobileGroupedRosterDayCard(day, entriesForDay, approvedRequestsForDay, `Vandaag - ${formatWeekday(day)}`, {
     showEmployeeName: true,
     subtitle: formatDate(day),
-    includeOpenShifts: false
+    includeOpenShifts: false,
+    currentEmployeeName: getRoleScopedEmployeeName(),
+    highlightOwnShifts: true,
+    showAbsenceChips: true
   });
 }
 
@@ -11221,7 +11274,10 @@ function renderEmployeeRosterDayCard(day, entriesForDay, approvedRequestsForDay,
     showEmployeeName = false,
     subtitle = "",
     emptyText = "",
-    includeOpenShifts = false
+    includeOpenShifts = false,
+    currentEmployeeName = "",
+    highlightOwnShifts = false,
+    showAbsenceChips = false
   } = options;
   const displayRows = includeOpenShifts
     ? getRosterRowsForDay(day, entriesForDay, { includeOpenShifts: shouldRenderPlannerOpenShiftsForDay(day) })
@@ -11236,6 +11292,7 @@ function renderEmployeeRosterDayCard(day, entriesForDay, approvedRequestsForDay,
   const approvedAbsenceLabel = approvedRequestsForDay.length
     ? approvedRequestsForDay.map((request) => getRosterAbsenceLabel(request, { includeEmployeeName: showEmployeeName })).join(", ")
     : "";
+  const emptyAbsenceText = showAbsenceChips ? "" : approvedAbsenceLabel;
   const statusMarkup = dayStatus
     ? `<span class="status-pill status-${dayStatus === "goedgekeurd" ? "approved" : dayStatus === "ingediend" ? "open" : "empty"}">${dayStatus === "goedgekeurd" ? "Goedgekeurd" : dayStatus === "ingediend" ? "Ingediend" : "Ingevuld"}</span>`
     : "";
@@ -11255,18 +11312,20 @@ function renderEmployeeRosterDayCard(day, entriesForDay, approvedRequestsForDay,
           ? visibleRows.map((entry) => {
             const employeeName = getRosterDuplicateSlotEmployeeDisplay(entry, "Open");
             const duplicateText = formatRosterDuplicateSlotConflictText(entry.duplicateSlotConflict);
+            const isOwnShift = highlightOwnShifts && isRosterRowForEmployee(entry, currentEmployeeName);
 
             return `
-              <div class="employee-roster-line ${entry.duplicateSlotConflict ? "has-duplicate-slot" : ""}" ${duplicateText ? `title="${escapeHtmlAttribute(duplicateText)}"` : ""}>
-                ${showEmployeeName ? `<span class="employee-roster-name">${employeeName || "Open"}</span>` : ""}
+              <div class="employee-roster-line ${isOwnShift ? "is-own-shift" : ""} ${entry.duplicateSlotConflict ? "has-duplicate-slot" : ""}" ${duplicateText ? `title="${escapeHtmlAttribute(duplicateText)}"` : ""}>
+                ${showEmployeeName ? `<span class="employee-roster-name">${employeeName || "Open"}${renderEmployeeRosterSelfBadge(isOwnShift)}</span>` : renderEmployeeRosterSelfBadge(isOwnShift)}
                 <strong>${getShiftName(entry)}</strong>
                 <span>${entry.startTime} - ${entry.endTime}</span>
                 ${entry.duplicateSlotConflict ? `<span class="roster-duplicate-warning">${escapeHtmlAttribute(duplicateText)}</span>` : ""}
               </div>
             `;
           }).join("")
-          : `<div class="employee-roster-empty">${approvedAbsenceLabel || emptyText || (isClosedPlannerDay(day) ? "Gesloten" : "Geen dienst")}</div>`}
+          : `<div class="employee-roster-empty">${emptyAbsenceText || emptyText || (isClosedPlannerDay(day) ? "Gesloten" : "Geen dienst")}</div>`}
         ${renderRosterDuplicateSlotNotice(duplicateConflicts)}
+        ${showAbsenceChips ? renderEmployeeRosterAbsenceChips(approvedRequestsForDay, { showEmployeeName: true }) : ""}
       </div>
       ${canCompleteToday ? `
         <div class="employee-roster-actions">
@@ -11282,7 +11341,8 @@ function renderEmployeeRosterDayCard(day, entriesForDay, approvedRequestsForDay,
 function renderMyScheduleYearOverview(employeeName, selectedWeek) {
   const currentWeek = getCurrentWeekValue();
   const year = getWeekYear(currentWeek);
-  const employeeEntries = entries.filter((entry) => entry.name === employeeName);
+  const employeeKey = normalizeEmployeeAvailabilityLookupName(employeeName);
+  const assignedEntries = entries.filter(hasAssignedRosterEmployee);
   const weekValues = getWeekValuesForYear(year);
 
   return `
@@ -11296,22 +11356,28 @@ function renderMyScheduleYearOverview(employeeName, selectedWeek) {
       <div class="my-schedule-year-grid" aria-label="Weken van ${year}">
         ${weekValues.map((weekValue) => {
           const weekDates = getWeekDates(weekValue);
-          const weekEntries = employeeEntries.filter((entry) => getWeekValueFromDate(entry.day) === weekValue);
+          const weekRosterEntries = assignedEntries.filter((entry) => getWeekValueFromDate(entry.day) === weekValue);
+          const weekEntries = weekRosterEntries.filter((entry) =>
+            normalizeEmployeeAvailabilityLookupName(entry.name) === employeeKey
+          );
           const isCurrentWeek = weekValue === currentWeek;
           const isSelectedWeek = weekValue === selectedWeek;
           const hoursStatus = getMyScheduleWeekHoursStatus(weekEntries);
-          const plannedLabel = weekEntries.length
-            ? `${weekEntries.length} dienst${weekEntries.length === 1 ? "" : "en"}`
+          const plannedLabel = weekRosterEntries.length
+            ? `${weekRosterEntries.length} ingevulde dienst${weekRosterEntries.length === 1 ? "" : "en"}`
             : "Niet gepland";
           const statusLabel = weekEntries.length
             ? (hoursStatus.hasOpenHours ? "Uren open" : "Uren compleet")
             : "";
+          const ownLabel = weekEntries.length
+            ? ` · jij ${weekEntries.length}`
+            : "";
 
           return `
-            <button type="button" class="my-schedule-week-tile ${weekEntries.length ? "is-planned" : "is-empty"} ${hoursStatus.hasOpenHours ? "has-open-hours" : ""} ${hoursStatus.isComplete ? "has-complete-hours" : ""} ${isCurrentWeek ? "is-current is-current-week" : ""} ${isSelectedWeek ? "is-selected" : ""}" data-my-schedule-week="${weekValue}" data-week-number="${getWeekNumber(weekValue)}" ${isCurrentWeek ? 'data-my-schedule-current-week="true"' : ""}>
+            <button type="button" class="my-schedule-week-tile ${weekRosterEntries.length ? "is-planned has-team-roster" : "is-empty"} ${hoursStatus.hasOpenHours ? "has-open-hours" : ""} ${hoursStatus.isComplete ? "has-complete-hours" : ""} ${isCurrentWeek ? "is-current is-current-week" : ""} ${isSelectedWeek ? "is-selected" : ""}" data-my-schedule-week="${weekValue}" data-week-number="${getWeekNumber(weekValue)}" ${isCurrentWeek ? 'data-my-schedule-current-week="true"' : ""}>
               <strong>Week ${getWeekNumber(weekValue)}</strong>
               <span>${formatDate(weekDates[0])} - ${formatDate(weekDates[6])}</span>
-              <em>${isCurrentWeek ? "Deze week · " : ""}${plannedLabel}${statusLabel ? ` · ${statusLabel}` : ""}</em>
+              <em>${isCurrentWeek ? "Deze week · " : ""}${plannedLabel}${ownLabel}${statusLabel ? ` · ${statusLabel}` : ""}</em>
             </button>
           `;
         }).join("")}
@@ -25042,17 +25108,16 @@ function renderSchedule() {
   const selectedWeek = weekFilterInput.value;
   const roleVisibleEntriesAll = getEntriesVisibleForCurrentRole();
   const visibleEntries = getFilteredEntries(roleVisibleEntriesAll);
-  const employeeRosterEntries = getSortedEntries(entries).filter((entry) =>
-    getWeekValueFromDate(entry.day) === selectedWeek &&
-    hasAssignedRosterEmployee(entry)
-  );
+  const employeeRosterEntries = getAssignedRosterEntriesForWeek(selectedWeek);
+  const currentEmployeeName = getRoleScopedEmployeeName();
   const employeeFilter = employeeFilterInput.value.trim().toLowerCase();
   const employeeSearch = employeeSearchInput.value.trim().toLowerCase();
   const dayFilter = dayFilterInput.value;
   const showOpenPlannerSections = isPlannerRole() && employeeFilter === "" && employeeSearch === "";
   const showPlannerInsights = isPlannerRole();
   const weekDates = getWeekDates(selectedWeek);
-  const approvedTimeOffRequests = getApprovedTimeOffVisibleForCurrentRole().filter((request) =>
+  const approvedTimeOffSourceRequests = isPlannerRole() ? getApprovedTimeOffVisibleForCurrentRole() : timeOffRequests;
+  const approvedTimeOffRequests = approvedTimeOffSourceRequests.filter((request) =>
     request.status === "approved" &&
     requestOverlapsRange(request, weekDates[0], weekDates[weekDates.length - 1]) &&
     (employeeFilter === "" || request.employeeName.toLowerCase() === employeeFilter) &&
@@ -25101,7 +25166,10 @@ function renderSchedule() {
             : renderEmployeeRosterDayCard(todayDate, todayEntries, todayRequests, `Vandaag - ${formatWeekday(todayDate)}`, {
               showEmployeeName: true,
               subtitle: formatDate(todayDate),
-              includeOpenShifts: false
+              includeOpenShifts: false,
+              currentEmployeeName,
+              highlightOwnShifts: true,
+              showAbsenceChips: true
             })}
           </section>
         `;
@@ -25131,7 +25199,10 @@ function renderSchedule() {
                 showEmployeeName: true,
                 subtitle: formatDate(selectedMobileRosterDate),
                 emptyText: "Geen dienst gepland",
-                includeOpenShifts: false
+                includeOpenShifts: false,
+                currentEmployeeName,
+                highlightOwnShifts: true,
+                showAbsenceChips: true
               }
             )}
           </section>
@@ -25150,7 +25221,7 @@ function renderSchedule() {
             const statusText = dayRosterRows.length
               ? `${dayRosterRows.length} dienst${dayRosterRows.length === 1 ? "" : "en"}`
               : dayRequests.length
-                ? dayRequests.map((request) => getApprovedAbsenceLabel(request)).join(", ")
+                ? dayRequests.map((request) => getRosterAbsenceLabel(request)).join(", ")
                 : "Geen dienst gepland";
 
             return `
@@ -25175,7 +25246,13 @@ function renderSchedule() {
           employeeRosterEntries.filter((entry) => entry.day === day),
           approvedTimeOffRequests.filter((request) => requestIncludesDate(request, day)),
           undefined,
-          { showEmployeeName: true, includeOpenShifts: false }
+          {
+            showEmployeeName: true,
+            includeOpenShifts: false,
+            currentEmployeeName,
+            highlightOwnShifts: true,
+            showAbsenceChips: true
+          }
         )).join("")}
       </section>
     `;
@@ -25300,17 +25377,24 @@ function renderMySchedule() {
     return;
   }
 
-  const entriesForEmployee = entries
-    .filter((entry) => entry.name === employeeName && getWeekValueFromDate(entry.day) === selectedWeek)
-    .sort((entryA, entryB) => entryA.day.localeCompare(entryB.day) || entryA.startTime.localeCompare(entryB.startTime));
+  const employeeKey = normalizeEmployeeAvailabilityLookupName(employeeName);
+  const entriesForEmployee = getSortedEntries(entries)
+    .filter((entry) =>
+      normalizeEmployeeAvailabilityLookupName(entry.name) === employeeKey &&
+      getWeekValueFromDate(entry.day) === selectedWeek
+    );
+  const assignedWeekEntries = getAssignedRosterEntriesForWeek(selectedWeek);
+  const rosterEntriesForEmployeeView = isPlannerRole() ? entriesForEmployee : assignedWeekEntries;
   const weekDates = getWeekDates(selectedWeek);
-  const approvedTimeOffRequests = timeOffRequests.filter((request) =>
-    request.status === "approved" &&
-    request.employeeName === employeeName &&
-    requestOverlapsRange(request, weekDates[0], weekDates[6])
-  );
+  const approvedTimeOffRequests = timeOffRequests.filter((request) => {
+    if (request.status !== "approved" || !requestOverlapsRange(request, weekDates[0], weekDates[6])) {
+      return false;
+    }
 
-  if (!isPlannerRole() && entriesForEmployee.length === 0) {
+    return !isPlannerRole() || normalizeEmployeeAvailabilityLookupName(request.employeeName) === employeeKey;
+  });
+
+  if (!isPlannerRole() && rosterEntriesForEmployeeView.length === 0 && approvedTimeOffRequests.length === 0) {
     selectedMyScheduleMobileDate = "";
     setClassName(myScheduleBoard, "schedule-board my-schedule-week-board empty");
     myScheduleBoard.innerHTML = renderMyScheduleUnplannedWeek(selectedWeek);
@@ -25325,7 +25409,7 @@ function renderMySchedule() {
     }
 
     if (selectedMyScheduleMobileDate) {
-      const selectedDayEntries = entriesForEmployee
+      const selectedDayEntries = rosterEntriesForEmployeeView
         .filter((entry) => entry.day === selectedMyScheduleMobileDate)
         .sort((entryA, entryB) => entryA.startTime.localeCompare(entryB.startTime));
       const selectedDayRequests = approvedTimeOffRequests.filter((request) => requestIncludesDate(request, selectedMyScheduleMobileDate));
@@ -25342,9 +25426,12 @@ function renderMySchedule() {
             selectedDayRequests,
             selectedMyScheduleMobileDate === todayValue ? `Vandaag - ${formatWeekday(selectedMyScheduleMobileDate)}` : formatWeekday(selectedMyScheduleMobileDate),
             {
-              showEmployeeName: false,
+              showEmployeeName: true,
               subtitle: formatDate(selectedMyScheduleMobileDate),
-              emptyText: "Geen dienst gepland"
+              emptyText: "Geen dienst gepland",
+              currentEmployeeName: employeeName,
+              highlightOwnShifts: true,
+              showAbsenceChips: true
             }
           )}
         </section>
@@ -25363,12 +25450,18 @@ function renderMySchedule() {
       </section>
       <section class="mobile-week my-schedule-mobile-week my-schedule-simple-week">
         ${weekDates.map((day) => {
-          const dayEntries = entriesForEmployee
+          const dayEntries = rosterEntriesForEmployeeView
             .filter((entry) => entry.day === day)
             .sort((entryA, entryB) => entryA.startTime.localeCompare(entryB.startTime));
+          const ownDayEntries = dayEntries.filter((entry) =>
+            normalizeEmployeeAvailabilityLookupName(entry.name) === employeeKey
+          );
+          const dayRequests = approvedTimeOffRequests.filter((request) => requestIncludesDate(request, day));
           const statusText = dayEntries.length
-            ? `${dayEntries.length} dienst${dayEntries.length === 1 ? "" : "en"}`
-            : "Geen dienst gepland";
+            ? `${dayEntries.length} dienst${dayEntries.length === 1 ? "" : "en"}${ownDayEntries.length ? ` · jij ${ownDayEntries.length}` : ""}`
+            : dayRequests.length
+              ? dayRequests.map((request) => getRosterAbsenceLabel(request)).join(", ")
+              : "Geen dienst gepland";
           const relativeState = getRelativeDayState(day);
 
           return `
@@ -25428,6 +25521,35 @@ function renderMySchedule() {
       </section>
     `;
   } else {
+    if (!isPlannerRole()) {
+      setClassName(myScheduleBoard, "schedule-board my-schedule-week-board");
+      myScheduleBoard.innerHTML = `
+        <section class="my-schedule-selected-week-head">
+          ${renderMyScheduleBackToYearButton()}
+          <div>
+            <strong>Week ${getWeekNumber(selectedWeek)}</strong>
+            <span>${formatDate(weekDates[0])} - ${formatDate(weekDates[6])}</span>
+          </div>
+        </section>
+        <section class="employee-roster-week-list">
+          ${weekDates.map((day) => renderEmployeeRosterDayCard(
+            day,
+            rosterEntriesForEmployeeView.filter((entry) => entry.day === day),
+            approvedTimeOffRequests.filter((request) => requestIncludesDate(request, day)),
+            undefined,
+            {
+              showEmployeeName: true,
+              includeOpenShifts: false,
+              currentEmployeeName: employeeName,
+              highlightOwnShifts: true,
+              showAbsenceChips: true
+            }
+          )).join("")}
+        </section>
+      `;
+      return;
+    }
+
     setClassName(myScheduleBoard, "schedule-board");
     myScheduleBoard.innerHTML = `
       ${!isPlannerRole() ? `

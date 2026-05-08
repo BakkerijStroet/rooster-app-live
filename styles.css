@@ -1230,6 +1230,137 @@ body[data-role="employee"] [data-panel="week-current"] .employee-roster-actions 
   display: grid;
 }
 
+body[data-role="employee"] [data-panel="my-schedule"] .employee-roster-week-list {
+  display: grid;
+  gap: 8px;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .employee-roster-day-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--color-surface);
+  box-shadow: 0 6px 18px rgba(var(--color-primary-rgb), 0.06);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.08);
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .employee-roster-day-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(var(--color-primary-rgb), 0.08);
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .employee-roster-day-head strong {
+  display: block;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .employee-roster-day-head span {
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .employee-roster-day-body {
+  display: grid;
+  gap: 8px;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .employee-roster-line {
+  display: grid;
+  gap: 3px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(var(--color-surface-rgb), 0.9);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.08);
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .employee-roster-line strong {
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .employee-roster-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+body[data-role="employee"] [data-panel="my-schedule"] .employee-roster-line span,
+body[data-role="employee"] [data-panel="my-schedule"] .employee-roster-empty {
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+body[data-role="employee"] .employee-roster-line.is-own-shift,
+body[data-role="employee"] .roster-row.is-own-shift {
+  border-color: rgba(var(--color-primary-rgb), 0.34);
+  background: var(--color-primary-soft);
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+body[data-role="employee"] .employee-roster-name,
+body[data-role="employee"] .roster-row-name {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+body[data-role="employee"] .employee-roster-self-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: #ffffff;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+body[data-role="employee"] .employee-roster-absence-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+body[data-role="employee"] .employee-roster-absence-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(var(--color-surface-rgb), 0.95);
+  border: 1px solid rgba(var(--color-border-rgb), 0.9);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+body[data-role="employee"] .employee-roster-absence-chip.absence-free {
+  border-color: rgba(var(--color-success-rgb), 0.28);
+  color: var(--color-success);
+}
+
+body[data-role="employee"] .employee-roster-absence-chip.absence-vacation {
+  border-color: rgba(var(--color-primary-rgb), 0.28);
+  color: var(--color-primary);
+}
+
+body[data-role="employee"] .employee-roster-absence-chip.absence-sick {
+  border-color: rgba(var(--color-danger-rgb), 0.28);
+  color: var(--color-danger);
+}
+
 @media (max-width: 640px) {
   body[data-role="employee"] .app-panel[data-panel="week-current"].board-card {
     display: flex;
