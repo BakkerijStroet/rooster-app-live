@@ -5080,6 +5080,7 @@ let smartPlanningDirty = false;
 let smartPlanningFocusedWeek = "";
 let pendingSmartPlanningScrollWeek = "";
 const smartPlanningUnsavedWarningMessage = "Je hebt niet-opgeslagen wijzigingen in Rooster plannen. Wil je doorgaan zonder op te slaan?";
+const smartPlanningAutoFillMinScore = 800;
 const smartPlanningClearedWeekSnapshots = {};
 let smartPlanningProposalRevision = 0;
 let smartPlanningProposalItemsCache = {
@@ -13057,45 +13058,28 @@ function getEmployeeBasePatternMatch(employeeName, shift, day, weekValue) {
 
 function getEmployeePlanningPatternMatch(employeeName, shift, day, weekValue, sourceEntries = entries) {
   const baseMatch = getEmployeeBasePatternMatch(employeeName, shift, day, weekValue);
-  const categoryKey = getShiftCategoryKey(shift);
-  const isFlexibleHolidayShift = categoryKey === "shop" || categoryKey === "allround";
-  const basePatternId = getEmployeeBasePatternId(employeeName);
   const strongPreferenceMatch = getEmployeeStrongPreferenceMatch(employeeName, shift, day, weekValue, sourceEntries);
 
   if (strongPreferenceMatch) {
     return strongPreferenceMatch;
   }
 
-  if (
-    isVacationWeekValue(weekValue) &&
-    isWeekendEmployee(employeeName) &&
-    isFlexibleHolidayShift &&
-    !["director-emergency", "on-call"].includes(basePatternId) &&
-    baseMatch.score >= 55
-  ) {
-    return {
-      score: 18,
-      label: "Vakantieregel weekendkracht",
-      detail: "Vakantieweek: weekendkracht mag deze week extra worden ingezet buiten het normale basisrooster."
-    };
-  }
-
   return baseMatch;
 }
 
+function isStrictPlanningPatternMatch(patternMatch) {
+  const normalizedText = `${patternMatch?.label || ""} ${patternMatch?.detail || ""}`.toLowerCase();
+
+  return Boolean(
+    patternMatch &&
+    patternMatch.score < 55 &&
+    !normalizedText.includes("afwijking") &&
+    !normalizedText.includes("buiten")
+  );
+}
+
 function canEmployeeBeAutoPlannedWithinPattern(employeeName, shift, day, weekValue, sourceEntries = entries) {
-  const basePatternId = getEmployeeBasePatternId(employeeName);
-  const categoryKey = getShiftCategoryKey(shift);
-
-  if (basePatternId === "director-emergency" || basePatternId === "on-call") {
-    return true;
-  }
-
-  if (categoryKey === "shop" || categoryKey === "allround") {
-    return true;
-  }
-
-  return getEmployeePlanningPatternMatch(employeeName, shift, day, weekValue, sourceEntries).score < 55;
+  return isStrictPlanningPatternMatch(getEmployeePlanningPatternMatch(employeeName, shift, day, weekValue, sourceEntries));
 }
 
 function getAutoPlanningPatternTier(employeeName, shift, day, weekValue, sourceEntries = entries) {
@@ -13103,7 +13087,7 @@ function getAutoPlanningPatternTier(employeeName, shift, day, weekValue, sourceE
   const categoryKey = getShiftCategoryKey(shift);
   const contractGap = getEmployeeContractGap(employeeName, weekValue, sourceEntries);
 
-  if (patternMatch.score < 55) {
+  if (isStrictPlanningPatternMatch(patternMatch)) {
     if (categoryKey === "shop" && contractGap > 0) {
       return 0;
     }
@@ -21028,6 +21012,7 @@ function getSmartPlanningAssignmentBadgeLabel(reason = "") {
   const normalizedReason = String(reason || "").toLowerCase();
 
   if (normalizedReason.includes("vaste")) return "Voorstel: vaste plek";
+  if (normalizedReason.includes("vast patroon")) return "Voorstel: vast patroon";
   if (normalizedReason.includes("eerder")) return "Voorstel: eerdere planning";
   if (normalizedReason.includes("bevoegd")) return "Voorstel";
   if (normalizedReason.includes("voorstel")) return "Voorstel";
@@ -21406,6 +21391,7 @@ function clearAppliedSmartPlanningAssignments(appliedItemIds) {
             isExistingRosterEntry: false,
             keepOpen: false,
             lockedOpen: false,
+            autoFillBlockReason: "",
             assignmentReason: ""
           };
         }
@@ -21420,6 +21406,7 @@ function clearAppliedSmartPlanningAssignments(appliedItemIds) {
           isExistingRosterEntry: true,
           keepOpen: false,
           lockedOpen: false,
+          autoFillBlockReason: "",
           assignmentReason: "Bestaand"
         };
       }).filter(Boolean);
@@ -21883,10 +21870,8 @@ function getSmartPlanningLookupCache(sourceEntries = entries) {
     return smartPlanningLookupCache;
   }
 
-  const effectiveCache = smartPlanningProposalState?.mode === "adjust"
-    ? getSmartPlanningEffectiveEntriesCache(sourceEntries)
-    : null;
-  const effectiveEntries = effectiveCache?.entries || sourceEntries;
+  const effectiveCache = getSmartPlanningEffectiveEntriesCache(sourceEntries);
+  const effectiveEntries = effectiveCache.entries;
   const employeeDayEntries = new Map();
   const employeeWeekHours = new Map();
   const proposalAssignmentsByEmployeeDay = new Map();
@@ -21927,7 +21912,7 @@ function getSmartPlanningLookupCache(sourceEntries = entries) {
     sourceEntries,
     sourceLength: sourceEntries.length,
     effectiveEntries,
-    entryByItemId: effectiveCache?.entryByItemId || new Map(),
+    entryByItemId: effectiveCache.entryByItemId || new Map(),
     employeeDayEntries,
     employeeWeekHours,
     proposalAssignmentsByEmployeeDay,
@@ -22025,7 +22010,7 @@ function getSmartPlanningPatternInfo(employeeName, item, lookup = getSmartPlanni
     priority = 90;
   } else if (patternId === "on-call") {
     priority = 70;
-  } else if (patternId && patternMatch.score < 55) {
+  } else if (patternId && isStrictPlanningPatternMatch(patternMatch)) {
     priority = 0;
   } else if (patternId) {
     priority = 45;
@@ -22036,7 +22021,7 @@ function getSmartPlanningPatternInfo(employeeName, item, lookup = getSmartPlanni
     reason = "Noodoptie";
   } else if (patternId === "on-call") {
     reason = "Oproep/flex";
-  } else if (patternId && patternMatch.score < 55) {
+  } else if (patternId && isStrictPlanningPatternMatch(patternMatch)) {
     reason = "Past binnen basispatroon";
   } else if (patternId) {
     reason = "Buiten normaal patroon";
@@ -22165,7 +22150,7 @@ function getSmartPlanningPatternPriority(employeeName, item) {
     return 25;
   }
 
-  if (patternMatch.score < 55) {
+  if (isStrictPlanningPatternMatch(patternMatch)) {
     return 0;
   }
 
@@ -22188,7 +22173,7 @@ function getSmartPlanningPatternDisplayReason(employeeName, item) {
     return "Geen vast patroon";
   }
 
-  if (patternMatch.score < 55) {
+  if (isStrictPlanningPatternMatch(patternMatch)) {
     return "Past binnen basispatroon";
   }
 
@@ -22227,6 +22212,7 @@ function applySmartPlanningFixedBakeryStaffing() {
     item.chosenEmployeeName = fixedEmployeeName;
     item.keepOpen = false;
     item.lockedOpen = false;
+    item.autoFillBlockReason = "";
     item.assignmentReason = "Vaste bezetting";
     assignedCount += 1;
   });
@@ -22237,8 +22223,12 @@ function applySmartPlanningFixedBakeryStaffing() {
 function getSmartPlanningAutoFillReason(candidate, item) {
   const scoreDetails = getSmartPlanningAutoFillScoreDetails(candidate, item);
 
-  if (scoreDetails.fixedScore > 0) {
+  if (scoreDetails.standardEmployeeScore > 0) {
     return "Vaste plek";
+  }
+
+  if (scoreDetails.patternFitScore > 0) {
+    return "Vast patroon";
   }
 
   if (scoreDetails.sameShiftWeekdayScore > 0 || scoreDetails.sameShiftScore > 0 || scoreDetails.sameWeekdayScore > 0) {
@@ -22248,6 +22238,107 @@ function getSmartPlanningAutoFillReason(candidate, item) {
   return "Bevoegd en beschikbaar";
 }
 
+function getSmartPlanningPatternWorkdayCount(employeeName, weekValue) {
+  const rosterWeek = getEmployeeEffectiveRosterWeek(employeeName, weekValue);
+  return getRosterWeekdayDefinitions()
+    .filter((weekday) => rosterWeek.values?.[weekday.number])
+    .length;
+}
+
+function getSmartPlanningProjectedWorkdayCount(employeeName, item, lookup = getSmartPlanningLookupCache(entries)) {
+  const weekValue = item?.weekValue || (item?.day ? getWeekValueFromDate(item.day) : getCurrentWeekValue());
+  const workdays = new Set();
+
+  lookup.effectiveEntries.forEach((entry) => {
+    if (entry.name === employeeName && getWeekValueFromDate(entry.day) === weekValue) {
+      workdays.add(entry.day);
+    }
+  });
+
+  if (item?.day) {
+    workdays.add(item.day);
+  }
+
+  return workdays.size;
+}
+
+function getSmartPlanningAutoFillCandidateDecision(candidate, item) {
+  if (!candidate || !item) {
+    return {
+      accepted: false,
+      reason: "Geen logische medewerker beschikbaar",
+      scoreDetails: null
+    };
+  }
+
+  const scoreDetails = getSmartPlanningAutoFillScoreDetails(candidate, item);
+  const weekValue = item.weekValue || getWeekValueFromDate(item.day);
+  const weekday = getWeekdayNumberFromDate(item.day);
+  const patternId = getEmployeeBasePatternId(candidate.employeeName);
+  const patternMatch = getSmartPlanningPatternMatchForItem(candidate.employeeName, item);
+  const patternWorkdayCount = getSmartPlanningPatternWorkdayCount(candidate.employeeName, weekValue);
+  const projectedWorkdayCount = getSmartPlanningProjectedWorkdayCount(candidate.employeeName, item);
+  const contractHours = getEmployeeContractHours(candidate.employeeName);
+  const shiftHours = calculateHours(item.startTime || "", item.endTime || "") || 0;
+  const projectedHours = Math.round(((candidate.plannedHours || 0) + shiftHours) * 10) / 10;
+
+  if (patternId === "director-emergency" || patternId === "on-call" || candidate.isEmergencyOption) {
+    return {
+      accepted: false,
+      reason: "Geen logische medewerker beschikbaar",
+      scoreDetails
+    };
+  }
+
+  if (patternId && !isStrictPlanningPatternMatch(patternMatch)) {
+    return {
+      accepted: false,
+      reason: isWeekendEmployee(candidate.employeeName) && weekday >= 2 && weekday <= 5
+        ? "Weekendkracht buiten patroon"
+        : "Geen patroonmatch",
+      scoreDetails
+    };
+  }
+
+  if (!patternId && scoreDetails.fixedScore <= 0) {
+    return {
+      accepted: false,
+      reason: "Geen patroonmatch",
+      scoreDetails
+    };
+  }
+
+  if (patternWorkdayCount > 0 && projectedWorkdayCount > patternWorkdayCount) {
+    return {
+      accepted: false,
+      reason: "Te veel ingepland",
+      scoreDetails
+    };
+  }
+
+  if (contractHours > 0 && projectedHours > contractHours) {
+    return {
+      accepted: false,
+      reason: "Te veel ingepland",
+      scoreDetails
+    };
+  }
+
+  if (scoreDetails.score < smartPlanningAutoFillMinScore) {
+    return {
+      accepted: false,
+      reason: "Geen logische medewerker beschikbaar",
+      scoreDetails
+    };
+  }
+
+  return {
+    accepted: true,
+    reason: "",
+    scoreDetails
+  };
+}
+
 function getSmartPlanningAutoFillScoreDetails(candidate, item) {
   const shift = getSmartPlanningShiftFromProposalItem(item);
   const weekValue = item?.weekValue || (item?.day ? getWeekValueFromDate(item.day) : getCurrentWeekValue());
@@ -22255,9 +22346,9 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
   const weekday = item?.day ? getWeekdayNumberFromDate(item.day) : 0;
   const categoryKey = getShiftCategoryKey(shift || { name: shiftName, isShopShift: item?.department === "shop" });
   const patternMatch = getSmartPlanningPatternMatchForItem(candidate.employeeName, item);
+  const patternId = getEmployeeBasePatternId(candidate.employeeName);
   const standardEmployeeName = getPrimaryStandardEmployeeForShift(item?.shiftName || "") ||
     getSmartPlanningFixedBakeryEmployeeForShift(item?.shiftName || "");
-  const normalizedPatternReason = String(candidate.patternReason || "").toLowerCase();
   const history = getHistoricalAssignments(candidate.employeeName, weekValue, getPlanningEntries(), 10);
   let sameShiftWeekdayScore = 0;
   let sameShiftScore = 0;
@@ -22300,9 +22391,9 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
     }
   });
 
-  const fixedScore = standardEmployeeName === candidate.employeeName
-    ? 1000
-    : (patternMatch.score < 55 || normalizedPatternReason.includes("basispatroon") ? 850 : 0);
+  const standardEmployeeScore = standardEmployeeName === candidate.employeeName ? 1000 : 0;
+  const patternFitScore = patternId && isStrictPlanningPatternMatch(patternMatch) ? 900 : 0;
+  const fixedScore = standardEmployeeScore || patternFitScore;
   const departmentSummary = getEmployeeDepartmentSummary(candidate.employeeName).toLowerCase();
   const departmentScore = categoryKey === "shop"
     ? (departmentSummary.includes("winkel") ? 35 : 0)
@@ -22324,12 +22415,16 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
   return {
     score,
     fixedScore,
+    standardEmployeeScore,
+    patternFitScore,
     sameShiftWeekdayScore,
     sameShiftScore,
     sameWeekdayScore,
     sameCategoryWeekdayScore,
     sameCategoryScore,
     departmentScore,
+    minScore: smartPlanningAutoFillMinScore,
+    patternId,
     patternScore: patternMatch.score
   };
 }
@@ -22357,16 +22452,37 @@ function getBestSmartPlanningAutoFillCandidate(item) {
     compareSmartPlanningAutoFillCandidates(candidateA, candidateB, item)
   );
 
-  return availableCandidates[0] || null;
+  return availableCandidates.find((candidate) =>
+    getSmartPlanningAutoFillCandidateDecision(candidate, item).accepted
+  ) || null;
 }
 
 function getSmartPlanningAutoFillBlockReason(item) {
   const advice = getSmartPlanningEmployeeAdvice(item);
+  const authorizedEmployeeAdvice = getSmartPlanningAuthorizedEmployeeAdvice(item);
+  const availableCandidates = [...authorizedEmployeeAdvice.available].sort((candidateA, candidateB) =>
+    compareSmartPlanningAutoFillCandidates(candidateA, candidateB, item)
+  );
   const activeEmployees = getActiveEmployees();
   const allAdvice = [...advice.suitable, ...advice.attention, ...advice.unsuitable];
   const activeAdvice = allAdvice.filter((candidate) => activeEmployees.includes(candidate.employeeName));
   const authorizedAdvice = activeAdvice.filter((candidate) => candidate.isAuthorized && !candidate.reasons.includes("Niet bevoegd"));
+  const decisionReasonCounts = new Map();
   const reasonCounts = new Map();
+
+  availableCandidates.forEach((candidate) => {
+    const decision = getSmartPlanningAutoFillCandidateDecision(candidate, item);
+    if (!decision.accepted && decision.reason) {
+      decisionReasonCounts.set(decision.reason, (decisionReasonCounts.get(decision.reason) || 0) + 1);
+    }
+  });
+
+  const topDecisionReason = [...decisionReasonCounts.entries()]
+    .sort((itemA, itemB) => itemB[1] - itemA[1] || itemA[0].localeCompare(itemB[0], "nl"))[0]?.[0] || "";
+
+  if (topDecisionReason) {
+    return topDecisionReason;
+  }
 
   activeAdvice.forEach((candidate) => {
     const reason = candidate.reasons[0] || "Geen basispatroon";
@@ -22386,6 +22502,15 @@ function getSmartPlanningAutoFillBlockReason(item) {
 
   if (topReason) {
     const normalizedReason = topReason.toLowerCase();
+    if (normalizedReason.includes("weekendkracht")) {
+      return "Weekendkracht buiten patroon";
+    }
+    if (normalizedReason.includes("te veel") || normalizedReason.includes("contracturen")) {
+      return "Te veel ingepland";
+    }
+    if (normalizedReason.includes("patroon")) {
+      return "Geen patroonmatch";
+    }
     if (normalizedReason.includes("vakantie") || normalizedReason.includes("vrij") || normalizedReason.includes("ziek")) {
       return "iedereen afwezig";
     }
@@ -22592,6 +22717,7 @@ function autoFillSmartPlanningProposal() {
     if (!candidate) {
       remainingOpenCount += 1;
       const reason = getSmartPlanningAutoFillBlockReason(item);
+      item.autoFillBlockReason = reason;
       blockReasons.set(reason, (blockReasons.get(reason) || 0) + 1);
       return;
     }
@@ -22599,6 +22725,7 @@ function autoFillSmartPlanningProposal() {
     item.chosenEmployeeName = candidate.employeeName;
     item.keepOpen = false;
     item.lockedOpen = false;
+    item.autoFillBlockReason = "";
     item.assignmentReason = getSmartPlanningAutoFillReason(candidate, item);
     lastSmartPlanningAssignedItemId = item.id;
     filledCount += 1;
@@ -22779,10 +22906,10 @@ function getSmartPlanningShiftWarning(item, options = {}) {
   }
 
   if (hasSuitableEmployeesForSmartPlanningShift(item)) {
-    return "";
+    return item.autoFillBlockReason || "";
   }
 
-  return "Geen geschikte medewerker beschikbaar";
+  return item.autoFillBlockReason || "Geen geschikte medewerker beschikbaar";
 }
 
 function getSmartPlanningUnfillableOpenShiftIds() {
@@ -23469,6 +23596,7 @@ function selectSmartPlanningProposalEmployee(itemId, employeeName, options = {})
   item.chosenEmployeeName = employeeName || "";
   item.keepOpen = false;
   item.lockedOpen = false;
+  item.autoFillBlockReason = "";
   item.assignmentReason = "";
   if (employeeName) {
     lastSmartPlanningSelectedEmployeeName = employeeName;
@@ -23501,6 +23629,7 @@ function setSmartPlanningProposalKeepOpen(itemId, keepOpen = true) {
   item.chosenEmployeeName = "";
   item.keepOpen = Boolean(keepOpen);
   item.lockedOpen = Boolean(keepOpen);
+  item.autoFillBlockReason = "";
   item.assignmentReason = keepOpen ? "Bewust open" : "";
 
   if (lastSmartPlanningAssignedItemId === itemId) {
@@ -24223,7 +24352,8 @@ function createSmartPlanningProposalItemFromOpenItem(weekValue, item, index) {
     endTime: item.shift.endTime,
     originalEmployeeName: "",
     keepOpen: false,
-    lockedOpen: false
+    lockedOpen: false,
+    autoFillBlockReason: ""
   };
 }
 
@@ -24253,6 +24383,7 @@ function createSmartPlanningProposalItemFromExistingEntry(weekValue, entry, inde
     isExistingRosterEntry: true,
     keepOpen: false,
     lockedOpen: false,
+    autoFillBlockReason: "",
     assignmentReason: isOpenEmployeeName ? "" : "Bestaand"
   };
 }
