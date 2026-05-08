@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260508-stable-planning-saves-sick-ranges";
+const APP_VERSION = "20260508-sick-availability-debug";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -8561,7 +8561,7 @@ function getApprovedTimeOff(employeeName, date) {
 
     return !isDeletedRequest(request) &&
       normalizeEmployeeAvailabilityLookupName(request.employeeName) === normalizedEmployeeName &&
-      requestIncludesDate(request, date) &&
+      timeOffRequestIncludesAvailabilityDate(request, date) &&
       (
         requestStatus === "approved" ||
         (requestType === "ziek" && ["open", "pending", "submitted", "ingediend", "goedgekeurd"].includes(requestStatus))
@@ -8671,6 +8671,103 @@ const {
     return formatDate(startDate);
   }
 } = window.StroetRequestsFeature || {};
+
+const SICK_RECOVERY_FALLBACK_DAYS = 30;
+
+function addDaysToDateValue(dateValue, dayOffset) {
+  if (!dateValue || !Number.isFinite(Number(dayOffset))) {
+    return dateValue || "";
+  }
+
+  const [year, month, day] = String(dateValue).split("-").map((part) => Number(part));
+
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return dateValue || "";
+  }
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + Number(dayOffset));
+  return date.toISOString().slice(0, 10);
+}
+
+function getExplicitTimeOffEndDate(request) {
+  if (!request) {
+    return "";
+  }
+
+  if (typeof request.endDate === "string" && request.endDate) {
+    return request.endDate;
+  }
+
+  if (typeof request.to === "string" && request.to) {
+    return request.to;
+  }
+
+  if (typeof request.until === "string" && request.until) {
+    return request.until;
+  }
+
+  return "";
+}
+
+function isSickRecoveryRequestWithoutRealEndDate(request) {
+  if (!request || normalizeTimeOffRequestType(request.type) !== "ziek") {
+    return false;
+  }
+
+  const startDate = getTimeOffStartDate(request);
+  const explicitEndDate = getExplicitTimeOffEndDate(request);
+  const normalizedText = [
+    request.reason,
+    request.managerNote,
+    request.note,
+    request.description,
+    request.type
+  ].map((value) => String(value || "").toLowerCase()).join(" ");
+
+  return Boolean(startDate) &&
+    (!explicitEndDate || explicitEndDate === startDate) &&
+    (
+      normalizedText.includes("operatie") ||
+      normalizedText.includes("operation") ||
+      normalizedText.includes("herstel") ||
+      normalizedText.includes("recovery") ||
+      normalizedText.includes("revalid")
+    );
+}
+
+function getTimeOffAvailabilityEndDate(request) {
+  const startDate = getTimeOffStartDate(request);
+  const endDate = getTimeOffEndDate(request);
+
+  if (isSickRecoveryRequestWithoutRealEndDate(request)) {
+    return addDaysToDateValue(startDate, SICK_RECOVERY_FALLBACK_DAYS - 1);
+  }
+
+  return endDate || startDate;
+}
+
+function timeOffRequestIncludesAvailabilityDate(request, date) {
+  const startDate = getTimeOffStartDate(request);
+  const endDate = getTimeOffAvailabilityEndDate(request);
+
+  if (!startDate || !endDate || !date) {
+    return false;
+  }
+
+  return date >= startDate && date <= endDate;
+}
+
+function timeOffRequestOverlapsAvailabilityRange(request, startDate, endDate) {
+  const requestStartDate = getTimeOffStartDate(request);
+  const requestEndDate = getTimeOffAvailabilityEndDate(request);
+
+  if (!requestStartDate || !requestEndDate || !startDate || !endDate) {
+    return false;
+  }
+
+  return requestStartDate <= endDate && requestEndDate >= startDate;
+}
 
 const {
   addMinutesToTimeValue = function fallbackAddMinutesToTimeValue(timeValue, minutesToAdd) {
@@ -22293,12 +22390,14 @@ function getSmartPlanningSickLeaveDebugSummary(data = getSmartPlanningMonthData(
       !isDeletedRequest(request) &&
       normalizeTimeOffRequestType(request?.type) === "ziek" &&
       ["open", "pending", "submitted", "ingediend", "approved"].includes(String(request?.status || "").trim().toLowerCase()) &&
-      requestOverlapsRange(request, firstDay, lastDay)
+      timeOffRequestOverlapsAvailabilityRange(request, firstDay, lastDay)
     )
     .map((request) => ({
       employeeName: request.employeeName,
       startDate: getTimeOffStartDate(request),
       endDate: getTimeOffEndDate(request),
+      availabilityEndDate: getTimeOffAvailabilityEndDate(request),
+      inferredRecoveryRange: isSickRecoveryRequestWithoutRealEndDate(request),
       status: request.status || "",
       type: request.type || ""
     }));
@@ -22316,11 +22415,14 @@ function getSmartPlanningEmployeeSickAvailabilityDebug(employeeName, data = getS
       normalizeTimeOffRequestType(request?.type) === "ziek"
     )
     .map((request) => ({
+      id: request.id || "",
       employeeName: request.employeeName,
       type: request.type || "",
       status: request.status || "",
       startDate: getTimeOffStartDate(request),
       endDate: getTimeOffEndDate(request),
+      availabilityEndDate: getTimeOffAvailabilityEndDate(request),
+      inferredRecoveryRange: isSickRecoveryRequestWithoutRealEndDate(request),
       dataMode: currentDataMode
     }));
 
@@ -22338,6 +22440,94 @@ function getSmartPlanningEmployeeSickAvailabilityDebug(employeeName, data = getS
     };
   });
 }
+
+function getEmployeeAvailabilityDebugRecord(request, employeeKey, date) {
+  const requestEmployeeName = request?.employeeName || request?.name || request?.employee || "";
+  const normalizedType = normalizeTimeOffRequestType(request?.type);
+  const normalizedStatus = String(request?.status || "").trim().toLowerCase();
+  const startDate = getTimeOffStartDate(request);
+  const endDate = getTimeOffEndDate(request);
+  const availabilityEndDate = getTimeOffAvailabilityEndDate(request);
+  const nameMatches = normalizeEmployeeAvailabilityLookupName(requestEmployeeName) === employeeKey;
+  const statusBlocks = normalizedStatus === "approved" ||
+    (normalizedType === "ziek" && ["open", "pending", "submitted", "ingediend", "goedgekeurd"].includes(normalizedStatus));
+  const dateInStoredRange = requestIncludesDate(request, date);
+  const dateInAvailabilityRange = timeOffRequestIncludesAvailabilityDate(request, date);
+  const deleted = isDeletedRequest(request);
+
+  return {
+    id: request?.id || "",
+    employeeName: requestEmployeeName,
+    name: request?.name || "",
+    type: request?.type || "",
+    normalizedType,
+    status: request?.status || "",
+    normalizedStatus,
+    day: request?.day || "",
+    date: request?.date || "",
+    startDate,
+    endDate,
+    availabilityEndDate,
+    dataMode: currentDataMode,
+    deleted_at: request?.deleted_at || "",
+    deletedAt: request?.deletedAt || "",
+    deleted,
+    reason: request?.reason || "",
+    nameMatches,
+    statusBlocks,
+    dateInStoredRange,
+    dateInAvailabilityRange,
+    inferredRecoveryRange: isSickRecoveryRequestWithoutRealEndDate(request),
+    blocksAvailability: !deleted && nameMatches && statusBlocks && dateInAvailabilityRange,
+    raw: { ...request }
+  };
+}
+
+function debugEmployeeAvailability(employeeName, date) {
+  const employeeKey = normalizeEmployeeAvailabilityLookupName(employeeName);
+  const records = timeOffRequests
+    .map((request) => getEmployeeAvailabilityDebugRecord(request, employeeKey, date))
+    .filter((record) => record.nameMatches || record.employeeName.toLowerCase().includes(employeeKey));
+  const blockingRecord = records.find((record) => record.blocksAvailability);
+  const absence = getApprovedTimeOff(employeeName, date);
+  const result = {
+    appVersion: APP_VERSION,
+    mode: currentDataMode,
+    employeeName,
+    date,
+    foundRequestCount: records.length,
+    available: !absence,
+    reason: absence
+      ? (normalizeTimeOffRequestType(absence.type) === "ziek" ? "Ziek/herstel" : getAbsenceTypeLabel(absence.type))
+      : "Beschikbaar",
+    blockingRequestId: blockingRecord?.id || "",
+    requests: records
+  };
+
+  console.group(`[availability-debug] ${employeeName} ${date}`);
+  console.table(records.map((record) => ({
+    id: record.id,
+    type: record.type,
+    status: record.status,
+    startDate: record.startDate,
+    endDate: record.endDate,
+    availabilityEndDate: record.availabilityEndDate,
+    deleted: record.deleted,
+    nameMatches: record.nameMatches,
+    statusBlocks: record.statusBlocks,
+    dateInStoredRange: record.dateInStoredRange,
+    dateInAvailabilityRange: record.dateInAvailabilityRange,
+    inferredRecoveryRange: record.inferredRecoveryRange,
+    blocksAvailability: record.blocksAvailability,
+    reason: record.reason
+  })));
+  console.info(result);
+  console.groupEnd();
+
+  return result;
+}
+
+window.debugEmployeeAvailability = debugEmployeeAvailability;
 
 function autoFillSmartPlanningProposal() {
   const data = getSmartPlanningMonthData();
