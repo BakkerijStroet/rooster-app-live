@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260508-keep-open-advance";
+const APP_VERSION = "20260508-planning-shift-status-colors";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -20847,7 +20847,6 @@ function getSmartPlanningAssignmentBadgeLabel(reason = "") {
   if (normalizedReason.includes("eerder")) return "Eerder";
   if (normalizedReason.includes("bevoegd")) return "Voorstel";
   if (normalizedReason.includes("voorstel")) return "Voorstel";
-  if (normalizedReason.includes("bestaand")) return "Bestaand";
 
   return "";
 }
