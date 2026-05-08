@@ -13729,6 +13729,51 @@ body[data-control-mode="planner"] .shift-card.is-vacation-autofill {
   color: var(--color-text);
 }
 
+.smart-planning-proposal-roster button.smart-planning-open-shift-button.is-status-open,
+.smart-planning-proposal-roster .planning-shift-line.smart-planning-open-shift-button.is-status-open {
+  background: linear-gradient(0deg, rgba(var(--color-danger-rgb), 0.14), rgba(var(--color-danger-rgb), 0.14)), var(--color-danger-soft) !important;
+  border-color: rgba(var(--color-danger-rgb), 0.36) !important;
+  box-shadow: inset 0 0 0 1px rgba(var(--color-danger-rgb), 0.08) !important;
+  color: var(--color-text) !important;
+}
+
+.smart-planning-proposal-roster button.smart-planning-open-shift-button.is-status-filled,
+.smart-planning-proposal-roster .planning-shift-line.smart-planning-open-shift-button.is-status-filled {
+  background: linear-gradient(0deg, rgba(var(--color-success-rgb), 0.18), rgba(var(--color-success-rgb), 0.18)), var(--color-success-soft) !important;
+  border-color: rgba(var(--color-success-rgb), 0.42) !important;
+  box-shadow: inset 0 0 0 1px rgba(var(--color-success-rgb), 0.10) !important;
+  color: var(--color-text) !important;
+}
+
+.smart-planning-proposal-roster button.smart-planning-open-shift-button.is-status-kept-open,
+.smart-planning-proposal-roster .planning-shift-line.smart-planning-open-shift-button.is-status-kept-open {
+  background: linear-gradient(0deg, rgba(var(--color-warning-rgb), 0.18), rgba(var(--color-warning-rgb), 0.18)), var(--color-warning-soft) !important;
+  border-color: rgba(var(--color-warning-rgb), 0.44) !important;
+  box-shadow: inset 0 0 0 1px rgba(var(--color-warning-rgb), 0.10) !important;
+  color: var(--color-text) !important;
+}
+
+.smart-planning-proposal-roster button.smart-planning-open-shift-button.is-status-open *,
+.smart-planning-proposal-roster button.smart-planning-open-shift-button.is-status-filled *,
+.smart-planning-proposal-roster button.smart-planning-open-shift-button.is-status-kept-open *,
+.smart-planning-proposal-roster .planning-shift-line.smart-planning-open-shift-button.is-status-open *,
+.smart-planning-proposal-roster .planning-shift-line.smart-planning-open-shift-button.is-status-filled *,
+.smart-planning-proposal-roster .planning-shift-line.smart-planning-open-shift-button.is-status-kept-open * {
+  color: var(--color-text) !important;
+}
+
+.smart-planning-proposal-roster button.smart-planning-open-shift-button.is-status-filled .smart-planning-concept-badge,
+.smart-planning-proposal-roster .planning-shift-line.smart-planning-open-shift-button.is-status-filled .smart-planning-concept-badge {
+  background: rgba(var(--color-surface-rgb), 0.55);
+  border-color: rgba(var(--color-success-rgb), 0.26);
+}
+
+.smart-planning-proposal-roster button.smart-planning-open-shift-button.is-status-kept-open .smart-planning-concept-badge,
+.smart-planning-proposal-roster .planning-shift-line.smart-planning-open-shift-button.is-status-kept-open .smart-planning-concept-badge {
+  background: rgba(var(--color-surface-rgb), 0.55);
+  border-color: rgba(var(--color-warning-rgb), 0.28);
+}
+
 .smart-planning-proposal-roster .smart-planning-assigned-shift-name {
   grid-area: name;
   grid-column: auto;

@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260508-card-status-backgrounds";
+const APP_VERSION = "20260508-full-planning-card-colors";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -23294,6 +23294,9 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
             ? "Bewust open"
             : getSmartPlanningAssignmentBadgeLabel(proposalItem?.assignmentReason || "");
           const titleText = duplicateText || warningText || `${isKeptOpen ? "Bewust open" : "OPEN"} - ${row.shiftName} - ${shiftTime}. Klik om details te bekijken`;
+          const planningStatusClass = chosenEmployeeName
+            ? "is-status-filled"
+            : (isKeptOpen ? "is-status-kept-open" : "is-status-open");
           const duplicateBadge = row.duplicateSlotConflict
             ? `<span class="planning-shift-conflict-label">${escapeHtmlAttribute(duplicateText)}</span>`
             : "";
@@ -23324,7 +23327,7 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
             <div class="smart-planning-open-shift-wrap ${isSelected ? "is-picker-open" : ""}">
               <button
                 type="button"
-                class="planning-shift-line is-open smart-planning-open-shift-button ${isSelected ? "is-selected" : ""} ${warningText ? "has-warning" : ""} ${row.duplicateSlotConflict ? "has-duplicate-slot" : ""} ${chosenEmployeeName ? "has-choice" : ""} ${isKeptOpen ? "is-kept-open" : ""} ${wasJustAssigned ? "was-just-assigned" : ""}"
+                class="planning-shift-line is-open smart-planning-open-shift-button ${planningStatusClass} ${isSelected ? "is-selected" : ""} ${warningText ? "has-warning" : ""} ${row.duplicateSlotConflict ? "has-duplicate-slot" : ""} ${chosenEmployeeName ? "has-choice" : ""} ${isKeptOpen ? "is-kept-open" : ""} ${wasJustAssigned ? "was-just-assigned" : ""}"
                 data-smart-planning-open-shift="${escapeHtmlAttribute(row.smartPlanningId)}"
                 data-smart-planning-slot-key="${escapeHtmlAttribute(getSmartPlanningProposalSlotKey(proposalItem || row))}"
                 ${row.duplicateSlotConflict ? `data-roster-duplicate-slot="${escapeHtmlAttribute(row.duplicateSlotConflict.key)}"` : ""}
