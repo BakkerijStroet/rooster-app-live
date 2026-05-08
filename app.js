@@ -22743,12 +22743,15 @@ function debugEmployeeAvailability(employeeName, date) {
 
 window.debugEmployeeAvailability = debugEmployeeAvailability;
 
-function autoFillSmartPlanningProposal() {
+function autoFillSmartPlanningProposal(options = {}) {
   const data = getSmartPlanningMonthData();
+  const targetWeek = options.weekValue || smartPlanningFocusedWeek || data.selectedWeek;
   if (!isSmartPlanningProposalCurrent(data)) {
     createSmartPlanningAdjustmentProposal({ render: false, silent: true });
+  } else if (getSmartPlanningProposalWeekByValue(targetWeek)?.cleared) {
+    rebuildSmartPlanningProposalWeek(targetWeek, { clearRestoreSnapshot: true });
   }
-  ensureSmartPlanningProposalHasVisibleOpenItems(data);
+  ensureSmartPlanningProposalHasVisibleOpenItems(getSmartPlanningMonthData());
 
   if (!smartPlanningProposalState?.weeks?.length) {
     showMessage("Er zijn geen diensten gevonden om automatisch te vullen.", "warning");
@@ -24454,6 +24457,65 @@ function createSmartPlanningProposalItemFromExistingEntry(weekValue, entry, inde
   };
 }
 
+function buildSmartPlanningProposalItemsForWeek(weekValue, weekData = getSmartPlanningWeekData(weekValue)) {
+  const existingItems = sortRosterEntriesForDisplay(weekData.weekEntries || [])
+    .map((entry, index) => createSmartPlanningProposalItemFromExistingEntry(weekValue, entry, index));
+  const openItems = (weekData.openItems || [])
+    .map((item, index) => createSmartPlanningProposalItemFromOpenItem(weekValue, item, index));
+
+  return [...existingItems, ...openItems].sort(compareSmartPlanningItemsByRosterOrder);
+}
+
+function resetSmartPlanningWeekTransientState(weekValue, options = {}) {
+  const {
+    clearRestoreSnapshot = false
+  } = options;
+  const selectedWeek = getSmartPlanningWeekValueForItemId(selectedSmartPlanningOpenShiftId);
+  const lastAssignedWeek = getSmartPlanningWeekValueForItemId(lastSmartPlanningAssignedItemId);
+
+  smartPlanningApplyConfirmVisible = false;
+  smartPlanningClearWeekConfirmVisible = false;
+
+  if (!weekValue || selectedWeek === weekValue || isSmartPlanningItemIdForWeek(selectedSmartPlanningOpenShiftId, weekValue)) {
+    selectedSmartPlanningOpenShiftId = "";
+  }
+
+  if (!weekValue || lastAssignedWeek === weekValue || isSmartPlanningItemIdForWeek(lastSmartPlanningAssignedItemId, weekValue)) {
+    lastSmartPlanningAssignedItemId = "";
+  }
+
+  if (clearRestoreSnapshot) {
+    const snapshotKey = getSmartPlanningWeekSnapshotKey(weekValue);
+    if (snapshotKey) {
+      delete smartPlanningClearedWeekSnapshots[snapshotKey];
+    }
+  }
+
+  invalidateSmartPlanningEffectiveEntriesCache();
+}
+
+function rebuildSmartPlanningProposalWeek(weekValue, options = {}) {
+  if (!smartPlanningProposalState?.weeks?.length || !weekValue) {
+    return false;
+  }
+
+  const {
+    clearRestoreSnapshot = true
+  } = options;
+  let weekProposal = getSmartPlanningProposalWeekByValue(weekValue);
+  if (!weekProposal) {
+    weekProposal = { weekValue, items: [] };
+    smartPlanningProposalState.weeks.push(weekProposal);
+  }
+
+  weekProposal.items = buildSmartPlanningProposalItemsForWeek(weekValue);
+  weekProposal.cleared = false;
+  resetSmartPlanningWeekTransientState(weekValue, { clearRestoreSnapshot });
+  setSmartPlanningFocusedWeek(weekValue);
+  refreshSmartPlanningDirtyState();
+  return true;
+}
+
 function createSmartPlanningAdjustmentProposal(options = {}) {
   const data = getSmartPlanningMonthData();
   selectedSmartPlanningOpenShiftId = "";
@@ -24466,14 +24528,9 @@ function createSmartPlanningAdjustmentProposal(options = {}) {
     startWeek: data.selectedWeek,
     createdAt: getNowIsoString(),
     weeks: data.visibleWeeks.map(({ weekValue, data: weekData }) => {
-      const existingItems = sortRosterEntriesForDisplay(weekData.weekEntries || [])
-        .map((entry, index) => createSmartPlanningProposalItemFromExistingEntry(weekValue, entry, index));
-      const openItems = (weekData.openItems || [])
-        .map((item, index) => createSmartPlanningProposalItemFromOpenItem(weekValue, item, index));
-
       return {
         weekValue,
-        items: [...existingItems, ...openItems].sort(compareSmartPlanningItemsByRosterOrder)
+        items: buildSmartPlanningProposalItemsForWeek(weekValue, weekData)
       };
     })
   };
@@ -24510,6 +24567,14 @@ function getSmartPlanningWeekValueForItemId(itemId) {
   return item?.weekValue || (item?.day ? getWeekValueFromDate(item.day) : "");
 }
 
+function isSmartPlanningItemIdForWeek(itemId = "", weekValue = "") {
+  if (!itemId || !weekValue) {
+    return false;
+  }
+
+  return itemId.startsWith(`${weekValue}|`) || itemId.startsWith(`adjust|${weekValue}|`);
+}
+
 function clearSmartPlanningProposalWeek(weekValue = "") {
   if (!smartPlanningProposalState?.weeks?.length) {
     return false;
@@ -24522,8 +24587,6 @@ function clearSmartPlanningProposalWeek(weekValue = "") {
     return false;
   }
 
-  const selectedWeek = getSmartPlanningWeekValueForItemId(selectedSmartPlanningOpenShiftId);
-  const lastAssignedWeek = getSmartPlanningWeekValueForItemId(lastSmartPlanningAssignedItemId);
   const snapshotKey = getSmartPlanningWeekSnapshotKey(targetWeek);
   if (snapshotKey) {
     smartPlanningClearedWeekSnapshots[snapshotKey] = {
@@ -24534,15 +24597,7 @@ function clearSmartPlanningProposalWeek(weekValue = "") {
   }
   weekProposal.items = [];
   weekProposal.cleared = true;
-  smartPlanningApplyConfirmVisible = false;
-  smartPlanningClearWeekConfirmVisible = false;
-  if (selectedWeek === targetWeek) {
-    selectedSmartPlanningOpenShiftId = "";
-  }
-  if (lastAssignedWeek === targetWeek) {
-    lastSmartPlanningAssignedItemId = "";
-  }
-  invalidateSmartPlanningEffectiveEntriesCache();
+  resetSmartPlanningWeekTransientState(targetWeek);
   setSmartPlanningFocusedWeek(targetWeek);
   refreshSmartPlanningDirtyState();
   renderSmartPlanningPanel();
@@ -31422,7 +31477,8 @@ smartPlanningProposalList?.addEventListener("click", (event) => {
   const inlineMakeProposalButton = event.target.closest("[data-smart-planning-make-proposal-inline]");
 
   if (inlineMakeProposalButton) {
-    autoFillSmartPlanningProposal();
+    const targetWeek = inlineMakeProposalButton.closest("[data-smart-planning-week-key]")?.dataset.smartPlanningWeekKey || smartPlanningFocusedWeek;
+    autoFillSmartPlanningProposal({ weekValue: targetWeek });
     return;
   }
 
