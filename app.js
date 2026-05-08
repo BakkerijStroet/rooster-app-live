@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260508-planning-shift-status-colors";
+const APP_VERSION = "20260508-keep-open-advance-fix";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -22869,6 +22869,23 @@ function getNextSmartPlanningActionableOpenShiftId(currentItemId) {
   }
 
   const currentWeekValue = currentItem.weekValue || getWeekValueFromDate(currentItem.day);
+  const visibleButtons = [...document.querySelectorAll("[data-smart-planning-open-shift]")]
+    .filter((button) => button.dataset.smartPlanningOpenShift);
+  const currentButtonIndex = visibleButtons.findIndex((button) => button.dataset.smartPlanningOpenShift === currentItemId);
+
+  if (currentButtonIndex >= 0) {
+    const nextVisibleButton = visibleButtons.slice(currentButtonIndex + 1).find((button) => {
+      const item = getSmartPlanningProposalItemById(button.dataset.smartPlanningOpenShift || "");
+      return item &&
+        (item.weekValue || getWeekValueFromDate(item.day)) === currentWeekValue &&
+        isSmartPlanningOpenProposalItem(item);
+    });
+
+    if (nextVisibleButton) {
+      return nextVisibleButton.dataset.smartPlanningOpenShift || "";
+    }
+  }
+
   const nextItem = items.slice(currentIndex + 1).find((item) => (
     (item.weekValue || getWeekValueFromDate(item.day)) === currentWeekValue &&
     isSmartPlanningOpenProposalItem(item)
@@ -30645,6 +30662,7 @@ smartPlanningProposalList?.addEventListener("click", (event) => {
   const keepOpenButton = event.target.closest("[data-smart-planning-keep-open]");
 
   if (keepOpenButton) {
+    event.stopPropagation();
     setSmartPlanningProposalKeepOpen(
       keepOpenButton.dataset.smartPlanningKeepOpen || "",
       keepOpenButton.dataset.keepOpen !== "false"
