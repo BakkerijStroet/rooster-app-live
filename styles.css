@@ -3801,26 +3801,6 @@ textarea.input-error {
   background: var(--color-primary-soft);
 }
 
-.smart-planning-adjust-confirm {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid var(--color-primary);
-  border-radius: 16px;
-  background: var(--color-primary-soft);
-  box-shadow: 0 14px 30px rgba(var(--color-primary-rgb), 0.12);
-}
-
-.smart-planning-clear-services-confirm {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid var(--color-primary);
-  border-radius: 16px;
-  background: var(--color-primary-soft);
-  box-shadow: 0 14px 30px rgba(var(--color-primary-rgb), 0.1);
-}
-
 .smart-planning-clear-week-confirm {
   display: grid;
   gap: 12px;
@@ -3836,8 +3816,6 @@ textarea.input-error {
   color: var(--color-primary);
 }
 
-.smart-planning-adjust-confirm strong,
-.smart-planning-clear-services-confirm strong,
 .smart-planning-clear-week-confirm strong {
   display: block;
   color: var(--color-primary);
@@ -3851,35 +3829,11 @@ textarea.input-error {
   font-weight: 800;
 }
 
-.smart-planning-adjust-confirm p,
-.smart-planning-clear-services-confirm p,
 .smart-planning-clear-week-confirm p {
   margin: 4px 0 0;
   color: var(--color-primary);
   font-size: 13px;
   font-weight: 800;
-}
-
-.smart-planning-clear-scope {
-  display: grid;
-  gap: 8px;
-}
-
-.smart-planning-clear-scope label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border: 1px solid var(--color-primary-border);
-  border-radius: 12px;
-  background: var(--color-surface);
-  color: var(--color-primary);
-  font-size: 13px;
-  font-weight: 850;
-}
-
-.smart-planning-clear-scope label:has(input:disabled) {
-  opacity: 0.58;
 }
 
 .smart-planning-apply-warning {
@@ -4004,100 +3958,9 @@ textarea.input-error {
   font-weight: 900;
 }
 
-.smart-planning-attention-panel {
-  display: grid;
-  gap: 5px;
-  min-width: 0;
-  padding: 7px;
-  border: 1px solid var(--color-surface-soft-border);
-  border-radius: 8px;
-  background: var(--color-surface-soft);
-}
-
-.smart-planning-attention-panel header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.smart-planning-attention-panel h4 {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: 14px;
-}
-
-.smart-planning-attention-panel header span,
-.smart-planning-attention-panel p {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.smart-planning-attention-list {
-  display: grid;
-  gap: 4px;
-}
-
-.smart-planning-attention-item {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 1px 7px;
-  width: 100%;
-  min-width: 0;
-  padding: 6px 8px;
-  border: 1px solid var(--color-warning-border);
-  border-radius: 8px;
-  background: var(--color-warning-soft);
-  color: var(--color-text);
-  text-align: left;
-  box-shadow: none;
-}
-
-.smart-planning-attention-item.is-action {
-  border-color: var(--color-danger-border);
-  background: var(--color-danger-soft);
-}
-
-.smart-planning-attention-item strong {
-  align-self: start;
-  color: var(--color-text-secondary);
-  font-size: 11px;
-  font-weight: 900;
-}
-
-.smart-planning-attention-item span,
-.smart-planning-attention-item small {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.smart-planning-attention-item span {
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.smart-planning-attention-item small {
-  grid-column: 2;
-  color: var(--color-text-muted);
-  font-size: 11px;
-  font-weight: 800;
-}
-
 .smart-planning-selected-week-editor {
   gap: 6px;
   padding: 8px;
-}
-
-.smart-planning-week-context-actions {
-  display: flex;
-  justify-content: flex-end;
-  min-width: 0;
-}
-
-.smart-planning-week-context-actions .secondary {
-  width: auto;
 }
 
 @media (max-width: 980px) {
@@ -4115,21 +3978,6 @@ textarea.input-error {
     grid-template-columns: 1fr 1fr;
   }
 
-  .smart-planning-attention-item {
-    grid-template-columns: 1fr;
-  }
-
-  .smart-planning-attention-item small {
-    grid-column: auto;
-  }
-
-  .smart-planning-week-context-actions {
-    justify-content: stretch;
-  }
-
-  .smart-planning-week-context-actions .secondary {
-    width: 100%;
-  }
 }
 
 .smart-planning-week-block {
