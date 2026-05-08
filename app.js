@@ -10848,6 +10848,66 @@ function annotateRosterDuplicateSlotRows(rows = [], options = {}) {
   });
 }
 
+function collapseRosterDuplicateSlotRows(rows = [], conflicts = getRosterDuplicateSlotConflicts(rows, { includeOpenRows: false })) {
+  if (!conflicts.length) {
+    return rows;
+  }
+
+  const conflictsByKey = new Map(conflicts.map((conflict) => [conflict.key, conflict]));
+  const groupedRowsByKey = new Map();
+
+  rows.forEach((row) => {
+    const key = getRosterDuplicateSlotKey(row);
+    if (!conflictsByKey.has(key)) {
+      return;
+    }
+
+    if (!groupedRowsByKey.has(key)) {
+      groupedRowsByKey.set(key, []);
+    }
+
+    groupedRowsByKey.get(key).push(row);
+  });
+
+  const renderedKeys = new Set();
+  return rows.reduce((displayRows, row) => {
+    const key = getRosterDuplicateSlotKey(row);
+    const conflict = conflictsByKey.get(key);
+
+    if (!conflict) {
+      displayRows.push(row);
+      return displayRows;
+    }
+
+    if (renderedKeys.has(key)) {
+      return displayRows;
+    }
+
+    renderedKeys.add(key);
+    displayRows.push({
+      ...row,
+      duplicateSlotConflict: conflict,
+      duplicateSlotRows: groupedRowsByKey.get(key) || [row]
+    });
+    return displayRows;
+  }, []);
+}
+
+function getRosterDuplicateSlotDisplayEmployees(row = {}) {
+  if (row.duplicateSlotConflict?.employees?.length) {
+    return row.duplicateSlotConflict.employees;
+  }
+
+  return [getRosterDuplicateSlotEmployeeLabel(row)].filter(Boolean);
+}
+
+function getRosterDuplicateSlotEmployeeDisplay(row = {}, fallback = "Open") {
+  const employees = getRosterDuplicateSlotDisplayEmployees(row)
+    .filter((employeeName) => employeeName && employeeName !== "Open");
+
+  return employees.length ? employees.join(", ") : fallback;
+}
+
 function formatRosterDuplicateSlotConflictText(conflict) {
   if (!conflict) {
     return "";
@@ -10856,7 +10916,7 @@ function formatRosterDuplicateSlotConflictText(conflict) {
   const employeeText = conflict.employees.length ? ` (${conflict.employees.join(", ")})` : "";
   const timeText = conflict.time ? ` ${conflict.time}` : "";
 
-  return `Dubbel slot: ${conflict.label}${timeText}${employeeText}`;
+  return `Dubbele bezetting: ${conflict.label}${timeText}${employeeText}`;
 }
 
 function renderRosterDuplicateSlotNotice(conflicts = []) {
@@ -10885,7 +10945,7 @@ function renderMobileTodayRosterGroup(title, groupEntries, groupType, options = 
       <h3 class="roster-group-title">${groupType === "shop" ? "🏪" : "🥖"} ${title}</h3>
       <div class="roster-group-list">
         ${groupEntries.map((entry) => {
-          const employeeName = entry.entry?.name || entry.name || "";
+          const employeeName = getRosterDuplicateSlotEmployeeDisplay(entry, "Open");
           const duplicateText = formatRosterDuplicateSlotConflictText(entry.duplicateSlotConflict);
 
           return `
@@ -10912,9 +10972,10 @@ function renderMobileGroupedRosterDayCard(day, entriesForDay, approvedRequestsFo
   const displayRows = includeOpenShifts
     ? getRosterRowsForDay(day, entriesForDay, { includeOpenShifts: shouldRenderPlannerOpenShiftsForDay(day) })
     : sortRosterEntriesForDisplay(annotateRosterDuplicateSlotRows(entriesForDay, { includeOpenRows: false }));
-  const assignedEntries = displayRows.map((row) => row.entry || row).filter((entry) => entry.name);
   const duplicateConflicts = getRosterDuplicateSlotConflicts(displayRows, { includeOpenRows: false });
-  const groupedEntries = groupEntriesByDepartment(displayRows);
+  const assignedEntries = displayRows.map((row) => row.entry || row).filter((entry) => entry.name);
+  const visibleRows = collapseRosterDuplicateSlotRows(displayRows, duplicateConflicts);
+  const groupedEntries = groupEntriesByDepartment(visibleRows);
   const approvedAbsenceLabel = approvedRequestsForDay.length
     ? approvedRequestsForDay.map((request) => getApprovedAbsenceLabel(request)).join(", ")
     : "";
@@ -10934,7 +10995,7 @@ function renderMobileGroupedRosterDayCard(day, entriesForDay, approvedRequestsFo
         ${statusMarkup}
       </div>
       <div class="roster-groups">
-        ${displayRows.length
+        ${visibleRows.length
           ? `${renderMobileTodayRosterGroup("Bakkerij", groupedEntries.bakery, "bakery", { showEmployeeName })}${renderMobileTodayRosterGroup("Winkel", groupedEntries.shop, "shop", { showEmployeeName })}`
           : `<div class="employee-roster-empty">${approvedAbsenceLabel || emptyText || (isClosedPlannerDay(day) ? "Gesloten" : "Geen dienst")}</div>`}
         ${renderRosterDuplicateSlotNotice(duplicateConflicts)}
@@ -10968,8 +11029,9 @@ function renderEmployeeRosterDayCard(day, entriesForDay, approvedRequestsForDay,
   const displayRows = includeOpenShifts
     ? getRosterRowsForDay(day, entriesForDay, { includeOpenShifts: shouldRenderPlannerOpenShiftsForDay(day) })
     : sortRosterEntriesForDisplay(annotateRosterDuplicateSlotRows(entriesForDay, { includeOpenRows: false }));
-  const assignedEntries = displayRows.map((row) => row.entry || row).filter((entry) => entry.name);
   const duplicateConflicts = getRosterDuplicateSlotConflicts(displayRows, { includeOpenRows: false });
+  const assignedEntries = displayRows.map((row) => row.entry || row).filter((entry) => entry.name);
+  const visibleRows = collapseRosterDuplicateSlotRows(displayRows, duplicateConflicts);
   const isTodayCard = day === getTodayDateValue();
   const canUseQuickHours = isTodayCard && assignedEntries.length > 0;
   const dayStatus = canUseQuickHours ? getDayWorkLogStatusForEntries(assignedEntries) : "";
@@ -10992,9 +11054,9 @@ function renderEmployeeRosterDayCard(day, entriesForDay, approvedRequestsForDay,
         ${statusMarkup}
       </div>
       <div class="employee-roster-day-body">
-        ${displayRows.length
-          ? displayRows.map((entry) => {
-            const employeeName = entry.entry?.name || entry.name || "";
+        ${visibleRows.length
+          ? visibleRows.map((entry) => {
+            const employeeName = getRosterDuplicateSlotEmployeeDisplay(entry, "Open");
             const duplicateText = formatRosterDuplicateSlotConflictText(entry.duplicateSlotConflict);
 
             return `
@@ -14907,21 +14969,22 @@ function formatRosterWeekHeaderLabel(weekValue) {
 }
 
 function renderCompactWeekRosterShiftLine(row) {
-  const employeeName = row.entry?.name || "";
+  const employeeName = getRosterDuplicateSlotEmployeeDisplay(row, "Open");
   const shiftTime = `${row.startTime}-${row.endTime}`;
   const displayShiftName = getCompactRosterShiftLabel(row.shiftName);
   const duplicateText = formatRosterDuplicateSlotConflictText(row.duplicateSlotConflict);
-  const rowClass = `planning-shift-line ${employeeName ? "is-filled" : "is-open"} ${row.duplicateSlotConflict ? "has-duplicate-slot" : ""}`;
+  const isFilled = employeeName && employeeName !== "Open";
+  const rowClass = `planning-shift-line ${isFilled ? "is-filled" : "is-open"} ${row.duplicateSlotConflict ? "has-duplicate-slot" : ""}`;
   const titleText = [
     row.shiftName,
     shiftTime,
-    employeeName || "Open",
+    employeeName,
     duplicateText
   ].filter(Boolean).join(" - ");
 
   return `
     <div class="${rowClass}" title="${escapeHtmlAttribute(titleText)}" ${row.duplicateSlotConflict ? `data-roster-duplicate-slot="${escapeHtmlAttribute(row.duplicateSlotConflict.key)}"` : ""}>
-      <span class="planning-shift-employee">${employeeName || "Open"}</span>
+      <span class="planning-shift-employee">${employeeName}</span>
       <span class="planning-shift-name" title="${row.shiftName}">${displayShiftName}</span>
       <span class="planning-shift-time">${shiftTime}</span>
       ${row.duplicateSlotConflict ? `<span class="planning-shift-conflict-label">${escapeHtmlAttribute(duplicateText)}</span>` : ""}
@@ -14996,12 +15059,13 @@ function renderCompactWeekRosterDayCard(day, sourceEntries = entries, {
 } = {}) {
   const rows = getRosterRowsForDay(day, sourceEntries, { includeOpenShifts });
   const duplicateConflicts = getRosterDuplicateSlotConflicts(rows, { includeOpenRows: false });
-  const groupedRows = groupEntriesByDepartment(rows);
+  const visibleRows = collapseRosterDuplicateSlotRows(rows, duplicateConflicts);
+  const groupedRows = groupEntriesByDepartment(visibleRows);
 
-  const hasOpenShifts = rows.some((row) => !row.entry);
-  const hasVisibleContent = rows.length || approvedAbsences.length;
-  const openCount = rows.filter((row) => !row.entry).length;
-  const serviceCountText = `${rows.length} dienst${rows.length === 1 ? "" : "en"}`;
+  const hasOpenShifts = visibleRows.some((row) => !row.entry);
+  const hasVisibleContent = visibleRows.length || approvedAbsences.length;
+  const openCount = visibleRows.filter((row) => !row.entry).length;
+  const serviceCountText = `${visibleRows.length} dienst${visibleRows.length === 1 ? "" : "en"}`;
   const openCountText = openCount ? `${openCount} open` : "alles ingevuld";
   const relativeDayState = getRelativeDayState(day);
 
@@ -15009,10 +15073,10 @@ function renderCompactWeekRosterDayCard(day, sourceEntries = entries, {
     <article class="planning-day-card week-roster-day-card ${extraClassName} ${relativeDayState ? `is-${relativeDayState}` : ""} ${hasVisibleContent ? (hasOpenShifts ? "is-open-day" : "") : "is-closed"} ${duplicateConflicts.length ? "has-duplicate-slot" : ""}">
       <header class="planning-day-header">
         <strong>${formatRosterDayHeaderLabel(day)}</strong>
-        <span>${rows.length ? `${serviceCountText} · ${openCountText}${duplicateConflicts.length ? " · conflict" : ""}` : "Geen diensten gepland"}</span>
+        <span>${visibleRows.length ? `${serviceCountText} · ${openCountText}${duplicateConflicts.length ? " · conflict" : ""}` : "Geen diensten gepland"}</span>
       </header>
       <div class="roster-groups planning-roster-groups">
-        ${rows.length
+        ${visibleRows.length
           ? `${renderCompactWeekRosterGroup("Bakkerij", groupedRows.bakery, "bakery")}${renderCompactWeekRosterGroup("Winkel", groupedRows.shop, "shop")}`
           : `<div class="planning-shift-empty">Geen diensten gepland</div>`}
         ${renderRosterDuplicateSlotNotice(duplicateConflicts)}
@@ -21839,7 +21903,7 @@ function getSmartPlanningIssueShortMessage(issue) {
     case "double":
       return `${prefix}: medewerker dubbel gekozen`;
     case "duplicate-slot":
-      return issue.message || `${prefix}: dienstslot dubbel`;
+      return issue.message || `${prefix}: dubbele bezetting`;
     case "time-off":
       return `${prefix}: verlof/vrije dag conflict`;
     case "sick":
@@ -21959,7 +22023,7 @@ function getSmartPlanningControlWarnings(weekKey) {
       item: matchingItem,
       type: "duplicate-slot",
       severity: "action",
-      message: `Dubbel dienstslot: ${formatDate(conflict.day)} · ${conflict.label}${conflict.time ? ` · ${conflict.time}` : ""}.`
+      message: `Dubbele bezetting: ${formatDate(conflict.day)} · ${conflict.label}${conflict.time ? ` · ${conflict.time}` : ""}.`
     }));
   });
 
@@ -22638,11 +22702,12 @@ function renderSmartPlanningProposalRoster(data, proposalItems) {
   return `
     <section class="planning-week-grid week-roster-compact-grid smart-planning-proposal-roster" data-smart-planning-week-key="${escapeHtmlAttribute(data.selectedWeek)}">
       ${data.weekDates.map((day) => {
-        const dayRows = sortRosterEntriesForDisplay(annotateRosterDuplicateSlotRows(
+        const rawDayRows = sortRosterEntriesForDisplay(annotateRosterDuplicateSlotRows(
           proposalEntries.filter((entry) => entry.day === day),
           { includeOpenRows: true }
         ));
-        const duplicateConflicts = getRosterDuplicateSlotConflicts(dayRows, { includeOpenRows: true });
+        const duplicateConflicts = getRosterDuplicateSlotConflicts(rawDayRows, { includeOpenRows: true });
+        const dayRows = collapseRosterDuplicateSlotRows(rawDayRows, duplicateConflicts);
         const groupedRows = groupEntriesByDepartment(dayRows);
         const hasOpenShifts = dayRows.length > 0;
 
@@ -22682,7 +22747,12 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
           const proposalItem = row.smartPlanningItem || getSmartPlanningProposalItemById(row.smartPlanningId);
           const warningText = getSmartPlanningShiftWarning(proposalItem, { lazy: true });
           const duplicateText = formatRosterDuplicateSlotConflictText(row.duplicateSlotConflict);
-          const chosenEmployeeName = proposalItem?.chosenEmployeeName || "";
+          const duplicateEmployeeNames = row.duplicateSlotConflict
+            ? getRosterDuplicateSlotDisplayEmployees(row).filter((employeeName) => employeeName && employeeName !== "Open")
+            : [];
+          const chosenEmployeeName = row.duplicateSlotConflict
+            ? duplicateEmployeeNames.join(", ")
+            : (proposalItem?.chosenEmployeeName || "");
           const employeeLabel = chosenEmployeeName || "OPEN";
           const assignmentLabel = getSmartPlanningAssignmentBadgeLabel(proposalItem?.assignmentReason || "");
           const titleText = duplicateText || warningText || `OPEN - ${row.shiftName} - ${shiftTime}. Klik om details te bekijken`;
@@ -22704,7 +22774,7 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
           ` : `
                 <span class="smart-planning-open-shift">
                   <span class="smart-planning-open-top">
-                    <span class="smart-planning-open-label">${row.duplicateSlotConflict ? "CONFLICT" : employeeLabel}</span>
+                    <span class="smart-planning-open-label">${row.duplicateSlotConflict ? "DUBBEL" : employeeLabel}</span>
                     <span class="smart-planning-open-shift-name" title="${escapeHtmlAttribute(row.shiftName)}">${displayShiftName}${warningText ? `<span class="smart-planning-shift-warning" title="${escapeHtmlAttribute(warningText)}">⚠</span>` : ""}</span>
                   </span>
                   <span class="smart-planning-open-time">${shiftTime}</span>
