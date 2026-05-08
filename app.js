@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260508-smart-planning-autofill-debug";
+const APP_VERSION = "20260508-smart-planning-permissions";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -21540,84 +21540,12 @@ function findSmartPlanningConflictInLookup(lookup, employeeName, item, exceptEnt
     ) || null;
 }
 
-function hasExplicitEmployeePermissionMatching(employeeName, matcher) {
-  const permissionMap = employeePermissions?.[employeeName];
-
-  if (!permissionMap || typeof permissionMap !== "object") {
-    return false;
-  }
-
-  return Object.entries(permissionMap).some(([permissionShiftName, permissionValue]) =>
-    permissionValue === true && matcher(String(permissionShiftName || "").toLowerCase())
-  );
+function isEmployeeAuthorizedForPlanningShift(employeeName, shiftName) {
+  return isEmployeeAuthorizedForShift(employeeName, shiftName);
 }
 
-function hasSmartPlanningInpakPermissionForProduction(employeeName, shiftOrItem = {}) {
-  const shiftFamily = getSmartPlanningShiftFamily(shiftOrItem);
-
-  return shiftFamily === "productie" &&
-    hasExplicitEmployeePermissionMatching(employeeName, (permissionShiftName) => permissionShiftName.includes("inpak"));
-}
-
-function hasSmartPlanningBakeryCombinationPermission(employeeName, shiftOrItem = {}) {
-  const shiftFamily = getSmartPlanningShiftFamily(shiftOrItem);
-  const combinationFamilies = new Set(["inpak", "productie", "bezorg"]);
-
-  if (!combinationFamilies.has(shiftFamily)) {
-    return false;
-  }
-
-  return hasExplicitEmployeePermissionMatching(employeeName, (permissionShiftName) => {
-    const permissionFamily = getSmartPlanningShiftFamily({ shiftName: permissionShiftName });
-    return combinationFamilies.has(permissionFamily);
-  });
-}
-
-function getSmartPlanningPermissionDepartment(shiftOrItem = {}) {
-  const shiftName = String(shiftOrItem.shiftName || shiftOrItem.name || "").toLowerCase();
-  const family = getSmartPlanningShiftFamily(shiftOrItem);
-
-  if (family === "winkel" || isShopShiftName(shiftName)) {
-    return "shop";
-  }
-
-  if (isStageShiftName(shiftName)) {
-    return "optional";
-  }
-
-  if (isAllroundShiftName(shiftName)) {
-    return "allround";
-  }
-
-  return "bakery";
-}
-
-function hasSmartPlanningDepartmentPermission(employeeName, shiftOrItem = {}) {
-  const targetDepartment = getSmartPlanningPermissionDepartment(shiftOrItem);
-  const permissionMap = employeePermissions?.[employeeName];
-
-  if (!permissionMap || typeof permissionMap !== "object") {
-    return false;
-  }
-
-  return Object.entries(permissionMap).some(([permissionShiftName, permissionValue]) => {
-    if (permissionValue !== true) {
-      return false;
-    }
-
-    return getSmartPlanningPermissionDepartment({ shiftName: permissionShiftName }) === targetDepartment;
-  });
-}
-
-function isEmployeeAuthorizedForPlanningShift(employeeName, shiftName, shiftOrItem = {}) {
-  return isEmployeeAuthorizedForShift(employeeName, shiftName) ||
-    hasSmartPlanningInpakPermissionForProduction(employeeName, shiftOrItem) ||
-    hasSmartPlanningBakeryCombinationPermission(employeeName, shiftOrItem);
-}
-
-function isEmployeeAuthorizedForSmartPlanningShift(employeeName, shiftName, shiftOrItem = {}) {
-  return isEmployeeAuthorizedForPlanningShift(employeeName, shiftName, shiftOrItem) ||
-    hasSmartPlanningDepartmentPermission(employeeName, shiftOrItem);
+function isEmployeeAuthorizedForSmartPlanningShift(employeeName, shiftName) {
+  return isEmployeeAuthorizedForPlanningShift(employeeName, shiftName);
 }
 
 function isEmployeeAuthorizedForSmartPlanningItem(employeeName, item, shift, lookup = getSmartPlanningLookupCache(entries)) {
