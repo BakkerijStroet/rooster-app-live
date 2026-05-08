@@ -8941,7 +8941,7 @@ button.hours-reminder-banner {
 }
 
 .planner-vacation-overview h3,
-.planner-vacation-month h4 {
+.planner-vacation-week h4 {
   margin: 0;
   color: var(--color-text);
 }
@@ -8961,61 +8961,90 @@ small,
   gap: 10px;
 }
 
-.planner-vacation-months {
+.planner-vacation-weeks {
   display: grid;
   gap: 10px;
 }
 
-.planner-vacation-month {
+.planner-vacation-week {
   display: grid;
   gap: 8px;
   padding: 10px;
   border: 1px solid rgba(var(--color-primary-rgb), 0.22);
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--color-primary-soft);
 }
 
-.planner-vacation-items {
-  display: grid;
-  gap: 8px;
-}
-
-.planner-vacation-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+.planner-vacation-week-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   gap: 10px;
-  align-items: center;
-  padding: 9px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--color-surface);
 }
 
-.planner-vacation-item > div {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.planner-vacation-item strong {
-  color: var(--color-text);
-}
-
-.planner-vacation-item span:not(.status-pill) {
+.planner-vacation-week-head span {
   color: var(--color-text-muted);
   font-size: 13px;
   line-height: 1.35;
 }
 
-.planner-vacation-item.is-approved {
-  border-color: rgba(var(--color-success-rgb), 0.28);
-  background: var(--color-success-soft);
+.planner-vacation-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
-.planner-vacation-item.is-rejected,
-.planner-vacation-item.is-withdrawn {
-  border-color: rgba(var(--color-danger-rgb), 0.24);
-  background: var(--color-danger-soft);
+.planner-vacation-chip,
+.planner-vacation-empty {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 5px 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.planner-vacation-chip {
+  cursor: pointer;
+}
+
+.planner-vacation-chip:hover,
+.planner-vacation-chip:focus-visible {
+  border-color: rgba(var(--color-primary-rgb), 0.38);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.1);
+}
+
+.planner-vacation-chip.absence-vacation {
+  border-color: rgba(var(--color-primary-rgb), 0.26);
+  background: rgba(var(--color-primary-rgb), 0.08);
+}
+
+.planner-vacation-chip.absence-free {
+  border-color: rgba(var(--color-warning-rgb), 0.32);
+  background: rgba(var(--color-warning-rgb), 0.12);
+}
+
+.planner-vacation-chip.absence-sick {
+  border-color: rgba(var(--color-danger-rgb), 0.22);
+  background: rgba(var(--color-danger-rgb), 0.08);
+}
+
+.planner-vacation-empty {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.planner-vacation-months,
+.planner-vacation-month,
+.planner-vacation-items,
+.planner-vacation-item {
+  display: none;
 }
 
 .planner-vacation-note {
@@ -9816,9 +9845,15 @@ button,
     justify-content: stretch;
   }
 
-  .planner-vacation-item {
-    grid-template-columns: 1fr;
-    align-items: start;
+  .planner-vacation-week-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .planner-vacation-chip,
+  .planner-vacation-empty {
+    white-space: normal;
   }
 
   .hours-control-summary-row {

@@ -6,7 +6,7 @@
   <title>Bakkerij Stroet | Rooster app</title>
   <meta name="theme-color" content="#fffaf3">
   <link rel="icon" type="image/jpeg" href="Logo%202020.jpg">
-  <link rel="stylesheet" href="styles.css?v=20260508-simple-pin-form">
+  <link rel="stylesheet" href="styles.css?v=20260508-vacation-week-overview">
 </head>
 <body>
   <main class="container">
@@ -1081,14 +1081,14 @@
         <div class="view-header director-screen-header">
           <div>
             <h2>Vakanties</h2>
-            <p class="panel-note">Bekijk vakantieaanvragen en goedgekeurde vakanties per periode.</p>
+            <p class="panel-note">Bekijk per week wie afwezig is.</p>
           </div>
         </div>
         <section class="planner-vacation-overview" aria-labelledby="plannerVacationOverviewTitle">
           <div class="planner-vacation-overview-head">
             <div>
-              <h3 id="plannerVacationOverviewTitle">Vakantie-overzicht</h3>
-              <p class="panel-note">Alle vakantieaanvragen uit bestaande aanvragen, gegroepeerd per maand.</p>
+              <h3 id="plannerVacationOverviewTitle">Weekoverzicht afwezigheid</h3>
+              <p class="panel-note">Vakantie, vrije dagen en ziekmeldingen per week.</p>
             </div>
             <div class="planner-vacation-filters">
               <label class="week-select">
@@ -1096,18 +1096,17 @@
                 <select id="vacationOverviewYear"></select>
               </label>
               <label class="week-select">
-                <span>Status</span>
+                <span>Type</span>
                 <select id="vacationOverviewStatus">
                   <option value="">Alles</option>
-                  <option value="open">Aangevraagd</option>
-                  <option value="approved">Goedgekeurd</option>
-                  <option value="rejected">Afgewezen</option>
-                  <option value="withdrawn">Ingetrokken</option>
+                  <option value="vakantie">Vakantie</option>
+                  <option value="vrij">Vrije dag</option>
+                  <option value="ziek">Ziek</option>
                 </select>
               </label>
             </div>
           </div>
-          <div id="vacationOverviewList" class="planner-vacation-months empty">Nog geen vakantieaanvragen gevonden.</div>
+          <div id="vacationOverviewList" class="planner-vacation-weeks empty">Nog geen afwezigheden gevonden.</div>
         </section>
       </section>
 
@@ -1351,6 +1350,6 @@
   <script src="js/features/employee-panel-prep.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/requests-panel-prep.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/hours-panel-prep.js?v=20260508-smart-planning-dashboard"></script>
-  <script src="app.js?v=20260508-simple-pin-form"></script>
+  <script src="app.js?v=20260508-vacation-week-overview"></script>
 </body>
 </html>

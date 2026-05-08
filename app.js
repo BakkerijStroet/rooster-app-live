@@ -17091,12 +17091,32 @@ function getVacationRequestStatusLabel(request) {
   return labels[statusKey] || getRequestDisplayLabel(request);
 }
 
-function getVacationRequestsForYear(year) {
+function isVacationOverviewRequestVisible(request) {
+  if (!request || isDeletedRequest(request)) {
+    return false;
+  }
+
+  const requestType = normalizeTimeOffRequestType(request.type);
+  const requestStatus = String(getVacationRequestStatusKey(request) || "").toLowerCase();
+
+  if (requestType === "ziek") {
+    return ["open", "pending", "submitted", "ingediend", "approved", "goedgekeurd"].includes(requestStatus);
+  }
+
+  return ["vakantie", "vrij"].includes(requestType) && ["approved", "goedgekeurd"].includes(requestStatus);
+}
+
+function getVacationOverviewTypeFilter() {
+  return normalizeTimeOffRequestType(vacationOverviewStatusSelect?.value || "");
+}
+
+function getVacationRequestsForYear(year, typeFilter = "") {
   const startOfYear = `${year}-01-01`;
   const endOfYear = `${year}-12-31`;
 
   return timeOffRequests
-    .filter((request) => request?.type === "vakantie")
+    .filter(isVacationOverviewRequestVisible)
+    .filter((request) => !typeFilter || normalizeTimeOffRequestType(request.type) === typeFilter)
     .filter((request) => requestOverlapsRange(request, startOfYear, endOfYear))
     .sort((requestA, requestB) =>
       getTimeOffStartDate(requestA).localeCompare(getTimeOffStartDate(requestB)) ||
@@ -17117,7 +17137,7 @@ function renderVacationOverviewYearOptions() {
 
   const currentYear = new Date().getFullYear();
   const requestYears = timeOffRequests
-    .filter((request) => request?.type === "vakantie")
+    .filter(isVacationOverviewRequestVisible)
     .flatMap((request) => [getTimeOffStartDate(request), getTimeOffEndDate(request)])
     .map((date) => Number(String(date || "").slice(0, 4)))
     .filter((year) => Number.isFinite(year));
@@ -17135,66 +17155,73 @@ function renderPlannerVacationOverview() {
   }
 
   if (!isPlannerRole()) {
-    setClassName(vacationOverviewList, "planner-vacation-months hidden");
+    setClassName(vacationOverviewList, "planner-vacation-weeks hidden");
     vacationOverviewList.innerHTML = "";
     return;
   }
 
   renderVacationOverviewYearOptions();
   const selectedYear = getVacationOverviewYear();
-  const statusFilter = vacationOverviewStatusSelect?.value || "";
-  const vacationRequests = getVacationRequestsForYear(selectedYear)
-    .filter((request) => !statusFilter || getVacationRequestStatusKey(request) === statusFilter);
-
-  if (vacationRequests.length === 0) {
-    setClassName(vacationOverviewList, "planner-vacation-months empty");
-    vacationOverviewList.innerHTML = "Nog geen vakantieaanvragen gevonden.";
-    return;
-  }
-
-  const monthGroups = vacationRequests.reduce((groups, request) => {
-    const monthKey = getMonthValueFromDate(getTimeOffStartDate(request)) || `${selectedYear}-01`;
-    if (!groups.has(monthKey)) {
-      groups.set(monthKey, []);
-    }
-    groups.get(monthKey).push(request);
+  const typeFilter = getVacationOverviewTypeFilter();
+  const vacationRequests = getVacationRequestsForYear(selectedYear, typeFilter);
+  const weekValues = getWeekValuesForYear(selectedYear);
+  const weekGroups = weekValues.reduce((groups, weekValue) => {
+    groups.set(weekValue, []);
     return groups;
   }, new Map());
 
-  setClassName(vacationOverviewList, "planner-vacation-months");
-  vacationOverviewList.innerHTML = [...monthGroups.entries()]
-    .sort(([monthA], [monthB]) => monthA.localeCompare(monthB))
-    .map(([monthValue, requests]) => `
-      <article class="planner-vacation-month">
-        <h4>${formatMonthLabel(monthValue)}</h4>
-        <div class="planner-vacation-items">
-          ${requests.map(renderPlannerVacationOverviewItem).join("")}
-        </div>
-      </article>
-    `)
+  vacationRequests.forEach((request) => {
+    weekValues.forEach((weekValue) => {
+      const weekDates = getWeekDates(weekValue);
+      if (requestOverlapsRange(request, weekDates[0], weekDates[6])) {
+        weekGroups.get(weekValue).push(request);
+      }
+    });
+  });
+
+  setClassName(vacationOverviewList, "planner-vacation-weeks");
+  vacationOverviewList.innerHTML = [...weekGroups.entries()]
+    .map(([weekValue, requests]) => renderPlannerVacationOverviewWeek(weekValue, requests))
     .join("");
 }
 
-function renderPlannerVacationOverviewItem(request) {
-  const statusKey = getVacationRequestStatusKey(request);
-  const startDate = getTimeOffStartDate(request);
-  const endDate = getTimeOffEndDate(request);
-  const period = startDate === endDate
-    ? formatDate(startDate)
-    : `${formatDate(startDate)} t/m ${formatDate(endDate)}`;
-  const reason = request.reason ? `<span class="planner-vacation-note">${escapeHtmlAttribute(request.reason)}</span>` : "";
+function renderPlannerVacationOverviewWeek(weekValue, requests = []) {
+  const weekDates = getWeekDates(weekValue);
+  const sortedRequests = [...requests].sort((requestA, requestB) =>
+    String(requestA.employeeName || "").localeCompare(String(requestB.employeeName || ""), "nl") ||
+    getRosterAbsenceTypeLabel(requestA.type).localeCompare(getRosterAbsenceTypeLabel(requestB.type), "nl") ||
+    getTimeOffStartDate(requestA).localeCompare(getTimeOffStartDate(requestB))
+  );
+
+  const absenceMarkup = sortedRequests.length
+    ? sortedRequests.map(renderPlannerVacationOverviewItem).join("")
+    : `<span class="planner-vacation-empty">Geen afwezigen</span>`;
 
   return `
-    <article class="planner-vacation-item is-${statusKey}">
-      <div>
-        <strong>${escapeHtmlAttribute(request.employeeName || "Onbekende medewerker")}</strong>
-        <span>${period}</span>
-        ${reason}
+    <article class="planner-vacation-week">
+      <div class="planner-vacation-week-head">
+        <h4>Week ${getWeekNumber(weekValue)}</h4>
+        <span>${formatDate(weekDates[0])} t/m ${formatDate(weekDates[6])}</span>
       </div>
-      <span class="status-pill status-${statusKey === "withdrawn" ? "rejected" : statusKey}">
-        ${getVacationRequestStatusLabel(request)}
-      </span>
+      <div class="planner-vacation-chips">
+        ${absenceMarkup}
+      </div>
     </article>
+  `;
+}
+
+function renderPlannerVacationOverviewItem(request) {
+  const period = getTimeOffDisplayRange(request);
+  const label = getRosterAbsenceLabel(request);
+  const escapedLabel = escapeHtmlAttribute(label || "Onbekende afwezigheid");
+  return `
+    <button type="button" class="planner-vacation-chip absence-${getAbsenceCardClass(normalizeTimeOffRequestType(request.type))}"
+      data-request-type="timeoff"
+      data-request-action="edit"
+      data-request-id="${escapeHtmlAttribute(request.id || "")}"
+      title="${escapeHtmlAttribute(period)}">
+      ${escapedLabel}
+    </button>
   `;
 }
 
@@ -32677,6 +32704,15 @@ requestStatusFilter?.addEventListener("change", () => {
 
 vacationOverviewYearSelect?.addEventListener("change", renderPlannerVacationOverview);
 vacationOverviewStatusSelect?.addEventListener("change", renderPlannerVacationOverview);
+vacationOverviewList?.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-request-action]");
+
+  if (!button || !isPlannerRole()) {
+    return;
+  }
+
+  handlePlannerInboxTimeOffAction(button);
+});
 
 plannerRequestsInbox?.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-request-action]");
