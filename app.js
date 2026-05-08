@@ -20907,8 +20907,8 @@ function formatSmartPlanningWeekCompactLabel(weekValue) {
 function getSmartPlanningAssignmentBadgeLabel(reason = "") {
   const normalizedReason = String(reason || "").toLowerCase();
 
-  if (normalizedReason.includes("vaste")) return "Vast";
-  if (normalizedReason.includes("eerder")) return "Eerder";
+  if (normalizedReason.includes("vaste")) return "Voorstel: vaste plek";
+  if (normalizedReason.includes("eerder")) return "Voorstel: eerdere planning";
   if (normalizedReason.includes("bevoegd")) return "Voorstel";
   if (normalizedReason.includes("voorstel")) return "Voorstel";
 
@@ -21117,14 +21117,24 @@ function getSmartPlanningApplySummary(data = getSmartPlanningMonthData(), option
   const assignedItems = getSmartPlanningAssignedItems(data);
   const keptOpenItems = getSmartPlanningKeptOpenItems(data);
   const pendingItemIds = new Set([...assignedItems, ...keptOpenItems].map((item) => item.id));
-  const openItems = hasProposal ? getSmartPlanningProposalItems().filter((item) => !item.chosenEmployeeName) : [];
+  const proposalItems = hasProposal ? getSmartPlanningProposalItems() : [];
+  const filledItems = proposalItems.filter((item) => item.chosenEmployeeName);
+  const openItems = proposalItems.filter((item) =>
+    !item.chosenEmployeeName &&
+    !isSmartPlanningProposalItemKeptOpen(item)
+  );
   const controlSummary = options.includeWarnings ? getSmartPlanningControlSummary(data) : null;
+  const conflictCount = controlSummary
+    ? controlSummary.issues.filter((issue) => ["double", "duplicate-slot", "time-off", "sick", "unavailable"].includes(issue.type)).length
+    : 0;
 
   return {
     assignedCount: assignedItems.length,
+    filledCount: filledItems.length,
     keptOpenCount: keptOpenItems.length,
     pendingCount: pendingItemIds.size,
     openCount: openItems.length,
+    conflictCount,
     warningCount: controlSummary ? controlSummary.actionCount + controlSummary.warningCount : 0
   };
 }
@@ -21149,6 +21159,7 @@ function renderSmartPlanningApplyConfirm(data = getSmartPlanningMonthData()) {
 
   const summary = getSmartPlanningApplySummary(data, { includeWarnings: true });
   const isAdjustingRoster = smartPlanningProposalState?.mode === "adjust";
+  const hasSaveWarning = summary.openCount > 0 || summary.conflictCount > 0;
 
   return `
     <section class="smart-planning-apply-confirm">
@@ -21156,13 +21167,16 @@ function renderSmartPlanningApplyConfirm(data = getSmartPlanningMonthData()) {
         <strong>Rooster opslaan?</strong>
         <p>De gekozen wijzigingen worden in het echte rooster gezet.</p>
         ${isAdjustingRoster ? `<p class="smart-planning-apply-warning">Let op: je wijzigt een bestaand rooster.</p>` : ""}
+        ${hasSaveWarning ? `<p class="smart-planning-apply-warning">Let op: er staan nog open diensten of conflicten in dit rooster. Je kunt alsnog opslaan.</p>` : ""}
         ${smartPlanningIsSavingRoster ? `<p class="panel-note">Rooster wordt opgeslagen...</p>` : ""}
       </div>
       <div class="smart-planning-apply-summary">
+        <span class="is-filled">${summary.filledCount} ingevuld</span>
+        <span class="is-open">${summary.openCount} open</span>
         <span>${summary.assignedCount} diensten worden aangepast/leeggemaakt/ingevuld</span>
-        <span>${summary.keptOpenCount} diensten blijven bewust open</span>
-        <span>${summary.openCount} diensten blijven open</span>
-        <span>${summary.warningCount} waarschuwingen blijven staan</span>
+        <span class="is-kept-open">${summary.keptOpenCount} diensten blijven bewust open</span>
+        <span class="is-conflict">${summary.conflictCount} conflicten</span>
+        <span>${summary.warningCount} controles</span>
       </div>
       <div class="smart-planning-apply-actions">
         <button type="button" class="secondary" data-smart-planning-apply-cancel ${smartPlanningIsSavingRoster ? "disabled" : ""}>Annuleren</button>
@@ -22101,50 +22115,111 @@ function applySmartPlanningFixedBakeryStaffing() {
 }
 
 function getSmartPlanningAutoFillReason(candidate, item) {
-  const patternMatch = getSmartPlanningPatternMatchForItem(candidate.employeeName, item);
-  const shift = getSmartPlanningShiftFromProposalItem(item);
-  const weekValue = item?.weekValue || (item?.day ? getWeekValueFromDate(item.day) : getCurrentWeekValue());
-  const historicalScore = getEmployeeHistoricalPatternScore(candidate.employeeName, shift, item?.day || "", weekValue, entries);
-  const standardEmployeeName = getPrimaryStandardEmployeeForShift(item?.shiftName || "") ||
-    getSmartPlanningFixedBakeryEmployeeForShift(item?.shiftName || "");
+  const scoreDetails = getSmartPlanningAutoFillScoreDetails(candidate, item);
 
-  if (
-    standardEmployeeName === candidate.employeeName ||
-    patternMatch.score < 55 ||
-    String(candidate.patternReason || "").toLowerCase().includes("basispatroon")
-  ) {
+  if (scoreDetails.fixedScore > 0) {
     return "Vaste plek";
   }
 
-  if (historicalScore > 0) {
-    return "Eerder ingepland";
+  if (scoreDetails.sameShiftWeekdayScore > 0 || scoreDetails.sameShiftScore > 0 || scoreDetails.sameWeekdayScore > 0) {
+    return "Eerdere planning";
   }
 
   return "Bevoegd en beschikbaar";
 }
 
-function compareSmartPlanningAutoFillCandidates(candidateA, candidateB, item) {
+function getSmartPlanningAutoFillScoreDetails(candidate, item) {
   const shift = getSmartPlanningShiftFromProposalItem(item);
   const weekValue = item?.weekValue || (item?.day ? getWeekValueFromDate(item.day) : getCurrentWeekValue());
+  const shiftName = shift?.name || item?.shiftName || "";
+  const weekday = item?.day ? getWeekdayNumberFromDate(item.day) : 0;
+  const categoryKey = getShiftCategoryKey(shift || { name: shiftName, isShopShift: item?.department === "shop" });
+  const patternMatch = getSmartPlanningPatternMatchForItem(candidate.employeeName, item);
   const standardEmployeeName = getPrimaryStandardEmployeeForShift(item?.shiftName || "") ||
     getSmartPlanningFixedBakeryEmployeeForShift(item?.shiftName || "");
-  const getCandidatePriority = (candidate) => {
-    const patternMatch = getSmartPlanningPatternMatchForItem(candidate.employeeName, item);
-    const historicalScore = getEmployeeHistoricalPatternScore(candidate.employeeName, shift, item?.day || "", weekValue, entries);
-    const isFixedMatch = standardEmployeeName === candidate.employeeName || patternMatch.score < 55;
+  const normalizedPatternReason = String(candidate.patternReason || "").toLowerCase();
+  const history = getHistoricalAssignments(candidate.employeeName, weekValue, getPlanningEntries(), 10);
+  let sameShiftWeekdayScore = 0;
+  let sameShiftScore = 0;
+  let sameWeekdayScore = 0;
+  let sameCategoryWeekdayScore = 0;
+  let sameCategoryScore = 0;
 
-    return {
-      group: isFixedMatch ? 0 : (historicalScore > 0 ? 1 : 2),
-      historicalScore,
-      patternScore: patternMatch.score
-    };
+  history.forEach((entry) => {
+    const distance = getWeekDistanceFromReference(getWeekValueFromDate(entry.day), weekValue);
+    const recencyWeight = distance > 0 ? (11 - Math.min(distance, 10)) / 10 : 0;
+    const entryShiftName = getShiftName(entry);
+    const entryWeekday = getWeekdayNumberFromDate(entry.day);
+    const isSameShift = entryShiftName.toLowerCase() === shiftName.toLowerCase();
+    const isSameWeekday = entryWeekday === weekday;
+    const isSameCategory = getShiftCategoryKey({ name: entryShiftName }) === categoryKey;
+
+    if (isSameShift && isSameWeekday) {
+      sameShiftWeekdayScore += 180 * recencyWeight;
+      return;
+    }
+
+    if (isSameShift) {
+      sameShiftScore += 120 * recencyWeight;
+      return;
+    }
+
+    if (isSameCategory && isSameWeekday) {
+      sameCategoryWeekdayScore += 70 * recencyWeight;
+      sameWeekdayScore += 30 * recencyWeight;
+      return;
+    }
+
+    if (isSameCategory) {
+      sameCategoryScore += 25 * recencyWeight;
+      return;
+    }
+
+    if (isSameWeekday) {
+      sameWeekdayScore += 15 * recencyWeight;
+    }
+  });
+
+  const fixedScore = standardEmployeeName === candidate.employeeName
+    ? 1000
+    : (patternMatch.score < 55 || normalizedPatternReason.includes("basispatroon") ? 850 : 0);
+  const departmentSummary = getEmployeeDepartmentSummary(candidate.employeeName).toLowerCase();
+  const departmentScore = categoryKey === "shop"
+    ? (departmentSummary.includes("winkel") ? 35 : 0)
+    : (departmentSummary.includes("bakkerij") ? 35 : 0);
+  const roleScore = getEmployeeAppRole(candidate.employeeName) === "planner" ? 5 : 0;
+  const contractPenalty = (candidate.contractWarningPriority || 0) * 45;
+  const loadPenalty = (candidate.plannedHours || 0) * 0.35;
+  const score = fixedScore +
+    sameShiftWeekdayScore +
+    sameShiftScore +
+    sameWeekdayScore +
+    sameCategoryWeekdayScore +
+    sameCategoryScore +
+    departmentScore +
+    roleScore -
+    contractPenalty -
+    loadPenalty;
+
+  return {
+    score,
+    fixedScore,
+    sameShiftWeekdayScore,
+    sameShiftScore,
+    sameWeekdayScore,
+    sameCategoryWeekdayScore,
+    sameCategoryScore,
+    departmentScore,
+    patternScore: patternMatch.score
   };
-  const priorityA = getCandidatePriority(candidateA);
-  const priorityB = getCandidatePriority(candidateB);
+}
 
-  return priorityA.group - priorityB.group ||
+function compareSmartPlanningAutoFillCandidates(candidateA, candidateB, item) {
+  const priorityA = getSmartPlanningAutoFillScoreDetails(candidateA, item);
+  const priorityB = getSmartPlanningAutoFillScoreDetails(candidateB, item);
+
+  return priorityB.score - priorityA.score ||
     priorityA.patternScore - priorityB.patternScore ||
-    priorityB.historicalScore - priorityA.historicalScore ||
     (candidateA.contractWarningPriority || 0) - (candidateB.contractWarningPriority || 0) ||
     candidateA.plannedHours - candidateB.plannedHours ||
     candidateA.employeeName.localeCompare(candidateB.employeeName, "nl");
@@ -22675,8 +22750,13 @@ function getSmartPlanningControlWarnings(weekKey) {
     const shiftLabel = getCompactRosterShiftLabel(item.shiftName || "Dienst");
     const shiftTime = `${item.startTime || "?"}-${item.endTime || "?"}`;
     const isOpen = !item.chosenEmployeeName;
+    const isKeptOpen = isSmartPlanningProposalItemKeptOpen(item);
 
     if (isOpen) {
+      if (isKeptOpen) {
+        return;
+      }
+
       if (item.department === "shop") {
         openShopCount += 1;
       } else {
@@ -22730,7 +22810,8 @@ function getSmartPlanningWeekControlSummary(weekKey) {
   const weekProposal = getSmartPlanningProposalWeekByValue(weekKey);
   const weekItems = getSmartPlanningProposalWeekItems(weekProposal);
   const filledCount = weekItems.filter((item) => item.chosenEmployeeName).length;
-  const openCount = weekItems.length - filledCount;
+  const keptOpenCount = weekItems.filter((item) => !item.chosenEmployeeName && isSmartPlanningProposalItemKeptOpen(item)).length;
+  const openCount = weekItems.filter((item) => !item.chosenEmployeeName && !isSmartPlanningProposalItemKeptOpen(item)).length;
   const issues = getSmartPlanningControlWarnings(weekKey);
   const actionIssues = issues.filter((issue) => getSmartPlanningIssuePriority(issue) === "action");
   const warningIssues = issues.filter((issue) => getSmartPlanningIssuePriority(issue) === "warning");
@@ -22739,6 +22820,7 @@ function getSmartPlanningWeekControlSummary(weekKey) {
     weekKey,
     filledCount,
     openCount,
+    keptOpenCount,
     actionCount: actionIssues.length,
     warningCount: warningIssues.length,
     noteCount: warningIssues.length,
@@ -23534,7 +23616,13 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
           const assignmentLabel = isKeptOpen
             ? "Bewust open"
             : getSmartPlanningAssignmentBadgeLabel(proposalItem?.assignmentReason || "");
-          const titleText = duplicateText || warningText || `${isKeptOpen ? "Bewust open" : "OPEN"} - ${row.shiftName} - ${shiftTime}. Klik om details te bekijken`;
+          const proposalReasonText = assignmentLabel && proposalItem?.assignmentReason && !isKeptOpen
+            ? `Reden voorstel: ${proposalItem.assignmentReason}`
+            : "";
+          const titleText = [
+            duplicateText || warningText || `${isKeptOpen ? "Bewust open" : (chosenEmployeeName || "OPEN")} - ${row.shiftName} - ${shiftTime}. Klik om details te bekijken`,
+            proposalReasonText
+          ].filter(Boolean).join(" - ");
           const planningStatusClass = chosenEmployeeName
             ? "is-status-filled"
             : (isKeptOpen ? "is-status-kept-open" : "is-status-open");
@@ -23652,6 +23740,7 @@ function getSmartPlanningDashboardWeekCards(data, proposalWeeks, hasProposal) {
       : {
         filledCount: weekData.weekEntries.length,
         openCount: weekData.openItems.length,
+        keptOpenCount: 0,
         actionCount: 0,
         warningCount: 0,
         issues: []
@@ -23669,6 +23758,7 @@ function getSmartPlanningDashboardWeekCards(data, proposalWeeks, hasProposal) {
       status,
       filledCount: weekSummary.filledCount,
       openCount: weekSummary.openCount,
+      keptOpenCount: weekSummary.keptOpenCount || 0,
       conflictCount,
       warningCount: warningIssues.length,
       actionCount: actionIssues.length,
@@ -23706,6 +23796,21 @@ function renderSmartPlanningWeekOverviewCards(weekCards, focusedWeek) {
   `;
 }
 
+function renderSmartPlanningWeekStatusBar(weekCard) {
+  if (!weekCard) {
+    return "";
+  }
+
+  return `
+    <div class="smart-planning-week-status-bar" aria-label="Status geselecteerde week">
+      <span class="is-open"><strong>${weekCard.openCount}</strong> open</span>
+      <span class="is-kept-open"><strong>${weekCard.keptOpenCount || 0}</strong> bewust open</span>
+      <span class="is-conflict"><strong>${weekCard.conflictCount}</strong> conflicten</span>
+      <span class="is-filled"><strong>${weekCard.filledCount}</strong> ingevuld</span>
+    </div>
+  `;
+}
+
 function renderSmartPlanningSelectedWeekEditor(data, weekCards, focusedWeek) {
   const selectedCard = weekCards.find((weekCard) => weekCard.weekValue === focusedWeek) || weekCards[0];
 
@@ -23724,10 +23829,12 @@ function renderSmartPlanningSelectedWeekEditor(data, weekCards, focusedWeek) {
         <div class="smart-planning-week-block-metrics">
           <span>${selectedCard.filledCount} ingevuld</span>
           <span>${selectedCard.openCount} open</span>
+          <span>${selectedCard.keptOpenCount || 0} bewust open</span>
           <span>${selectedCard.conflictCount} conflict</span>
           <span>${selectedCard.warningCount} controle</span>
         </div>
       </header>
+      ${renderSmartPlanningWeekStatusBar(selectedCard)}
       ${weekProposal?.cleared ? `
         <div class="smart-planning-week-empty-state">
           <strong>Deze week heeft nog geen voorstel.</strong>

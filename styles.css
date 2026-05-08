@@ -3855,6 +3855,25 @@ textarea.input-error {
   font-weight: 900;
 }
 
+.smart-planning-apply-summary span.is-open,
+.smart-planning-apply-summary span.is-conflict {
+  background: var(--color-danger-soft);
+  border: 1px solid var(--color-danger-border);
+  color: var(--color-text);
+}
+
+.smart-planning-apply-summary span.is-kept-open {
+  background: var(--color-warning-soft);
+  border: 1px solid var(--color-warning-border);
+  color: var(--color-text);
+}
+
+.smart-planning-apply-summary span.is-filled {
+  background: var(--color-success-soft);
+  border: 1px solid var(--color-success-border);
+  color: var(--color-text);
+}
+
 .smart-planning-apply-actions {
   display: flex;
   flex-wrap: wrap;
@@ -3961,6 +3980,50 @@ textarea.input-error {
 .smart-planning-selected-week-editor {
   gap: 6px;
   padding: 8px;
+}
+
+.smart-planning-week-status-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+  margin: 0 0 4px;
+}
+
+.smart-planning-week-status-bar span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 3px 7px;
+  border: 1px solid var(--color-neutral-border);
+  border-radius: 999px;
+  background: var(--color-surface-soft);
+  color: var(--color-text);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.smart-planning-week-status-bar strong {
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.smart-planning-week-status-bar .is-open,
+.smart-planning-week-status-bar .is-conflict {
+  background: var(--color-danger-soft);
+  border-color: var(--color-danger-border);
+}
+
+.smart-planning-week-status-bar .is-kept-open {
+  background: var(--color-warning-soft);
+  border-color: var(--color-warning-border);
+}
+
+.smart-planning-week-status-bar .is-filled {
+  background: var(--color-success-soft);
+  border-color: var(--color-success-border);
 }
 
 @media (max-width: 980px) {
@@ -13661,9 +13724,13 @@ body[data-control-mode="planner"] .shift-card.is-vacation-autofill {
   display: inline-flex;
   grid-area: badge;
   justify-self: end;
+  max-width: 132px;
+  overflow: hidden;
   background: var(--color-success-soft);
   border: 1px solid var(--color-success-border);
-  color: var(--color-success);
+  color: var(--color-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .smart-planning-proposal-roster .smart-planning-concept-badge.is-kept-open,
