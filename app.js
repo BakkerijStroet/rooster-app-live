@@ -8596,12 +8596,37 @@ const {
 
     return "free";
   },
+  getRosterAbsenceTypeLabel = function fallbackGetRosterAbsenceTypeLabel(type) {
+    const normalizedType = normalizeTimeOffRequestType(type);
+
+    if (normalizedType === "vakantie") {
+      return "vakantie";
+    }
+
+    if (normalizedType === "ziek") {
+      return "ziek";
+    }
+
+    return "vrije dag";
+  },
+  getRosterAbsenceLabel = function fallbackGetRosterAbsenceLabel(request, options = {}) {
+    if (!request) {
+      return "";
+    }
+
+    const { includeEmployeeName = true } = options;
+    const typeLabel = getRosterAbsenceTypeLabel(request.type);
+
+    return includeEmployeeName && request.employeeName
+      ? `${request.employeeName} ${typeLabel}`
+      : typeLabel;
+  },
   getApprovedAbsenceLabel = function fallbackGetApprovedAbsenceLabel(request) {
     if (!request) {
       return "";
     }
 
-    return `${getAbsenceTypeLabel(request.type)} goedgekeurd`;
+    return getRosterAbsenceTypeLabel(request.type);
   },
   getApprovedAbsenceDetail = function fallbackGetApprovedAbsenceDetail(request) {
     if (!request) {
@@ -10716,8 +10741,7 @@ function renderApprovedTimeOffList(requests) {
     <div class="mobile-free-list">
       ${requests.map((request) => `
         <div class="mobile-free-item absence-${getAbsenceCardClass(request.type)}">
-          ${request.employeeName}
-          ${request.reason ? ` - ${getApprovedAbsenceDetail(request)}` : ` - ${getAbsenceTypeLabel(request.type).toLowerCase()}`}
+          ${getRosterAbsenceLabel(request)}
         </div>
       `).join("")}
     </div>
@@ -10760,7 +10784,7 @@ function renderEmployeeFocusSummaryCard(day, entriesForDay, approvedRequestsForD
     : "";
 
   const requestText = approvedRequestsForDay.length
-    ? approvedRequestsForDay.map((request) => getApprovedAbsenceLabel(request)).join(", ")
+    ? approvedRequestsForDay.map((request) => getRosterAbsenceLabel(request)).join(", ")
     : "";
 
   return `
@@ -11149,7 +11173,7 @@ function renderMobileGroupedRosterDayCard(day, entriesForDay, approvedRequestsFo
   const visibleRows = collapseRosterDuplicateSlotRows(displayRows, duplicateConflicts);
   const groupedEntries = groupEntriesByDepartment(visibleRows);
   const approvedAbsenceLabel = approvedRequestsForDay.length
-    ? approvedRequestsForDay.map((request) => getApprovedAbsenceLabel(request)).join(", ")
+    ? approvedRequestsForDay.map((request) => getRosterAbsenceLabel(request, { includeEmployeeName: showEmployeeName })).join(", ")
     : "";
   const dayStatus = assignedEntries.length ? getDayWorkLogStatusForEntries(assignedEntries) : "";
   const statusMarkup = dayStatus
@@ -11209,7 +11233,7 @@ function renderEmployeeRosterDayCard(day, entriesForDay, approvedRequestsForDay,
   const dayStatus = canUseQuickHours ? getDayWorkLogStatusForEntries(assignedEntries) : "";
   const canCompleteToday = canUseQuickHours && !dayStatus;
   const approvedAbsenceLabel = approvedRequestsForDay.length
-    ? approvedRequestsForDay.map((request) => getApprovedAbsenceLabel(request)).join(", ")
+    ? approvedRequestsForDay.map((request) => getRosterAbsenceLabel(request, { includeEmployeeName: showEmployeeName })).join(", ")
     : "";
   const statusMarkup = dayStatus
     ? `<span class="status-pill status-${dayStatus === "goedgekeurd" ? "approved" : dayStatus === "ingediend" ? "open" : "empty"}">${dayStatus === "goedgekeurd" ? "Goedgekeurd" : dayStatus === "ingediend" ? "Ingediend" : "Ingevuld"}</span>`
@@ -11379,7 +11403,7 @@ function renderDesktopAbsenceList(requests) {
     <div class="desktop-day-absences">
       ${requests.map((request) => `
         <div class="planner-note approved absence-${getAbsenceCardClass(request.type)}">
-          ${request.employeeName}: ${getApprovedAbsenceLabel(request)}${request.reason ? ` - ${request.reason}` : ""}
+          ${getRosterAbsenceLabel(request)}
         </div>
       `).join("")}
     </div>
@@ -15254,7 +15278,7 @@ function renderCompactWeekRosterDayCard(day, sourceEntries = entries, {
         ${renderRosterDuplicateSlotNotice(duplicateConflicts)}
         ${approvedAbsences.map((request) => `
           <div class="planning-absence-line absence-${getAbsenceCardClass(request.type)}">
-            ${request.employeeName}: ${getApprovedAbsenceLabel(request)}${request.reason ? ` - ${request.reason}` : ""}
+            ${getRosterAbsenceLabel(request)}
           </div>
         `).join("")}
         ${extraBottomMarkup}
@@ -19765,8 +19789,7 @@ function renderDayPlannerAbsenceList(selectedDate, plannerShifts) {
         ${absenceRows.map(({ request, fixedShift, authorizedEmployees = [], suitableEmployees }) => `
           <article class="day-planner-absence-item absence-${getAbsenceCardClass(request.type)}">
             <div class="day-planner-absence-meta">
-              <strong>${request.employeeName} - ${getAbsenceTypeLabel(request.type)}</strong>
-              <span>${request.reason ? request.reason : "Geen extra reden"}</span>
+              <strong>${getRosterAbsenceLabel(request)}</strong>
               ${fixedShift
                 ? `<span class="day-planner-note">Vaste dienst open: ${fixedShift.name} (${fixedShift.startTime} - ${fixedShift.endTime})</span>`
                 : `<span class="day-planner-note is-info">Geen vaste bakkerijdienst open door deze afwezigheid.</span>`}
@@ -25267,7 +25290,7 @@ function renderMySchedule() {
                   `).join("")
                   : `<span class="planner-empty">${approvedTimeOff ? approvedAbsenceLabel : isClosedDay ? "Gesloten" : isDefaultFreeDay(day) ? "Vrije dag" : "Geen dienst"}</span>`}
               </div>
-              ${approvedTimeOff ? `<div class="mobile-free-item absence-${getAbsenceCardClass(approvedTimeOff.type)}">${approvedAbsenceLabel}${approvedTimeOff.reason ? ` - ${approvedTimeOff.reason}` : ""}</div>` : ""}
+              ${approvedTimeOff ? `<div class="mobile-free-item absence-${getAbsenceCardClass(approvedTimeOff.type)}">${getRosterAbsenceLabel(approvedTimeOff)}</div>` : ""}
             </article>
           `;
         }).join("")}
@@ -25308,7 +25331,7 @@ function renderMySchedule() {
             showEmployee: false,
             showActions: false,
             emptyText: approvedTimeOff ? approvedAbsenceLabel : isClosedDay ? "Gesloten" : "Geen dienst gepland",
-            absenceMarkup: approvedTimeOff ? `<div class="planner-note approved absence-${getAbsenceCardClass(approvedTimeOff.type)}">${approvedAbsenceLabel}${approvedTimeOff.reason ? `: ${approvedTimeOff.reason}` : ""}</div>` : ""
+            absenceMarkup: approvedTimeOff ? `<div class="planner-note approved absence-${getAbsenceCardClass(approvedTimeOff.type)}">${getRosterAbsenceLabel(approvedTimeOff)}</div>` : ""
           })}
         `;
       })}

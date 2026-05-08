@@ -58,12 +58,39 @@
     return "free";
   }
 
+  function getRosterAbsenceTypeLabel(type) {
+    const normalizedType = normalizeTimeOffRequestType(type);
+
+    if (normalizedType === "vakantie") {
+      return "vakantie";
+    }
+
+    if (normalizedType === "ziek") {
+      return "ziek";
+    }
+
+    return "vrije dag";
+  }
+
+  function getRosterAbsenceLabel(request, options = {}) {
+    if (!request) {
+      return "";
+    }
+
+    const { includeEmployeeName = true } = options;
+    const typeLabel = getRosterAbsenceTypeLabel(request.type);
+
+    return includeEmployeeName && request.employeeName
+      ? `${request.employeeName} ${typeLabel}`
+      : typeLabel;
+  }
+
   function getApprovedAbsenceLabel(request) {
     if (!request) {
       return "";
     }
 
-    return `${getAbsenceTypeLabel(request.type)} goedgekeurd`;
+    return getRosterAbsenceTypeLabel(request.type);
   }
 
   function getApprovedAbsenceDetail(request) {
@@ -261,6 +288,8 @@
     createRequestId,
     getAbsenceTypeLabel,
     getAbsenceCardClass,
+    getRosterAbsenceTypeLabel,
+    getRosterAbsenceLabel,
     getApprovedAbsenceLabel,
     getApprovedAbsenceDetail,
     getTimeOffStartDate,

@@ -3127,15 +3127,15 @@ textarea.input-error {
 
 .day-planner-absence-list {
   display: grid;
-  gap: 10px;
+  gap: 6px;
 }
 
 .day-planner-absence-card {
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  gap: 8px;
+  padding: 10px;
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--color-primary-soft);
 }
 
@@ -3154,16 +3154,16 @@ textarea.input-error {
 
 .day-planner-absence-rows {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .day-planner-absence-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
-  padding: 10px;
-  border-radius: 10px;
+  padding: 7px 8px;
+  border-radius: 8px;
   border: 1px solid var(--color-primary-border);
   background: var(--color-surface);
 }
@@ -3174,7 +3174,7 @@ textarea.input-error {
 }
 
 .day-planner-absence-meta strong {
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .day-planner-absence-meta span {
@@ -7335,6 +7335,10 @@ button.small {
 .desktop-day-list .planner-note,
 .desktop-day-absences .planner-note {
   margin: 0;
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.25;
 }
 
 .desktop-day-list .planner-empty {
@@ -9021,12 +9025,13 @@ body[data-role="planner"] [data-panel="requests"][data-slot="right"] {
 }
 
 .mobile-free-item {
-  padding: 9px 10px;
-  border-radius: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
   background: var(--color-success-soft);
   color: var(--color-success);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
+  line-height: 1.25;
 }
 
 .total-item {
@@ -10291,7 +10296,7 @@ button,
   .shift-context,
   .shift-employee,
   .mobile-free-item {
-    font-size: 14px;
+    font-size: 13px;
   }
 
   .mobile-day-status,
