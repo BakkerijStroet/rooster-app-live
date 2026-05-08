@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260508-sick-range-availability";
+const APP_VERSION = "20260508-smart-planning-persist";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -2168,10 +2168,16 @@ async function fetchCentralPlanningEntries() {
   };
 }
 
-async function sendPlanningEntriesToCentral(sourceEntries = entries) {
+async function sendPlanningEntriesToCentral(sourceEntries = entries, options = {}) {
   if (!isPlanningEntriesCentralSyncEnabled()) {
     return false;
   }
+
+  const reviveDeletedEntryIds = [...new Set(
+    (Array.isArray(options.reviveDeletedEntries) ? options.reviveDeletedEntries : [])
+      .map((entry) => typeof entry === "string" ? entry : getPlanningEntrySyncId(entry))
+      .filter(Boolean)
+  )];
 
   const response = await fetch(planningEntriesApiEndpoint, {
     method: "PUT",
@@ -2181,7 +2187,8 @@ async function sendPlanningEntriesToCentral(sourceEntries = entries) {
     },
     body: JSON.stringify({
       mode: currentDataMode,
-      entries: getPlanningEntriesSnapshot(sourceEntries)
+      entries: getPlanningEntriesSnapshot(sourceEntries),
+      reviveDeletedEntryIds
     })
   });
 
@@ -2191,7 +2198,7 @@ async function sendPlanningEntriesToCentral(sourceEntries = entries) {
     throw new Error(payload?.message || "Centraal opslaan van roosterregels is mislukt.");
   }
 
-  return true;
+  return payload;
 }
 
 async function sendPlanningEntryDeletionsToCentral(deletedEntries = []) {
@@ -21191,9 +21198,13 @@ function clearAppliedSmartPlanningAssignments(appliedItemIds) {
   invalidateSmartPlanningEffectiveEntriesCache();
 }
 
-async function persistSmartPlanningRosterSaveToCentral(deletedEntries = [], nextEntries = entries) {
+async function persistSmartPlanningRosterSaveToCentral(deletedEntries = [], nextEntries = entries, options = {}) {
   if (!isPlanningEntriesCentralSyncEnabled()) {
-    return;
+    return {
+      attempted: false,
+      deletedCount: 0,
+      savedCount: 0
+    };
   }
 
   const removedEntries = getPlanningEntriesRemovedByReplacement(deletedEntries, nextEntries);
@@ -21202,9 +21213,29 @@ async function persistSmartPlanningRosterSaveToCentral(deletedEntries = [], next
     await sendPlanningEntryDeletionsToCentral(removedEntries);
   }
 
-  await sendPlanningEntriesToCentral(nextEntries);
+  const reviveEntries = Array.isArray(options.reviveEntries) ? options.reviveEntries : [];
+  const payload = await sendPlanningEntriesToCentral(nextEntries, {
+    reviveDeletedEntries: reviveEntries
+  });
+  const expectedSavedEntryIds = new Set(reviveEntries.map((entry) => getPlanningEntrySyncId(entry)).filter(Boolean));
+  const returnedEntryIds = new Set(
+    (Array.isArray(payload?.entries) ? payload.entries : [])
+      .map((entry) => getPlanningEntrySyncId(entry))
+      .filter(Boolean)
+  );
+  const missingSavedEntryIds = [...expectedSavedEntryIds].filter((entryId) => !returnedEntryIds.has(entryId));
+
+  if (missingSavedEntryIds.length) {
+    throw new Error("Rooster kon niet centraal worden bevestigd. Probeer opnieuw.");
+  }
+
   lastPlanningEntriesCentralSyncError = null;
   window.lastPlanningEntriesCentralSyncError = null;
+  return {
+    attempted: true,
+    deletedCount: removedEntries.length,
+    savedCount: Array.isArray(payload?.entries) ? payload.entries.length : getPlanningEntriesSnapshot(nextEntries).length
+  };
 }
 
 async function applySmartPlanningToRoster() {
@@ -21245,13 +21276,18 @@ async function applySmartPlanningToRoster() {
   let movedWorkLogs = false;
 
   let keptOpenCount = 0;
+  const skippedReasons = new Map();
+  const addSkippedReason = (reason) => {
+    skippedCount += 1;
+    skippedReasons.set(reason, (skippedReasons.get(reason) || 0) + 1);
+  };
 
   itemsToApply.forEach((item) => {
     const employeeName = item.chosenEmployeeName || "";
     const shift = getSmartPlanningShiftFromProposalItem(item);
 
     if (!shift) {
-      skippedCount += 1;
+      addSkippedReason("geen dienst gevonden");
       return;
     }
 
@@ -21278,24 +21314,30 @@ async function applySmartPlanningToRoster() {
     }
 
     if (!employeeName) {
-      skippedCount += 1;
+      addSkippedReason("geen medewerker gekozen");
       return;
     }
 
     if (!previousEntry) {
       const openSlot = findMatchingOpenPlanningSlot(item, workingEntries);
       if (!openSlot.shift || !openSlot.isOpen) {
-        skippedCount += 1;
+        addSkippedReason("slot niet open");
         return;
       }
     }
 
-    if (
-      !isEmployeeAuthorizedForSmartPlanningShift(employeeName, shift.name, shift) ||
-      getApprovedTimeOff(employeeName, item.day) ||
-      findBlockingSmartPlanningConflictInSource(sourceEntries, employeeName, item, shift)
-    ) {
-      skippedCount += 1;
+    if (!isEmployeeAuthorizedForSmartPlanningShift(employeeName, shift.name, shift)) {
+      addSkippedReason("niet bevoegd");
+      return;
+    }
+
+    if (getApprovedTimeOff(employeeName, item.day)) {
+      addSkippedReason("afwezig");
+      return;
+    }
+
+    if (findBlockingSmartPlanningConflictInSource(sourceEntries, employeeName, item, shift)) {
+      addSkippedReason("conflict");
       return;
     }
 
@@ -21316,7 +21358,9 @@ async function applySmartPlanningToRoster() {
   if (savedEntries.length || clearedCount) {
     setUndoState("Rooster plannen opslaan");
     const preparedRosterChanges = getRosterChangesForNotifications(replacedEntries, savedEntries);
-    await persistSmartPlanningRosterSaveToCentral(replacedEntries, workingEntries);
+    const centralSaveSummary = await persistSmartPlanningRosterSaveToCentral(replacedEntries, workingEntries, {
+      reviveEntries: savedEntries
+    });
 
     entries.splice(0, entries.length, ...workingEntries);
     saveEntries();
@@ -21333,6 +21377,9 @@ async function applySmartPlanningToRoster() {
         assignmentCount: savedEntries.length,
         clearedCount,
         skippedCount,
+        centralSaveAttempted: centralSaveSummary.attempted,
+        centralDeletedCount: centralSaveSummary.deletedCount,
+        centralSavedCount: centralSaveSummary.savedCount,
         rosterChangeSummary: buildRosterChangeSummary(preparedRosterChanges)
       }
     });
@@ -21350,7 +21397,26 @@ async function applySmartPlanningToRoster() {
   smartPlanningApplyConfirmVisible = false;
   render();
   const changedCount = savedEntries.length + clearedCount;
-  showMessage(`Rooster opgeslagen: ${savedEntries.length} diensten aangepast/ingevuld · ${clearedCount} leeggemaakt · ${keptOpenCount} bewust open · ${skippedCount} overgeslagen.`, (changedCount || keptOpenCount) ? "success" : "warning");
+  const reasonSummary = [...skippedReasons.entries()]
+    .sort((itemA, itemB) => itemB[1] - itemA[1] || itemA[0].localeCompare(itemB[0], "nl"))
+    .map(([reason, count]) => `${count}x ${reason}`)
+    .join(" · ");
+  console.info("[smart-planning:save]", {
+    proposalItems: itemsToApply.length,
+    appliedItems: appliedItemIds.size,
+    savedEntries: savedEntries.length,
+    clearedCount,
+    keptOpenCount,
+    skippedCount,
+    skippedReasons: Object.fromEntries(skippedReasons),
+    liveSyncEnabled: isPlanningEntriesCentralSyncEnabled()
+  });
+  showMessage(
+    changedCount || keptOpenCount
+      ? "Rooster opgeslagen."
+      : `Rooster kon niet worden opgeslagen. ${reasonSummary || "Controleer de gekozen diensten en probeer opnieuw."}`,
+    (changedCount || keptOpenCount) ? "success" : "warning"
+  );
 }
 
 function startSmartPlanningRosterSave() {

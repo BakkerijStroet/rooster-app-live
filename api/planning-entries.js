@@ -215,12 +215,20 @@ async function readPlanningEntries(mode) {
   };
 }
 
-async function upsertPlanningEntries(mode, entries) {
+async function upsertPlanningEntries(mode, entries, options = {}) {
   const existingData = await readPlanningEntries(mode);
   const deletedEntryIds = new Set(existingData.deletedEntryIds);
+  const reviveDeletedEntryIds = new Set(
+    (Array.isArray(options.reviveDeletedEntryIds) ? options.reviveDeletedEntryIds : [])
+      .filter((entryId) => typeof entryId === "string" && entryId)
+  );
   const rows = normalizePlanningEntries(entries)
     // Veiligheidsregel stap 5: oude localStorage mag centrale tombstones niet opnieuw actief maken.
-    .filter((entry) => !deletedEntryIds.has(getPlanningEntryId(entry)))
+    // Een expliciete planner-save mag een specifieke tombstone wel bewust opnieuw actief maken.
+    .filter((entry) => {
+      const entryId = getPlanningEntryId(entry);
+      return entryId && (!deletedEntryIds.has(entryId) || reviveDeletedEntryIds.has(entryId));
+    })
     .map((entry) => toDatabaseRow(entry, mode))
     .filter(Boolean);
 
@@ -285,7 +293,9 @@ async function handler(req, res) {
       const payload = parseBody(req);
       const mode = normalizeMode(payload?.mode || req.query?.mode);
       const entries = Array.isArray(payload?.entries) ? payload.entries : [];
-      const savedData = await upsertPlanningEntries(mode, entries);
+      const savedData = await upsertPlanningEntries(mode, entries, {
+        reviveDeletedEntryIds: Array.isArray(payload?.reviveDeletedEntryIds) ? payload.reviveDeletedEntryIds : []
+      });
       sendJson(res, 200, { success: true, ...savedData });
       return;
     }
