@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260507-worklog-reset-cache";
+const APP_VERSION = "20260508-smart-planning-week-scroll";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -20521,15 +20521,27 @@ function getSmartPlanningWeekElement(weekValue = smartPlanningFocusedWeek) {
     return null;
   }
 
-  return [...document.querySelectorAll([
-    "[data-smart-planning-week-key]",
-    "[data-smart-planning-week-block]",
-    "[data-smart-planning-control-week]"
-  ].join(","))].find((element) => (
+  const matchesWeek = (element) => (
     element.dataset.smartPlanningWeekKey === normalizedWeekValue ||
     element.dataset.smartPlanningWeekBlock === normalizedWeekValue ||
     element.dataset.smartPlanningControlWeek === normalizedWeekValue
-  )) || null;
+  );
+  const isVisible = (element) => Boolean(element.offsetParent || element.getClientRects().length);
+  const selectorGroups = [
+    "[data-smart-planning-week-block]",
+    "[data-smart-planning-control-week]",
+    "[data-smart-planning-week-key]"
+  ];
+
+  for (const selector of selectorGroups) {
+    const target = [...document.querySelectorAll(selector)].find((element) => matchesWeek(element) && isVisible(element));
+
+    if (target) {
+      return target;
+    }
+  }
+
+  return [...document.querySelectorAll(selectorGroups.join(","))].find(matchesWeek) || null;
 }
 
 function scrollSmartPlanningWeekIntoView(weekValue = smartPlanningFocusedWeek) {
@@ -22738,6 +22750,36 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
   `;
 }
 
+function renderSmartPlanningVisibleWeekTargets(data = getSmartPlanningMonthData()) {
+  const focusedWeek = ensureSmartPlanningFocusedWeek(data);
+
+  return `
+    <div class="smart-planning-month-proposal smart-planning-month-proposal--preview">
+      ${data.visibleWeeks.map(({ weekValue, data: weekData }, weekIndex) => {
+        const isFocusedWeek = weekValue === focusedWeek;
+        const openCount = weekData.openItems.length;
+        const filledCount = weekData.weekEntries.length;
+
+        return `
+          <section class="smart-planning-week-block smart-planning-week-block--preview ${isFocusedWeek ? "is-focused" : ""}" data-smart-planning-week-key="${escapeHtmlAttribute(weekValue)}" data-smart-planning-week-block="${escapeHtmlAttribute(weekValue)}">
+            <header class="smart-planning-week-block-head">
+              <div>
+                <button type="button" class="secondary smart-planning-week-select" data-smart-planning-week-select="${escapeHtmlAttribute(weekValue)}" aria-current="${isFocusedWeek ? "true" : "false"}">
+                  Week ${weekIndex + 1}: ${formatSmartPlanningWeekCompactLabel(weekValue)}
+                </button>
+              </div>
+              <div class="smart-planning-week-block-metrics">
+                <span>${filledCount} ingevuld</span>
+                <span>${openCount} open</span>
+              </div>
+            </header>
+          </section>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
 function renderSmartPlanningSelectedShiftPanel() {
   const selectedItem = getSelectedSmartPlanningOpenShift();
 
@@ -22805,6 +22847,7 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
       ${renderSmartPlanningClearServicesConfirm()}
       <strong>${smartPlanningProposalState.mode === "adjust" ? "Geen diensten gevonden om aan te passen." : "Geen open diensten gevonden voor deze selectie."}</strong>
       <span>${formatSmartPlanningWeekCompactLabel(data.selectedWeek)} · ${proposalDepartmentLabel}</span>
+      ${renderSmartPlanningVisibleWeekTargets(data)}
     `;
     return;
   }
@@ -22819,6 +22862,7 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
       ${renderSmartPlanningClearWeekConfirm()}
       ${renderSmartPlanningClearServicesConfirm()}
       <span>Nog geen voorstel gemaakt.</span>
+      ${renderSmartPlanningVisibleWeekTargets(data)}
     `;
     return;
   }
@@ -29968,8 +30012,10 @@ planningOverviewMonthInput?.addEventListener("change", () => {
 
 smartPlanningWeekInput?.addEventListener("change", () => {
   const selectedWeek = getSmartPlanningSelectedWeek();
+  const previousWeek = smartPlanningProposalState?.startWeek || smartPlanningFocusedWeek || weekInput?.value || weekFilterInput?.value || getCurrentWeekValue();
   smartPlanningWeekInput.value = selectedWeek;
   if (!confirmSmartPlanningSelectionReplacement(selectedWeek, smartPlanningDepartmentSelect?.value || "all")) {
+    smartPlanningWeekInput.value = previousWeek;
     return;
   }
   if (weekInput) weekInput.value = selectedWeek;

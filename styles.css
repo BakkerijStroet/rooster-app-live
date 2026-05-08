@@ -3931,6 +3931,18 @@ textarea.input-error {
   border: 1px solid var(--color-primary-border);
   border-radius: 12px;
   background: var(--color-surface);
+  scroll-margin-top: 14px;
+}
+
+.smart-planning-week-block.is-focused,
+.smart-planning-control-week.is-focused {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-surface-soft-active);
+  background: var(--color-surface-soft);
+}
+
+.smart-planning-control-week {
+  scroll-margin-top: 14px;
 }
 
 .smart-planning-week-block-head {
