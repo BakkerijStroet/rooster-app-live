@@ -3923,6 +3923,225 @@ textarea.input-error {
   min-width: 0;
 }
 
+.smart-planning-dashboard {
+  gap: 10px;
+}
+
+.smart-planning-dashboard-weeks {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.smart-planning-week-card {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--color-neutral-border);
+  border-radius: 8px;
+  background: var(--color-neutral-soft);
+  color: var(--color-text);
+  text-align: left;
+  box-shadow: none;
+}
+
+.smart-planning-week-card:hover,
+.smart-planning-week-card.is-selected {
+  transform: none;
+  box-shadow: 0 0 0 2px var(--color-surface-soft-active);
+}
+
+.smart-planning-week-card.is-ready {
+  border-color: var(--color-success-border);
+  background: var(--color-success-soft);
+}
+
+.smart-planning-week-card.is-warning {
+  border-color: var(--color-warning-border);
+  background: var(--color-warning-soft);
+}
+
+.smart-planning-week-card.is-action {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-soft);
+}
+
+.smart-planning-week-card.is-none {
+  border-color: var(--color-neutral-border);
+  background: var(--color-neutral-soft);
+}
+
+.smart-planning-week-card.is-selected {
+  border-color: var(--color-primary);
+}
+
+.smart-planning-week-card-status {
+  width: fit-content;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.smart-planning-week-card strong {
+  font-size: 15px;
+}
+
+.smart-planning-week-card small {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.smart-planning-week-card-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.smart-planning-week-card-metrics em {
+  padding: 4px 6px;
+  border-radius: 8px;
+  background: rgba(var(--color-surface-rgb), 0.75);
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.smart-planning-attention-panel {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--color-surface-soft-border);
+  border-radius: 8px;
+  background: var(--color-surface-soft);
+}
+
+.smart-planning-attention-panel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.smart-planning-attention-panel h4 {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.smart-planning-attention-panel header span,
+.smart-planning-attention-panel p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.smart-planning-attention-list {
+  display: grid;
+  gap: 6px;
+}
+
+.smart-planning-attention-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--color-warning-border);
+  border-radius: 8px;
+  background: var(--color-warning-soft);
+  color: var(--color-text);
+  text-align: left;
+  box-shadow: none;
+}
+
+.smart-planning-attention-item.is-action {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-soft);
+}
+
+.smart-planning-attention-item strong {
+  align-self: start;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.smart-planning-attention-item span,
+.smart-planning-attention-item small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.smart-planning-attention-item span {
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.smart-planning-attention-item small {
+  grid-column: 2;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.smart-planning-selected-week-editor {
+  gap: 8px;
+  padding: 10px;
+}
+
+.smart-planning-week-context-actions {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.smart-planning-week-context-actions .secondary {
+  width: auto;
+}
+
+@media (max-width: 980px) {
+  .smart-planning-dashboard-weeks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .smart-planning-dashboard-weeks {
+    grid-template-columns: 1fr;
+  }
+
+  .smart-planning-week-card-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .smart-planning-attention-item {
+    grid-template-columns: 1fr;
+  }
+
+  .smart-planning-attention-item small {
+    grid-column: auto;
+  }
+
+  .smart-planning-week-context-actions {
+    justify-content: stretch;
+  }
+
+  .smart-planning-week-context-actions .secondary {
+    width: 100%;
+  }
+}
+
 .smart-planning-week-block {
   display: grid;
   gap: 5px;
