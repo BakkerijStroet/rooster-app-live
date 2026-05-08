@@ -138,7 +138,6 @@ const employeeDetailTitle = document.getElementById("employeeDetailTitle");
 const myAccountEmployeeBadge = document.getElementById("myAccountEmployeeBadge");
 const myAccountDetails = document.getElementById("myAccountDetails");
 const myAccountVisiblePinInput = document.getElementById("myAccountVisiblePin");
-const myAccountCurrentPinInput = document.getElementById("myAccountCurrentPin");
 const myAccountNewPinInput = document.getElementById("myAccountNewPin");
 const myAccountRepeatPinInput = document.getElementById("myAccountRepeatPin");
 const myAccountSavePinButton = document.getElementById("myAccountSavePinButton");
@@ -31115,7 +31114,6 @@ employeeDetailSaveButton?.addEventListener("click", () => {
 
 myAccountSavePinButton?.addEventListener("click", () => runButtonLoading(myAccountSavePinButton, "Opslaan...", () => {
   const employeeName = getRoleScopedEmployeeName();
-  const currentPin = String(myAccountCurrentPinInput?.value || "").trim();
   const nextPin = normalizeEmployeeLoginPin(myAccountNewPinInput?.value);
   const repeatPin = normalizeEmployeeLoginPin(myAccountRepeatPinInput?.value);
   const pinContainer = myAccountPinStatus?.closest(".my-account-pin-card") || null;
@@ -31143,10 +31141,6 @@ myAccountSavePinButton?.addEventListener("click", () => runButtonLoading(myAccou
     return showPinError(null, "Geen medewerker gekoppeld.");
   }
 
-  if (currentPin !== getEmployeeLoginPin(employeeName)) {
-    return showPinError(myAccountCurrentPinInput, "De huidige pincode klopt niet.");
-  }
-
   if (!isValidEmployeeLoginPin(nextPin)) {
     return showPinError(myAccountNewPinInput, "De nieuwe pincode moet uit 4 tot 6 cijfers bestaan.");
   }
@@ -31166,9 +31160,6 @@ myAccountSavePinButton?.addEventListener("click", () => runButtonLoading(myAccou
   };
   saveEmployeeMeta();
   clearEmployeeEditorDraft(employeeName);
-  if (myAccountCurrentPinInput) {
-    myAccountCurrentPinInput.value = "";
-  }
   if (myAccountNewPinInput) {
     myAccountNewPinInput.value = "";
   }
@@ -31183,7 +31174,7 @@ myAccountSavePinButton?.addEventListener("click", () => runButtonLoading(myAccou
   showMessage("Pincode succesvol gewijzigd.", "success");
 }));
 
-[myAccountCurrentPinInput, myAccountNewPinInput, myAccountRepeatPinInput].forEach((input) => {
+[myAccountNewPinInput, myAccountRepeatPinInput].forEach((input) => {
   input?.addEventListener("input", clearChangedFieldValidation);
 });
 
