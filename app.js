@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260508-smart-planning-dashboard";
+const APP_VERSION = "20260508-smart-planning-simple";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -22806,7 +22806,7 @@ function getSmartPlanningDashboardWeekStatus(weekSummary, hasProposal, weekPropo
   if (weekSummary.warningCount > 0) {
     return {
       key: "warning",
-      label: "Controleren"
+      label: "Controle"
     };
   }
 
@@ -22869,7 +22869,7 @@ function renderSmartPlanningWeekOverviewCards(weekCards, focusedWeek) {
             <span class="smart-planning-week-card-metrics">
               <em>${weekCard.openCount} open</em>
               <em>${weekCard.conflictCount} conflict</em>
-              <em>${weekCard.warningCount} waarschuwing</em>
+              <em>${weekCard.warningCount} controle</em>
               <em>${weekCard.filledCount} ingevuld</em>
             </span>
           </button>
@@ -22907,18 +22907,22 @@ function renderSmartPlanningAttentionPanel(weekCards, hasProposal) {
       return priorityA - priorityB || String(issueA.day || "").localeCompare(String(issueB.day || ""));
     });
 
+  if (!issues.length && !hasProposal) {
+    return "";
+  }
+
   return `
-    <section class="smart-planning-attention-panel">
+    <section class="smart-planning-attention-panel ${issues.length ? "" : "is-empty"}">
       <header>
         <h4>Aandacht nodig</h4>
-        <span>${issues.length ? `${issues.length} punt${issues.length === 1 ? "" : "en"}` : "Alles rustig"}</span>
+        <span>${issues.length ? issues.length : "Geen"}</span>
       </header>
       ${issues.length ? `
         <div class="smart-planning-attention-list">
           ${issues.slice(0, 12).map(renderSmartPlanningAttentionItem).join("")}
         </div>
       ` : `
-        <p>${hasProposal ? "Geen aandachtspunten. Deze periode lijkt in orde." : "Kies een startweek om het rooster bewerkbaar te openen."}</p>
+        <p>Geen aandachtspunten.</p>
       `}
     </section>
   `;
@@ -23039,7 +23043,6 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
     ${renderSmartPlanningClearWeekConfirm()}
     ${renderSmartPlanningClearServicesConfirm()}
     ${renderSmartPlanningWeekOverviewCards(weekCards, focusedWeek)}
-    ${renderSmartPlanningAttentionPanel(weekCards, hasProposal)}
     ${renderSmartPlanningApplyConfirm(data)}
     ${hasProposal
       ? renderSmartPlanningSelectedWeekEditor(data, weekCards, focusedWeek)
@@ -23047,10 +23050,10 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
         <section class="smart-planning-selected-week-editor smart-planning-week-block is-focused" data-smart-planning-week-key="${escapeHtmlAttribute(focusedWeek)}" data-smart-planning-week-block="${escapeHtmlAttribute(focusedWeek)}">
           <div class="smart-planning-week-empty-state">
             <strong>Kies een startweek om het rooster te openen.</strong>
-            <span>De week wordt daarna als tijdelijk voorstel bewerkbaar, zonder definitief op te slaan.</span>
           </div>
         </section>
       `}
+    ${renderSmartPlanningAttentionPanel(weekCards, hasProposal)}
   `;
 }
 
