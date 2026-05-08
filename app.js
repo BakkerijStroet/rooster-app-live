@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260508-sick-range-planning-availability";
+const APP_VERSION = "20260508-dedupe-smart-planning-slot-saves";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -10798,6 +10798,50 @@ function getRosterDuplicateSlotKey(row = {}) {
   return [day, department, normalizedShiftName, startTime, endTime].join("__");
 }
 
+function getPlanningEntryStableSlotKey(entry = {}) {
+  return getRosterDuplicateSlotKey(entry);
+}
+
+function getSmartPlanningItemStableSlotKey(item = {}) {
+  return getRosterDuplicateSlotKey({
+    day: item.day || "",
+    department: item.department || "",
+    shiftName: item.shiftName || "",
+    startTime: item.startTime || "",
+    endTime: item.endTime || "",
+    isShopShift: item.department === "shop"
+  });
+}
+
+function getDuplicatePlanningSlotSummaries(sourceEntries = []) {
+  const entriesBySlotKey = new Map();
+
+  (Array.isArray(sourceEntries) ? sourceEntries : []).forEach((entry) => {
+    const slotKey = getPlanningEntryStableSlotKey(entry);
+
+    if (!slotKey) {
+      return;
+    }
+
+    if (!entriesBySlotKey.has(slotKey)) {
+      entriesBySlotKey.set(slotKey, []);
+    }
+
+    entriesBySlotKey.get(slotKey).push(entry);
+  });
+
+  return [...entriesBySlotKey.entries()]
+    .filter(([, slotEntries]) => slotEntries.length > 1)
+    .map(([slotKey, slotEntries]) => ({
+      key: slotKey,
+      count: slotEntries.length,
+      day: slotEntries[0]?.day || "",
+      shiftName: getShiftName(slotEntries[0] || {}),
+      time: `${slotEntries[0]?.startTime || ""}-${slotEntries[0]?.endTime || ""}`,
+      employees: slotEntries.map((entry) => entry.name || "").filter(Boolean)
+    }));
+}
+
 function hasRosterDuplicateSlotAssignment(row = {}) {
   return Boolean(row.entry || row.name || row.chosenEmployeeName);
 }
@@ -20988,12 +21032,7 @@ function isSmartPlanningProposalItemChanged(item) {
 function getSmartPlanningProposalSlotKey(item = {}) {
   return [
     item.weekValue || (item.day ? getWeekValueFromDate(item.day) : ""),
-    item.day || "",
-    item.shiftId || "",
-    String(item.shiftName || "").toLowerCase(),
-    item.startTime || "",
-    item.endTime || "",
-    item.department || ""
+    getSmartPlanningItemStableSlotKey(item)
   ].join("|");
 }
 
@@ -21134,6 +21173,36 @@ function findMatchingOpenPlanningSlot(item, sourceEntries = entries) {
   };
 }
 
+function getSmartPlanningSlotEntryMatches(item, sourceEntries = entries) {
+  const slotKey = getSmartPlanningItemStableSlotKey(item);
+
+  if (!slotKey) {
+    return [];
+  }
+
+  return (Array.isArray(sourceEntries) ? sourceEntries : [])
+    .map((entry, index) => ({ entry, index }))
+    .filter(({ entry }) => getPlanningEntryStableSlotKey(entry) === slotKey);
+}
+
+function getUniqueSmartPlanningItemsByStableSlot(items = []) {
+  const itemsBySlotKey = new Map();
+  const fallbackItems = [];
+
+  (Array.isArray(items) ? items : []).forEach((item) => {
+    const slotKey = getSmartPlanningItemStableSlotKey(item);
+
+    if (!slotKey) {
+      fallbackItems.push(item);
+      return;
+    }
+
+    itemsBySlotKey.set(slotKey, item);
+  });
+
+  return [...itemsBySlotKey.values(), ...fallbackItems].sort(compareSmartPlanningItemsByRosterOrder);
+}
+
 function createSmartPlanningRosterEntry(item, shift) {
   const employeeName = item.chosenEmployeeName || "";
 
@@ -21156,11 +21225,31 @@ function clearAppliedSmartPlanningAssignments(appliedItemIds) {
     return;
   }
 
+  const appliedSlotKeys = new Set(
+    getSmartPlanningProposalItems()
+      .filter((item) => appliedItemIds.has(item.id))
+      .map(getSmartPlanningItemStableSlotKey)
+      .filter(Boolean)
+  );
+  const appliedItemBySlotKey = new Map(
+    getSmartPlanningProposalItems()
+      .filter((item) => appliedItemIds.has(item.id))
+      .map((item) => [getSmartPlanningItemStableSlotKey(item), item])
+      .filter(([slotKey]) => Boolean(slotKey))
+  );
+  const isAppliedSmartPlanningItem = (item) =>
+    appliedItemIds.has(item.id) ||
+    (appliedSlotKeys.size > 0 && appliedSlotKeys.has(getSmartPlanningItemStableSlotKey(item)));
+
   smartPlanningProposalState.weeks.forEach((weekProposal) => {
     if (smartPlanningProposalState.mode === "adjust") {
       weekProposal.items = (weekProposal.items || []).map((item) => {
-        if (!appliedItemIds.has(item.id)) {
+        if (!isAppliedSmartPlanningItem(item)) {
           return item;
+        }
+
+        if (!appliedItemIds.has(item.id) && appliedItemBySlotKey.has(getSmartPlanningItemStableSlotKey(item))) {
+          return null;
         }
 
         if (!item.chosenEmployeeName) {
@@ -21187,19 +21276,21 @@ function clearAppliedSmartPlanningAssignments(appliedItemIds) {
           lockedOpen: false,
           assignmentReason: "Bestaand"
         };
-      });
+      }).filter(Boolean);
       weekProposal.cleared = false;
       return;
     }
 
-    weekProposal.items = (weekProposal.items || []).filter((item) => !appliedItemIds.has(item.id));
+    weekProposal.items = (weekProposal.items || []).filter((item) => !isAppliedSmartPlanningItem(item));
     weekProposal.cleared = false;
   });
 
-  if (appliedItemIds.has(selectedSmartPlanningOpenShiftId)) {
+  const selectedItem = getSmartPlanningProposalItemById(selectedSmartPlanningOpenShiftId);
+  if (appliedItemIds.has(selectedSmartPlanningOpenShiftId) || (selectedItem && isAppliedSmartPlanningItem(selectedItem))) {
     selectedSmartPlanningOpenShiftId = "";
   }
-  if (appliedItemIds.has(lastSmartPlanningAssignedItemId)) {
+  const lastAssignedItem = getSmartPlanningProposalItemById(lastSmartPlanningAssignedItemId);
+  if (appliedItemIds.has(lastSmartPlanningAssignedItemId) || (lastAssignedItem && isAppliedSmartPlanningItem(lastAssignedItem))) {
     lastSmartPlanningAssignedItemId = "";
   }
   invalidateSmartPlanningEffectiveEntriesCache();
@@ -21253,15 +21344,17 @@ async function applySmartPlanningToRoster() {
     ...assignedItems,
     ...keptOpenItems.filter((item) => !assignedItems.some((assignedItem) => assignedItem.id === item.id))
   ];
+  const uniqueItemsToApply = getUniqueSmartPlanningItemsByStableSlot(itemsToApply);
 
-  if (!itemsToApply.length) {
+  if (!uniqueItemsToApply.length) {
     smartPlanningIsSavingRoster = false;
     showMessage("Kies eerst minimaal één medewerker of maak een dienst leeg.", "warning");
     updateSmartPlanningApplyButton();
     return;
   }
 
-  const affectedWeeks = [...new Set(itemsToApply.map((item) => item.weekValue || getWeekValueFromDate(item.day)))];
+  const affectedWeeks = [...new Set(uniqueItemsToApply.map((item) => item.weekValue || getWeekValueFromDate(item.day)))];
+  const affectedSlotKeys = new Set(uniqueItemsToApply.map(getSmartPlanningItemStableSlotKey).filter(Boolean));
   const blockedWeek = affectedWeeks.find((weekValue) => !ensureWeekActionAllowed(weekValue, {
     actionLabel: "het rooster op te slaan",
     blockPlannerWhenLocked: true
@@ -21284,12 +21377,14 @@ async function applySmartPlanningToRoster() {
 
   let keptOpenCount = 0;
   const skippedReasons = new Map();
+  const duplicateSlotsBeforeSave = getDuplicatePlanningSlotSummaries(workingEntries)
+    .filter((duplicateSlot) => affectedSlotKeys.has(duplicateSlot.key));
   const addSkippedReason = (reason) => {
     skippedCount += 1;
     skippedReasons.set(reason, (skippedReasons.get(reason) || 0) + 1);
   };
 
-  itemsToApply.forEach((item) => {
+  uniqueItemsToApply.forEach((item) => {
     const employeeName = item.chosenEmployeeName || "";
     const shift = getSmartPlanningShiftFromProposalItem(item);
 
@@ -21298,17 +21393,33 @@ async function applySmartPlanningToRoster() {
       return;
     }
 
-    const existingIndex = item.isExistingRosterEntry
+    const slotMatches = getSmartPlanningSlotEntryMatches(item, workingEntries);
+    const existingIndexByOriginal = item.isExistingRosterEntry
       ? workingEntries.findIndex((entry) => isSmartPlanningOriginalEntryMatch(entry, item))
       : -1;
-    const previousEntry = existingIndex >= 0 ? workingEntries[existingIndex] : null;
-    const sourceEntries = previousEntry
-      ? workingEntries.filter((entry, index) => index !== existingIndex)
+    const slotIndexes = [...new Set([
+      ...slotMatches.map((match) => match.index),
+      ...(existingIndexByOriginal >= 0 ? [existingIndexByOriginal] : [])
+    ])].sort((indexA, indexB) => indexA - indexB);
+    const slotEntries = slotIndexes.map((index) => workingEntries[index]).filter(Boolean);
+    const previousEntry = existingIndexByOriginal >= 0
+      ? workingEntries[existingIndexByOriginal]
+      : (slotEntries[0] || null);
+    const sourceEntries = slotIndexes.length
+      ? workingEntries.filter((entry, index) => !slotIndexes.includes(index))
       : workingEntries;
+    const removeSlotEntries = () => {
+      slotIndexes
+        .slice()
+        .sort((indexA, indexB) => indexB - indexA)
+        .forEach((index) => {
+          workingEntries.splice(index, 1);
+        });
+      replacedEntries.push(...slotEntries);
+    };
 
-    if (previousEntry && !employeeName) {
-      workingEntries.splice(existingIndex, 1);
-      replacedEntries.push(previousEntry);
+    if (slotEntries.length && !employeeName) {
+      removeSlotEntries();
       clearedCount += 1;
       appliedItemIds.add(item.id);
       return;
@@ -21325,7 +21436,7 @@ async function applySmartPlanningToRoster() {
       return;
     }
 
-    if (!previousEntry) {
+    if (!slotEntries.length) {
       const openSlot = findMatchingOpenPlanningSlot(item, workingEntries);
       if (!openSlot.shift || !openSlot.isOpen) {
         addSkippedReason("slot niet open");
@@ -21349,18 +21460,30 @@ async function applySmartPlanningToRoster() {
     }
 
     const nextEntry = createSmartPlanningRosterEntry(item, shift);
-    if (previousEntry) {
-      workingEntries.splice(existingIndex, 1, nextEntry);
-      replacedEntries.push(previousEntry);
-      if (moveWorkLogToEntry(previousEntry, nextEntry)) {
+    if (slotEntries.length) {
+      removeSlotEntries();
+      if (previousEntry && moveWorkLogToEntry(previousEntry, nextEntry)) {
         movedWorkLogs = true;
       }
-    } else {
-      workingEntries.push(nextEntry);
     }
+    workingEntries.push(nextEntry);
     savedEntries.push(nextEntry);
     appliedItemIds.add(item.id);
   });
+
+  const duplicateSlotsAfterSave = getDuplicatePlanningSlotSummaries(workingEntries)
+    .filter((duplicateSlot) => affectedSlotKeys.has(duplicateSlot.key));
+
+  if (duplicateSlotsAfterSave.length) {
+    smartPlanningIsSavingRoster = false;
+    console.warn("[smart-planning:save:duplicate-slots]", {
+      before: duplicateSlotsBeforeSave,
+      after: duplicateSlotsAfterSave
+    });
+    showMessage("Rooster kon niet worden opgeslagen: er zou dubbele bezetting ontstaan. Controleer de gemarkeerde diensten.", "error");
+    renderSmartPlanningPanel();
+    return;
+  }
 
   if (savedEntries.length || clearedCount) {
     setUndoState("Rooster plannen opslaan");
@@ -21410,10 +21533,13 @@ async function applySmartPlanningToRoster() {
     .join(" · ");
   console.info("[smart-planning:save]", {
     proposalItems: itemsToApply.length,
+    uniqueSlotItems: uniqueItemsToApply.length,
     appliedItems: appliedItemIds.size,
     savedEntries: savedEntries.length,
     clearedCount,
     keptOpenCount,
+    duplicateSlotsBeforeSave,
+    duplicateSlotsAfterSave,
     skippedCount,
     skippedReasons: Object.fromEntries(skippedReasons),
     liveSyncEnabled: isPlanningEntriesCentralSyncEnabled()
