@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260508-smart-planning-persist";
+const APP_VERSION = "20260508-keep-open-advance";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -22756,6 +22756,35 @@ function getSelectedSmartPlanningOpenShiftButton() {
     .find((button) => button.dataset.smartPlanningOpenShift === selectedSmartPlanningOpenShiftId) || null;
 }
 
+function scrollSmartPlanningOpenShiftIntoView(itemId) {
+  if (!itemId) {
+    return false;
+  }
+
+  const targetButton = [...document.querySelectorAll("[data-smart-planning-open-shift]")]
+    .find((button) => button.dataset.smartPlanningOpenShift === itemId);
+
+  if (!targetButton) {
+    return false;
+  }
+
+  targetButton.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+  return true;
+}
+
+function scheduleSmartPlanningOpenShiftScroll(itemId) {
+  if (!itemId) {
+    return;
+  }
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      scrollSmartPlanningOpenShiftIntoView(itemId);
+      scheduleSmartPlanningFloatingAdvicePosition();
+    });
+  });
+}
+
 function positionSmartPlanningFloatingAdvice() {
   const picker = document.querySelector(".smart-planning-floating-advice");
   const selectedButton = getSelectedSmartPlanningOpenShiftButton();
@@ -22810,7 +22839,7 @@ function getNextSmartPlanningOpenShiftId(currentItemId) {
     return "";
   }
 
-  const isOpenCandidate = (item) => item.id !== currentItemId && !item.chosenEmployeeName;
+  const isOpenCandidate = (item) => item.id !== currentItemId && isSmartPlanningOpenProposalItem(item);
   const sameDayAfter = items.slice(currentIndex + 1)
     .find((item) => item.day === currentItem.day && isOpenCandidate(item));
 
@@ -22829,6 +22858,24 @@ function getNextSmartPlanningOpenShiftId(currentItemId) {
   }
 
   return "";
+}
+
+function getNextSmartPlanningActionableOpenShiftId(currentItemId) {
+  const items = [...getSmartPlanningProposalItems()].sort(compareSmartPlanningItemsByRosterOrder);
+  const currentIndex = items.findIndex((item) => item.id === currentItemId);
+  const currentItem = items[currentIndex];
+
+  if (!currentItem || currentIndex < 0) {
+    return "";
+  }
+
+  const currentWeekValue = currentItem.weekValue || getWeekValueFromDate(currentItem.day);
+  const nextItem = items.slice(currentIndex + 1).find((item) => (
+    (item.weekValue || getWeekValueFromDate(item.day)) === currentWeekValue &&
+    isSmartPlanningOpenProposalItem(item)
+  ));
+
+  return nextItem?.id || "";
 }
 
 function isSmartPlanningEmployeeAvailableForItem(employeeName, item) {
@@ -22900,6 +22947,7 @@ function setSmartPlanningProposalKeepOpen(itemId, keepOpen = true) {
     return;
   }
 
+  const nextOpenShiftId = keepOpen ? getNextSmartPlanningActionableOpenShiftId(itemId) : "";
   item.chosenEmployeeName = "";
   item.keepOpen = Boolean(keepOpen);
   item.lockedOpen = Boolean(keepOpen);
@@ -22909,15 +22957,21 @@ function setSmartPlanningProposalKeepOpen(itemId, keepOpen = true) {
     lastSmartPlanningAssignedItemId = "";
   }
 
-  selectedSmartPlanningOpenShiftId = itemId;
+  selectedSmartPlanningOpenShiftId = keepOpen ? nextOpenShiftId : itemId;
+  setSmartPlanningFocusedWeek(getSmartPlanningWeekValueForItemId(nextOpenShiftId || itemId));
   invalidateSmartPlanningEffectiveEntriesCache();
   refreshSmartPlanningDirtyState();
   renderSmartPlanningPanelPreservingRosterScroll();
+  if (nextOpenShiftId) {
+    scheduleSmartPlanningOpenShiftScroll(nextOpenShiftId);
+  }
   showMessage(
     keepOpen
-      ? "Dienst blijft bewust open en wordt niet automatisch gevuld."
+      ? (nextOpenShiftId
+        ? "Dienst blijft bewust open. Volgende open dienst geopend."
+        : "Dienst blijft bewust open. Geen volgende open dienst.")
       : "Dienst kan weer automatisch worden voorgesteld.",
-    "success"
+    keepOpen && !nextOpenShiftId ? "info" : "success"
   );
 }
 
@@ -23256,6 +23310,7 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
                 type="button"
                 class="planning-shift-line is-open smart-planning-open-shift-button ${isSelected ? "is-selected" : ""} ${warningText ? "has-warning" : ""} ${row.duplicateSlotConflict ? "has-duplicate-slot" : ""} ${chosenEmployeeName ? "has-choice" : ""} ${isKeptOpen ? "is-kept-open" : ""} ${wasJustAssigned ? "was-just-assigned" : ""}"
                 data-smart-planning-open-shift="${escapeHtmlAttribute(row.smartPlanningId)}"
+                data-smart-planning-slot-key="${escapeHtmlAttribute(getSmartPlanningProposalSlotKey(proposalItem || row))}"
                 ${row.duplicateSlotConflict ? `data-roster-duplicate-slot="${escapeHtmlAttribute(row.duplicateSlotConflict.key)}"` : ""}
                 title="${escapeHtmlAttribute(titleText)}"
               >
