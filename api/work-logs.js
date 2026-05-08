@@ -79,6 +79,24 @@ function getLogTimestamp(log) {
   return new Date().toISOString();
 }
 
+function getWorkLogsSyncSignature(logs) {
+  return JSON.stringify(
+    logs
+      .map((log) => normalizeWorkLogPayload(log))
+      .filter(Boolean)
+      .map((log) => ({
+        id: log.id,
+        employeeName: log.employeeName || "",
+        day: log.day || "",
+        shiftName: log.shiftName || "",
+        status: log.status || "",
+        submittedAt: log.submittedAt || "",
+        updatedAt: log.updatedAt || ""
+      }))
+      .sort((logA, logB) => logA.id.localeCompare(logB.id))
+  );
+}
+
 function getSupabaseConfig() {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
@@ -159,10 +177,19 @@ async function readWorkLogs(mode) {
     : [];
 }
 
-async function upsertWorkLogs(mode, logs) {
+async function upsertWorkLogs(mode, logs, options = {}) {
+  const currentLogs = await readWorkLogs(mode);
+  const currentSignature = getWorkLogsSyncSignature(currentLogs);
+  const baseSignature = typeof options.baseSignature === "string" ? options.baseSignature : "";
   const rows = logs
     .map((log) => toDatabaseRow(log, mode))
     .filter(Boolean);
+
+  if (rows.length && baseSignature !== currentSignature) {
+    const error = new Error("Urenregistraties zijn ververst. Haal de laatste data op en probeer opnieuw.");
+    error.statusCode = 409;
+    throw error;
+  }
 
   if (rows.length) {
     await supabaseRequest("work_logs?on_conflict=data_mode,id", {
@@ -174,7 +201,7 @@ async function upsertWorkLogs(mode, logs) {
     });
   }
 
-  // Stap 1 is bewust upsert-only: geen device mag centrale uren wissen door een lege of stale cache.
+  // Upsert-only: lege clients mogen centrale uren niet wissen.
   return readWorkLogs(mode);
 }
 
@@ -198,7 +225,9 @@ async function handler(req, res) {
       const payload = parseBody(req);
       const mode = normalizeMode(payload?.mode || req.query?.mode);
       const workLogs = Array.isArray(payload?.workLogs) ? payload.workLogs : [];
-      const savedLogs = await upsertWorkLogs(mode, workLogs);
+      const savedLogs = await upsertWorkLogs(mode, workLogs, {
+        baseSignature: payload?.baseSignature
+      });
       sendJson(res, 200, { success: true, workLogs: savedLogs });
       return;
     }

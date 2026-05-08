@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260507-approved-request-mail-audit";
+const APP_VERSION = "20260507-worklog-reset-cache";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -743,6 +743,7 @@ function resetCentralSyncStateForModeSwitch() {
   planningEntriesCentralSyncPending = false;
   requestDataCentralSyncPending = false;
   workLogCentralSyncLoaded = false;
+  workLogCentralSnapshotSignature = "";
   employeeDataCentralSyncLoaded = false;
   planningEntriesCentralSyncLoaded = false;
   requestDataCentralSyncLoaded = false;
@@ -765,7 +766,7 @@ function syncCentralDataForCurrentMode({ preferCentral = false } = {}) {
   syncEmployeeDataFromCentral({ preferCentral });
   syncPlanningEntriesFromCentral({ preferCentral });
   syncRequestDataFromCentral({ preferCentral });
-  syncWorkLogsFromCentral({ preferCentral });
+  syncWorkLogsFromCentral({ queueMissingCentralSave: false, preferCentral: true });
 }
 
 function formatEmployeeDataRefreshTime(value = new Date()) {
@@ -827,6 +828,7 @@ function resetEmployeeDataRefreshSyncMarkers() {
   planningEntriesCentralSyncLoaded = false;
   requestDataCentralSyncLoaded = false;
   workLogCentralSyncLoaded = false;
+  workLogCentralSnapshotSignature = "";
   lastEmployeeDataCentralSyncError = null;
   lastPlanningEntriesCentralSyncError = null;
   lastRequestDataCentralSyncError = null;
@@ -1424,7 +1426,11 @@ function saveSwapRequests() {
   queueRequestDataCentralSave();
 }
 
-function loadWorkLogs() {
+function loadWorkLogs({ allowLiveCache = false } = {}) {
+  if (currentDataMode === "live" && !allowLiveCache) {
+    return [];
+  }
+
   const savedLogs = localStorage.getItem(getScopedStorageKey(workLogStorageKey));
 
   if (!savedLogs) {
@@ -1500,6 +1506,7 @@ let workLogCentralSyncTimer = null;
 let workLogCentralSyncInFlight = false;
 let workLogCentralSyncPending = false;
 let workLogCentralSyncLoaded = false;
+let workLogCentralSnapshotSignature = "";
 let lastWorkLogCentralSyncError = null;
 
 function isWorkLogCentralSyncEnabled() {
@@ -1527,6 +1534,22 @@ function getWorkLogComparableTimestamp(log) {
 
 function serializeWorkLogsForComparison(logs) {
   return JSON.stringify(sanitizeWorkLogsForStorage(logs).slice().sort((logA, logB) => logA.id.localeCompare(logB.id)));
+}
+
+function getWorkLogCentralSyncSignature(logs) {
+  return JSON.stringify(
+    sanitizeWorkLogsForStorage(logs)
+      .map((log) => ({
+        id: log.id,
+        employeeName: log.employeeName || "",
+        day: log.day || "",
+        shiftName: log.shiftName || "",
+        status: log.status || "",
+        submittedAt: log.submittedAt || "",
+        updatedAt: log.updatedAt || ""
+      }))
+      .sort((logA, logB) => logA.id.localeCompare(logB.id))
+  );
 }
 
 function mergeWorkLogCollections(localLogs, centralLogs) {
@@ -1561,7 +1584,7 @@ function reportWorkLogCentralSyncError(action, error) {
     at: new Date().toISOString()
   };
   window.lastWorkLogCentralSyncError = lastWorkLogCentralSyncError;
-  console.warn("[workLogs] Centrale sync mislukt; localStorage blijft actief.", lastWorkLogCentralSyncError, error);
+  console.warn("[workLogs] Centrale sync mislukt; lokale uren-cache wordt niet als live bron gebruikt.", lastWorkLogCentralSyncError, error);
 }
 
 async function fetchCentralWorkLogs() {
@@ -1587,6 +1610,13 @@ async function sendWorkLogsToCentral(sourceLogs = workLogs) {
     return false;
   }
 
+  const outgoingLogs = sanitizeWorkLogsForStorage(sourceLogs);
+
+  if (outgoingLogs.length && !workLogCentralSnapshotSignature) {
+    const centralLogs = sanitizeWorkLogsForStorage(await fetchCentralWorkLogs());
+    workLogCentralSnapshotSignature = getWorkLogCentralSyncSignature(centralLogs);
+  }
+
   const response = await fetch(workLogApiEndpoint, {
     method: "PUT",
     headers: {
@@ -1595,7 +1625,9 @@ async function sendWorkLogsToCentral(sourceLogs = workLogs) {
     },
     body: JSON.stringify({
       mode: currentDataMode,
-      workLogs: sanitizeWorkLogsForStorage(sourceLogs)
+      workLogs: outgoingLogs,
+      baseSignature: workLogCentralSnapshotSignature,
+      appVersion: APP_VERSION
     })
   });
 
@@ -1605,7 +1637,7 @@ async function sendWorkLogsToCentral(sourceLogs = workLogs) {
     throw new Error(payload?.message || "Centraal opslaan van urenregistraties is mislukt.");
   }
 
-  return true;
+  return Array.isArray(payload?.workLogs) ? payload.workLogs : true;
 }
 
 function queueWorkLogCentralSave() {
@@ -1636,7 +1668,10 @@ async function syncWorkLogsToCentral() {
   workLogCentralSyncInFlight = true;
 
   try {
-    await sendWorkLogsToCentral(workLogs);
+    const savedLogs = await sendWorkLogsToCentral(workLogs);
+    if (Array.isArray(savedLogs)) {
+      workLogCentralSnapshotSignature = getWorkLogCentralSyncSignature(savedLogs);
+    }
     lastWorkLogCentralSyncError = null;
     window.lastWorkLogCentralSyncError = null;
     return true;
@@ -1652,8 +1687,8 @@ async function syncWorkLogsToCentral() {
   }
 }
 
-async function syncWorkLogsFromCentral({ queueMissingCentralSave = true, preferCentral = false } = {}) {
-  if (!isWorkLogCentralSyncEnabled() || workLogCentralSyncLoaded) {
+async function syncWorkLogsFromCentral({ queueMissingCentralSave = true, preferCentral = false, force = false } = {}) {
+  if (!isWorkLogCentralSyncEnabled() || (workLogCentralSyncLoaded && !force)) {
     return;
   }
 
@@ -1662,7 +1697,9 @@ async function syncWorkLogsFromCentral({ queueMissingCentralSave = true, preferC
 
   try {
     const centralLogs = sanitizeWorkLogsForStorage(await fetchCentralWorkLogs());
-    const mergedLogs = preferCentral ? centralLogs : mergeWorkLogCollections(localBeforeSync, centralLogs);
+    workLogCentralSnapshotSignature = getWorkLogCentralSyncSignature(centralLogs);
+    const centralIsAuthoritative = preferCentral || centralLogs.length === 0;
+    const mergedLogs = centralIsAuthoritative ? centralLogs : mergeWorkLogCollections(localBeforeSync, centralLogs);
     const localSignature = serializeWorkLogsForComparison(localBeforeSync);
     const centralSignature = serializeWorkLogsForComparison(centralLogs);
     const mergedSignature = serializeWorkLogsForComparison(mergedLogs);
@@ -1675,7 +1712,7 @@ async function syncWorkLogsFromCentral({ queueMissingCentralSave = true, preferC
       renderDashboard();
     }
 
-    if (queueMissingCentralSave && mergedSignature !== centralSignature) {
+    if (queueMissingCentralSave && !centralIsAuthoritative && mergedSignature !== centralSignature) {
       queueWorkLogCentralSave();
     }
   } catch (error) {
@@ -1684,7 +1721,7 @@ async function syncWorkLogsFromCentral({ queueMissingCentralSave = true, preferC
 }
 
 async function migrateLocalWorkLogsToCentral() {
-  const localLogs = sanitizeWorkLogsForStorage(loadWorkLogs());
+  const localLogs = sanitizeWorkLogsForStorage(loadWorkLogs({ allowLiveCache: true }));
 
   if (!localLogs.length) {
     console.info("[workLogs] Geen lokale urenregistraties gevonden om te migreren.");
@@ -1692,6 +1729,10 @@ async function migrateLocalWorkLogsToCentral() {
   }
 
   try {
+    if (!workLogCentralSnapshotSignature) {
+      const centralLogs = sanitizeWorkLogsForStorage(await fetchCentralWorkLogs());
+      workLogCentralSnapshotSignature = getWorkLogCentralSyncSignature(centralLogs);
+    }
     await sendWorkLogsToCentral(localLogs);
     lastWorkLogCentralSyncError = null;
     window.lastWorkLogCentralSyncError = null;
@@ -1704,6 +1745,20 @@ async function migrateLocalWorkLogsToCentral() {
 }
 
 window.migrateLocalWorkLogsToCentral = migrateLocalWorkLogsToCentral;
+
+function clearLocalWorkLogCache() {
+  localStorage.removeItem(getScopedStorageKey(workLogStorageKey));
+
+  if (currentDataMode === "live") {
+    replaceArrayContents(workLogs, []);
+    persistWorkLogsToLocalStorage();
+    renderMyHours();
+    renderHoursApproval();
+    renderDashboard();
+  }
+}
+
+window.clearLocalWorkLogCache = clearLocalWorkLogCache;
 
 let employeeDataCentralSyncTimer = null;
 let employeeDataCentralSyncInFlight = false;
