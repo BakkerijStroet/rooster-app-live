@@ -78,6 +78,47 @@ function normalizePlanningEntry(entry) {
   return normalizedEntry.name && normalizedEntry.day ? normalizedEntry : null;
 }
 
+function normalizePlanningSlotShiftName(shiftName) {
+  const normalizedShiftName = String(shiftName || "").trim().replace(/\s+/g, " ");
+  const lowerShiftName = normalizedShiftName.toLowerCase();
+  const shopMatch = lowerShiftName.match(/^winkel(?:dienst)?\s*(\d+)$/);
+  const allroundMatch = lowerShiftName.match(/^allround(?:dienst)?\s*(\d+)$/);
+
+  if (shopMatch) return `winkel ${shopMatch[1]}`;
+  if (allroundMatch) return `allround ${allroundMatch[1]}`;
+  if (lowerShiftName.includes("draai")) return "draaidienst";
+  if (lowerShiftName.includes("oven")) return "oven";
+  if (lowerShiftName.includes("brood")) return "brood";
+  if (lowerShiftName.includes("banket")) return "banket";
+  if (lowerShiftName.includes("productie")) return "productie";
+  if (lowerShiftName.includes("inpak")) return "inpak";
+  if (lowerShiftName.includes("bezorg")) return "bezorg";
+  if (lowerShiftName.includes("stage")) return "stage";
+
+  return lowerShiftName;
+}
+
+function getPlanningEntryDepartment(entry) {
+  const shiftName = String(entry?.shiftName || "").trim().toLowerCase();
+  return shiftName.includes("winkel") || shiftName.includes("allround") ? "shop" : "bakery";
+}
+
+function getPlanningEntryStableSlotKey(entry) {
+  const normalizedEntry = normalizePlanningEntry(entry);
+
+  if (!normalizedEntry) {
+    return "";
+  }
+
+  return [
+    normalizedEntry.day,
+    getPlanningEntryDepartment(normalizedEntry),
+    normalizePlanningSlotShiftName(normalizedEntry.shiftName),
+    normalizedEntry.startTime,
+    normalizedEntry.endTime
+  ].join("__");
+}
+
 function getPlanningEntryId(entry) {
   const normalizedEntry = normalizePlanningEntry(entry);
 
@@ -215,7 +256,44 @@ async function readPlanningEntries(mode) {
   };
 }
 
+async function readPlanningEntryRows(mode) {
+  const rows = await supabaseRequest(
+    `planning_entries?data_mode=eq.${encodeURIComponent(mode)}&select=id,payload,deleted_at`,
+    { method: "GET" }
+  );
+
+  return Array.isArray(rows) ? rows : [];
+}
+
+async function getPlanningEntryIdsForStableSlots(mode, slotKeys) {
+  const normalizedSlotKeys = new Set(
+    (Array.isArray(slotKeys) ? slotKeys : [])
+      .filter((slotKey) => typeof slotKey === "string" && slotKey.trim())
+      .map((slotKey) => slotKey.trim())
+  );
+
+  if (!normalizedSlotKeys.size) {
+    return [];
+  }
+
+  const rows = await readPlanningEntryRows(mode);
+
+  return rows
+    .filter((row) =>
+      !row?.deleted_at &&
+      typeof row.id === "string" &&
+      normalizedSlotKeys.has(getPlanningEntryStableSlotKey(row.payload))
+    )
+    .map((row) => row.id);
+}
+
 async function upsertPlanningEntries(mode, entries, options = {}) {
+  if (Array.isArray(options.replaceSlotKeys) && options.replaceSlotKeys.length) {
+    await tombstonePlanningEntries(mode, [], {
+      deletedSlotKeys: options.replaceSlotKeys
+    });
+  }
+
   const existingData = await readPlanningEntries(mode);
   const deletedEntryIds = new Set(existingData.deletedEntryIds);
   const reviveDeletedEntryIds = new Set(
@@ -246,8 +324,12 @@ async function upsertPlanningEntries(mode, entries, options = {}) {
   return readPlanningEntries(mode);
 }
 
-async function tombstonePlanningEntries(mode, entryIds) {
-  const uniqueEntryIds = [...new Set((Array.isArray(entryIds) ? entryIds : [])
+async function tombstonePlanningEntries(mode, entryIds, options = {}) {
+  const slotEntryIds = await getPlanningEntryIdsForStableSlots(mode, options.deletedSlotKeys || []);
+  const uniqueEntryIds = [...new Set([
+    ...(Array.isArray(entryIds) ? entryIds : []),
+    ...slotEntryIds
+  ]
     .filter((entryId) => typeof entryId === "string" && entryId.trim())
     .map((entryId) => entryId.trim()))];
 
@@ -294,7 +376,8 @@ async function handler(req, res) {
       const mode = normalizeMode(payload?.mode || req.query?.mode);
       const entries = Array.isArray(payload?.entries) ? payload.entries : [];
       const savedData = await upsertPlanningEntries(mode, entries, {
-        reviveDeletedEntryIds: Array.isArray(payload?.reviveDeletedEntryIds) ? payload.reviveDeletedEntryIds : []
+        reviveDeletedEntryIds: Array.isArray(payload?.reviveDeletedEntryIds) ? payload.reviveDeletedEntryIds : [],
+        replaceSlotKeys: Array.isArray(payload?.replaceSlotKeys) ? payload.replaceSlotKeys : []
       });
       sendJson(res, 200, { success: true, ...savedData });
       return;
@@ -306,7 +389,9 @@ async function handler(req, res) {
       const deletedEntryIds = Array.isArray(payload?.deletedEntryIds)
         ? payload.deletedEntryIds
         : (typeof req.query?.id === "string" ? [req.query.id] : []);
-      const savedData = await tombstonePlanningEntries(mode, deletedEntryIds);
+      const savedData = await tombstonePlanningEntries(mode, deletedEntryIds, {
+        deletedSlotKeys: Array.isArray(payload?.deletedSlotKeys) ? payload.deletedSlotKeys : []
+      });
       sendJson(res, 200, { success: true, ...savedData });
       return;
     }

@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260508-dedupe-smart-planning-slot-saves";
+const APP_VERSION = "20260508-stable-planning-saves-sick-ranges";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -2188,7 +2188,10 @@ async function sendPlanningEntriesToCentral(sourceEntries = entries, options = {
     body: JSON.stringify({
       mode: currentDataMode,
       entries: getPlanningEntriesSnapshot(sourceEntries),
-      reviveDeletedEntryIds
+      reviveDeletedEntryIds,
+      replaceSlotKeys: Array.isArray(options.replaceSlotKeys)
+        ? options.replaceSlotKeys.filter((slotKey) => typeof slotKey === "string" && slotKey)
+        : []
     })
   });
 
@@ -2201,7 +2204,7 @@ async function sendPlanningEntriesToCentral(sourceEntries = entries, options = {
   return payload;
 }
 
-async function sendPlanningEntryDeletionsToCentral(deletedEntries = []) {
+async function sendPlanningEntryDeletionsToCentral(deletedEntries = [], options = {}) {
   if (!isPlanningEntriesCentralSyncEnabled()) {
     return false;
   }
@@ -2211,8 +2214,12 @@ async function sendPlanningEntryDeletionsToCentral(deletedEntries = []) {
       .map((entry) => typeof entry === "string" ? entry : getPlanningEntrySyncId(entry))
       .filter(Boolean)
   )];
+  const deletedSlotKeys = [...new Set(
+    (Array.isArray(options.deletedSlotKeys) ? options.deletedSlotKeys : [])
+      .filter((slotKey) => typeof slotKey === "string" && slotKey)
+  )];
 
-  if (!deletedEntryIds.length) {
+  if (!deletedEntryIds.length && !deletedSlotKeys.length) {
     return false;
   }
 
@@ -2224,7 +2231,8 @@ async function sendPlanningEntryDeletionsToCentral(deletedEntries = []) {
     },
     body: JSON.stringify({
       mode: currentDataMode,
-      deletedEntryIds
+      deletedEntryIds,
+      deletedSlotKeys
     })
   });
 
@@ -8546,17 +8554,17 @@ function getApprovedTimeOff(employeeName, date) {
     return null;
   }
 
-  const normalizedEmployeeName = String(employeeName || "").trim();
+  const normalizedEmployeeName = normalizeEmployeeAvailabilityLookupName(employeeName);
   const matchingRequests = timeOffRequests.filter((request) => {
     const requestType = normalizeTimeOffRequestType(request?.type);
     const requestStatus = String(request?.status || "").trim().toLowerCase();
 
     return !isDeletedRequest(request) &&
-      String(request.employeeName || "").trim() === normalizedEmployeeName &&
+      normalizeEmployeeAvailabilityLookupName(request.employeeName) === normalizedEmployeeName &&
       requestIncludesDate(request, date) &&
       (
         requestStatus === "approved" ||
-        (requestType === "ziek" && ["open", "pending", "submitted", "ingediend"].includes(requestStatus))
+        (requestType === "ziek" && ["open", "pending", "submitted", "ingediend", "goedgekeurd"].includes(requestStatus))
       );
   });
 
@@ -10800,6 +10808,10 @@ function getRosterDuplicateSlotKey(row = {}) {
 
 function getPlanningEntryStableSlotKey(entry = {}) {
   return getRosterDuplicateSlotKey(entry);
+}
+
+function normalizeEmployeeAvailabilityLookupName(employeeName = "") {
+  return String(employeeName || "").trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 function getSmartPlanningItemStableSlotKey(item = {}) {
@@ -21306,14 +21318,21 @@ async function persistSmartPlanningRosterSaveToCentral(deletedEntries = [], next
   }
 
   const removedEntries = getPlanningEntriesRemovedByReplacement(deletedEntries, nextEntries);
+  const replaceSlotKeys = [...new Set(
+    (Array.isArray(options.replaceSlotKeys) ? options.replaceSlotKeys : [])
+      .filter((slotKey) => typeof slotKey === "string" && slotKey)
+  )];
 
-  if (removedEntries.length) {
-    await sendPlanningEntryDeletionsToCentral(removedEntries);
+  if (removedEntries.length || replaceSlotKeys.length) {
+    await sendPlanningEntryDeletionsToCentral(removedEntries, {
+      deletedSlotKeys: replaceSlotKeys
+    });
   }
 
   const reviveEntries = Array.isArray(options.reviveEntries) ? options.reviveEntries : [];
   const payload = await sendPlanningEntriesToCentral(nextEntries, {
-    reviveDeletedEntries: reviveEntries
+    reviveDeletedEntries: reviveEntries,
+    replaceSlotKeys
   });
   const expectedSavedEntryIds = new Set(reviveEntries.map((entry) => getPlanningEntrySyncId(entry)).filter(Boolean));
   const returnedEntryIds = new Set(
@@ -21331,7 +21350,7 @@ async function persistSmartPlanningRosterSaveToCentral(deletedEntries = [], next
   window.lastPlanningEntriesCentralSyncError = null;
   return {
     attempted: true,
-    deletedCount: removedEntries.length,
+    deletedCount: removedEntries.length + replaceSlotKeys.length,
     savedCount: Array.isArray(payload?.entries) ? payload.entries.length : getPlanningEntriesSnapshot(nextEntries).length
   };
 }
@@ -21489,7 +21508,8 @@ async function applySmartPlanningToRoster() {
     setUndoState("Rooster plannen opslaan");
     const preparedRosterChanges = getRosterChangesForNotifications(replacedEntries, savedEntries);
     const centralSaveSummary = await persistSmartPlanningRosterSaveToCentral(replacedEntries, workingEntries, {
-      reviveEntries: savedEntries
+      reviveEntries: savedEntries,
+      replaceSlotKeys: [...affectedSlotKeys]
     });
 
     entries.splice(0, entries.length, ...workingEntries);
@@ -21534,6 +21554,7 @@ async function applySmartPlanningToRoster() {
   console.info("[smart-planning:save]", {
     proposalItems: itemsToApply.length,
     uniqueSlotItems: uniqueItemsToApply.length,
+    replaceSlotKeys: [...affectedSlotKeys],
     appliedItems: appliedItemIds.size,
     savedEntries: savedEntries.length,
     clearedCount,
@@ -21684,10 +21705,16 @@ function getSmartPlanningEffectiveEntriesCache(sourceEntries = entries) {
   const proposalItems = getSmartPlanningProposalItems();
   const proposalOriginals = proposalItems.filter((item) => item.isExistingRosterEntry);
   const originalEntryKeys = new Set(proposalOriginals.map((item) => item.originalEntryKey).filter(Boolean));
+  const originalSlotKeys = new Set(proposalOriginals.map(getSmartPlanningItemStableSlotKey).filter(Boolean));
   const entryByItemId = new Map();
   const preservedEntries = sourceEntries.filter((entry) => {
     const entryKey = getPlanningEntrySyncId(entry);
     if (entryKey && originalEntryKeys.has(entryKey)) {
+      return false;
+    }
+
+    const slotKey = getPlanningEntryStableSlotKey(entry);
+    if (slotKey && originalSlotKeys.has(slotKey)) {
       return false;
     }
 
@@ -22202,6 +22229,41 @@ function getSmartPlanningSickLeaveDebugSummary(data = getSmartPlanningMonthData(
     }));
 }
 
+function getSmartPlanningEmployeeSickAvailabilityDebug(employeeName, data = getSmartPlanningMonthData()) {
+  const visibleDates = (Array.isArray(data?.visibleWeeks) ? data.visibleWeeks : [])
+    .flatMap((week) => Array.isArray(week?.dates) ? week.dates : [])
+    .filter(Boolean);
+  const employeeKey = normalizeEmployeeAvailabilityLookupName(employeeName);
+  const sickRequests = timeOffRequests
+    .filter((request) =>
+      !isDeletedRequest(request) &&
+      normalizeEmployeeAvailabilityLookupName(request.employeeName) === employeeKey &&
+      normalizeTimeOffRequestType(request?.type) === "ziek"
+    )
+    .map((request) => ({
+      employeeName: request.employeeName,
+      type: request.type || "",
+      status: request.status || "",
+      startDate: getTimeOffStartDate(request),
+      endDate: getTimeOffEndDate(request),
+      dataMode: currentDataMode
+    }));
+
+  return visibleDates.map((date) => {
+    const absence = getApprovedTimeOff(employeeName, date);
+    return {
+      employeeName,
+      date,
+      unavailable: normalizeTimeOffRequestType(absence?.type) === "ziek",
+      reason: normalizeTimeOffRequestType(absence?.type) === "ziek"
+        ? "Ziek/herstel"
+        : (absence ? getAbsenceTypeLabel(absence.type) : "Beschikbaar"),
+      sickRequestCount: sickRequests.length,
+      sickRequests
+    };
+  });
+}
+
 function autoFillSmartPlanningProposal() {
   const data = getSmartPlanningMonthData();
   if (!isSmartPlanningProposalCurrent(data)) {
@@ -22229,6 +22291,11 @@ function autoFillSmartPlanningProposal() {
 
   if (sickLeaveDebugSummary.length) {
     console.info("[smart-planning:auto-fill:sick-leave]", sickLeaveDebugSummary);
+  }
+  const wendySickDebug = getSmartPlanningEmployeeSickAvailabilityDebug("Wendy", data)
+    .filter((item) => item.sickRequestCount > 0 || item.date.startsWith("2026-06"));
+  if (wendySickDebug.length) {
+    console.info("[smart-planning:sick-debug]", wendySickDebug);
   }
 
   openItems.forEach((item) => {

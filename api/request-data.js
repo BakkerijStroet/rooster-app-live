@@ -38,6 +38,25 @@ function normalizeMode(value) {
   return "live";
 }
 
+function normalizeTimeOffRequestType(type) {
+  const normalizedType = String(type || "").trim().toLowerCase();
+
+  if (["ziek", "ziekte", "sick", "sickness", "ziekmelding", "operatie", "operation", "herstel", "herstelperiode", "recovery"].includes(normalizedType)) {
+    return "ziek";
+  }
+
+  if (["vakantie", "vacation", "verlof"].includes(normalizedType)) {
+    return "vakantie";
+  }
+
+  return "vrij";
+}
+
+function isRangeTimeOffRequestType(type) {
+  const normalizedType = normalizeTimeOffRequestType(type);
+  return normalizedType === "vakantie" || normalizedType === "ziek";
+}
+
 function normalizeMailLog(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -47,12 +66,20 @@ function normalizeTimeOffRequest(request) {
     return null;
   }
 
-  const normalizedType = typeof request.type === "string" ? request.type : "vrij";
+  const normalizedType = normalizeTimeOffRequestType(request.type);
   const normalizedStartDate = typeof request.startDate === "string" && request.startDate
     ? request.startDate
-    : (typeof request.date === "string" ? request.date : "");
-  const normalizedEndDate = normalizedType === "vakantie"
-    ? ((typeof request.endDate === "string" && request.endDate) ? request.endDate : normalizedStartDate)
+    : (typeof request.date === "string" && request.date
+      ? request.date
+      : (typeof request.day === "string" && request.day
+        ? request.day
+        : (typeof request.from === "string" ? request.from : "")));
+  const normalizedEndDate = isRangeTimeOffRequestType(normalizedType)
+    ? ((typeof request.endDate === "string" && request.endDate)
+      ? request.endDate
+      : (typeof request.to === "string" && request.to
+        ? request.to
+        : (typeof request.until === "string" && request.until ? request.until : normalizedStartDate)))
     : normalizedStartDate;
 
   if (!normalizedStartDate) {
