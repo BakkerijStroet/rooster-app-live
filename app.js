@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260508-smart-planning-week-scroll";
+const APP_VERSION = "20260508-smart-planning-week-edit";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -20845,6 +20845,14 @@ function isSmartPlanningProposalCurrent(data = getSmartPlanningMonthData()) {
     && smartPlanningProposalState?.department === data.departmentFilter;
 }
 
+function isSmartPlanningProposalForSelection(weekValue = getSmartPlanningSelectedWeek(), department = smartPlanningDepartmentSelect?.value || "all") {
+  return Boolean(
+    smartPlanningProposalState?.startWeek === weekValue &&
+    smartPlanningProposalState?.department === department &&
+    Array.isArray(smartPlanningProposalState.weeks)
+  );
+}
+
 function getSmartPlanningAssignedItems(data = null) {
   if (data && !isSmartPlanningProposalCurrent(data)) {
     return [];
@@ -23106,6 +23114,20 @@ function createSmartPlanningAdjustmentProposal() {
   showMessage(totalItems
     ? `Bestaand rooster geladen. Pas alleen aan wat nodig is; opslaan bewaart alleen wijzigingen.`
     : "Geen diensten gevonden om aan te passen voor deze selectie.", totalItems ? "success" : "warning");
+}
+
+function openEditableSmartPlanningRosterForSelectedWeek(selectedWeek = getSmartPlanningSelectedWeek()) {
+  const department = smartPlanningDepartmentSelect?.value || "all";
+  activeSmartPlanningTab = "proposal";
+  setSmartPlanningFocusedWeek(selectedWeek);
+  pendingSmartPlanningScrollWeek = selectedWeek;
+
+  if (isSmartPlanningProposalForSelection(selectedWeek, department)) {
+    renderSmartPlanningPanel();
+    return;
+  }
+
+  createSmartPlanningAdjustmentProposal();
 }
 
 function clearSmartPlanningRosterServices(scope = "week") {
@@ -30023,9 +30045,7 @@ smartPlanningWeekInput?.addEventListener("change", () => {
   if (hoursWeekInput) hoursWeekInput.value = selectedWeek;
   if (copyTargetWeekInput) copyTargetWeekInput.value = selectedWeek;
   if (copySourceWeekInput) copySourceWeekInput.value = getPreviousWeekValue(selectedWeek);
-  setSmartPlanningFocusedWeek(selectedWeek);
-  pendingSmartPlanningScrollWeek = selectedWeek;
-  renderSmartPlanningPanel();
+  openEditableSmartPlanningRosterForSelectedWeek(selectedWeek);
 });
 
 smartPlanningDepartmentSelect?.addEventListener("change", () => {
