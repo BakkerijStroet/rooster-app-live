@@ -8998,6 +8998,7 @@ small,
 .planner-vacation-empty {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   min-height: 28px;
   padding: 5px 9px;
   border: 1px solid var(--color-border);
@@ -9012,6 +9013,11 @@ small,
 
 .planner-vacation-chip {
   cursor: pointer;
+}
+
+.planner-vacation-chip-days {
+  color: var(--color-text-muted);
+  font-weight: 700;
 }
 
 .planner-vacation-chip:hover,

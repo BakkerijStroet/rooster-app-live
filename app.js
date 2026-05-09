@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260508-end-of-day-cleanup";
+const APP_VERSION = "20260509-vacation-chip-days";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -17187,14 +17187,10 @@ function renderPlannerVacationOverview() {
 
 function renderPlannerVacationOverviewWeek(weekValue, requests = []) {
   const weekDates = getWeekDates(weekValue);
-  const sortedRequests = [...requests].sort((requestA, requestB) =>
-    String(requestA.employeeName || "").localeCompare(String(requestB.employeeName || ""), "nl") ||
-    getRosterAbsenceTypeLabel(requestA.type).localeCompare(getRosterAbsenceTypeLabel(requestB.type), "nl") ||
-    getTimeOffStartDate(requestA).localeCompare(getTimeOffStartDate(requestB))
-  );
+  const absenceItems = getPlannerVacationOverviewWeekItems(weekDates, requests);
 
-  const absenceMarkup = sortedRequests.length
-    ? sortedRequests.map(renderPlannerVacationOverviewItem).join("")
+  const absenceMarkup = absenceItems.length
+    ? absenceItems.map(renderPlannerVacationOverviewItem).join("")
     : `<span class="planner-vacation-empty">Geen afwezigen</span>`;
 
   return `
@@ -17210,17 +17206,111 @@ function renderPlannerVacationOverviewWeek(weekValue, requests = []) {
   `;
 }
 
-function renderPlannerVacationOverviewItem(request) {
-  const period = getTimeOffDisplayRange(request);
-  const label = getRosterAbsenceLabel(request);
+function getPlannerVacationOverviewWeekItems(weekDates = [], requests = []) {
+  const groups = new Map();
+
+  requests.forEach((request) => {
+    const employeeName = request.employeeName || "Onbekende medewerker";
+    const normalizedType = normalizeTimeOffRequestType(request.type);
+    const key = `${normalizeEmployeeAvailabilityLookupName(employeeName)}|${normalizedType}`;
+    const matchingDates = weekDates.filter((date) => requestIncludesDate(request, date));
+
+    if (!matchingDates.length) {
+      return;
+    }
+
+    if (!groups.has(key)) {
+      groups.set(key, {
+        employeeName,
+        type: normalizedType,
+        requests: [],
+        dates: new Set()
+      });
+    }
+
+    const group = groups.get(key);
+    group.requests.push(request);
+    matchingDates.forEach((date) => group.dates.add(date));
+  });
+
+  return [...groups.values()]
+    .map((group) => {
+      const dates = [...group.dates].sort();
+      return {
+        ...group,
+        dates,
+        daySummary: formatVacationOverviewWeekdaySummary(dates, weekDates),
+        firstRequest: group.requests
+          .slice()
+          .sort((requestA, requestB) => getTimeOffStartDate(requestA).localeCompare(getTimeOffStartDate(requestB)))[0] || null
+      };
+    })
+    .sort((itemA, itemB) =>
+      itemA.employeeName.localeCompare(itemB.employeeName, "nl") ||
+      getRosterAbsenceTypeLabel(itemA.type).localeCompare(getRosterAbsenceTypeLabel(itemB.type), "nl") ||
+      (itemA.dates[0] || "").localeCompare(itemB.dates[0] || "")
+    );
+}
+
+function formatVacationOverviewWeekdaySummary(dates = [], weekDates = []) {
+  const uniqueDates = [...new Set(dates)].sort();
+  const weekdayDates = weekDates.filter((date) => getWeekdayNumberFromDate(date) <= 5);
+  const coversWholeCalendarWeek = weekDates.length > 0 && weekDates.every((date) => uniqueDates.includes(date));
+  const coversWholeWorkWeek = weekdayDates.length > 0 && weekdayDates.every((date) => uniqueDates.includes(date));
+
+  if (coversWholeCalendarWeek || coversWholeWorkWeek) {
+    return "hele week";
+  }
+
+  const indexByDate = new Map(weekDates.map((date, index) => [date, index]));
+  const sortedIndexes = uniqueDates
+    .map((date) => indexByDate.get(date))
+    .filter((index) => Number.isInteger(index))
+    .sort((indexA, indexB) => indexA - indexB);
+  const ranges = [];
+
+  sortedIndexes.forEach((index) => {
+    const lastRange = ranges[ranges.length - 1];
+    if (lastRange && index === lastRange.end + 1) {
+      lastRange.end = index;
+      return;
+    }
+    ranges.push({ start: index, end: index });
+  });
+
+  return ranges
+    .map(({ start, end }) => {
+      const startLabel = getVacationOverviewWeekdayLabel(weekDates[start]);
+      const endLabel = getVacationOverviewWeekdayLabel(weekDates[end]);
+      return start === end ? startLabel : `${startLabel}-${endLabel}`;
+    })
+    .filter(Boolean)
+    .join(", ");
+}
+
+function getVacationOverviewWeekdayLabel(date) {
+  const labels = ["ma", "di", "wo", "do", "vr", "za", "zo"];
+  const weekdayNumber = getWeekdayNumberFromDate(date);
+  return labels[weekdayNumber - 1] || "";
+}
+
+function renderPlannerVacationOverviewItem(item) {
+  const firstRequest = item.firstRequest || item.requests?.[0] || null;
+  const typeLabel = getRosterAbsenceTypeLabel(item.type);
+  const label = `${item.employeeName} ${typeLabel}`;
+  const period = item.requests?.length === 1
+    ? getTimeOffDisplayRange(firstRequest)
+    : item.requests.map(getTimeOffDisplayRange).filter(Boolean).join(", ");
   const escapedLabel = escapeHtmlAttribute(label || "Onbekende afwezigheid");
+  const escapedDaySummary = escapeHtmlAttribute(item.daySummary || "");
   return `
-    <button type="button" class="planner-vacation-chip absence-${getAbsenceCardClass(normalizeTimeOffRequestType(request.type))}"
+    <button type="button" class="planner-vacation-chip absence-${getAbsenceCardClass(item.type)}"
       data-request-type="timeoff"
       data-request-action="edit"
-      data-request-id="${escapeHtmlAttribute(request.id || "")}"
+      data-request-id="${escapeHtmlAttribute(firstRequest?.id || "")}"
       title="${escapeHtmlAttribute(period)}">
-      ${escapedLabel}
+      <span>${escapedLabel}</span>
+      ${escapedDaySummary ? `<span class="planner-vacation-chip-days">· ${escapedDaySummary}</span>` : ""}
     </button>
   `;
 }
