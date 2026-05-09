@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260508-sick-availability-debug";
+const APP_VERSION = "20260508-end-of-day-cleanup";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -21837,20 +21837,6 @@ async function applySmartPlanningToRoster() {
     .sort((itemA, itemB) => itemB[1] - itemA[1] || itemA[0].localeCompare(itemB[0], "nl"))
     .map(([reason, count]) => `${count}x ${reason}`)
     .join(" · ");
-  console.info("[smart-planning:save]", {
-    proposalItems: itemsToApply.length,
-    uniqueSlotItems: uniqueItemsToApply.length,
-    replaceSlotKeys: [...affectedSlotKeys],
-    appliedItems: appliedItemIds.size,
-    savedEntries: savedEntries.length,
-    clearedCount,
-    keptOpenCount,
-    duplicateSlotsBeforeSave,
-    duplicateSlotsAfterSave,
-    skippedCount,
-    skippedReasons: Object.fromEntries(skippedReasons),
-    liveSyncEnabled: isPlanningEntriesCentralSyncEnabled()
-  });
   showMessage(
     changedCount || keptOpenCount
       ? "Rooster opgeslagen."
@@ -22868,17 +22854,6 @@ function autoFillSmartPlanningProposal(options = {}) {
   const openItems = [...getSmartPlanningProposalItems()]
     .filter((item) => isSmartPlanningOpenProposalItem(item))
     .sort(compareSmartPlanningItemsByRosterOrder);
-  const sickLeaveDebugSummary = getSmartPlanningSickLeaveDebugSummary(data);
-
-  if (sickLeaveDebugSummary.length) {
-    console.info("[smart-planning:auto-fill:sick-leave]", sickLeaveDebugSummary);
-  }
-  const wendySickDebug = getSmartPlanningEmployeeSickAvailabilityDebug("Wendy", data)
-    .filter((item) => item.sickRequestCount > 0 || item.date.startsWith("2026-06"));
-  if (wendySickDebug.length) {
-    console.info("[smart-planning:sick-debug]", wendySickDebug);
-  }
-
   openItems.forEach((item) => {
     const candidate = getBestSmartPlanningAutoFillCandidate(item);
 
@@ -22907,17 +22882,10 @@ function autoFillSmartPlanningProposal(options = {}) {
       .slice(0, 3)
       .map(([reason, count]) => `${count}x ${reason}`)
       .join(" · ");
-    const debugSummary = `Debug: ${openItems.length} open diensten, ${getActiveEmployees().length} actieve medewerkers${reasonSummary ? ` · ${reasonSummary}` : ""}.`;
-    console.info("[smart-planning:auto-fill]", {
-      openItems: openItems.length,
-      activeEmployees: getActiveEmployees().length,
-      filledCount,
-      remainingOpenCount,
-      blockReasons: Object.fromEntries(blockReasons)
-    });
+    const reasonText = reasonSummary ? ` Redenen: ${reasonSummary}.` : "";
     showMessage(
       remainingOpenCount
-        ? `Er konden geen medewerkers automatisch worden voorgesteld. Controleer basispatronen en bevoegdheden. ${debugSummary}`
+        ? `Er konden geen medewerkers automatisch worden voorgesteld. Controleer basispatronen en bevoegdheden.${reasonText}`
         : "Er zijn geen open diensten om automatisch te vullen.",
       remainingOpenCount ? "warning" : "info"
     );
@@ -22926,13 +22894,6 @@ function autoFillSmartPlanningProposal(options = {}) {
 
   refreshSmartPlanningDirtyState();
   renderSmartPlanningPanel();
-  console.info("[smart-planning:auto-fill]", {
-    openItems: openItems.length,
-    activeEmployees: getActiveEmployees().length,
-    filledCount,
-    remainingOpenCount,
-    blockReasons: Object.fromEntries(blockReasons)
-  });
   showMessage(
     remainingOpenCount
       ? `Voorstel gemaakt: ${filledCount} dienst${filledCount === 1 ? "" : "en"} ingevuld, ${remainingOpenCount} open.`
