@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260509-extra-availability";
+const APP_VERSION = "20260509-android-recovery";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -361,6 +361,64 @@ function reportAppError(userMessage, error, context = "") {
   }
 }
 
+function showStartupRecoveryError(error, context = "") {
+  if (typeof window.StroetShowLoadError === "function") {
+    window.StroetShowLoadError(error, context);
+  }
+}
+
+function safeGetLocalStorageKey(storageKeyName, fallbackValue = null, label = storageKeyName) {
+  try {
+    const value = localStorage.getItem(storageKeyName);
+    return value === null ? fallbackValue : value;
+  } catch (error) {
+    console.warn(`[Urenrooster] lokale opslag lezen mislukt voor ${label}`, error);
+    return fallbackValue;
+  }
+}
+
+function safeRemoveLocalStorageKey(storageKeyName, label = storageKeyName) {
+  try {
+    localStorage.removeItem(storageKeyName);
+    return true;
+  } catch (error) {
+    console.warn(`[Urenrooster] lokale opslag verwijderen mislukt voor ${label}`, error);
+    return false;
+  }
+}
+
+function safeParseLocalStorageKey(storageKeyName, fallbackValue, label = storageKeyName) {
+  const savedValue = safeGetLocalStorageKey(storageKeyName, null, label);
+
+  if (!savedValue) {
+    return fallbackValue;
+  }
+
+  try {
+    return JSON.parse(savedValue);
+  } catch (error) {
+    console.warn(`[Urenrooster] corrupte lokale data genegeerd voor ${label}`, error);
+    safeRemoveLocalStorageKey(storageKeyName, label);
+    return fallbackValue;
+  }
+}
+
+function safeScrollIntoView(target, options) {
+  if (!target || typeof target.scrollIntoView !== "function") {
+    return;
+  }
+
+  try {
+    target.scrollIntoView(options);
+  } catch (error) {
+    try {
+      target.scrollIntoView();
+    } catch (fallbackError) {
+      console.warn("[Urenrooster] scrollen naar onderdeel mislukt", fallbackError);
+    }
+  }
+}
+
 function safeSetStorageItem(storageKeyName, serializedValue, label = "gegevens") {
   try {
     localStorage.setItem(storageKeyName, serializedValue);
@@ -622,57 +680,50 @@ function ensureConfiguredBakeryEmployees() {
 }
 
 function getEmployeesForMode(mode) {
-  const savedEmployees = localStorage.getItem(getScopedStorageKeyForMode(employeeStorageKey, mode));
+  const parsedEmployees = safeParseLocalStorageKey(
+    getScopedStorageKeyForMode(employeeStorageKey, mode),
+    null,
+    `medewerkers (${mode})`
+  );
 
-  if (!savedEmployees) {
+  if (!Array.isArray(parsedEmployees)) {
     return mode === "test" ? getTestSeedEmployeeNames() : [];
   }
 
-  try {
-    const parsedEmployees = JSON.parse(savedEmployees);
+  const normalizedEmployees = [...new Set(
+    parsedEmployees
+      .filter((employee) => typeof employee === "string" && employee.trim() !== "")
+      .map((employee) => employee.trim())
+  )].sort((nameA, nameB) => nameA.localeCompare(nameB, "nl"));
 
-    if (!Array.isArray(parsedEmployees)) {
-      return mode === "test" ? getTestSeedEmployeeNames() : [];
-    }
-
-    const normalizedEmployees = [...new Set(
-      parsedEmployees
-        .filter((employee) => typeof employee === "string" && employee.trim() !== "")
-        .map((employee) => employee.trim())
-    )].sort((nameA, nameB) => nameA.localeCompare(nameB, "nl"));
-
-    return normalizedEmployees.length ? normalizedEmployees : (mode === "test" ? getTestSeedEmployeeNames() : []);
-  } catch {
-    return mode === "test" ? getTestSeedEmployeeNames() : [];
-  }
+  return normalizedEmployees.length ? normalizedEmployees : (mode === "test" ? getTestSeedEmployeeNames() : []);
 }
 
 function getEmployeeMetaForMode(mode, modeEmployees = getEmployeesForMode(mode)) {
-  const savedMeta = localStorage.getItem(getScopedStorageKeyForMode(employeeMetaStorageKey, mode));
   const defaults = Object.fromEntries(modeEmployees.map((employeeName) => [employeeName, getEmployeeStatusMetaDefaults()]));
+  const parsedMeta = safeParseLocalStorageKey(
+    getScopedStorageKeyForMode(employeeMetaStorageKey, mode),
+    null,
+    `medewerkerstatus (${mode})`
+  );
 
-  if (!savedMeta) {
+  if (!parsedMeta || typeof parsedMeta !== "object") {
     return defaults;
   }
 
-  try {
-    const parsedMeta = JSON.parse(savedMeta);
-    const normalized = {};
+  const normalized = {};
 
-    modeEmployees.forEach((employeeName) => {
-      normalized[employeeName] = {
-        status: normalizeEmployeeStatus(parsedMeta?.[employeeName]?.status),
-        loginAllowed: parsedMeta?.[employeeName]?.loginAllowed !== false,
-        updatedAt: typeof parsedMeta?.[employeeName]?.updatedAt === "string" ? parsedMeta[employeeName].updatedAt : "",
-        updatedByRole: parsedMeta?.[employeeName]?.updatedByRole === "planner" ? "planner" : (parsedMeta?.[employeeName]?.updatedByRole === "employee" ? "employee" : ""),
-        updatedByName: typeof parsedMeta?.[employeeName]?.updatedByName === "string" ? parsedMeta[employeeName].updatedByName : ""
-      };
-    });
+  modeEmployees.forEach((employeeName) => {
+    normalized[employeeName] = {
+      status: normalizeEmployeeStatus(parsedMeta?.[employeeName]?.status),
+      loginAllowed: parsedMeta?.[employeeName]?.loginAllowed !== false,
+      updatedAt: typeof parsedMeta?.[employeeName]?.updatedAt === "string" ? parsedMeta[employeeName].updatedAt : "",
+      updatedByRole: parsedMeta?.[employeeName]?.updatedByRole === "planner" ? "planner" : (parsedMeta?.[employeeName]?.updatedByRole === "employee" ? "employee" : ""),
+      updatedByName: typeof parsedMeta?.[employeeName]?.updatedByName === "string" ? parsedMeta[employeeName].updatedByName : ""
+    };
+  });
 
-    return normalized;
-  } catch {
-    return defaults;
-  }
+  return normalized;
 }
 
 function getLoginRoleValue() {
@@ -1171,19 +1222,13 @@ function logoutCurrentSession({ showMessageAfterLogout = false } = {}) {
 }
 
 function loadEntries() {
-  const savedEntries = localStorage.getItem(getScopedStorageKey(storageKey));
+  const parsedEntries = safeParseLocalStorageKey(getScopedStorageKey(storageKey), null, "rooster");
 
-  if (!savedEntries) {
+  if (!Array.isArray(parsedEntries)) {
     return [];
   }
 
   try {
-    const parsedEntries = JSON.parse(savedEntries);
-
-    if (!Array.isArray(parsedEntries)) {
-      return [];
-    }
-
     const normalizedEntries = parsedEntries.filter((entry) =>
       entry &&
       typeof entry.name === "string" &&
@@ -1306,19 +1351,13 @@ function mergePlanningEntries(sourceEntries = entries, fallbackEntries = entries
 }
 
 function loadTimeOffRequests() {
-  const savedRequests = localStorage.getItem(getScopedStorageKey(timeOffStorageKey));
+  const parsedRequests = safeParseLocalStorageKey(getScopedStorageKey(timeOffStorageKey), null, "aanvragen");
 
-  if (!savedRequests) {
+  if (!Array.isArray(parsedRequests)) {
     return [];
   }
 
   try {
-    const parsedRequests = JSON.parse(savedRequests);
-
-    if (!Array.isArray(parsedRequests)) {
-      return [];
-    }
-
     const normalizedRequests = parsedRequests.filter((request) =>
       request &&
       typeof request.id === "string" &&
@@ -1363,19 +1402,13 @@ function saveTimeOffRequests() {
 }
 
 function loadSwapRequests() {
-  const savedRequests = localStorage.getItem(getScopedStorageKey(swapStorageKey));
+  const parsedRequests = safeParseLocalStorageKey(getScopedStorageKey(swapStorageKey), null, "ruilverzoeken");
 
-  if (!savedRequests) {
+  if (!Array.isArray(parsedRequests)) {
     return [];
   }
 
   try {
-    const parsedRequests = JSON.parse(savedRequests);
-
-    if (!Array.isArray(parsedRequests)) {
-      return [];
-    }
-
     const normalizedRequests = parsedRequests.filter((request) =>
       request &&
       typeof request.id === "string" &&
@@ -1419,19 +1452,13 @@ function loadWorkLogs({ allowLiveCache = false } = {}) {
     return [];
   }
 
-  const savedLogs = localStorage.getItem(getScopedStorageKey(workLogStorageKey));
+  const parsedLogs = safeParseLocalStorageKey(getScopedStorageKey(workLogStorageKey), null, "urenregistraties");
 
-  if (!savedLogs) {
+  if (!Array.isArray(parsedLogs)) {
     return [];
   }
 
   try {
-    const parsedLogs = JSON.parse(savedLogs);
-
-    if (!Array.isArray(parsedLogs)) {
-      return [];
-    }
-
     const normalizedLogs = parsedLogs.filter((log) =>
       log &&
       typeof log.id === "string" &&
@@ -2873,27 +2900,17 @@ function buildWorkLogQuickButtons(workLogId, field, currentValue = "", disabled 
 }
 
 function loadEmployees() {
-  const savedEmployees = localStorage.getItem(getScopedStorageKey(employeeStorageKey));
+  const parsedEmployees = safeParseLocalStorageKey(getScopedStorageKey(employeeStorageKey), null, "medewerkers");
 
-  if (!savedEmployees) {
+  if (!Array.isArray(parsedEmployees)) {
     return [];
   }
 
-  try {
-    const parsedEmployees = JSON.parse(savedEmployees);
-
-    if (!Array.isArray(parsedEmployees)) {
-      return [];
-    }
-
-    return [...new Set(
-      parsedEmployees
-        .filter((employee) => typeof employee === "string" && employee.trim() !== "")
-        .map((employee) => employee.trim())
-    )].sort((nameA, nameB) => nameA.localeCompare(nameB, "nl"));
-  } catch {
-    return [];
-  }
+  return [...new Set(
+    parsedEmployees
+      .filter((employee) => typeof employee === "string" && employee.trim() !== "")
+      .map((employee) => employee.trim())
+  )].sort((nameA, nameB) => nameA.localeCompare(nameB, "nl"));
 }
 
 function saveEmployees() {
@@ -5146,15 +5163,14 @@ function getMailSettingsDefaults() {
 }
 
 function loadMailSettings() {
-  const savedSettings = localStorage.getItem(getScopedStorageKey(mailSettingsStorageKey));
   const defaults = getMailSettingsDefaults();
+  const parsedSettings = safeParseLocalStorageKey(getScopedStorageKey(mailSettingsStorageKey), null, "e-mailinstellingen");
 
-  if (!savedSettings) {
+  if (!parsedSettings || typeof parsedSettings !== "object") {
     return defaults;
   }
 
   try {
-    const parsedSettings = JSON.parse(savedSettings);
     return {
       senderName: normalizeMailSenderName(parsedSettings?.senderName || defaults.senderName),
       senderEmail: normalizeEmployeeEmail(parsedSettings?.senderEmail || ""),
@@ -5180,7 +5196,6 @@ function hasConfiguredMailSender() {
 }
 
 function loadEmployeeMeta() {
-  const savedMeta = localStorage.getItem(getScopedStorageKey(employeeMetaStorageKey));
   const defaults = Object.fromEntries(
     employees.map((employeeName) => [
       employeeName,
@@ -5191,13 +5206,13 @@ function loadEmployeeMeta() {
       }
     ])
   );
+  const parsedMeta = safeParseLocalStorageKey(getScopedStorageKey(employeeMetaStorageKey), null, "medewerkerstatus");
 
-  if (!savedMeta) {
+  if (!parsedMeta || typeof parsedMeta !== "object") {
     return defaults;
   }
 
   try {
-    const parsedMeta = JSON.parse(savedMeta);
     const normalized = {};
     const parsedMetaSource = parsedMeta && typeof parsedMeta === "object" ? parsedMeta : {};
     const hasExplicitMailTestUser = employees.some((employeeName) =>
@@ -5255,14 +5270,13 @@ function saveEmployeeMeta() {
 }
 
 function loadAuditLog() {
-  const savedAuditLog = localStorage.getItem(getScopedStorageKey(auditLogStorageKey));
+  const parsedAuditLog = safeParseLocalStorageKey(getScopedStorageKey(auditLogStorageKey), null, "auditlog");
 
-  if (!savedAuditLog) {
+  if (!Array.isArray(parsedAuditLog)) {
     return [];
   }
 
   try {
-    const parsedAuditLog = JSON.parse(savedAuditLog);
     return sanitizeAuditLog(parsedAuditLog);
   } catch {
     return [];
@@ -5274,14 +5288,13 @@ function saveAuditLog() {
 }
 
 function loadBackupHistory() {
-  const savedBackups = localStorage.getItem(getScopedStorageKey(backupStorageKey));
+  const parsedBackups = safeParseLocalStorageKey(getScopedStorageKey(backupStorageKey), null, "back-uphistorie");
 
-  if (!savedBackups) {
+  if (!Array.isArray(parsedBackups)) {
     return [];
   }
 
   try {
-    const parsedBackups = JSON.parse(savedBackups);
     return sanitizeBackupHistory(parsedBackups);
   } catch {
     return [];
@@ -5379,7 +5392,12 @@ function cloneSerializableValue(value) {
     return value;
   }
 
-  return JSON.parse(JSON.stringify(value));
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (error) {
+    console.warn("[Urenrooster] waarde kopieren mislukt", error);
+    return Array.isArray(value) ? [] : {};
+  }
 }
 
 function createExtraAvailabilityId() {
@@ -6312,19 +6330,18 @@ function getPermissionShiftDescriptors() {
 }
 
 function loadEmployeePermissions() {
-  const savedPermissions = localStorage.getItem(getScopedStorageKey(employeePermissionsStorageKey));
   const defaultPermissions = {};
+  const parsedPermissions = safeParseLocalStorageKey(getScopedStorageKey(employeePermissionsStorageKey), null, "bevoegdheden");
 
   employees.forEach((employee) => {
     defaultPermissions[employee] = {};
   });
 
-  if (!savedPermissions) {
+  if (!parsedPermissions || typeof parsedPermissions !== "object") {
     return defaultPermissions;
   }
 
   try {
-    const parsedPermissions = JSON.parse(savedPermissions);
     const normalizedPermissions = parsedPermissions && typeof parsedPermissions === "object"
       ? cloneSerializableValue(parsedPermissions)
       : {};
@@ -6357,16 +6374,15 @@ function isBakeryCoreShift(shift) {
 }
 
 function loadEmployeeStandardShifts() {
-  const savedStandardShifts = localStorage.getItem(getScopedStorageKey(employeeStandardShiftStorageKey));
   const validShiftNames = new Set(getBakeryCoreShifts().map((shift) => shift.name));
   const defaults = Object.fromEntries(employees.map((employeeName) => [employeeName, ""]));
+  const parsedStandardShifts = safeParseLocalStorageKey(getScopedStorageKey(employeeStandardShiftStorageKey), null, "vaste diensten");
 
-  if (!savedStandardShifts) {
+  if (!parsedStandardShifts || typeof parsedStandardShifts !== "object") {
     return defaults;
   }
 
   try {
-    const parsedStandardShifts = JSON.parse(savedStandardShifts);
     const normalized = {};
 
     employees.forEach((employeeName) => {
@@ -6386,19 +6402,18 @@ function saveEmployeeStandardShifts() {
 
 function loadEmployeeShiftPreferences() {
   const allShiftNames = getPermissionShiftDescriptors().map((shift) => shift.name);
-  const savedPreferences = localStorage.getItem(getScopedStorageKey(employeeShiftPreferenceStorageKey));
   const defaults = {};
+  const parsedPreferences = safeParseLocalStorageKey(getScopedStorageKey(employeeShiftPreferenceStorageKey), null, "dienstvoorkeuren");
 
   employees.forEach((employeeName) => {
     defaults[employeeName] = Object.fromEntries(allShiftNames.map((shiftName) => [shiftName, 0]));
   });
 
-  if (!savedPreferences) {
+  if (!parsedPreferences || typeof parsedPreferences !== "object") {
     return defaults;
   }
 
   try {
-    const parsedPreferences = JSON.parse(savedPreferences);
     const normalizedPreferences = {};
 
     employees.forEach((employeeName) => {
@@ -6539,16 +6554,15 @@ function getDefaultEmployeeBasePatternId(employeeName) {
 }
 
 function loadEmployeeBasePatterns() {
-  const savedPatterns = localStorage.getItem(getScopedStorageKey(employeeBasePatternStorageKey));
   const validPatternIds = new Set(getEmployeeBasePatternCatalog().map((pattern) => pattern.id));
   const defaults = Object.fromEntries(employees.map((employeeName) => [employeeName, getDefaultEmployeeBasePatternId(employeeName)]));
+  const parsedPatterns = safeParseLocalStorageKey(getScopedStorageKey(employeeBasePatternStorageKey), null, "basisroosters");
 
-  if (!savedPatterns) {
+  if (!parsedPatterns || typeof parsedPatterns !== "object") {
     return defaults;
   }
 
   try {
-    const parsedPatterns = JSON.parse(savedPatterns);
     const normalized = {};
 
     employees.forEach((employeeName) => {
@@ -6567,15 +6581,14 @@ function saveEmployeeBasePatterns() {
 }
 
 function loadEmployeeCustomRosters() {
-  const savedRosters = localStorage.getItem(getScopedStorageKey(employeeCustomRosterStorageKey));
   const defaults = Object.fromEntries(employees.map((employeeName) => [employeeName, createDefaultEmployeeCustomRoster(employeeName)]));
+  const parsedRosters = safeParseLocalStorageKey(getScopedStorageKey(employeeCustomRosterStorageKey), null, "vaste roosterpatronen");
 
-  if (!savedRosters) {
+  if (!parsedRosters || typeof parsedRosters !== "object") {
     return defaults;
   }
 
   try {
-    const parsedRosters = JSON.parse(savedRosters);
     const normalized = {};
 
     employees.forEach((employeeName) => {
@@ -6888,9 +6901,9 @@ function loadPlanningSettings() {
   const defaultCounts = Object.fromEntries(
     Object.entries(defaultTemplates).map(([weekday, templates]) => [weekday, templates.length])
   );
-  const savedSettings = localStorage.getItem(getScopedStorageKey(planningSettingsStorageKey));
+  const parsedSettings = safeParseLocalStorageKey(getScopedStorageKey(planningSettingsStorageKey), null, "planning instellingen");
 
-  if (!savedSettings) {
+  if (!parsedSettings || typeof parsedSettings !== "object") {
     return {
       winkelPerWeekday: defaultCounts,
       overrides: {},
@@ -6900,7 +6913,6 @@ function loadPlanningSettings() {
   }
 
   try {
-    const parsedSettings = JSON.parse(savedSettings);
     const winkelPerWeekday = { ...defaultCounts };
 
     Object.keys(defaultCounts).forEach((weekday) => {
@@ -7054,19 +7066,13 @@ function getDefaultShifts() {
 
 function loadShifts() {
   const defaultShifts = getDefaultShifts();
-  const savedShifts = localStorage.getItem(getScopedStorageKey(shiftStorageKey));
+  const parsedShifts = safeParseLocalStorageKey(getScopedStorageKey(shiftStorageKey), null, "diensten");
 
-  if (!savedShifts) {
+  if (!Array.isArray(parsedShifts)) {
     return defaultShifts;
   }
 
   try {
-    const parsedShifts = JSON.parse(savedShifts);
-
-    if (!Array.isArray(parsedShifts)) {
-      return defaultShifts;
-    }
-
     const normalized = parsedShifts
       .filter((shift) =>
         shift &&
@@ -7093,7 +7099,7 @@ function loadShifts() {
       return defaultShifts;
     }
 
-    const savedCatalogVersion = localStorage.getItem(getScopedStorageKey(shiftCatalogVersionKey));
+    const savedCatalogVersion = safeGetLocalStorageKey(getScopedStorageKey(shiftCatalogVersionKey), "", "dienstversie");
     const shouldMigrateDefaults = savedCatalogVersion !== shiftCatalogVersion;
     const mergedShifts = shouldMigrateDefaults
       ? normalized.filter((shift) => !defaultShifts.some((defaultShift) => defaultShift.name.toLowerCase() === shift.name.toLowerCase()))
@@ -7121,9 +7127,9 @@ function saveShifts() {
 }
 
 function loadPreferences() {
-  const savedPreferences = localStorage.getItem(preferencesStorageKey);
+  const parsedPreferences = safeParseLocalStorageKey(preferencesStorageKey, null, "voorkeuren");
 
-  if (!savedPreferences) {
+  if (!parsedPreferences || typeof parsedPreferences !== "object") {
     return {
       lastEmployee: "",
       lastShift: "",
@@ -7147,7 +7153,6 @@ function loadPreferences() {
   }
 
   try {
-    const parsedPreferences = JSON.parse(savedPreferences);
     return {
       lastEmployee: typeof parsedPreferences.lastEmployee === "string" ? parsedPreferences.lastEmployee : "",
       lastShift: typeof parsedPreferences.lastShift === "string" ? parsedPreferences.lastShift : "",
@@ -8413,7 +8418,7 @@ function focusFormValidationTarget(field, container) {
   }
 
   requestAnimationFrame(() => {
-    target.scrollIntoView({ behavior: "smooth", block: field ? "center" : "start" });
+    safeScrollIntoView(target, { behavior: "smooth", block: field ? "center" : "start" });
     if (field && typeof field.focus === "function" && !field.disabled) {
       window.setTimeout(() => {
         try {
@@ -9417,7 +9422,7 @@ function focusMobileWorkLogCard(workLogId) {
       return;
     }
 
-    card.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+    safeScrollIntoView(card, { behavior: "smooth", block: "start", inline: "nearest" });
     const firstEditableField = Array.from(card.querySelectorAll("[data-worklog-field][data-worklog-id]:not(:disabled)"))
       .find((input) => input.dataset.worklogId === workLogId) || null;
 
@@ -11614,7 +11619,7 @@ function scrollMyScheduleYearOverviewToWeek(targetWeek) {
   const targetTile = myScheduleBoard.querySelector(`[data-my-schedule-week="${targetWeek}"]`) ||
     myScheduleBoard.querySelector('[data-my-schedule-current-week="true"]');
 
-  targetTile?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+  safeScrollIntoView(targetTile, { behavior: "smooth", block: "center", inline: "nearest" });
 }
 
 function getMyScheduleWeekHoursStatus(weekEntries) {
@@ -18459,7 +18464,7 @@ function scrollToPlannerEmployee(employeeName) {
   const contractRow = document.querySelector(`[data-contract-employee="${employeeName}"]`);
 
   if (contractRow) {
-    contractRow.scrollIntoView({ behavior: "smooth", block: "center" });
+    safeScrollIntoView(contractRow, { behavior: "smooth", block: "center" });
     contractRow.classList.add("is-jump-highlight");
     window.setTimeout(() => contractRow.classList.remove("is-jump-highlight"), 1600);
     return true;
@@ -18468,7 +18473,7 @@ function scrollToPlannerEmployee(employeeName) {
   const shiftCard = scheduleBoard?.querySelector(`.shift-card[data-employee-name="${employeeName}"]`);
 
   if (shiftCard) {
-    shiftCard.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+    safeScrollIntoView(shiftCard, { behavior: "smooth", block: "center", inline: "center" });
     shiftCard.classList.add("is-jump-highlight");
     window.setTimeout(() => shiftCard.classList.remove("is-jump-highlight"), 1600);
     return true;
@@ -18488,7 +18493,7 @@ function scrollToPlannerShift(day, shiftId) {
     return false;
   }
 
-  targetCard.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+  safeScrollIntoView(targetCard, { behavior: "smooth", block: "center", inline: "center" });
   targetCard.classList.add("is-jump-highlight");
   window.setTimeout(() => targetCard.classList.remove("is-jump-highlight"), 1600);
   return true;
@@ -21505,7 +21510,7 @@ function scrollSmartPlanningWeekIntoView(weekValue = smartPlanningFocusedWeek) {
     return false;
   }
 
-  targetWeek.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+  safeScrollIntoView(targetWeek, { behavior: "smooth", block: "start", inline: "nearest" });
   return true;
 }
 
@@ -24064,7 +24069,7 @@ function goToSmartPlanningIssue(issue) {
       ? getSmartPlanningWeekElement(targetIssue.weekValue)
       : null;
 
-    (targetButton || targetWeek)?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    safeScrollIntoView(targetButton || targetWeek, { behavior: "smooth", block: "center", inline: "nearest" });
   });
 }
 
@@ -24168,7 +24173,7 @@ function scrollSmartPlanningOpenShiftIntoView(itemId) {
     return false;
   }
 
-  targetButton.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+  safeScrollIntoView(targetButton, { behavior: "smooth", block: "center", inline: "nearest" });
   return true;
 }
 
@@ -29566,7 +29571,7 @@ function startEditingTimeOffRequest(request) {
   targetFormState.endDate = getTimeOffEndDate(request);
   targetFormState.reason = request.reason || getDefaultTimeOffReason(normalizedRequestType);
   renderRequestComposerState();
-  requestTimeOffPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
+  safeScrollIntoView(requestTimeOffPanel, { behavior: "smooth", block: "start" });
   showMessage(
     request.status === "approved"
       ? "Pas de goedgekeurde aanvraag aan en klik op Aanvraag indienen."
@@ -30720,7 +30725,7 @@ cancelShiftButton.addEventListener("click", () => {
 
 serviceNewButton?.addEventListener("click", () => {
   resetShiftForm();
-  serviceFormCard?.scrollIntoView({ block: "start", behavior: "smooth" });
+  safeScrollIntoView(serviceFormCard, { block: "start", behavior: "smooth" });
   newShiftNameInput?.focus();
 });
 
@@ -30772,7 +30777,7 @@ shiftListCard?.addEventListener("click", (event) => {
 
   if (editButton) {
     editShiftButton?.click();
-    serviceFormCard?.scrollIntoView({ block: "start", behavior: "smooth" });
+    safeScrollIntoView(serviceFormCard, { block: "start", behavior: "smooth" });
     return;
   }
 
@@ -33680,19 +33685,32 @@ if (typeof mobileMediaQuery.addEventListener === "function") {
 
 window.addEventListener("error", (event) => {
   reportAppError("Er ging onverwacht iets mis in de app.", event.error || event.message, "window-error");
+  showStartupRecoveryError(event.error || event.message, "window-error");
 });
 
 window.addEventListener("unhandledrejection", (event) => {
   reportAppError("Er ging onverwacht iets mis tijdens het verwerken van gegevens.", event.reason, "unhandledrejection");
+  showStartupRecoveryError(event.reason, "unhandledrejection");
 });
 
-syncStartWeekToCurrent();
-newShiftColorInput.value = "shift-tone-oven";
-updateFormState();
-reloadScopedData();
-applySavedPreferences();
-activeTab = getDefaultTabForCurrentRole();
-updateTabVisibility();
-restoreSessionState({ resetToDefaultTab: true, resetWeekToCurrent: true });
-syncCentralDataForCurrentMode({ preferCentral: !isPlannerRole() });
+function initializeAppRuntime() {
+  syncStartWeekToCurrent();
+  if (newShiftColorInput) {
+    newShiftColorInput.value = "shift-tone-oven";
+  }
+  updateFormState();
+  reloadScopedData();
+  applySavedPreferences();
+  activeTab = getDefaultTabForCurrentRole();
+  updateTabVisibility();
+  restoreSessionState({ resetToDefaultTab: true, resetWeekToCurrent: true });
+  syncCentralDataForCurrentMode({ preferCentral: !isPlannerRole() });
+}
+
+try {
+  initializeAppRuntime();
+} catch (error) {
+  reportAppError("De app kon niet laden.", error, "startup");
+  showStartupRecoveryError(error, "startup");
+}
 

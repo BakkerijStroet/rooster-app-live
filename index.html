@@ -6,11 +6,96 @@
   <title>Bakkerij Stroet | Rooster app</title>
   <meta name="theme-color" content="#fffaf3">
   <link rel="icon" type="image/jpeg" href="Logo%202020.jpg">
-  <link rel="stylesheet" href="styles.css?v=20260509-extra-availability">
+  <link rel="stylesheet" href="styles.css?v=20260509-android-recovery">
   <script>
     (function () {
-      var fallbackMessage = "De app kon niet laden. Vernieuw de pagina of neem contact op met Twan.";
+      var fallbackMessage = "De app kon niet laden.";
+      var recoveryMessage = "Probeer lokale appgegevens te wissen.";
       var shown = false;
+
+      function installCompatibilityFallbacks() {
+        if (!Object.fromEntries) {
+          Object.fromEntries = function (entries) {
+            var result = {};
+            for (var index = 0; index < entries.length; index += 1) {
+              result[entries[index][0]] = entries[index][1];
+            }
+            return result;
+          };
+        }
+
+        if (!String.prototype.replaceAll) {
+          String.prototype.replaceAll = function (searchValue, replaceValue) {
+            return String(this).split(searchValue).join(replaceValue);
+          };
+        }
+
+        if (!Array.prototype.at) {
+          Array.prototype.at = function (index) {
+            var relativeIndex = Number(index) || 0;
+            if (relativeIndex < 0) {
+              relativeIndex += this.length;
+            }
+            return this[relativeIndex];
+          };
+        }
+      }
+
+      function clearAppStorageAndReload() {
+        var storageKeys = [
+          "urenrooster-entries",
+          "urenrooster-employees",
+          "urenrooster-shifts",
+          "urenrooster-shift-catalog-version",
+          "urenrooster-planning-settings",
+          "urenrooster-preferences",
+          "urenrooster-time-off-requests",
+          "urenrooster-swap-requests",
+          "urenrooster-work-logs",
+          "urenrooster-employee-permissions",
+          "urenrooster-employee-standard-shifts",
+          "urenrooster-employee-shift-preferences",
+          "urenrooster-employee-base-patterns",
+          "urenrooster-employee-custom-rosters",
+          "urenrooster-employee-meta",
+          "urenrooster-audit-log",
+          "urenrooster-backups",
+          "urenrooster-mail-settings"
+        ];
+
+        try {
+          storageKeys.forEach(function (key) {
+            localStorage.removeItem(key);
+            localStorage.removeItem(key + "__test");
+          });
+        } catch (storageError) {
+          console.warn("[Urenrooster] lokale opslag wissen mislukt", storageError);
+        }
+
+        try {
+          sessionStorage.clear();
+        } catch (sessionError) {
+          console.warn("[Urenrooster] sessie-opslag wissen mislukt", sessionError);
+        }
+
+        if (window.caches && typeof window.caches.keys === "function") {
+          window.caches.keys()
+            .then(function (cacheNames) {
+              return Promise.all(cacheNames.map(function (cacheName) {
+                return window.caches.delete(cacheName);
+              }));
+            })
+            .catch(function (cacheError) {
+              console.warn("[Urenrooster] cache wissen mislukt", cacheError);
+            })
+            .then(function () {
+              window.location.reload();
+            });
+          return;
+        }
+
+        window.location.reload();
+      }
 
       function showLoadError(error, context) {
         if (shown) {
@@ -35,9 +120,14 @@
           var container = document.createElement("div");
           container.id = "appLoadErrorFallback";
           container.setAttribute("role", "alert");
-          container.style.cssText = "position:fixed;inset:16px;z-index:99999;display:grid;place-items:center;padding:20px;border-radius:18px;background:#fffaf3;color:#3f2818;font-family:Arial,sans-serif;text-align:center;box-shadow:0 18px 48px rgba(63,40,24,.18);";
-          container.innerHTML = '<div><strong style="display:block;margin-bottom:8px;">App laden mislukt</strong><span>' + fallbackMessage + "</span></div>";
+          container.style.cssText = "position:fixed;inset:0;z-index:99999;display:grid;place-items:center;padding:20px;background:#fffaf3;color:#3f2818;font-family:Arial,sans-serif;text-align:center;";
+          container.innerHTML = '<div style="max-width:420px;padding:22px;border:1px solid #ead8c2;border-radius:16px;background:#fff;box-shadow:0 18px 48px rgba(63,40,24,.18);"><strong style="display:block;margin-bottom:8px;font-size:1.15rem;">' + fallbackMessage + '</strong><span style="display:block;margin-bottom:16px;">' + recoveryMessage + '</span><button type="button" data-app-storage-recovery style="border:0;border-radius:999px;background:#8b4a22;color:#fff;padding:10px 16px;font-weight:700;">Appgegevens herstellen</button><small style="display:block;margin-top:12px;color:#7a685c;">Dit wist alleen lokale browserdata van deze app. Centrale roosterdata blijft bewaard.</small></div>';
           document.body.appendChild(container);
+
+          var recoveryButton = container.querySelector("[data-app-storage-recovery]");
+          if (recoveryButton) {
+            recoveryButton.onclick = clearAppStorageAndReload;
+          }
         }
 
         if (document.body) {
@@ -47,7 +137,9 @@
         }
       }
 
+      installCompatibilityFallbacks();
       window.StroetShowLoadError = showLoadError;
+      window.StroetRecoverAppStorage = clearAppStorageAndReload;
       window.onerror = function (message, source, line, column, error) {
         showLoadError(error || message, { source: source, line: line, column: column });
       };
@@ -1390,7 +1482,7 @@
   <script src="js/utils/format.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/requests.js?v=20260508-compact-absence-labels"></script>
   <script src="js/features/hours.js?v=20260508-smart-planning-dashboard"></script>
-  <script src="js/features/employees.js?v=20260509-extra-availability"></script>
+  <script src="js/features/employees.js?v=20260509-android-recovery"></script>
   <script src="js/features/mail.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/backup.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/planning-core.js?v=20260508-smart-planning-dashboard"></script>
@@ -1401,9 +1493,9 @@
   <script src="js/features/navigation.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/render-helpers.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/bootstrap-helpers.js?v=20260508-smart-planning-dashboard"></script>
-  <script src="js/features/employee-panel-prep.js?v=20260509-extra-availability"></script>
+  <script src="js/features/employee-panel-prep.js?v=20260509-android-recovery"></script>
   <script src="js/features/requests-panel-prep.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/hours-panel-prep.js?v=20260508-smart-planning-dashboard"></script>
-  <script src="app.js?v=20260509-extra-availability"></script>
+  <script src="app.js?v=20260509-android-recovery"></script>
 </body>
 </html>
