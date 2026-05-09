@@ -5075,6 +5075,7 @@ let lastSmartPlanningAssignedItemId = "";
 let smartPlanningApplyConfirmVisible = false;
 let smartPlanningIsSavingRoster = false;
 let smartPlanningClearWeekConfirmVisible = false;
+let smartPlanningTimeEditState = null;
 let smartPlanningDirty = false;
 let smartPlanningFocusedWeek = "";
 let pendingSmartPlanningScrollWeek = "";
@@ -21141,6 +21142,7 @@ function discardSmartPlanningProposalState(options = {}) {
   lastSmartPlanningAssignedItemId = "";
   smartPlanningApplyConfirmVisible = false;
   smartPlanningClearWeekConfirmVisible = false;
+  smartPlanningTimeEditState = null;
   smartPlanningDirty = false;
   clearSmartPlanningWeekSnapshots();
   invalidateSmartPlanningEffectiveEntriesCache();
@@ -21220,9 +21222,43 @@ function mapSmartPlanningItemToRosterSortEntry(item = {}) {
     day: item.day || "",
     shiftId: shift.id || item.shiftId || "",
     shiftName: shift.name || item.shiftName || "Dienst",
-    startTime: shift.startTime || item.startTime || "",
-    endTime: shift.endTime || item.endTime || ""
+    startTime: getSmartPlanningStandardStartTime(item) || shift.startTime || item.startTime || "",
+    endTime: getSmartPlanningStandardEndTime(item) || shift.endTime || item.endTime || ""
   };
+}
+
+function getSmartPlanningStandardStartTime(item = {}) {
+  return item.standardStartTime || item.templateStartTime || item.defaultStartTime || item.startTime || "";
+}
+
+function getSmartPlanningStandardEndTime(item = {}) {
+  return item.standardEndTime || item.templateEndTime || item.defaultEndTime || item.endTime || "";
+}
+
+function getSmartPlanningOriginalStartTime(item = {}) {
+  return item.originalStartTime || item.startTime || "";
+}
+
+function getSmartPlanningOriginalEndTime(item = {}) {
+  return item.originalEndTime || item.endTime || "";
+}
+
+function isSmartPlanningProposalItemTimeChanged(item = {}) {
+  if (!item) {
+    return false;
+  }
+
+  return (item.startTime || "") !== getSmartPlanningOriginalStartTime(item) ||
+    (item.endTime || "") !== getSmartPlanningOriginalEndTime(item);
+}
+
+function isSmartPlanningProposalItemTimeOverridden(item = {}) {
+  if (!item) {
+    return false;
+  }
+
+  return (item.startTime || "") !== getSmartPlanningStandardStartTime(item) ||
+    (item.endTime || "") !== getSmartPlanningStandardEndTime(item);
 }
 
 function compareSmartPlanningItemsByRosterOrder(itemA, itemB) {
@@ -21398,7 +21434,8 @@ function isSmartPlanningProposalItemChanged(item) {
     return false;
   }
 
-  return originalEmployeeName !== chosenEmployeeName;
+  return originalEmployeeName !== chosenEmployeeName ||
+    isSmartPlanningProposalItemTimeChanged(item);
 }
 
 function getSmartPlanningProposalSlotKey(item = {}) {
@@ -21591,13 +21628,15 @@ function getUniqueSmartPlanningItemsByStableSlot(items = []) {
 
 function createSmartPlanningRosterEntry(item, shift) {
   const employeeName = item.chosenEmployeeName || "";
+  const startTime = item.startTime || shift.startTime || "";
+  const endTime = item.endTime || shift.endTime || "";
 
   return {
     name: employeeName,
     day: item.day,
-    startTime: shift.startTime || item.startTime || "",
-    endTime: shift.endTime || item.endTime || "",
-    hours: calculateHours(shift.startTime || item.startTime || "", shift.endTime || item.endTime || "") || 0,
+    startTime,
+    endTime,
+    hours: calculateHours(startTime, endTime) || 0,
     shiftId: (shift.id || "").startsWith("shop-") ? "" : (shift.id || item.shiftId || ""),
     shiftName: shift.name || item.shiftName || "Dienst",
     replacementFor: isBakeryCoreShift(shift) && getPrimaryStandardEmployeeForShift(shift.name) && getPrimaryStandardEmployeeForShift(shift.name) !== employeeName
@@ -21656,6 +21695,10 @@ function clearAppliedSmartPlanningAssignments(appliedItemIds) {
 
         return {
           ...item,
+          startTime: nextEntry.startTime,
+          endTime: nextEntry.endTime,
+          originalStartTime: nextEntry.startTime,
+          originalEndTime: nextEntry.endTime,
           originalEmployeeName: item.chosenEmployeeName || "",
           originalEntryKey: getPlanningEntrySyncId(nextEntry),
           isExistingRosterEntry: true,
@@ -21986,12 +22029,22 @@ function getSmartPlanningShiftFromProposalItem(item) {
     return null;
   }
 
-  return getSelectedShift(item.shiftId || "", item.startTime || "", item.endTime || "", item.day) || {
+  const standardStartTime = getSmartPlanningStandardStartTime(item);
+  const standardEndTime = getSmartPlanningStandardEndTime(item);
+  const selectedShift = getSelectedShift(item.shiftId || "", standardStartTime, standardEndTime, item.day) ||
+    getSelectedShift("", standardStartTime, standardEndTime, item.day);
+  const baseShift = selectedShift || {
     id: item.shiftId || item.shiftName || "",
     name: item.shiftName || "Dienst",
-    startTime: item.startTime || "",
-    endTime: item.endTime || "",
+    startTime: standardStartTime || item.startTime || "",
+    endTime: standardEndTime || item.endTime || "",
     isShopShift: item.department === "shop" || isShopShiftName(item.shiftName || "")
+  };
+
+  return {
+    ...baseShift,
+    startTime: item.startTime || baseShift.startTime || "",
+    endTime: item.endTime || baseShift.endTime || ""
   };
 }
 
@@ -22006,8 +22059,8 @@ function isSmartPlanningOriginalEntryMatch(entry, item) {
 
   return entry.day === item.day &&
     (entry.name || "") === (item.originalEmployeeName || "") &&
-    (entry.startTime || "") === (item.startTime || "") &&
-    (entry.endTime || "") === (item.endTime || "") &&
+    (entry.startTime || "") === getSmartPlanningOriginalStartTime(item) &&
+    (entry.endTime || "") === getSmartPlanningOriginalEndTime(item) &&
     getShiftName(entry).toLowerCase() === String(item.shiftName || "").toLowerCase();
 }
 
@@ -23873,6 +23926,97 @@ function setSmartPlanningProposalKeepOpen(itemId, keepOpen = true) {
   );
 }
 
+function openSmartPlanningTimeEditor(itemId) {
+  const item = getSmartPlanningProposalItemById(itemId);
+
+  if (!item) {
+    showMessage("Dienst niet gevonden om de tijd aan te passen.", "warning");
+    return;
+  }
+
+  smartPlanningTimeEditState = {
+    itemId,
+    startTime: item.startTime || getSmartPlanningStandardStartTime(item),
+    endTime: item.endTime || getSmartPlanningStandardEndTime(item)
+  };
+  selectedSmartPlanningOpenShiftId = itemId;
+  setSmartPlanningFocusedWeek(item.weekValue || getWeekValueFromDate(item.day));
+  renderSmartPlanningPanelPreservingRosterScroll();
+}
+
+function closeSmartPlanningTimeEditor() {
+  smartPlanningTimeEditState = null;
+  renderSmartPlanningPanelPreservingRosterScroll();
+}
+
+function isValidSmartPlanningTimeValue(timeValue = "") {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(timeValue || ""));
+}
+
+function applySmartPlanningTimeValues(item, startTime, endTime) {
+  if (!item) {
+    return false;
+  }
+
+  if (!isValidSmartPlanningTimeValue(startTime) || !isValidSmartPlanningTimeValue(endTime)) {
+    showMessage("Vul een geldige start- en eindtijd in.", "warning");
+    return false;
+  }
+
+  if (calculateHours(startTime, endTime) === null) {
+    showMessage("Eindtijd moet later zijn dan starttijd.", "warning");
+    return false;
+  }
+
+  item.startTime = startTime;
+  item.endTime = endTime;
+  invalidateSmartPlanningEffectiveEntriesCache();
+  refreshSmartPlanningDirtyState();
+  return true;
+}
+
+function saveSmartPlanningTimeEditor() {
+  const item = getSmartPlanningProposalItemById(smartPlanningTimeEditState?.itemId || "");
+
+  if (!item) {
+    smartPlanningTimeEditState = null;
+    renderSmartPlanningPanelPreservingRosterScroll();
+    return;
+  }
+
+  const startTime = smartPlanningProposalList?.querySelector("[data-smart-planning-time-start]")?.value || "";
+  const endTime = smartPlanningProposalList?.querySelector("[data-smart-planning-time-end]")?.value || "";
+
+  if (!applySmartPlanningTimeValues(item, startTime, endTime)) {
+    return;
+  }
+
+  smartPlanningTimeEditState = null;
+  renderSmartPlanningPanelPreservingRosterScroll();
+  showMessage("Tijd aangepast. Sla het rooster op om dit te bewaren.", "success");
+}
+
+function resetSmartPlanningTimeEditor() {
+  const item = getSmartPlanningProposalItemById(smartPlanningTimeEditState?.itemId || "");
+
+  if (!item) {
+    smartPlanningTimeEditState = null;
+    renderSmartPlanningPanelPreservingRosterScroll();
+    return;
+  }
+
+  const standardStartTime = getSmartPlanningStandardStartTime(item);
+  const standardEndTime = getSmartPlanningStandardEndTime(item);
+
+  if (!applySmartPlanningTimeValues(item, standardStartTime, standardEndTime)) {
+    return;
+  }
+
+  smartPlanningTimeEditState = null;
+  renderSmartPlanningPanelPreservingRosterScroll();
+  showMessage("Standaardtijd teruggezet. Sla het rooster op om dit te bewaren.", "success");
+}
+
 function normalizeSmartPlanningUnavailableReason(reason = "") {
   const normalizedReason = String(reason || "").toLowerCase();
 
@@ -24072,6 +24216,48 @@ function renderSmartPlanningInlineAdvice(item) {
   `;
 }
 
+function renderSmartPlanningTimeEditDialog() {
+  const item = getSmartPlanningProposalItemById(smartPlanningTimeEditState?.itemId || "");
+
+  if (!item) {
+    return "";
+  }
+
+  const standardStartTime = getSmartPlanningStandardStartTime(item);
+  const standardEndTime = getSmartPlanningStandardEndTime(item);
+  const startTime = smartPlanningTimeEditState?.startTime || item.startTime || standardStartTime;
+  const endTime = smartPlanningTimeEditState?.endTime || item.endTime || standardEndTime;
+  const shiftName = item.shiftName || "Dienst";
+
+  return `
+    <div class="smart-planning-time-dialog-backdrop" data-smart-planning-time-dialog>
+      <section class="smart-planning-time-dialog" role="dialog" aria-modal="true" aria-label="Tijd aanpassen">
+        <header class="smart-planning-time-dialog-head">
+          <div>
+            <strong>${escapeHtmlAttribute(shiftName)}</strong>
+            <span>Standaard ${escapeHtmlAttribute(standardStartTime)}-${escapeHtmlAttribute(standardEndTime)}</span>
+          </div>
+        </header>
+        <div class="smart-planning-time-fields">
+          <label>
+            <span>Starttijd</span>
+            <input type="time" value="${escapeHtmlAttribute(startTime)}" data-smart-planning-time-start>
+          </label>
+          <label>
+            <span>Eindtijd</span>
+            <input type="time" value="${escapeHtmlAttribute(endTime)}" data-smart-planning-time-end>
+          </label>
+        </div>
+        <div class="smart-planning-time-actions">
+          <button type="button" data-smart-planning-time-save>Opslaan</button>
+          <button type="button" class="secondary" data-smart-planning-time-reset>Reset standaardtijd</button>
+          <button type="button" class="secondary" data-smart-planning-time-cancel>Annuleren</button>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
 function renderSmartPlanningDemandOverview(data = getSmartPlanningWeekData()) {
   if (!smartPlanningDemandList) {
     return;
@@ -24177,6 +24363,14 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
           const assignmentLabel = isKeptOpen
             ? "Bewust open"
             : getSmartPlanningAssignmentBadgeLabel(proposalItem?.assignmentReason || "");
+          const hasTimeOverride = isSmartPlanningProposalItemTimeOverridden(proposalItem);
+          const combinedBadgeLabel = [
+            assignmentLabel,
+            hasTimeOverride ? "Aangepast" : ""
+          ].filter(Boolean).join(" · ");
+          const combinedBadge = combinedBadgeLabel
+            ? `<em class="smart-planning-concept-badge ${isKeptOpen ? "is-kept-open" : ""} ${hasTimeOverride ? "is-time-override" : ""}">${combinedBadgeLabel}</em>`
+            : "";
           const proposalReasonText = assignmentLabel && proposalItem?.assignmentReason && !isKeptOpen
             ? `Reden voorstel: ${proposalItem.assignmentReason}`
             : "";
@@ -24191,13 +24385,13 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
             ? `<span class="planning-shift-conflict-label">${escapeHtmlAttribute(duplicateText)}</span>`
             : "";
           const shiftContent = chosenEmployeeName ? `
-                <span class="smart-planning-assigned-shift">
-                  <span class="smart-planning-assigned-top">
-                    <span class="smart-planning-assigned-name">${employeeLabel}</span>
-                    ${assignmentLabel ? `<em class="smart-planning-concept-badge">${assignmentLabel}</em>` : ""}
-                  </span>
-                  <span class="smart-planning-assigned-bottom">
-                    <span class="smart-planning-assigned-shift-name" title="${escapeHtmlAttribute(row.shiftName)}">${displayShiftName}</span>
+                  <span class="smart-planning-assigned-shift">
+                    <span class="smart-planning-assigned-top">
+                      <span class="smart-planning-assigned-name">${employeeLabel}</span>
+                      ${combinedBadge}
+                    </span>
+                    <span class="smart-planning-assigned-bottom">
+                      <span class="smart-planning-assigned-shift-name" title="${escapeHtmlAttribute(row.shiftName)}">${displayShiftName}</span>
                     <span class="smart-planning-assigned-time">${shiftTime}</span>
                   </span>
                 </span>
@@ -24208,7 +24402,7 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
                     <span class="smart-planning-open-label">${row.duplicateSlotConflict ? "DUBBEL" : employeeLabel}</span>
                     <span class="smart-planning-open-shift-name" title="${escapeHtmlAttribute(row.shiftName)}">${displayShiftName}${warningText ? `<span class="smart-planning-shift-warning" title="${escapeHtmlAttribute(warningText)}">⚠</span>` : ""}</span>
                   </span>
-                  <span class="smart-planning-open-time">${shiftTime}${assignmentLabel ? `<em class="smart-planning-concept-badge ${isKeptOpen ? "is-kept-open" : ""}">${assignmentLabel}</em>` : ""}</span>
+                  <span class="smart-planning-open-time">${shiftTime}${combinedBadge}</span>
                 </span>
                 ${duplicateBadge}
           `;
@@ -24225,6 +24419,13 @@ function renderSmartPlanningProposalRosterGroup(title, groupRows, groupType) {
               >
                 ${shiftContent}
               </button>
+              <button
+                type="button"
+                class="smart-planning-time-edit-button"
+                data-smart-planning-time-edit="${escapeHtmlAttribute(row.smartPlanningId)}"
+                title="Tijd aanpassen"
+                aria-label="Tijd aanpassen voor ${escapeHtmlAttribute(row.shiftName)}"
+              >Tijd</button>
               ${isSelected ? renderSmartPlanningInlineAdvice(proposalItem) : ""}
             </div>
           `;
@@ -24488,6 +24689,7 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
           </div>
         </section>
       `}
+    ${renderSmartPlanningTimeEditDialog()}
   `;
 }
 
@@ -24569,6 +24771,10 @@ function createSmartPlanningProposalItemFromOpenItem(weekValue, item, index) {
     shiftName: item.shift.name,
     startTime: item.shift.startTime,
     endTime: item.shift.endTime,
+    standardStartTime: item.shift.startTime || "",
+    standardEndTime: item.shift.endTime || "",
+    originalStartTime: item.shift.startTime || "",
+    originalEndTime: item.shift.endTime || "",
     originalEmployeeName: "",
     keepOpen: false,
     lockedOpen: false,
@@ -24586,6 +24792,8 @@ function createSmartPlanningProposalItemFromExistingEntry(weekValue, entry, inde
   };
   const employeeName = entry.name || "";
   const isOpenEmployeeName = isSmartPlanningPlaceholderEmployeeName(employeeName);
+  const plannedStartTime = entry.startTime || shift.startTime || "";
+  const plannedEndTime = entry.endTime || shift.endTime || "";
 
   return {
     id: `adjust|${weekValue}|${entry.day}|${getPlanningEntrySyncId(entry) || `${employeeName}|${getShiftName(entry)}|${index}`}`,
@@ -24594,8 +24802,12 @@ function createSmartPlanningProposalItemFromExistingEntry(weekValue, entry, inde
     department: getRosterDepartmentForEntry(entry),
     shiftId: entry.shiftId || shift.id || "",
     shiftName: getShiftName(entry),
-    startTime: entry.startTime || shift.startTime || "",
-    endTime: entry.endTime || shift.endTime || "",
+    startTime: plannedStartTime,
+    endTime: plannedEndTime,
+    standardStartTime: shift.startTime || plannedStartTime,
+    standardEndTime: shift.endTime || plannedEndTime,
+    originalStartTime: plannedStartTime,
+    originalEndTime: plannedEndTime,
     chosenEmployeeName: isOpenEmployeeName ? "" : employeeName,
     originalEmployeeName: employeeName,
     originalEntryKey: getPlanningEntrySyncId(entry),
@@ -24622,6 +24834,7 @@ function resetSmartPlanningWeekTransientState(weekValue, options = {}) {
   } = options;
   const selectedWeek = getSmartPlanningWeekValueForItemId(selectedSmartPlanningOpenShiftId);
   const lastAssignedWeek = getSmartPlanningWeekValueForItemId(lastSmartPlanningAssignedItemId);
+  const timeEditWeek = getSmartPlanningWeekValueForItemId(smartPlanningTimeEditState?.itemId || "");
 
   smartPlanningApplyConfirmVisible = false;
   smartPlanningClearWeekConfirmVisible = false;
@@ -24632,6 +24845,10 @@ function resetSmartPlanningWeekTransientState(weekValue, options = {}) {
 
   if (!weekValue || lastAssignedWeek === weekValue || isSmartPlanningItemIdForWeek(lastSmartPlanningAssignedItemId, weekValue)) {
     lastSmartPlanningAssignedItemId = "";
+  }
+
+  if (!weekValue || timeEditWeek === weekValue || isSmartPlanningItemIdForWeek(smartPlanningTimeEditState?.itemId || "", weekValue)) {
+    smartPlanningTimeEditState = null;
   }
 
   if (clearRestoreSnapshot) {
@@ -24672,6 +24889,7 @@ function createSmartPlanningAdjustmentProposal(options = {}) {
   lastSmartPlanningAssignedItemId = "";
   smartPlanningApplyConfirmVisible = false;
   smartPlanningClearWeekConfirmVisible = false;
+  smartPlanningTimeEditState = null;
 
   smartPlanningProposalState = {
     mode: "adjust",
@@ -31579,6 +31797,50 @@ smartPlanningChecksList?.addEventListener("click", (event) => {
 });
 
 smartPlanningProposalList?.addEventListener("click", (event) => {
+  const timeEditButton = event.target.closest("[data-smart-planning-time-edit]");
+
+  if (timeEditButton) {
+    event.stopPropagation();
+    openSmartPlanningTimeEditor(timeEditButton.dataset.smartPlanningTimeEdit || "");
+    return;
+  }
+
+  const timeSaveButton = event.target.closest("[data-smart-planning-time-save]");
+
+  if (timeSaveButton) {
+    event.stopPropagation();
+    saveSmartPlanningTimeEditor();
+    return;
+  }
+
+  const timeResetButton = event.target.closest("[data-smart-planning-time-reset]");
+
+  if (timeResetButton) {
+    event.stopPropagation();
+    resetSmartPlanningTimeEditor();
+    return;
+  }
+
+  const timeCancelButton = event.target.closest("[data-smart-planning-time-cancel]");
+
+  if (timeCancelButton) {
+    event.stopPropagation();
+    closeSmartPlanningTimeEditor();
+    return;
+  }
+
+  const timeDialogBackdrop = event.target.closest("[data-smart-planning-time-dialog]");
+
+  if (timeDialogBackdrop && event.target === timeDialogBackdrop) {
+    closeSmartPlanningTimeEditor();
+    return;
+  }
+
+  if (timeDialogBackdrop) {
+    event.stopPropagation();
+    return;
+  }
+
   const weekSelectButton = event.target.closest("[data-smart-planning-week-select]");
 
   if (weekSelectButton) {
@@ -31715,6 +31977,12 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && smartPlanningTimeEditState) {
+    smartPlanningTimeEditState = null;
+    renderSmartPlanningPanel();
+    return;
+  }
+
   if (event.key !== "Escape" || !selectedSmartPlanningOpenShiftId) {
     return;
   }

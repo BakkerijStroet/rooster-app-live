@@ -4519,6 +4519,81 @@ textarea.input-error {
   line-height: 1.2;
 }
 
+.smart-planning-concept-badge.is-time-override {
+  background: var(--color-primary-soft);
+  border-color: rgba(var(--color-primary-rgb), 0.24);
+  color: var(--color-text);
+}
+
+.smart-planning-time-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1800;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(var(--color-text-rgb), 0.18);
+}
+
+.smart-planning-time-dialog {
+  width: min(360px, 100%);
+  padding: 1rem;
+  border: 1px solid var(--color-surface-soft-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  box-shadow: 0 18px 45px rgba(var(--color-shadow-rgb), 0.18);
+}
+
+.smart-planning-time-dialog-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.smart-planning-time-dialog-head strong,
+.smart-planning-time-dialog-head span {
+  display: block;
+}
+
+.smart-planning-time-dialog-head strong {
+  font-size: 1rem;
+}
+
+.smart-planning-time-dialog-head span {
+  margin-top: 0.15rem;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.smart-planning-time-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.smart-planning-time-fields label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.smart-planning-time-fields input {
+  width: 100%;
+}
+
+.smart-planning-time-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
 .smart-planning-open-shift-button.has-choice {
   border-color: var(--color-success-border);
   background: var(--color-success-soft);
@@ -4594,6 +4669,29 @@ textarea.input-error {
 
 .smart-planning-open-shift-wrap.is-picker-open {
   z-index: 1000;
+}
+
+.smart-planning-time-edit-button {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  z-index: 2;
+  min-height: 18px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.28);
+  background: rgba(var(--color-surface-rgb), 0.86);
+  color: var(--color-text);
+  font-size: 0.56rem;
+  font-weight: 900;
+  line-height: 1.1;
+  box-shadow: 0 1px 4px rgba(var(--color-shadow-rgb), 0.10);
+}
+
+.smart-planning-time-edit-button:hover,
+.smart-planning-time-edit-button:focus-visible {
+  border-color: rgba(var(--color-primary-rgb), 0.46);
+  background: var(--color-surface);
 }
 
 .smart-planning-open-shift-button.is-selected {
@@ -13256,6 +13354,10 @@ body[data-role="planner"] [data-panel="week-current"] .desktop-day-list .shift-c
   box-shadow: 0 1px 4px rgba(var(--color-primary-rgb), 0.035);
 }
 
+.smart-planning-open-shift-wrap > .smart-planning-open-shift-button {
+  padding-right: 44px;
+}
+
 .smart-planning-proposal-roster .planning-shift-line {
   grid-template-columns: minmax(42px, max-content) minmax(0, 1fr) minmax(72px, max-content);
   grid-template-areas: "employee detail time";
@@ -14001,6 +14103,12 @@ body[data-control-mode="planner"] .shift-card.is-vacation-autofill {
   background: var(--color-warning-soft);
   border-color: var(--color-warning-border);
   color: var(--color-warning);
+}
+
+.smart-planning-proposal-roster .smart-planning-concept-badge.is-time-override {
+  background: var(--color-primary-soft);
+  border-color: rgba(var(--color-primary-rgb), 0.24);
+  color: var(--color-text);
 }
 
 .smart-planning-proposal-roster .smart-planning-open-shift-button {
