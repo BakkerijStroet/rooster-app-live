@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260509-android-fatal-screen";
+const APP_VERSION = "20260509-android-safe-mode";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -307,6 +307,7 @@ const smartFillDayButton = document.getElementById("smartFillDayButton");
 const autoFillShopDayButton = document.getElementById("autoFillShopDayButton");
 const saveDayPlannerButton = document.getElementById("saveDayPlannerButton");
 const appShell = document.querySelector(".app-shell");
+const safeModeStatus = document.getElementById("safeModeStatus");
 const storageKey = "urenrooster-entries";
 const planningEntriesApiEndpoint = "/api/planning-entries";
 const employeeStorageKey = "urenrooster-employees";
@@ -354,6 +355,24 @@ function getScopedStorageKeyForMode(baseKey, mode) {
   return mode === "test" ? `${baseKey}__test` : baseKey;
 }
 
+function isSafeStartupMode() {
+  const search = String(window.location?.search || "");
+  return /(?:^\?|&)safe=1(?:&|$)/.test(search);
+}
+
+const safeStartupMode = isSafeStartupMode();
+
+function updateSafeModeStatus(message = "Laden...") {
+  if (!safeModeStatus) {
+    return;
+  }
+
+  safeModeStatus.style.display = safeStartupMode ? "block" : "none";
+  safeModeStatus.textContent = safeStartupMode
+    ? `Veilige modus actief · ${message}`
+    : "";
+}
+
 function reportAppError(userMessage, error, context = "") {
   console.error(`[Urenrooster] ${context || "app-fout"}`, error);
   if (typeof showMessage === "function" && messageBox) {
@@ -363,6 +382,7 @@ function reportAppError(userMessage, error, context = "") {
 
 function setStartupStep(step) {
   window.__APP_STARTUP_STEP = step || window.__APP_STARTUP_STEP || "";
+  updateSafeModeStatus(step || "Laden...");
   if (typeof window.StroetSetStartupStep === "function") {
     window.StroetSetStartupStep(step);
   }
@@ -1094,6 +1114,9 @@ function openSessionLogin({ preferredRole = activeRole, preferredEmployee = "" }
     return;
   }
 
+  if (safeStartupMode) {
+    updateSafeModeStatus("minimale login tonen");
+  }
   clearLoginError();
   clearPlannerPinInput();
   populateLoginEmployeeSelect();
@@ -1117,6 +1140,38 @@ function closeSessionLogin() {
   loginOverlay?.classList.add("hidden");
 }
 
+function getSafeModeDefaultTabForCurrentRole() {
+  return isPlannerRole() ? "employees" : "my-account";
+}
+
+async function runSafeModeStep(label, callback) {
+  updateSafeModeStatus(label);
+  setStartupStep(label);
+
+  try {
+    await callback();
+    return true;
+  } catch (error) {
+    console.warn(`[Urenrooster] veilige modus stap mislukt: ${label}`, error);
+    showMessage(`${label} mislukt. De app blijft in veilige modus actief.`, "warning");
+    return false;
+  }
+}
+
+function scheduleSafeModeDataLoad({ preferCentral = true } = {}) {
+  if (!safeStartupMode || !sessionState.isAuthenticated) {
+    return;
+  }
+
+  window.setTimeout(async () => {
+    await runSafeModeStep("medewerkerdata laden", () => syncEmployeeDataFromCentral({ queueMissingCentralSave: false, preferCentral }));
+    await runSafeModeStep("planning laden", () => syncPlanningEntriesFromCentral({ queueMissingCentralSave: false, preferCentral }));
+    await runSafeModeStep("aanvragen laden", () => syncRequestDataFromCentral({ queueMissingCentralSave: false, preferCentral }));
+    await runSafeModeStep("uren laden", () => syncWorkLogsFromCentral({ queueMissingCentralSave: false, preferCentral: true }));
+    updateSafeModeStatus("gereed");
+  }, 0);
+}
+
 function startPlannerSession({ showStartupMessage = false } = {}) {
   const selectedDataMode = getSelectedLoginDataMode();
   applySessionSnapshot({
@@ -1127,8 +1182,14 @@ function startPlannerSession({ showStartupMessage = false } = {}) {
   }, { persist: true, dataMode: selectedDataMode });
   reloadScopedData();
   closeSessionLogin();
-  reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
-  syncCentralDataForCurrentMode();
+  if (safeStartupMode) {
+    activeTab = getSafeModeDefaultTabForCurrentRole();
+    reloadForLoggedInUser({ resetToDefaultTab: false, resetWeekToCurrent: false });
+    scheduleSafeModeDataLoad({ preferCentral: true });
+  } else {
+    reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
+    syncCentralDataForCurrentMode();
+  }
 
   if (showStartupMessage) {
     showMessage("Planner geladen.", "success");
@@ -1177,8 +1238,14 @@ function startEmployeeSession(employeeName, { showStartupMessage = false } = {})
   }
 
   closeSessionLogin();
-  reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
-  syncCentralDataForCurrentMode({ preferCentral: true });
+  if (safeStartupMode) {
+    activeTab = getSafeModeDefaultTabForCurrentRole();
+    reloadForLoggedInUser({ resetToDefaultTab: false, resetWeekToCurrent: false });
+    scheduleSafeModeDataLoad({ preferCentral: true });
+  } else {
+    reloadForLoggedInUser({ resetToDefaultTab: true, resetWeekToCurrent: true });
+    syncCentralDataForCurrentMode({ preferCentral: true });
+  }
 
   if (showStartupMessage) {
     showMessage("Medewerker geladen.", "success");
@@ -33739,9 +33806,37 @@ function initializeAppRuntime() {
   setStartupStep("gereed");
 }
 
+function initializeSafeStartupMode() {
+  document.body.dataset.safeMode = "true";
+  updateSafeModeStatus("minimale login starten");
+  setStartupStep("veilige modus starten");
+  syncStartWeekToCurrent();
+  if (newShiftColorInput) {
+    newShiftColorInput.value = "shift-tone-oven";
+  }
+  updateFormState();
+  applySessionSnapshot({
+    isAuthenticated: false,
+    role: preferences.lastRole === "employee" ? "employee" : "planner",
+    employeeIdentity: "",
+    dataMode: "live"
+  }, { persist: false, dataMode: "live" });
+  activeTab = getSafeModeDefaultTabForCurrentRole();
+  updateTabVisibility();
+  openSessionLogin({
+    preferredRole: sessionState.role,
+    preferredEmployee: ""
+  });
+  updateSafeModeStatus("login klaar");
+}
+
 try {
-  setStartupStep("app starten");
-  initializeAppRuntime();
+  setStartupStep(safeStartupMode ? "veilige modus activeren" : "app starten");
+  if (safeStartupMode) {
+    initializeSafeStartupMode();
+  } else {
+    initializeAppRuntime();
+  }
 } catch (error) {
   reportAppError("De app kon niet laden.", error, "startup");
   showStartupRecoveryError(error, "startup");
