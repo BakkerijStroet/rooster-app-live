@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260509-android-recovery";
+const APP_VERSION = "20260509-android-visible-recovery";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -358,6 +358,12 @@ function reportAppError(userMessage, error, context = "") {
   console.error(`[Urenrooster] ${context || "app-fout"}`, error);
   if (typeof showMessage === "function" && messageBox) {
     showMessage(userMessage, "error");
+  }
+}
+
+function setStartupStep(step) {
+  if (typeof window.StroetSetStartupStep === "function") {
+    window.StroetSetStartupStep(step);
   }
 }
 
@@ -808,10 +814,19 @@ function setCurrentDataMode(nextDataMode) {
 }
 
 function syncCentralDataForCurrentMode({ preferCentral = false } = {}) {
-  syncEmployeeDataFromCentral({ preferCentral });
-  syncPlanningEntriesFromCentral({ preferCentral });
-  syncRequestDataFromCentral({ preferCentral });
-  syncWorkLogsFromCentral({ queueMissingCentralSave: false, preferCentral: true });
+  try {
+    setStartupStep("sync medewerkers");
+    syncEmployeeDataFromCentral({ preferCentral });
+    setStartupStep("sync planning");
+    syncPlanningEntriesFromCentral({ preferCentral });
+    setStartupStep("sync aanvragen");
+    syncRequestDataFromCentral({ preferCentral });
+    setStartupStep("sync uren");
+    syncWorkLogsFromCentral({ queueMissingCentralSave: false, preferCentral: true });
+  } catch (error) {
+    reportAppError("Synchroniseren mislukt.", error, "startup-sync");
+    showStartupRecoveryError(error, "startup-sync");
+  }
 }
 
 function formatEmployeeDataRefreshTime(value = new Date()) {
@@ -28081,6 +28096,7 @@ function renderActiveTabContent() {
 
 function render() {
   try {
+    setStartupStep(`render ${sessionState?.role || "login"}`);
     if (sessionState.isAuthenticated) {
       const validatedSession = buildSessionSnapshot();
 
@@ -28105,6 +28121,7 @@ function render() {
     renderActiveMessage();
   } catch (error) {
     reportAppError("Er ging iets mis bij het verversen van het scherm.", error, "render");
+    showStartupRecoveryError(error, "render");
   }
 }
 
@@ -33694,20 +33711,30 @@ window.addEventListener("unhandledrejection", (event) => {
 });
 
 function initializeAppRuntime() {
+  setStartupStep("week instellen");
   syncStartWeekToCurrent();
   if (newShiftColorInput) {
     newShiftColorInput.value = "shift-tone-oven";
   }
+  setStartupStep("formulier klaarzetten");
   updateFormState();
+  setStartupStep("lokale data laden");
   reloadScopedData();
+  setStartupStep("voorkeuren herstellen");
   applySavedPreferences();
+  setStartupStep("tab kiezen");
   activeTab = getDefaultTabForCurrentRole();
+  setStartupStep("navigatie tonen");
   updateTabVisibility();
+  setStartupStep("login herstellen");
   restoreSessionState({ resetToDefaultTab: true, resetWeekToCurrent: true });
+  setStartupStep("centrale data synchroniseren");
   syncCentralDataForCurrentMode({ preferCentral: !isPlannerRole() });
+  setStartupStep("gereed");
 }
 
 try {
+  setStartupStep("app starten");
   initializeAppRuntime();
 } catch (error) {
   reportAppError("De app kon niet laden.", error, "startup");

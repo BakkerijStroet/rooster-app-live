@@ -5,13 +5,49 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bakkerij Stroet | Rooster app</title>
   <meta name="theme-color" content="#fffaf3">
+  <meta name="color-scheme" content="light">
   <link rel="icon" type="image/jpeg" href="Logo%202020.jpg">
-  <link rel="stylesheet" href="styles.css?v=20260509-android-recovery">
+  <link rel="stylesheet" href="styles.css?v=20260509-android-visible-recovery">
   <script>
     (function () {
       var fallbackMessage = "De app kon niet laden.";
       var recoveryMessage = "Probeer lokale appgegevens te wissen.";
       var shown = false;
+      var lastStartupStep = "pagina laden";
+
+      function getShortErrorMessage(error) {
+        if (!error) {
+          return "onbekende fout";
+        }
+
+        if (typeof error === "string") {
+          return error.slice(0, 160);
+        }
+
+        if (typeof error.message === "string" && error.message) {
+          return error.message.slice(0, 160);
+        }
+
+        try {
+          return String(error).slice(0, 160);
+        } catch (stringError) {
+          return "onbekende fout";
+        }
+      }
+
+      function setStartupStep(step) {
+        lastStartupStep = step || lastStartupStep;
+        var stepElement = document.getElementById("appCrashRecoveryStep");
+        var diagnosticElement = document.getElementById("appStartupDiagnostics");
+
+        if (stepElement) {
+          stepElement.textContent = "Laden: " + lastStartupStep;
+        }
+
+        if (diagnosticElement) {
+          diagnosticElement.textContent = "Laden: " + lastStartupStep + " · Versie: " + (window.StroetAppVersion || "start") + " · Browser: " + navigator.userAgent.slice(0, 120);
+        }
+      }
 
       function installCompatibilityFallbacks() {
         if (!Object.fromEntries) {
@@ -37,6 +73,89 @@
               relativeIndex += this.length;
             }
             return this[relativeIndex];
+          };
+        }
+
+        if (window.NodeList && !NodeList.prototype.forEach) {
+          NodeList.prototype.forEach = Array.prototype.forEach;
+        }
+
+        if (window.Element && !Element.prototype.matches) {
+          Element.prototype.matches = Element.prototype.msMatchesSelector || Element.prototype.webkitMatchesSelector;
+        }
+
+        if (window.Element && !Element.prototype.closest) {
+          Element.prototype.closest = function (selector) {
+            var element = this;
+            while (element && element.nodeType === 1) {
+              if (element.matches && element.matches(selector)) {
+                return element;
+              }
+              element = element.parentElement || element.parentNode;
+            }
+            return null;
+          };
+        }
+
+        if (!window.CSS) {
+          window.CSS = {};
+        }
+
+        if (!window.CSS.escape) {
+          window.CSS.escape = function (value) {
+            return String(value).replace(/[^a-zA-Z0-9_\-]/g, "\\$&");
+          };
+        }
+
+        if (!window.matchMedia) {
+          window.matchMedia = function () {
+            return {
+              matches: false,
+              media: "",
+              addListener: function () {},
+              removeListener: function () {},
+              addEventListener: function () {},
+              removeEventListener: function () {},
+              dispatchEvent: function () { return false; }
+            };
+          };
+        }
+
+        try {
+          if (!window.Intl || !window.Intl.DateTimeFormat) {
+            window.Intl = {
+              DateTimeFormat: function () {
+                return {
+                  format: function (value) {
+                    var date = value instanceof Date ? value : new Date(value);
+                    return isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
+                  }
+                };
+              }
+            };
+          } else {
+            new window.Intl.DateTimeFormat("nl-NL").format(new Date());
+          }
+        } catch (intlError) {
+          window.Intl = {
+            DateTimeFormat: function () {
+              return {
+                format: function (value) {
+                  var date = value instanceof Date ? value : new Date(value);
+                  return isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
+                }
+              };
+            }
+          };
+        }
+
+        if (window.crypto && !window.crypto.randomUUID) {
+          window.crypto.randomUUID = function () {
+            return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (character) {
+              var random = Math.random() * 16 | 0;
+              var value = character === "x" ? random : (random & 3 | 8);
+              return value.toString(16);
+            });
           };
         }
       }
@@ -98,11 +217,8 @@
       }
 
       function showLoadError(error, context) {
-        if (shown) {
-          return;
-        }
-
         shown = true;
+        var shortErrorMessage = getShortErrorMessage(error);
 
         try {
           console.error("[Urenrooster] app-start mislukt", context || "", error || "");
@@ -111,17 +227,27 @@
         }
 
         function renderFallback() {
-          var existing = document.getElementById("appLoadErrorFallback");
+          var existing = document.getElementById("appCrashRecoveryRoot") || document.getElementById("appLoadErrorFallback");
 
           if (existing) {
+            existing.id = "appCrashRecoveryRoot";
+            existing.setAttribute("role", "alert");
+            existing.setAttribute("aria-hidden", "false");
+            existing.style.cssText = "position:fixed!important;inset:0!important;z-index:2147483647!important;display:grid!important;place-items:center!important;padding:20px!important;background:#fffaf3!important;color:#3f2818!important;font-family:Arial,sans-serif!important;text-align:center!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;";
+            existing.innerHTML = '<div style="max-width:430px;padding:22px;border:1px solid #ead8c2;border-radius:16px;background:#fff;color:#3f2818;box-shadow:0 18px 48px rgba(63,40,24,.18);"><strong style="display:block;margin-bottom:8px;font-size:1.15rem;">' + fallbackMessage + '</strong><span style="display:block;margin-bottom:12px;">' + recoveryMessage + '</span><small style="display:block;margin-bottom:12px;color:#7a685c;">Fout bij laden: ' + shortErrorMessage + '</small><button type="button" data-app-storage-recovery style="border:0;border-radius:999px;background:#8b4a22;color:#fff;padding:10px 16px;font-weight:700;">Appgegevens herstellen</button><small id="appCrashRecoveryStep" style="display:block;margin-top:12px;color:#7a685c;">Laden: ' + lastStartupStep + '</small><small style="display:block;margin-top:6px;color:#7a685c;word-break:break-word;">Versie: ' + (window.StroetAppVersion || "onbekend") + '<br>Browser: ' + navigator.userAgent.slice(0, 180) + '</small></div>';
+            var existingRecoveryButton = existing.querySelector("[data-app-storage-recovery]");
+            if (existingRecoveryButton) {
+              existingRecoveryButton.onclick = clearAppStorageAndReload;
+            }
             return;
           }
 
           var container = document.createElement("div");
-          container.id = "appLoadErrorFallback";
+          container.id = "appCrashRecoveryRoot";
           container.setAttribute("role", "alert");
-          container.style.cssText = "position:fixed;inset:0;z-index:99999;display:grid;place-items:center;padding:20px;background:#fffaf3;color:#3f2818;font-family:Arial,sans-serif;text-align:center;";
-          container.innerHTML = '<div style="max-width:420px;padding:22px;border:1px solid #ead8c2;border-radius:16px;background:#fff;box-shadow:0 18px 48px rgba(63,40,24,.18);"><strong style="display:block;margin-bottom:8px;font-size:1.15rem;">' + fallbackMessage + '</strong><span style="display:block;margin-bottom:16px;">' + recoveryMessage + '</span><button type="button" data-app-storage-recovery style="border:0;border-radius:999px;background:#8b4a22;color:#fff;padding:10px 16px;font-weight:700;">Appgegevens herstellen</button><small style="display:block;margin-top:12px;color:#7a685c;">Dit wist alleen lokale browserdata van deze app. Centrale roosterdata blijft bewaard.</small></div>';
+          container.setAttribute("aria-hidden", "false");
+          container.style.cssText = "position:fixed!important;inset:0!important;z-index:2147483647!important;display:grid!important;place-items:center!important;padding:20px!important;background:#fffaf3!important;color:#3f2818!important;font-family:Arial,sans-serif!important;text-align:center!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;";
+          container.innerHTML = '<div style="max-width:430px;padding:22px;border:1px solid #ead8c2;border-radius:16px;background:#fff;color:#3f2818;box-shadow:0 18px 48px rgba(63,40,24,.18);"><strong style="display:block;margin-bottom:8px;font-size:1.15rem;">' + fallbackMessage + '</strong><span style="display:block;margin-bottom:12px;">' + recoveryMessage + '</span><small style="display:block;margin-bottom:12px;color:#7a685c;">Fout bij laden: ' + shortErrorMessage + '</small><button type="button" data-app-storage-recovery style="border:0;border-radius:999px;background:#8b4a22;color:#fff;padding:10px 16px;font-weight:700;">Appgegevens herstellen</button><small id="appCrashRecoveryStep" style="display:block;margin-top:12px;color:#7a685c;">Laden: ' + lastStartupStep + '</small><small style="display:block;margin-top:6px;color:#7a685c;word-break:break-word;">Versie: ' + (window.StroetAppVersion || "onbekend") + '<br>Browser: ' + navigator.userAgent.slice(0, 180) + '</small></div>';
           document.body.appendChild(container);
 
           var recoveryButton = container.querySelector("[data-app-storage-recovery]");
@@ -140,6 +266,7 @@
       installCompatibilityFallbacks();
       window.StroetShowLoadError = showLoadError;
       window.StroetRecoverAppStorage = clearAppStorageAndReload;
+      window.StroetSetStartupStep = setStartupStep;
       window.onerror = function (message, source, line, column, error) {
         showLoadError(error || message, { source: source, line: line, column: column });
       };
@@ -150,6 +277,8 @@
   </script>
 </head>
 <body>
+  <div id="appCrashRecoveryRoot" aria-hidden="true" style="display:none!important;"></div>
+  <div id="appStartupDiagnostics" aria-live="polite" style="position:fixed;left:8px;right:8px;bottom:6px;z-index:2147483646;padding:4px 6px;border-radius:8px;background:rgba(255,250,243,.94);color:#4b3426;font:11px/1.25 Arial,sans-serif;text-align:center;pointer-events:none;box-shadow:0 4px 14px rgba(63,40,24,.12);">Laden: pagina laden · Versie: start</div>
   <main class="container">
     <section class="card print-hide app-shell">
       <section class="brand-header">
@@ -1482,7 +1611,7 @@
   <script src="js/utils/format.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/requests.js?v=20260508-compact-absence-labels"></script>
   <script src="js/features/hours.js?v=20260508-smart-planning-dashboard"></script>
-  <script src="js/features/employees.js?v=20260509-android-recovery"></script>
+  <script src="js/features/employees.js?v=20260509-android-visible-recovery"></script>
   <script src="js/features/mail.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/backup.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/planning-core.js?v=20260508-smart-planning-dashboard"></script>
@@ -1493,9 +1622,9 @@
   <script src="js/features/navigation.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/render-helpers.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/bootstrap-helpers.js?v=20260508-smart-planning-dashboard"></script>
-  <script src="js/features/employee-panel-prep.js?v=20260509-android-recovery"></script>
+  <script src="js/features/employee-panel-prep.js?v=20260509-android-visible-recovery"></script>
   <script src="js/features/requests-panel-prep.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/hours-panel-prep.js?v=20260508-smart-planning-dashboard"></script>
-  <script src="app.js?v=20260509-android-recovery"></script>
+  <script src="app.js?v=20260509-android-visible-recovery"></script>
 </body>
 </html>
