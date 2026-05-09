@@ -12,6 +12,7 @@
       lastTestMailStatus: "",
       lastTestMailMessage: "",
       employmentEndDate: "",
+      extraAvailability: [],
       updatedAt: "",
       updatedByRole: "",
       updatedByName: ""

@@ -6,7 +6,7 @@
   <title>Bakkerij Stroet | Rooster app</title>
   <meta name="theme-color" content="#fffaf3">
   <link rel="icon" type="image/jpeg" href="Logo%202020.jpg">
-  <link rel="stylesheet" href="styles.css?v=20260509-vacation-chip-days">
+  <link rel="stylesheet" href="styles.css?v=20260509-extra-availability">
   <script>
     (function () {
       var fallbackMessage = "De app kon niet laden. Vernieuw de pagina of neem contact op met Twan.";
@@ -294,6 +294,10 @@
                 <h3>Vast rooster</h3>
                 <div id="employeeStandardShiftList" class="employee-standard-shift-list empty">Nog geen medewerkers toegevoegd.</div>
               </div>
+              <div class="employee-detail-section">
+                <h3>Extra beschikbaarheid</h3>
+                <div id="employeeExtraAvailabilityPanel" class="employee-extra-availability-panel empty">Kies links een medewerker.</div>
+              </div>
             </div>
 
             <div class="employee-detail-tab-panel hidden" data-employee-detail-panel="hours">
@@ -356,6 +360,7 @@
               <input type="week" id="smartPlanningWeek">
             </label>
             <button type="button" id="smartPlanningMakeProposalButton" class="secondary" title="Vult open diensten met voorgestelde medewerkers.">Voorstel maken</button>
+            <button type="button" id="smartPlanningRecalculateWeekButton" class="secondary" title="Vult alleen open diensten in de gekozen week opnieuw.">Herbereken week</button>
             <button type="button" id="smartPlanningClearProposalButton" class="secondary">Week wissen</button>
             <button type="button" id="smartPlanningApplyProposalButton" disabled title="Kies eerst minimaal één medewerker.">Rooster opslaan</button>
           </div>
@@ -1385,7 +1390,7 @@
   <script src="js/utils/format.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/requests.js?v=20260508-compact-absence-labels"></script>
   <script src="js/features/hours.js?v=20260508-smart-planning-dashboard"></script>
-  <script src="js/features/employees.js?v=20260508-smart-planning-dashboard"></script>
+  <script src="js/features/employees.js?v=20260509-extra-availability"></script>
   <script src="js/features/mail.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/backup.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/planning-core.js?v=20260508-smart-planning-dashboard"></script>
@@ -1396,9 +1401,9 @@
   <script src="js/features/navigation.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/render-helpers.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/bootstrap-helpers.js?v=20260508-smart-planning-dashboard"></script>
-  <script src="js/features/employee-panel-prep.js?v=20260508-smart-planning-dashboard"></script>
+  <script src="js/features/employee-panel-prep.js?v=20260509-extra-availability"></script>
   <script src="js/features/requests-panel-prep.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/hours-panel-prep.js?v=20260508-smart-planning-dashboard"></script>
-  <script src="app.js?v=20260509-android-load-fix"></script>
+  <script src="app.js?v=20260509-extra-availability"></script>
 </body>
 </html>

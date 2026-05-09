@@ -11,7 +11,8 @@
       standardShift: typeof getters.employeeStandardShifts?.[employeeName] === "string" ? getters.employeeStandardShifts[employeeName] : "",
       basePatternId: getters.getEmployeeBasePatternId(employeeName),
       customRoster: getters.cloneSerializableValue(getters.getEmployeeCustomRosterConfig(employeeName)),
-      contractHours: getters.getEmployeeContractHours(employeeName)
+      contractHours: getters.getEmployeeContractHours(employeeName),
+      extraAvailability: getters.cloneSerializableValue(getters.getEmployeeExtraAvailability(employeeName))
     };
   }
 

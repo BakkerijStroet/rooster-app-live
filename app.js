@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260509-android-load-fix";
+const APP_VERSION = "20260509-extra-availability";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -48,6 +48,7 @@ const planningOverviewSummary = document.getElementById("planningOverviewSummary
 const planningProposalReview = document.getElementById("planningProposalReview");
 const smartPlanningWeekInput = document.getElementById("smartPlanningWeek");
 const smartPlanningMakeProposalButton = document.getElementById("smartPlanningMakeProposalButton");
+const smartPlanningRecalculateWeekButton = document.getElementById("smartPlanningRecalculateWeekButton");
 const smartPlanningClearProposalButton = document.getElementById("smartPlanningClearProposalButton");
 const smartPlanningApplyProposalButton = document.getElementById("smartPlanningApplyProposalButton");
 const smartPlanningDemandSummary = document.getElementById("smartPlanningDemandSummary");
@@ -162,6 +163,7 @@ const PLANNER_LOGIN_PIN = "1234";
 const DEFAULT_EMPLOYEE_LOGIN_PIN = "1234";
 const employeeListCard = document.getElementById("employeeListCard");
 const employeeStandardShiftList = document.getElementById("employeeStandardShiftList");
+const employeeExtraAvailabilityPanel = document.getElementById("employeeExtraAvailabilityPanel");
 const employeePermissionsList = document.getElementById("employeePermissionsList");
 const employeeContractPanel = document.getElementById("employeeContractPanel");
 const planningAuthorizationHint = document.getElementById("planningAuthorizationHint");
@@ -2963,6 +2965,7 @@ function saveEmployees() {
       lastTestMailStatus: "",
       lastTestMailMessage: "",
       employmentEndDate: "",
+      extraAvailability: [],
       updatedAt: "",
       updatedByRole: "",
       updatedByName: ""
@@ -4485,7 +4488,8 @@ const {
       standardShift: typeof getters.employeeStandardShifts?.[employeeName] === "string" ? getters.employeeStandardShifts[employeeName] : "",
       basePatternId: getters.getEmployeeBasePatternId(employeeName),
       customRoster: getters.cloneSerializableValue(getters.getEmployeeCustomRosterConfig(employeeName)),
-      contractHours: getters.getEmployeeContractHours(employeeName)
+      contractHours: getters.getEmployeeContractHours(employeeName),
+      extraAvailability: getters.cloneSerializableValue(getters.getEmployeeExtraAvailability(employeeName))
     };
   },
   getEmployeeDetailMailStatusViewModel: getEmployeeDetailMailStatusViewModelHelper = function fallbackGetEmployeeDetailMailStatusViewModel({
@@ -5226,6 +5230,7 @@ function loadEmployeeMeta() {
         lastTestMailStatus: Object.prototype.hasOwnProperty.call(currentMeta, "lastTestMailStatus") ? currentMeta.lastTestMailStatus : "",
         lastTestMailMessage: Object.prototype.hasOwnProperty.call(currentMeta, "lastTestMailMessage") ? currentMeta.lastTestMailMessage : "",
         employmentEndDate: Object.prototype.hasOwnProperty.call(currentMeta, "employmentEndDate") ? currentMeta.employmentEndDate : "",
+        extraAvailability: normalizeEmployeeExtraAvailability(currentMeta.extraAvailability),
         updatedAt: Object.prototype.hasOwnProperty.call(currentMeta, "updatedAt") ? currentMeta.updatedAt : "",
         updatedByRole: Object.prototype.hasOwnProperty.call(currentMeta, "updatedByRole") ? currentMeta.updatedByRole : "",
         updatedByName: Object.prototype.hasOwnProperty.call(currentMeta, "updatedByName") ? currentMeta.updatedByName : ""
@@ -5377,6 +5382,138 @@ function cloneSerializableValue(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function createExtraAvailabilityId() {
+  return `extra-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeExtraAvailabilityWeekdays(value) {
+  const source = Array.isArray(value) ? value : [];
+  return [...new Set(source
+    .map((weekday) => Number(weekday))
+    .filter((weekday) => Number.isInteger(weekday) && weekday >= 1 && weekday <= 7))]
+    .sort((weekdayA, weekdayB) => weekdayA - weekdayB);
+}
+
+function normalizeExtraAvailabilityRecord(record = {}) {
+  if (!record || typeof record !== "object") {
+    return null;
+  }
+
+  const date = typeof record.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(record.date)
+    ? record.date
+    : "";
+  const week = typeof record.week === "string" && /^\d{4}-W\d{2}$/.test(record.week)
+    ? record.week
+    : "";
+  const mode = date ? "date" : "week";
+  const weekdays = mode === "week" ? normalizeExtraAvailabilityWeekdays(record.weekdays) : [];
+  const startTime = typeof record.startTime === "string" && /^\d{2}:\d{2}$/.test(record.startTime)
+    ? record.startTime
+    : "";
+  const endTime = typeof record.endTime === "string" && /^\d{2}:\d{2}$/.test(record.endTime)
+    ? record.endTime
+    : "";
+
+  if (mode === "date" && !date) {
+    return null;
+  }
+
+  if (mode === "week" && (!week || weekdays.length === 0)) {
+    return null;
+  }
+
+  return {
+    id: typeof record.id === "string" && record.id ? record.id : createExtraAvailabilityId(),
+    mode,
+    week: mode === "week" ? week : "",
+    date: mode === "date" ? date : "",
+    weekdays,
+    startTime,
+    endTime,
+    note: typeof record.note === "string" ? record.note.trim().slice(0, 80) : "",
+    createdAt: typeof record.createdAt === "string" ? record.createdAt : getNowIsoString()
+  };
+}
+
+function normalizeEmployeeExtraAvailability(value) {
+  return (Array.isArray(value) ? value : [])
+    .map(normalizeExtraAvailabilityRecord)
+    .filter(Boolean)
+    .sort((recordA, recordB) =>
+      (recordA.date || recordA.week).localeCompare(recordB.date || recordB.week) ||
+      (recordA.weekdays[0] || 0) - (recordB.weekdays[0] || 0) ||
+      recordA.startTime.localeCompare(recordB.startTime)
+    );
+}
+
+function getEmployeeExtraAvailability(employeeName) {
+  return normalizeEmployeeExtraAvailability(employeeMeta?.[employeeName]?.extraAvailability);
+}
+
+function getExtraAvailabilityWeekdayLabel(weekday) {
+  return ({
+    1: "ma",
+    2: "di",
+    3: "wo",
+    4: "do",
+    5: "vr",
+    6: "za",
+    7: "zo"
+  })[Number(weekday)] || "";
+}
+
+function getExtraAvailabilityRecordLabel(record) {
+  if (!record) {
+    return "";
+  }
+
+  const dayText = record.mode === "date"
+    ? formatDate(record.date)
+    : `${record.week} · ${record.weekdays.map(getExtraAvailabilityWeekdayLabel).filter(Boolean).join(", ")}`;
+  const timeText = record.startTime || record.endTime
+    ? ` · ${record.startTime || "?"}-${record.endTime || "?"}`
+    : "";
+  const noteText = record.note ? ` · ${record.note}` : "";
+
+  return `${dayText}${timeText}${noteText}`;
+}
+
+function isTimeRangeInsideExtraAvailability(record, startTime = "", endTime = "") {
+  const recordStart = timeToMinutes(record?.startTime || "");
+  const recordEnd = timeToMinutes(record?.endTime || "");
+  const shiftStart = timeToMinutes(startTime || "");
+  const shiftEnd = timeToMinutes(endTime || "");
+
+  if (Number.isFinite(recordStart) && Number.isFinite(shiftStart) && shiftStart < recordStart) {
+    return false;
+  }
+
+  if (Number.isFinite(recordEnd) && Number.isFinite(shiftEnd) && shiftEnd > recordEnd) {
+    return false;
+  }
+
+  return true;
+}
+
+function getEmployeeExtraAvailabilityMatch(employeeName, day, startTime = "", endTime = "") {
+  if (!employeeName || !day) {
+    return null;
+  }
+
+  const weekValue = getWeekValueFromDate(day);
+  const weekday = getWeekdayNumberFromDate(day);
+
+  return getEmployeeExtraAvailability(employeeName).find((record) => {
+    const dateMatches = record.mode === "date" && record.date === day;
+    const weekMatches = record.mode === "week" &&
+      record.week === weekValue &&
+      record.weekdays.includes(weekday);
+
+    return (dateMatches || weekMatches) &&
+      isTimeRangeInsideExtraAvailability(record, startTime, endTime);
+  }) || null;
+}
+
 function createEmployeeEditorDraft(employeeName) {
   return createEmployeeEditorDraftHelper({
     getEmployeeEmail,
@@ -5390,7 +5527,8 @@ function createEmployeeEditorDraft(employeeName) {
     employeeStandardShifts,
     getEmployeeBasePatternId,
     getEmployeeCustomRosterConfig,
-    getEmployeeContractHours
+    getEmployeeContractHours,
+    getEmployeeExtraAvailability
   }, employeeName);
 }
 
@@ -5443,7 +5581,8 @@ function getEmployeeEditorSnapshot(employeeName, draftOverride = null) {
     standardShift: typeof draft?.standardShift === "string" ? draft.standardShift : "",
     basePatternId: typeof draft?.basePatternId === "string" ? draft.basePatternId : getEmployeeBasePatternId(employeeName),
     customRoster: normalizeEmployeeCustomRosterConfig(draft?.customRoster, employeeName),
-    contractHours: normalizeContractHours(draft?.contractHours)
+    contractHours: normalizeContractHours(draft?.contractHours),
+    extraAvailability: normalizeEmployeeExtraAvailability(draft?.extraAvailability)
   };
 }
 
@@ -5461,6 +5600,7 @@ function renderEmployeeEditorDetails() {
   renderEmployeeStatusControls();
   renderEmployeePermissions();
   renderEmployeeStandardShifts();
+  renderEmployeeExtraAvailabilityPanel();
   renderEmployeeContractPanel();
   renderEmployeeWarnings();
   renderEmployeeDetailTabs();
@@ -5967,6 +6107,7 @@ function syncEmployeeMeta() {
         lastTestMailStatus: "",
         lastTestMailMessage: "",
         employmentEndDate: "",
+        extraAvailability: [],
         updatedAt: "",
         updatedByRole: "",
         updatedByName: ""
@@ -5978,6 +6119,12 @@ function syncEmployeeMeta() {
           changed = true;
         }
       });
+
+      const normalizedExtraAvailability = normalizeEmployeeExtraAvailability(currentMeta.extraAvailability);
+      if (JSON.stringify(currentMeta.extraAvailability || []) !== JSON.stringify(normalizedExtraAvailability)) {
+        currentMeta.extraAvailability = normalizedExtraAvailability;
+        changed = true;
+      }
     }
   });
 
@@ -19621,6 +19768,285 @@ function renderEmployeeStandardShifts() {
   });
 }
 
+function renderEmployeeExtraAvailabilityPanel() {
+  if (!employeeExtraAvailabilityPanel) {
+    return;
+  }
+
+  const employeeName = getSelectedEmployeeAdminName();
+
+  if (!employeeName) {
+    setClassName(employeeExtraAvailabilityPanel, "employee-extra-availability-panel empty");
+    employeeExtraAvailabilityPanel.textContent = "Kies eerst links een medewerker.";
+    return;
+  }
+
+  const employeeDraft = getEmployeeEditorDraft(employeeName);
+  const extraAvailability = normalizeEmployeeExtraAvailability(employeeDraft?.extraAvailability);
+  const nextWeekValue = smartPlanningWeekInput?.value || weekInput?.value || getCurrentWeekValue();
+  const weekdayOptions = getRosterWeekdayDefinitions()
+    .map((weekday) => `
+      <label class="employee-extra-availability-day">
+        <input type="checkbox" data-extra-availability-new-day="${weekday.number}" ${weekday.number >= 1 && weekday.number <= 5 ? "" : ""}>
+        <span>${getExtraAvailabilityWeekdayLabel(weekday.number)}</span>
+      </label>
+    `)
+    .join("");
+
+  setClassName(employeeExtraAvailabilityPanel, "employee-extra-availability-panel");
+  employeeExtraAvailabilityPanel.innerHTML = `
+    <article class="employee-extra-availability-card">
+      <p class="panel-note">Tijdelijke beschikbaarheid voor extra voorstelopties. Dit wijzigt het vaste basisrooster niet.</p>
+      <div class="employee-extra-availability-form">
+        <label>
+          Soort
+          <select data-extra-availability-new-mode>
+            <option value="week">Week</option>
+            <option value="date">Datum</option>
+          </select>
+        </label>
+        <label>
+          Week
+          <input type="week" value="${escapeHtmlAttribute(nextWeekValue)}" data-extra-availability-new-week>
+        </label>
+        <label>
+          Datum
+          <input type="date" data-extra-availability-new-date>
+        </label>
+        <div class="employee-extra-availability-days" aria-label="Dagen">
+          ${weekdayOptions}
+        </div>
+        <label>
+          Start
+          <input type="time" data-extra-availability-new-start>
+        </label>
+        <label>
+          Eind
+          <input type="time" data-extra-availability-new-end>
+        </label>
+        <label class="employee-extra-availability-note-field">
+          Opmerking
+          <input type="text" maxlength="80" placeholder="Bijv. kan extra helpen" data-extra-availability-new-note>
+        </label>
+        <button type="button" class="secondary" data-extra-availability-add="${escapeHtmlAttribute(employeeName)}">Toevoegen</button>
+      </div>
+      <div class="employee-extra-availability-list ${extraAvailability.length ? "" : "empty"}">
+        ${extraAvailability.length
+          ? extraAvailability.map((record) => renderEmployeeExtraAvailabilityRecord(employeeName, record)).join("")
+          : "Nog geen extra beschikbaarheid ingesteld."}
+      </div>
+    </article>
+  `;
+}
+
+function renderEmployeeExtraAvailabilityRecord(employeeName, record) {
+  const weekdayChecks = getRosterWeekdayDefinitions()
+    .map((weekday) => `
+      <label class="employee-extra-availability-day">
+        <input
+          type="checkbox"
+          data-extra-availability-field="weekday"
+          data-extra-availability-employee="${escapeHtmlAttribute(employeeName)}"
+          data-extra-availability-id="${escapeHtmlAttribute(record.id)}"
+          data-weekday="${weekday.number}"
+          ${record.weekdays.includes(weekday.number) ? "checked" : ""}
+        >
+        <span>${getExtraAvailabilityWeekdayLabel(weekday.number)}</span>
+      </label>
+    `)
+    .join("");
+
+  return `
+    <article class="employee-extra-availability-record">
+      <div class="employee-extra-availability-record-head">
+        <strong>${escapeHtmlAttribute(getExtraAvailabilityRecordLabel(record))}</strong>
+        <button type="button" class="secondary danger" data-extra-availability-delete="${escapeHtmlAttribute(record.id)}">Verwijderen</button>
+      </div>
+      <div class="employee-extra-availability-record-grid">
+        <label>
+          Soort
+          <select data-extra-availability-field="mode" data-extra-availability-employee="${escapeHtmlAttribute(employeeName)}" data-extra-availability-id="${escapeHtmlAttribute(record.id)}">
+            <option value="week" ${record.mode === "week" ? "selected" : ""}>Week</option>
+            <option value="date" ${record.mode === "date" ? "selected" : ""}>Datum</option>
+          </select>
+        </label>
+        <label>
+          Week
+          <input type="week" value="${escapeHtmlAttribute(record.week)}" data-extra-availability-field="week" data-extra-availability-employee="${escapeHtmlAttribute(employeeName)}" data-extra-availability-id="${escapeHtmlAttribute(record.id)}">
+        </label>
+        <label>
+          Datum
+          <input type="date" value="${escapeHtmlAttribute(record.date)}" data-extra-availability-field="date" data-extra-availability-employee="${escapeHtmlAttribute(employeeName)}" data-extra-availability-id="${escapeHtmlAttribute(record.id)}">
+        </label>
+        <div class="employee-extra-availability-days">${weekdayChecks}</div>
+        <label>
+          Start
+          <input type="time" value="${escapeHtmlAttribute(record.startTime)}" data-extra-availability-field="startTime" data-extra-availability-employee="${escapeHtmlAttribute(employeeName)}" data-extra-availability-id="${escapeHtmlAttribute(record.id)}">
+        </label>
+        <label>
+          Eind
+          <input type="time" value="${escapeHtmlAttribute(record.endTime)}" data-extra-availability-field="endTime" data-extra-availability-employee="${escapeHtmlAttribute(employeeName)}" data-extra-availability-id="${escapeHtmlAttribute(record.id)}">
+        </label>
+        <label class="employee-extra-availability-note-field">
+          Opmerking
+          <input type="text" maxlength="80" value="${escapeHtmlAttribute(record.note)}" data-extra-availability-field="note" data-extra-availability-employee="${escapeHtmlAttribute(employeeName)}" data-extra-availability-id="${escapeHtmlAttribute(record.id)}">
+        </label>
+      </div>
+    </article>
+  `;
+}
+
+function getEmployeeExtraAvailabilityDraftList(employeeName) {
+  const employeeDraft = getEmployeeEditorDraft(employeeName);
+  if (!employeeDraft) {
+    return [];
+  }
+
+  employeeDraft.extraAvailability = normalizeEmployeeExtraAvailability(employeeDraft.extraAvailability);
+  return employeeDraft.extraAvailability;
+}
+
+function validateExtraAvailabilityTimeRange(startTime = "", endTime = "") {
+  if (!startTime || !endTime) {
+    return true;
+  }
+
+  const startMinutes = timeToMinutes(startTime);
+  const endMinutes = timeToMinutes(endTime);
+  return Number.isFinite(startMinutes) && Number.isFinite(endMinutes) && endMinutes > startMinutes;
+}
+
+function addEmployeeExtraAvailabilityDraftRecord(employeeName) {
+  if (!employeeName || !isPlannerRole()) {
+    showMessage("Alleen planner of directie kan extra beschikbaarheid wijzigen.", "error");
+    return false;
+  }
+
+  const mode = employeeExtraAvailabilityPanel?.querySelector("[data-extra-availability-new-mode]")?.value === "date"
+    ? "date"
+    : "week";
+  const week = employeeExtraAvailabilityPanel?.querySelector("[data-extra-availability-new-week]")?.value || "";
+  const date = employeeExtraAvailabilityPanel?.querySelector("[data-extra-availability-new-date]")?.value || "";
+  const weekdays = Array.from(employeeExtraAvailabilityPanel?.querySelectorAll("[data-extra-availability-new-day]:checked") || [])
+    .map((input) => Number(input.dataset.extraAvailabilityNewDay));
+  const startTime = employeeExtraAvailabilityPanel?.querySelector("[data-extra-availability-new-start]")?.value || "";
+  const endTime = employeeExtraAvailabilityPanel?.querySelector("[data-extra-availability-new-end]")?.value || "";
+  const note = employeeExtraAvailabilityPanel?.querySelector("[data-extra-availability-new-note]")?.value || "";
+
+  if (mode === "week" && (!week || !weekdays.length)) {
+    showMessage("Kies een week en minimaal een dag voor extra beschikbaarheid.", "error");
+    return false;
+  }
+
+  if (mode === "date" && !date) {
+    showMessage("Kies een datum voor extra beschikbaarheid.", "error");
+    return false;
+  }
+
+  if (!validateExtraAvailabilityTimeRange(startTime, endTime)) {
+    showMessage("De eindtijd moet later zijn dan de starttijd.", "error");
+    return false;
+  }
+
+  const record = normalizeExtraAvailabilityRecord({
+    id: createExtraAvailabilityId(),
+    mode,
+    week,
+    date,
+    weekdays,
+    startTime,
+    endTime,
+    note,
+    createdAt: getNowIsoString()
+  });
+
+  if (!record) {
+    showMessage("Extra beschikbaarheid kon niet worden toegevoegd.", "error");
+    return false;
+  }
+
+  const list = getEmployeeExtraAvailabilityDraftList(employeeName);
+  list.push(record);
+  const employeeDraft = getEmployeeEditorDraft(employeeName);
+  employeeDraft.extraAvailability = normalizeEmployeeExtraAvailability(list);
+  renderEmployeeExtraAvailabilityPanel();
+  showMessage("Extra beschikbaarheid toegevoegd. Sla de medewerker op om dit te bewaren.", "success");
+  return true;
+}
+
+function updateEmployeeExtraAvailabilityDraftRecord(employeeName, recordId, field, value, target = null) {
+  if (!employeeName || !recordId || !field || !isPlannerRole()) {
+    return false;
+  }
+
+  const employeeDraft = getEmployeeEditorDraft(employeeName);
+  const list = getEmployeeExtraAvailabilityDraftList(employeeName);
+  const record = list.find((item) => item.id === recordId);
+
+  if (!record) {
+    return false;
+  }
+
+  if (field === "mode") {
+    record.mode = value === "date" ? "date" : "week";
+    if (record.mode === "date") {
+      record.date = record.date || (record.week ? getWeekDates(record.week)[0] : getTodayLocalDateValue());
+      record.week = "";
+      record.weekdays = [];
+    } else {
+      const sourceDate = record.date || getTodayLocalDateValue();
+      record.week = record.week || getWeekValueFromDate(sourceDate) || getCurrentWeekValue();
+      record.weekdays = record.weekdays.length ? record.weekdays : [getWeekdayNumberFromDate(sourceDate)];
+      record.date = "";
+    }
+  } else if (field === "weekday") {
+    const weekday = Number(target?.dataset.weekday);
+    const checked = Boolean(target?.checked);
+    const weekdaySet = new Set(record.weekdays);
+    if (checked) {
+      weekdaySet.add(weekday);
+    } else {
+      weekdaySet.delete(weekday);
+    }
+    record.weekdays = normalizeExtraAvailabilityWeekdays([...weekdaySet]);
+    if (!record.weekdays.length) {
+      record.weekdays = [weekday].filter((day) => Number.isInteger(day));
+      showMessage("Laat minimaal een dag geselecteerd.", "warning");
+    }
+  } else if (field === "week") {
+    record.week = value;
+  } else if (field === "date") {
+    record.date = value;
+  } else if (field === "startTime" || field === "endTime") {
+    record[field] = value;
+    if (!validateExtraAvailabilityTimeRange(
+      field === "startTime" ? value : record.startTime,
+      field === "endTime" ? value : record.endTime
+    )) {
+      showMessage("De eindtijd moet later zijn dan de starttijd.", "warning");
+    }
+  } else if (field === "note") {
+    record.note = String(value || "").slice(0, 80);
+  }
+
+  employeeDraft.extraAvailability = normalizeEmployeeExtraAvailability(list);
+  renderEmployeeExtraAvailabilityPanel();
+  return true;
+}
+
+function deleteEmployeeExtraAvailabilityDraftRecord(employeeName, recordId) {
+  if (!employeeName || !recordId || !isPlannerRole()) {
+    return false;
+  }
+
+  const employeeDraft = getEmployeeEditorDraft(employeeName);
+  employeeDraft.extraAvailability = normalizeEmployeeExtraAvailability(employeeDraft.extraAvailability)
+    .filter((record) => record.id !== recordId);
+  renderEmployeeExtraAvailabilityPanel();
+  showMessage("Extra beschikbaarheid verwijderd. Sla de medewerker op om dit te bewaren.", "success");
+  return true;
+}
+
 function getPermissionShiftGroups() {
   return getPermissionShiftGroupsHelper(getPermissionShiftDescriptors, {
     isShopShiftName,
@@ -22298,9 +22724,17 @@ function getSmartPlanningPatternInfo(employeeName, item, lookup = getSmartPlanni
 
   const patternId = getEmployeeBasePatternId(employeeName);
   const patternMatch = getSmartPlanningPatternMatchForItem(employeeName, item);
+  const extraAvailabilityMatch = getEmployeeExtraAvailabilityMatch(
+    employeeName,
+    item?.day || "",
+    item?.startTime || "",
+    item?.endTime || ""
+  );
   let priority = 25;
 
-  if (patternId === "director-emergency" || isSmartPlanningEmergencyEmployee(employeeName)) {
+  if (extraAvailabilityMatch) {
+    priority = -10;
+  } else if (patternId === "director-emergency" || isSmartPlanningEmergencyEmployee(employeeName)) {
     priority = 90;
   } else if (patternId === "on-call") {
     priority = 70;
@@ -22311,7 +22745,9 @@ function getSmartPlanningPatternInfo(employeeName, item, lookup = getSmartPlanni
   }
 
   let reason = "Geen vast patroon";
-  if (patternId === "director-emergency" || isSmartPlanningEmergencyEmployee(employeeName)) {
+  if (extraAvailabilityMatch) {
+    reason = "Extra beschikbaar";
+  } else if (patternId === "director-emergency" || isSmartPlanningEmergencyEmployee(employeeName)) {
     reason = "Noodoptie";
   } else if (patternId === "on-call") {
     reason = "Oproep/flex";
@@ -22323,7 +22759,8 @@ function getSmartPlanningPatternInfo(employeeName, item, lookup = getSmartPlanni
 
   const info = {
     priority,
-    reason
+    reason,
+    extraAvailabilityMatch
   };
   lookup.patternByEmployeeItem.set(patternKey, info);
   return info;
@@ -22517,6 +22954,10 @@ function applySmartPlanningFixedBakeryStaffing() {
 function getSmartPlanningAutoFillReason(candidate, item) {
   const scoreDetails = getSmartPlanningAutoFillScoreDetails(candidate, item);
 
+  if (scoreDetails.extraAvailabilityScore > 0) {
+    return "Extra beschikbaar";
+  }
+
   if (scoreDetails.standardEmployeeScore > 0) {
     return "Vaste plek";
   }
@@ -22570,13 +23011,19 @@ function getSmartPlanningAutoFillCandidateDecision(candidate, item) {
   const weekday = getWeekdayNumberFromDate(item.day);
   const patternId = getEmployeeBasePatternId(candidate.employeeName);
   const patternMatch = getSmartPlanningPatternMatchForItem(candidate.employeeName, item);
+  const extraAvailabilityMatch = getEmployeeExtraAvailabilityMatch(
+    candidate.employeeName,
+    item.day,
+    item.startTime || "",
+    item.endTime || ""
+  );
   const patternWorkdayCount = getSmartPlanningPatternWorkdayCount(candidate.employeeName, weekValue);
   const projectedWorkdayCount = getSmartPlanningProjectedWorkdayCount(candidate.employeeName, item);
   const contractHours = getEmployeeContractHours(candidate.employeeName);
   const shiftHours = calculateHours(item.startTime || "", item.endTime || "") || 0;
   const projectedHours = Math.round(((candidate.plannedHours || 0) + shiftHours) * 10) / 10;
 
-  if (patternId === "director-emergency" || patternId === "on-call" || candidate.isEmergencyOption) {
+  if (!extraAvailabilityMatch && (patternId === "director-emergency" || patternId === "on-call" || candidate.isEmergencyOption)) {
     return {
       accepted: false,
       reason: "Geen logische medewerker beschikbaar",
@@ -22584,7 +23031,7 @@ function getSmartPlanningAutoFillCandidateDecision(candidate, item) {
     };
   }
 
-  if (patternId && !isStrictPlanningPatternMatch(patternMatch)) {
+  if (!extraAvailabilityMatch && patternId && !isStrictPlanningPatternMatch(patternMatch)) {
     return {
       accepted: false,
       reason: isWeekendEmployee(candidate.employeeName) && weekday >= 2 && weekday <= 5
@@ -22594,7 +23041,7 @@ function getSmartPlanningAutoFillCandidateDecision(candidate, item) {
     };
   }
 
-  if (!patternId && scoreDetails.fixedScore <= 0) {
+  if (!extraAvailabilityMatch && !patternId && scoreDetails.fixedScore <= 0) {
     return {
       accepted: false,
       reason: "Geen patroonmatch",
@@ -22602,7 +23049,7 @@ function getSmartPlanningAutoFillCandidateDecision(candidate, item) {
     };
   }
 
-  if (patternWorkdayCount > 0 && projectedWorkdayCount > patternWorkdayCount) {
+  if (!extraAvailabilityMatch && patternWorkdayCount > 0 && projectedWorkdayCount > patternWorkdayCount) {
     return {
       accepted: false,
       reason: "Te veel ingepland",
@@ -22641,6 +23088,12 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
   const categoryKey = getShiftCategoryKey(shift || { name: shiftName, isShopShift: item?.department === "shop" });
   const patternMatch = getSmartPlanningPatternMatchForItem(candidate.employeeName, item);
   const patternId = getEmployeeBasePatternId(candidate.employeeName);
+  const extraAvailabilityMatch = getEmployeeExtraAvailabilityMatch(
+    candidate.employeeName,
+    item?.day || "",
+    item?.startTime || "",
+    item?.endTime || ""
+  );
   const standardEmployeeName = getPrimaryStandardEmployeeForShift(item?.shiftName || "") ||
     getSmartPlanningFixedBakeryEmployeeForShift(item?.shiftName || "");
   const history = getHistoricalAssignments(candidate.employeeName, weekValue, getPlanningEntries(), 10);
@@ -22687,6 +23140,7 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
 
   const standardEmployeeScore = standardEmployeeName === candidate.employeeName ? 1000 : 0;
   const patternFitScore = patternId && isStrictPlanningPatternMatch(patternMatch) ? 900 : 0;
+  const extraAvailabilityScore = extraAvailabilityMatch ? 950 : 0;
   const fixedScore = standardEmployeeScore || patternFitScore;
   const departmentSummary = getEmployeeDepartmentSummary(candidate.employeeName).toLowerCase();
   const departmentScore = categoryKey === "shop"
@@ -22696,6 +23150,7 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
   const contractPenalty = (candidate.contractWarningPriority || 0) * 45;
   const loadPenalty = (candidate.plannedHours || 0) * 0.35;
   const score = fixedScore +
+    extraAvailabilityScore +
     sameShiftWeekdayScore +
     sameShiftScore +
     sameWeekdayScore +
@@ -22711,6 +23166,7 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
     fixedScore,
     standardEmployeeScore,
     patternFitScore,
+    extraAvailabilityScore,
     sameShiftWeekdayScore,
     sameShiftScore,
     sameWeekdayScore,
@@ -22973,7 +23429,8 @@ window.debugEmployeeAvailability = debugEmployeeAvailability;
 
 function autoFillSmartPlanningProposal(options = {}) {
   const data = getSmartPlanningMonthData();
-  const targetWeek = options.weekValue || smartPlanningFocusedWeek || data.selectedWeek;
+  const explicitTargetWeek = options.weekValue || "";
+  const targetWeek = explicitTargetWeek || smartPlanningFocusedWeek || data.selectedWeek;
   if (!isSmartPlanningProposalCurrent(data)) {
     createSmartPlanningAdjustmentProposal({ render: false, silent: true });
   } else if (getSmartPlanningProposalWeekByValue(targetWeek)?.cleared) {
@@ -22995,7 +23452,10 @@ function autoFillSmartPlanningProposal(options = {}) {
   let remainingOpenCount = 0;
   const blockReasons = new Map();
   const openItems = [...getSmartPlanningProposalItems()]
-    .filter((item) => isSmartPlanningOpenProposalItem(item))
+    .filter((item) =>
+      isSmartPlanningOpenProposalItem(item) &&
+      (!explicitTargetWeek || item.weekValue === targetWeek)
+    )
     .sort(compareSmartPlanningItemsByRosterOrder);
   openItems.forEach((item) => {
     const candidate = getBestSmartPlanningAutoFillCandidate(item);
@@ -23028,8 +23488,8 @@ function autoFillSmartPlanningProposal(options = {}) {
     const reasonText = reasonSummary ? ` Redenen: ${reasonSummary}.` : "";
     showMessage(
       remainingOpenCount
-        ? `Er konden geen medewerkers automatisch worden voorgesteld. Controleer basispatronen en bevoegdheden.${reasonText}`
-        : "Er zijn geen open diensten om automatisch te vullen.",
+        ? `${options.recalculate ? "Herberekenen" : "Voorstel maken"} vond geen passende medewerkers. Controleer basispatronen, extra beschikbaarheid en bevoegdheden.${reasonText}`
+        : (explicitTargetWeek ? "Er zijn geen open diensten in deze week om te vullen." : "Er zijn geen open diensten om automatisch te vullen."),
       remainingOpenCount ? "warning" : "info"
     );
     return;
@@ -23039,10 +23499,15 @@ function autoFillSmartPlanningProposal(options = {}) {
   renderSmartPlanningPanel();
   showMessage(
     remainingOpenCount
-      ? `Voorstel gemaakt: ${filledCount} dienst${filledCount === 1 ? "" : "en"} ingevuld, ${remainingOpenCount} open.`
-      : `Voorstel gemaakt: ${filledCount} dienst${filledCount === 1 ? "" : "en"} ingevuld.`,
+      ? `${options.recalculate ? "Week herberekend" : "Voorstel gemaakt"}: ${filledCount} dienst${filledCount === 1 ? "" : "en"} ingevuld, ${remainingOpenCount} open.`
+      : `${options.recalculate ? "Week herberekend" : "Voorstel gemaakt"}: ${filledCount} dienst${filledCount === 1 ? "" : "en"} ingevuld.`,
     "success"
   );
+}
+
+function recalculateSmartPlanningFocusedWeek() {
+  const targetWeek = smartPlanningFocusedWeek || getSmartPlanningSelectedWeek();
+  autoFillSmartPlanningProposal({ weekValue: targetWeek, recalculate: true });
 }
 
 function getSmartPlanningEmployeeAdvice(item) {
@@ -23089,6 +23554,7 @@ function getSmartPlanningEmployeeAdvice(item) {
     const patternInfo = getSmartPlanningPatternInfo(employeeName, item, lookup);
     const patternPriority = patternInfo.priority;
     const patternReason = patternInfo.reason;
+    const extraAvailabilityMatch = patternInfo.extraAvailabilityMatch || null;
     const reasons = [];
     let group = "suitable";
 
@@ -23134,6 +23600,8 @@ function getSmartPlanningEmployeeAdvice(item) {
       plannedHours,
       projectedHours,
       isEmergencyOption,
+      isExtraAvailable: Boolean(extraAvailabilityMatch),
+      extraAvailabilityLabel: extraAvailabilityMatch ? getExtraAvailabilityRecordLabel(extraAvailabilityMatch) : "",
       patternPriority,
       patternReason,
       contractWarningPriority: reasons.some((reason) => String(reason || "").toLowerCase().includes("contract")) ? 1 : 0,
@@ -24063,7 +24531,9 @@ function getSmartPlanningAuthorizedEmployeeAdvice(item) {
     .map((employeeAdvice) => ({
       ...employeeAdvice,
       statusLabel: "Beschikbaar",
-      displayReason: employeeAdvice.isEmergencyOption
+      displayReason: employeeAdvice.isExtraAvailable
+        ? "Extra beschikbaar"
+        : employeeAdvice.isEmergencyOption
         ? "Noodoptie"
         : (employeeAdvice.reasons.find((reason) => String(reason || "").toLowerCase().includes("contract")) ||
           employeeAdvice.patternReason ||
@@ -24106,11 +24576,12 @@ function renderSmartPlanningEmployeeAdviceGroup(title, items, groupType) {
       ${items.length ? `
         <div class="smart-planning-advice-list">
           ${items.map((item) => `
-            <article class="smart-planning-advice-card is-${groupType} ${item.isEmergencyOption ? "is-emergency-option" : ""}">
+            <article class="smart-planning-advice-card is-${groupType} ${item.isEmergencyOption ? "is-emergency-option" : ""} ${item.isExtraAvailable ? "is-extra-available" : ""}">
               <strong>${item.employeeName}</strong>
               <span>${getSmartPlanningContractSummary(item)}</span>
               <div class="smart-planning-advice-badges">
                 <em>${item.displayReason || item.statusLabel || item.reasons[0] || "Beschikbaarheid onbekend"}</em>
+                ${item.isExtraAvailable ? "<em>Extra beschikbaar</em>" : ""}
               </div>
             </article>
           `).join("")}
@@ -24161,7 +24632,7 @@ function renderSmartPlanningInlineAdvice(item) {
     return `
       <button
         type="button"
-        class="smart-planning-employee-choice ${isAvailable ? "is-available" : "is-unavailable"} ${employeeAdvice.isEmergencyOption ? "is-emergency-option" : ""} ${isSelected ? "is-selected" : ""} ${isLastSelected ? "is-last-selected" : ""}"
+        class="smart-planning-employee-choice ${isAvailable ? "is-available" : "is-unavailable"} ${employeeAdvice.isEmergencyOption ? "is-emergency-option" : ""} ${employeeAdvice.isExtraAvailable ? "is-extra-available" : ""} ${isSelected ? "is-selected" : ""} ${isLastSelected ? "is-last-selected" : ""}"
         data-smart-planning-employee-choice="${escapeHtmlAttribute(item.id)}"
         data-employee-name="${escapeHtmlAttribute(employeeAdvice.employeeName)}"
         data-employee-available="${isAvailable ? "true" : "false"}"
@@ -24169,7 +24640,7 @@ function renderSmartPlanningInlineAdvice(item) {
         title="${escapeHtmlAttribute(`${employeeAdvice.employeeName} · ${reason}`)}"
       >
         <strong>${employeeAdvice.employeeName}${isSelected ? " gekozen" : ""}</strong>
-        <span>${reason}</span>
+        <span>${reason}${employeeAdvice.isExtraAvailable ? " · Extra beschikbaar" : ""}</span>
       </button>
     `;
   };
@@ -30503,6 +30974,37 @@ employeeContractPanel?.addEventListener("change", (event) => {
   employeeDraft.contractHours = normalizedContractHours;
 });
 
+employeeExtraAvailabilityPanel?.addEventListener("click", (event) => {
+  const addButton = event.target.closest("[data-extra-availability-add]");
+  if (addButton) {
+    addEmployeeExtraAvailabilityDraftRecord(addButton.dataset.extraAvailabilityAdd || getSelectedEmployeeAdminName());
+    return;
+  }
+
+  const deleteButton = event.target.closest("[data-extra-availability-delete]");
+  if (deleteButton) {
+    deleteEmployeeExtraAvailabilityDraftRecord(
+      getSelectedEmployeeAdminName(),
+      deleteButton.dataset.extraAvailabilityDelete || ""
+    );
+  }
+});
+
+employeeExtraAvailabilityPanel?.addEventListener("change", (event) => {
+  const field = event.target.closest("[data-extra-availability-field]");
+  if (!field) {
+    return;
+  }
+
+  updateEmployeeExtraAvailabilityDraftRecord(
+    field.dataset.extraAvailabilityEmployee || getSelectedEmployeeAdminName(),
+    field.dataset.extraAvailabilityId || "",
+    field.dataset.extraAvailabilityField || "",
+    field.type === "checkbox" ? field.checked : field.value,
+    field
+  );
+});
+
 employeeListCard?.addEventListener("click", (event) => {
   const resetButton = event.target.closest("[data-employee-reset-pin]");
   const statusButton = event.target.closest("[data-employee-toggle-status]");
@@ -31260,6 +31762,7 @@ function saveSelectedEmployeeDetails(options = {}) {
   const normalizedStandardShift = typeof employeeDraft?.standardShift === "string" ? employeeDraft.standardShift : "";
   const normalizedBasePatternId = typeof employeeDraft?.basePatternId === "string" ? employeeDraft.basePatternId : getEmployeeBasePatternId(employeeName);
   const normalizedCustomRoster = normalizeEmployeeCustomRosterConfig(employeeDraft?.customRoster, employeeName);
+  const normalizedExtraAvailability = normalizeEmployeeExtraAvailability(employeeDraft?.extraAvailability);
   const currentStatus = getEmployeeStatus(employeeName);
   const duplicateEmployeeName = findEmployeeByEmail(normalizedEmail, employeeName);
 
@@ -31331,6 +31834,7 @@ Bewaarde historie:
     employmentEndDate: nextStatus === "former" ? (employeeMeta[employeeName]?.employmentEndDate || getTodayLocalDateValue()) : "",
     mailTestUser: shouldEnableMailTestUser,
     contractHours: normalizedContractHours,
+    extraAvailability: normalizedExtraAvailability,
     updatedAt: getNowIsoString(),
     updatedByRole: "planner",
     updatedByName: "Planner / Directie"
@@ -31349,6 +31853,7 @@ Bewaarde historie:
   syncEmployeeStandardShifts();
   syncEmployeeBasePatterns();
   syncEmployeeCustomRosters();
+  invalidateSmartPlanningEffectiveEntriesCache();
   clearEmployeeEditorDraft(employeeName);
 
   persistProtectedChange({
@@ -31365,7 +31870,8 @@ Bewaarde historie:
       mailTestUser: shouldEnableMailTestUser,
       contractHours: normalizedContractHours,
       standardShiftName: normalizedStandardShift,
-      basePatternId: normalizedBasePatternId
+      basePatternId: normalizedBasePatternId,
+      extraAvailabilityCount: normalizedExtraAvailability.length
     }
   });
 
@@ -31747,6 +32253,15 @@ smartPlanningMakeProposalButton?.addEventListener("click", () => {
   }
 
   autoFillSmartPlanningProposal();
+});
+
+smartPlanningRecalculateWeekButton?.addEventListener("click", () => {
+  if (!isPlannerRole()) {
+    showMessage("Alleen planner of directie kan een week herberekenen.", "error");
+    return;
+  }
+
+  recalculateSmartPlanningFocusedWeek();
 });
 
 smartPlanningClearProposalButton?.addEventListener("click", () => {
