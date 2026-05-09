@@ -7,6 +7,55 @@
   <meta name="theme-color" content="#fffaf3">
   <link rel="icon" type="image/jpeg" href="Logo%202020.jpg">
   <link rel="stylesheet" href="styles.css?v=20260509-vacation-chip-days">
+  <script>
+    (function () {
+      var fallbackMessage = "De app kon niet laden. Vernieuw de pagina of neem contact op met Twan.";
+      var shown = false;
+
+      function showLoadError(error, context) {
+        if (shown) {
+          return;
+        }
+
+        shown = true;
+
+        try {
+          console.error("[Urenrooster] app-start mislukt", context || "", error || "");
+        } catch (consoleError) {
+          // Console logging is best-effort only during early startup.
+        }
+
+        function renderFallback() {
+          var existing = document.getElementById("appLoadErrorFallback");
+
+          if (existing) {
+            return;
+          }
+
+          var container = document.createElement("div");
+          container.id = "appLoadErrorFallback";
+          container.setAttribute("role", "alert");
+          container.style.cssText = "position:fixed;inset:16px;z-index:99999;display:grid;place-items:center;padding:20px;border-radius:18px;background:#fffaf3;color:#3f2818;font-family:Arial,sans-serif;text-align:center;box-shadow:0 18px 48px rgba(63,40,24,.18);";
+          container.innerHTML = '<div><strong style="display:block;margin-bottom:8px;">App laden mislukt</strong><span>' + fallbackMessage + "</span></div>";
+          document.body.appendChild(container);
+        }
+
+        if (document.body) {
+          renderFallback();
+        } else {
+          document.addEventListener("DOMContentLoaded", renderFallback, { once: true });
+        }
+      }
+
+      window.StroetShowLoadError = showLoadError;
+      window.onerror = function (message, source, line, column, error) {
+        showLoadError(error || message, { source: source, line: line, column: column });
+      };
+      window.onunhandledrejection = function (event) {
+        showLoadError(event && event.reason ? event.reason : event, "unhandledrejection");
+      };
+    }());
+  </script>
 </head>
 <body>
   <main class="container">
@@ -1350,6 +1399,6 @@
   <script src="js/features/employee-panel-prep.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/requests-panel-prep.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/hours-panel-prep.js?v=20260508-smart-planning-dashboard"></script>
-  <script src="app.js?v=20260509-vacation-chip-days"></script>
+  <script src="app.js?v=20260509-android-load-fix"></script>
 </body>
 </html>

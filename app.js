@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260509-vacation-chip-days";
+const APP_VERSION = "20260509-android-load-fix";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -1779,7 +1779,7 @@ function hasMeaningfulEmployeeDataValue(value) {
 
 function normalizeEmployeeObject(value) {
   return value && typeof value === "object" && !Array.isArray(value)
-    ? structuredClone(value)
+    ? cloneSerializableValue(value)
     : {};
 }
 
@@ -5234,7 +5234,7 @@ function loadEmployeeMeta() {
 
     Object.keys(parsedMetaSource).forEach((employeeName) => {
       if (!Object.prototype.hasOwnProperty.call(normalized, employeeName)) {
-        normalized[employeeName] = structuredClone(parsedMetaSource[employeeName]);
+        normalized[employeeName] = cloneSerializableValue(parsedMetaSource[employeeName]);
       }
     });
 
@@ -5938,7 +5938,7 @@ function createEmployeeDataSafetyBackupIfNeeded(reasonDetail = "") {
 
 function syncEmployeeMeta() {
   let changed = false;
-  const nextEmployeeMeta = structuredClone(employeeMeta);
+  const nextEmployeeMeta = cloneSerializableValue(employeeMeta);
   const configuredContractHours = getConfiguredEmployeeContractHours();
   const hadMetaKeys = Object.keys(employeeMeta).length > 0;
 
@@ -6021,18 +6021,18 @@ function createBackupSnapshot(reason, metadata = {}) {
   const snapshot = {
     entries: cloneEntriesState(entries),
     employees: [...employees],
-    shifts: structuredClone(shifts),
-    planningSettings: structuredClone(planningSettings),
-    timeOffRequests: structuredClone(timeOffRequests),
-    swapRequests: structuredClone(swapRequests),
-    workLogs: structuredClone(workLogs),
-    employeePermissions: structuredClone(employeePermissions),
-    employeeStandardShifts: structuredClone(employeeStandardShifts),
-    employeeShiftPreferences: structuredClone(employeeShiftPreferences),
-    employeeBasePatterns: structuredClone(employeeBasePatterns),
-    employeeCustomRosters: structuredClone(employeeCustomRosters),
-    employeeMeta: structuredClone(employeeMeta),
-    mailSettings: structuredClone(mailSettings)
+    shifts: cloneSerializableValue(shifts),
+    planningSettings: cloneSerializableValue(planningSettings),
+    timeOffRequests: cloneSerializableValue(timeOffRequests),
+    swapRequests: cloneSerializableValue(swapRequests),
+    workLogs: cloneSerializableValue(workLogs),
+    employeePermissions: cloneSerializableValue(employeePermissions),
+    employeeStandardShifts: cloneSerializableValue(employeeStandardShifts),
+    employeeShiftPreferences: cloneSerializableValue(employeeShiftPreferences),
+    employeeBasePatterns: cloneSerializableValue(employeeBasePatterns),
+    employeeCustomRosters: cloneSerializableValue(employeeCustomRosters),
+    employeeMeta: cloneSerializableValue(employeeMeta),
+    mailSettings: cloneSerializableValue(mailSettings)
   };
 
   backupHistory.unshift({
@@ -6072,18 +6072,18 @@ function restoreBackupById(backupId) {
 
   replaceArrayContents(entries, cloneEntriesState(backup.snapshot.entries || []));
   replaceArrayContents(employees, Array.isArray(backup.snapshot.employees) ? [...backup.snapshot.employees] : []);
-  replaceArrayContents(shifts, Array.isArray(backup.snapshot.shifts) ? structuredClone(backup.snapshot.shifts) : []);
-  replaceArrayContents(timeOffRequests, Array.isArray(backup.snapshot.timeOffRequests) ? structuredClone(backup.snapshot.timeOffRequests) : []);
-  replaceArrayContents(swapRequests, Array.isArray(backup.snapshot.swapRequests) ? structuredClone(backup.snapshot.swapRequests) : []);
-  replaceArrayContents(workLogs, Array.isArray(backup.snapshot.workLogs) ? structuredClone(backup.snapshot.workLogs) : []);
-  replaceObjectContents(planningSettings, backup.snapshot.planningSettings && typeof backup.snapshot.planningSettings === "object" ? structuredClone(backup.snapshot.planningSettings) : {});
-  replaceObjectContents(employeePermissions, backup.snapshot.employeePermissions && typeof backup.snapshot.employeePermissions === "object" ? structuredClone(backup.snapshot.employeePermissions) : {});
-  replaceObjectContents(employeeStandardShifts, backup.snapshot.employeeStandardShifts && typeof backup.snapshot.employeeStandardShifts === "object" ? structuredClone(backup.snapshot.employeeStandardShifts) : {});
-  replaceObjectContents(employeeShiftPreferences, backup.snapshot.employeeShiftPreferences && typeof backup.snapshot.employeeShiftPreferences === "object" ? structuredClone(backup.snapshot.employeeShiftPreferences) : {});
-  replaceObjectContents(employeeBasePatterns, backup.snapshot.employeeBasePatterns && typeof backup.snapshot.employeeBasePatterns === "object" ? structuredClone(backup.snapshot.employeeBasePatterns) : {});
-  replaceObjectContents(employeeCustomRosters, backup.snapshot.employeeCustomRosters && typeof backup.snapshot.employeeCustomRosters === "object" ? structuredClone(backup.snapshot.employeeCustomRosters) : {});
-  replaceObjectContents(employeeMeta, backup.snapshot.employeeMeta && typeof backup.snapshot.employeeMeta === "object" ? structuredClone(backup.snapshot.employeeMeta) : {});
-  replaceObjectContents(mailSettings, backup.snapshot.mailSettings && typeof backup.snapshot.mailSettings === "object" ? structuredClone(backup.snapshot.mailSettings) : getMailSettingsDefaults());
+  replaceArrayContents(shifts, Array.isArray(backup.snapshot.shifts) ? cloneSerializableValue(backup.snapshot.shifts) : []);
+  replaceArrayContents(timeOffRequests, Array.isArray(backup.snapshot.timeOffRequests) ? cloneSerializableValue(backup.snapshot.timeOffRequests) : []);
+  replaceArrayContents(swapRequests, Array.isArray(backup.snapshot.swapRequests) ? cloneSerializableValue(backup.snapshot.swapRequests) : []);
+  replaceArrayContents(workLogs, Array.isArray(backup.snapshot.workLogs) ? cloneSerializableValue(backup.snapshot.workLogs) : []);
+  replaceObjectContents(planningSettings, backup.snapshot.planningSettings && typeof backup.snapshot.planningSettings === "object" ? cloneSerializableValue(backup.snapshot.planningSettings) : {});
+  replaceObjectContents(employeePermissions, backup.snapshot.employeePermissions && typeof backup.snapshot.employeePermissions === "object" ? cloneSerializableValue(backup.snapshot.employeePermissions) : {});
+  replaceObjectContents(employeeStandardShifts, backup.snapshot.employeeStandardShifts && typeof backup.snapshot.employeeStandardShifts === "object" ? cloneSerializableValue(backup.snapshot.employeeStandardShifts) : {});
+  replaceObjectContents(employeeShiftPreferences, backup.snapshot.employeeShiftPreferences && typeof backup.snapshot.employeeShiftPreferences === "object" ? cloneSerializableValue(backup.snapshot.employeeShiftPreferences) : {});
+  replaceObjectContents(employeeBasePatterns, backup.snapshot.employeeBasePatterns && typeof backup.snapshot.employeeBasePatterns === "object" ? cloneSerializableValue(backup.snapshot.employeeBasePatterns) : {});
+  replaceObjectContents(employeeCustomRosters, backup.snapshot.employeeCustomRosters && typeof backup.snapshot.employeeCustomRosters === "object" ? cloneSerializableValue(backup.snapshot.employeeCustomRosters) : {});
+  replaceObjectContents(employeeMeta, backup.snapshot.employeeMeta && typeof backup.snapshot.employeeMeta === "object" ? cloneSerializableValue(backup.snapshot.employeeMeta) : {});
+  replaceObjectContents(mailSettings, backup.snapshot.mailSettings && typeof backup.snapshot.mailSettings === "object" ? cloneSerializableValue(backup.snapshot.mailSettings) : getMailSettingsDefaults());
 
   saveEmployees();
   saveEmployeeMeta();
@@ -6179,7 +6179,7 @@ function loadEmployeePermissions() {
   try {
     const parsedPermissions = JSON.parse(savedPermissions);
     const normalizedPermissions = parsedPermissions && typeof parsedPermissions === "object"
-      ? structuredClone(parsedPermissions)
+      ? cloneSerializableValue(parsedPermissions)
       : {};
 
     employees.forEach((employee) => {
@@ -6447,7 +6447,7 @@ function saveEmployeeCustomRosters() {
 
 function syncEmployeePermissions() {
   let changed = false;
-  const nextEmployeePermissions = structuredClone(employeePermissions);
+  const nextEmployeePermissions = cloneSerializableValue(employeePermissions);
   const hadPermissionKeys = Object.keys(employeePermissions).length > 0;
 
   if (employees.length > 0 && !hadPermissionKeys) {
@@ -24958,7 +24958,7 @@ function clearSmartPlanningProposalWeek(weekValue = "") {
   const snapshotKey = getSmartPlanningWeekSnapshotKey(targetWeek);
   if (snapshotKey) {
     smartPlanningClearedWeekSnapshots[snapshotKey] = {
-      items: structuredClone(weekProposal.items || []),
+      items: cloneSerializableValue(weekProposal.items || []),
       mode: smartPlanningProposalState.mode || "create",
       at: getNowIsoString()
     };
@@ -24987,7 +24987,7 @@ function restoreSmartPlanningProposalWeek(weekValue = "") {
     return false;
   }
 
-  weekProposal.items = structuredClone(snapshot.items);
+  weekProposal.items = cloneSerializableValue(snapshot.items);
   weekProposal.cleared = false;
   selectedSmartPlanningOpenShiftId = "";
   lastSmartPlanningAssignedItemId = "";
