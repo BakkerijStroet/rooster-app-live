@@ -7,13 +7,15 @@
   <meta name="theme-color" content="#fffaf3">
   <meta name="color-scheme" content="light">
   <link rel="icon" type="image/jpeg" href="Logo%202020.jpg">
-  <link rel="stylesheet" href="styles.css?v=20260509-android-visible-recovery">
+  <link rel="stylesheet" href="styles.css?v=20260509-android-fatal-screen">
   <script>
     (function () {
       var fallbackMessage = "De app kon niet laden.";
       var recoveryMessage = "Probeer lokale appgegevens te wissen.";
       var shown = false;
       var lastStartupStep = "pagina laden";
+      var fatalScreenId = "fatal-error-screen";
+      window.__APP_STARTUP_STEP = lastStartupStep;
 
       function getShortErrorMessage(error) {
         if (!error) {
@@ -35,13 +37,29 @@
         }
       }
 
+      function addTextElement(parent, tagName, text, styleText) {
+        var element = document.createElement(tagName);
+        element.textContent = text;
+        if (styleText) {
+          element.style.cssText = styleText;
+        }
+        parent.appendChild(element);
+        return element;
+      }
+
       function setStartupStep(step) {
         lastStartupStep = step || lastStartupStep;
+        window.__APP_STARTUP_STEP = lastStartupStep;
         var stepElement = document.getElementById("appCrashRecoveryStep");
+        var fatalStepElement = document.getElementById("fatal-error-step");
         var diagnosticElement = document.getElementById("appStartupDiagnostics");
 
         if (stepElement) {
           stepElement.textContent = "Laden: " + lastStartupStep;
+        }
+
+        if (fatalStepElement) {
+          fatalStepElement.textContent = "Laatste laadstap: " + lastStartupStep;
         }
 
         if (diagnosticElement) {
@@ -121,6 +139,58 @@
           };
         }
 
+        if (window.matchMedia) {
+          var originalMatchMedia = window.matchMedia;
+          window.matchMedia = function (query) {
+            var result = originalMatchMedia.call(window, query);
+            if (!result.addEventListener) {
+              result.addEventListener = function (eventName, listener) {
+                if (eventName === "change" && typeof result.addListener === "function") {
+                  result.addListener(listener);
+                }
+              };
+            }
+            if (!result.removeEventListener) {
+              result.removeEventListener = function (eventName, listener) {
+                if (eventName === "change" && typeof result.removeListener === "function") {
+                  result.removeListener(listener);
+                }
+              };
+            }
+            return result;
+          };
+        }
+
+        if (!window.ResizeObserver) {
+          window.ResizeObserver = function () {};
+          window.ResizeObserver.prototype.observe = function () {};
+          window.ResizeObserver.prototype.unobserve = function () {};
+          window.ResizeObserver.prototype.disconnect = function () {};
+        }
+
+        if (!window.IntersectionObserver) {
+          window.IntersectionObserver = function () {};
+          window.IntersectionObserver.prototype.observe = function () {};
+          window.IntersectionObserver.prototype.unobserve = function () {};
+          window.IntersectionObserver.prototype.disconnect = function () {};
+        }
+
+        if (window.Element && window.Element.prototype.scrollIntoView && !window.Element.prototype.__stroetSafeScrollIntoView) {
+          var originalScrollIntoView = window.Element.prototype.scrollIntoView;
+          window.Element.prototype.scrollIntoView = function (options) {
+            try {
+              originalScrollIntoView.call(this, options);
+            } catch (scrollError) {
+              try {
+                originalScrollIntoView.call(this);
+              } catch (fallbackScrollError) {
+                // Ignore scroll failures on older mobile browsers.
+              }
+            }
+          };
+          window.Element.prototype.__stroetSafeScrollIntoView = true;
+        }
+
         try {
           if (!window.Intl || !window.Intl.DateTimeFormat) {
             window.Intl = {
@@ -149,8 +219,21 @@
           };
         }
 
-        if (window.crypto && !window.crypto.randomUUID) {
-          window.crypto.randomUUID = function () {
+        try {
+          if (!window.crypto) {
+            window.crypto = {};
+          }
+          if (!window.crypto.randomUUID) {
+            window.crypto.randomUUID = function () {
+              return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (character) {
+                var random = Math.random() * 16 | 0;
+                var value = character === "x" ? random : (random & 3 | 8);
+                return value.toString(16);
+              });
+            };
+          }
+        } catch (cryptoError) {
+          window.__STROET_RANDOM_UUID_FALLBACK = function () {
             return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (character) {
               var random = Math.random() * 16 | 0;
               var value = character === "x" ? random : (random & 3 | 8);
@@ -216,8 +299,79 @@
         window.location.reload();
       }
 
-      function showLoadError(error, context) {
+      function ensureFatalErrorScreen() {
+        var screen = document.getElementById(fatalScreenId);
+
+        if (!screen) {
+          screen = document.createElement("div");
+          screen.id = fatalScreenId;
+          screen.setAttribute("aria-hidden", "true");
+          if (document.body) {
+            document.body.insertBefore(screen, document.body.firstChild || null);
+          } else if (document.documentElement) {
+            document.documentElement.appendChild(screen);
+          }
+        }
+
+        return screen;
+      }
+
+      function renderFatalErrorScreen(error, context) {
         shown = true;
+        window.__APP_FATAL_VISIBLE = true;
+        var shortErrorMessage = getShortErrorMessage(error);
+
+        function paint() {
+          var screen = ensureFatalErrorScreen();
+          screen.setAttribute("role", "alert");
+          screen.setAttribute("aria-hidden", "false");
+          screen.style.cssText = "position:fixed!important;left:0!important;right:0!important;top:0!important;bottom:0!important;z-index:2147483647!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:18px!important;background:#fffaf3!important;color:#2f1f16!important;font-family:Arial,sans-serif!important;text-align:left!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;";
+          screen.innerHTML = "";
+
+          var panel = document.createElement("div");
+          panel.style.cssText = "width:min(460px,100%)!important;max-height:92vh!important;overflow:auto!important;padding:22px!important;border:2px solid #8b4a22!important;border-radius:14px!important;background:#ffffff!important;color:#2f1f16!important;box-shadow:0 20px 60px rgba(0,0,0,.24)!important;";
+          screen.appendChild(panel);
+
+          addTextElement(panel, "strong", "De app kon niet laden", "display:block!important;margin-bottom:10px!important;font-size:20px!important;line-height:1.2!important;color:#2f1f16!important;");
+          addTextElement(panel, "div", "Foutmelding: " + shortErrorMessage, "margin-bottom:8px!important;font-size:14px!important;line-height:1.35!important;color:#4b3426!important;word-break:break-word!important;");
+          addTextElement(panel, "div", "Laatste laadstap: " + (window.__APP_STARTUP_STEP || lastStartupStep), "margin-bottom:8px!important;font-size:14px!important;line-height:1.35!important;color:#4b3426!important;").id = "fatal-error-step";
+          addTextElement(panel, "div", "Versie: " + (window.StroetAppVersion || "start"), "margin-bottom:8px!important;font-size:13px!important;color:#7a685c!important;");
+          addTextElement(panel, "div", "Browser: " + navigator.userAgent, "margin-bottom:14px!important;font-size:12px!important;line-height:1.35!important;color:#7a685c!important;word-break:break-word!important;");
+
+          var button = document.createElement("button");
+          button.type = "button";
+          button.textContent = "Appgegevens herstellen";
+          button.style.cssText = "display:inline-block!important;border:0!important;border-radius:999px!important;background:#8b4a22!important;color:#fff!important;padding:11px 16px!important;font-weight:700!important;font-size:14px!important;";
+          button.onclick = clearAppStorageAndReload;
+          panel.appendChild(button);
+
+          addTextElement(panel, "small", "Dit wist alleen lokale browserdata van deze app. Centrale roosterdata blijft bewaard.", "display:block!important;margin-top:12px!important;color:#7a685c!important;font-size:12px!important;line-height:1.35!important;");
+        }
+
+        try {
+          if (document.body || document.documentElement) {
+            paint();
+          } else {
+            document.addEventListener("DOMContentLoaded", paint, { once: true });
+          }
+        } catch (paintError) {
+          try {
+            document.documentElement.innerHTML = "";
+            var lastResortBody = document.createElement("body");
+            var lastResortScreen = document.createElement("div");
+            lastResortScreen.id = fatalScreenId;
+            lastResortScreen.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:#fffaf3;color:#2f1f16;font-family:Arial,sans-serif;padding:24px;";
+            lastResortScreen.textContent = "De app kon niet laden. Foutmelding: " + shortErrorMessage + ". Laatste laadstap: " + (window.__APP_STARTUP_STEP || lastStartupStep);
+            lastResortBody.appendChild(lastResortScreen);
+            document.documentElement.appendChild(lastResortBody);
+          } catch (lastResortError) {
+            // Nothing else is safe to do.
+          }
+        }
+      }
+
+      function showLoadError(error, context) {
+        renderFatalErrorScreen(error, context);
         var shortErrorMessage = getShortErrorMessage(error);
 
         try {
@@ -225,6 +379,8 @@
         } catch (consoleError) {
           // Console logging is best-effort only during early startup.
         }
+
+        return;
 
         function renderFallback() {
           var existing = document.getElementById("appCrashRecoveryRoot") || document.getElementById("appLoadErrorFallback");
@@ -267,16 +423,39 @@
       window.StroetShowLoadError = showLoadError;
       window.StroetRecoverAppStorage = clearAppStorageAndReload;
       window.StroetSetStartupStep = setStartupStep;
+      window.StroetShowFatalErrorScreen = renderFatalErrorScreen;
       window.onerror = function (message, source, line, column, error) {
         showLoadError(error || message, { source: source, line: line, column: column });
       };
       window.onunhandledrejection = function (event) {
         showLoadError(event && event.reason ? event.reason : event, "unhandledrejection");
       };
+      function startBlankScreenWatchdog() {
+        window.setInterval(function () {
+          if (!document.body) {
+            return;
+          }
+
+          var fatalScreen = document.getElementById(fatalScreenId);
+          var hasAppShell = Boolean(document.querySelector(".app-shell"));
+          var fatalVisible = fatalScreen && fatalScreen.getAttribute("aria-hidden") === "false";
+
+          if (!hasAppShell && !fatalVisible) {
+            renderFatalErrorScreen("Scherm werd leeg na laden", "blank-screen-watchdog");
+          }
+        }, 1000);
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", startBlankScreenWatchdog, { once: true });
+      } else {
+        startBlankScreenWatchdog();
+      }
     }());
   </script>
 </head>
 <body>
+  <div id="fatal-error-screen" aria-hidden="true" style="display:none!important;position:fixed!important;left:0!important;right:0!important;top:0!important;bottom:0!important;z-index:2147483647!important;background:#fffaf3!important;color:#2f1f16!important;font-family:Arial,sans-serif!important;"></div>
   <div id="appCrashRecoveryRoot" aria-hidden="true" style="display:none!important;"></div>
   <div id="appStartupDiagnostics" aria-live="polite" style="position:fixed;left:8px;right:8px;bottom:6px;z-index:2147483646;padding:4px 6px;border-radius:8px;background:rgba(255,250,243,.94);color:#4b3426;font:11px/1.25 Arial,sans-serif;text-align:center;pointer-events:none;box-shadow:0 4px 14px rgba(63,40,24,.12);">Laden: pagina laden · Versie: start</div>
   <main class="container">
@@ -1611,7 +1790,7 @@
   <script src="js/utils/format.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/requests.js?v=20260508-compact-absence-labels"></script>
   <script src="js/features/hours.js?v=20260508-smart-planning-dashboard"></script>
-  <script src="js/features/employees.js?v=20260509-android-visible-recovery"></script>
+  <script src="js/features/employees.js?v=20260509-android-fatal-screen"></script>
   <script src="js/features/mail.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/backup.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/planning-core.js?v=20260508-smart-planning-dashboard"></script>
@@ -1622,9 +1801,9 @@
   <script src="js/features/navigation.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/render-helpers.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/bootstrap-helpers.js?v=20260508-smart-planning-dashboard"></script>
-  <script src="js/features/employee-panel-prep.js?v=20260509-android-visible-recovery"></script>
+  <script src="js/features/employee-panel-prep.js?v=20260509-android-fatal-screen"></script>
   <script src="js/features/requests-panel-prep.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/hours-panel-prep.js?v=20260508-smart-planning-dashboard"></script>
-  <script src="app.js?v=20260509-android-visible-recovery"></script>
+  <script src="app.js?v=20260509-android-fatal-screen"></script>
 </body>
 </html>

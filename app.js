@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260509-android-visible-recovery";
+const APP_VERSION = "20260509-android-fatal-screen";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -362,12 +362,18 @@ function reportAppError(userMessage, error, context = "") {
 }
 
 function setStartupStep(step) {
+  window.__APP_STARTUP_STEP = step || window.__APP_STARTUP_STEP || "";
   if (typeof window.StroetSetStartupStep === "function") {
     window.StroetSetStartupStep(step);
   }
 }
 
 function showStartupRecoveryError(error, context = "") {
+  if (typeof window.StroetShowFatalErrorScreen === "function") {
+    window.StroetShowFatalErrorScreen(error, context);
+    return;
+  }
+
   if (typeof window.StroetShowLoadError === "function") {
     window.StroetShowLoadError(error, context);
   }
