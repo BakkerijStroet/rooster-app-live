@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260509-android-safe-mode";
+const APP_VERSION = "20260509-android-normal-startup";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -28170,6 +28170,15 @@ function renderActiveTabContent() {
 function render() {
   try {
     setStartupStep(`render ${sessionState?.role || "login"}`);
+    if (!sessionState.isAuthenticated) {
+      ensureEmployeeIdentityForCurrentRole();
+      applyRoleUI();
+      updateTabVisibility();
+      renderEmployeeSelectors();
+      renderActiveMessage();
+      return;
+    }
+
     if (sessionState.isAuthenticated) {
       const validatedSession = buildSessionSnapshot();
 
@@ -33791,19 +33800,24 @@ function initializeAppRuntime() {
   }
   setStartupStep("formulier klaarzetten");
   updateFormState();
-  setStartupStep("lokale data laden");
-  reloadScopedData();
-  setStartupStep("voorkeuren herstellen");
-  applySavedPreferences();
-  setStartupStep("tab kiezen");
+  setStartupStep("stabiele login voorbereiden");
+  const preferredRole = preferences.lastRole === "employee" ? "employee" : "planner";
+  const preferredEmployee = preferences.employeeIdentity || preferences.lastPortalEmployee || preferences.lastEmployee || "";
+  applySessionSnapshot({
+    isAuthenticated: false,
+    role: preferredRole,
+    employeeIdentity: "",
+    dataMode: preferences.lastDataMode === "test" ? "test" : "live"
+  }, { persist: false, dataMode: preferences.lastDataMode === "test" ? "test" : "live" });
+  setStartupStep("login tonen");
   activeTab = getDefaultTabForCurrentRole();
-  setStartupStep("navigatie tonen");
   updateTabVisibility();
-  setStartupStep("login herstellen");
-  restoreSessionState({ resetToDefaultTab: true, resetWeekToCurrent: true });
-  setStartupStep("centrale data synchroniseren");
-  syncCentralDataForCurrentMode({ preferCentral: !isPlannerRole() });
-  setStartupStep("gereed");
+  render();
+  openSessionLogin({
+    preferredRole,
+    preferredEmployee
+  });
+  setStartupStep("login klaar");
 }
 
 function initializeSafeStartupMode() {
