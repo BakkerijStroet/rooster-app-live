@@ -359,7 +359,7 @@ Aanpak na Android/Samsung white screen:
 - Fallbacks zijn toegevoegd voor oudere browserfeatures zoals `crypto.randomUUID`, observer APIs, `CSS.escape`, matchMedia listeners en scrollIntoView opties.
 - Cache-busting wordt bij relevante fixes verhoogd via `APP_VERSION` en script/style querystrings.
 
-Huidige versie na laatste codefix: `20260511-extra-hours-worklogs`.
+Huidige versie na laatste codefix: `20260511-open-slot-persistence`.
 
 ## 11. Mail
 

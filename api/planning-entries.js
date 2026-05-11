@@ -72,7 +72,10 @@ function normalizePlanningEntry(entry) {
     proposed: Boolean(entry.proposed),
     replacementFor: typeof entry.replacementFor === "string" ? entry.replacementFor.trim() : "",
     autoFillReason: typeof entry.autoFillReason === "string" ? entry.autoFillReason.trim() : "",
-    autoFillReasonDetail: typeof entry.autoFillReasonDetail === "string" ? entry.autoFillReasonDetail.trim() : ""
+    autoFillReasonDetail: typeof entry.autoFillReasonDetail === "string" ? entry.autoFillReasonDetail.trim() : "",
+    keepOpen: Boolean(entry.keepOpen),
+    lockedOpen: Boolean(entry.lockedOpen),
+    assignmentReason: typeof entry.assignmentReason === "string" ? entry.assignmentReason.trim() : ""
   };
 
   return normalizedEntry.name && normalizedEntry.day ? normalizedEntry : null;

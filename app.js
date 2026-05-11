@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260511-extra-hours-worklogs";
+const APP_VERSION = "20260511-open-slot-persistence";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -488,7 +488,10 @@ function sanitizeEntriesForStorage(sourceEntries = entries) {
       proposed: Boolean(entry.proposed),
       replacementFor: typeof entry.replacementFor === "string" ? entry.replacementFor.trim() : "",
       autoFillReason: typeof entry.autoFillReason === "string" ? entry.autoFillReason.trim() : "",
-      autoFillReasonDetail: typeof entry.autoFillReasonDetail === "string" ? entry.autoFillReasonDetail.trim() : ""
+      autoFillReasonDetail: typeof entry.autoFillReasonDetail === "string" ? entry.autoFillReasonDetail.trim() : "",
+      keepOpen: Boolean(entry.keepOpen),
+      lockedOpen: Boolean(entry.lockedOpen),
+      assignmentReason: typeof entry.assignmentReason === "string" ? entry.assignmentReason.trim() : ""
     };
 
     if (!normalizedEntry.name || !normalizedEntry.day) {
@@ -1331,7 +1334,10 @@ function loadEntries() {
       proposed: Boolean(entry.proposed),
       replacementFor: typeof entry.replacementFor === "string" ? entry.replacementFor.trim() : "",
       autoFillReason: typeof entry.autoFillReason === "string" ? entry.autoFillReason.trim() : "",
-      autoFillReasonDetail: typeof entry.autoFillReasonDetail === "string" ? entry.autoFillReasonDetail.trim() : ""
+      autoFillReasonDetail: typeof entry.autoFillReasonDetail === "string" ? entry.autoFillReasonDetail.trim() : "",
+      keepOpen: Boolean(entry.keepOpen),
+      lockedOpen: Boolean(entry.lockedOpen),
+      assignmentReason: typeof entry.assignmentReason === "string" ? entry.assignmentReason.trim() : ""
     }));
 
     const uniqueEntries = [];
@@ -11340,7 +11346,7 @@ function getRosterDuplicateSlotEmployeeDisplay(row = {}, fallback = "Open") {
 
 function hasAssignedRosterEmployee(entry = {}) {
   const employeeName = String(entry?.name || entry?.employeeName || "").trim();
-  return Boolean(employeeName) && employeeName.toLowerCase() !== "open";
+  return Boolean(employeeName) && !isSmartPlanningPlaceholderEmployeeName(employeeName);
 }
 
 function getAssignedRosterEntriesForWeek(weekValue, sourceEntries = entries) {
@@ -11457,7 +11463,7 @@ function renderMobileGroupedRosterDayCard(day, entriesForDay, approvedRequestsFo
     ? getRosterRowsForDay(day, entriesForDay, { includeOpenShifts: shouldRenderPlannerOpenShiftsForDay(day) })
     : sortRosterEntriesForDisplay(annotateRosterDuplicateSlotRows(entriesForDay, { includeOpenRows: false }));
   const duplicateConflicts = getRosterDuplicateSlotConflicts(displayRows, { includeOpenRows: false });
-  const assignedEntries = displayRows.map((row) => row.entry || row).filter((entry) => entry.name);
+  const assignedEntries = displayRows.map((row) => row.entry || row).filter(hasAssignedRosterEmployee);
   const visibleRows = collapseRosterDuplicateSlotRows(displayRows, duplicateConflicts);
   const groupedEntries = groupEntriesByDepartment(visibleRows);
   const approvedAbsenceLabel = approvedRequestsForDay.length
@@ -11523,7 +11529,7 @@ function renderEmployeeRosterDayCard(day, entriesForDay, approvedRequestsForDay,
     ? getRosterRowsForDay(day, entriesForDay, { includeOpenShifts: shouldRenderPlannerOpenShiftsForDay(day) })
     : sortRosterEntriesForDisplay(annotateRosterDuplicateSlotRows(entriesForDay, { includeOpenRows: false }));
   const duplicateConflicts = getRosterDuplicateSlotConflicts(displayRows, { includeOpenRows: false });
-  const assignedEntries = displayRows.map((row) => row.entry || row).filter((entry) => entry.name);
+  const assignedEntries = displayRows.map((row) => row.entry || row).filter(hasAssignedRosterEmployee);
   const visibleRows = collapseRosterDuplicateSlotRows(displayRows, duplicateConflicts);
   const isTodayCard = day === getTodayDateValue();
   const canUseQuickHours = isTodayCard && assignedEntries.length > 0;
@@ -15526,12 +15532,16 @@ function formatRosterWeekHeaderLabel(weekValue) {
 }
 
 function renderCompactWeekRosterShiftLine(row) {
-  const employeeName = getRosterDuplicateSlotEmployeeDisplay(row, "Open");
+  const sourceEntry = row.entry || row;
+  const isKeptOpen = isPlanningEntryKeptOpen(sourceEntry);
+  const employeeName = isKeptOpen
+    ? "Bewust open"
+    : getRosterDuplicateSlotEmployeeDisplay(row, "Open");
   const shiftTime = `${row.startTime}-${row.endTime}`;
   const displayShiftName = getCompactRosterShiftLabel(row.shiftName);
   const duplicateText = formatRosterDuplicateSlotConflictText(row.duplicateSlotConflict);
-  const isFilled = employeeName && employeeName !== "Open";
-  const rowClass = `planning-shift-line ${isFilled ? "is-filled" : "is-open"} ${row.duplicateSlotConflict ? "has-duplicate-slot" : ""}`;
+  const isFilled = hasAssignedRosterEmployee(sourceEntry);
+  const rowClass = `planning-shift-line ${isFilled ? "is-filled" : "is-open"} ${isKeptOpen && !isFilled ? "is-kept-open" : ""} ${row.duplicateSlotConflict ? "has-duplicate-slot" : ""}`;
   const titleText = [
     row.shiftName,
     shiftTime,
@@ -15619,9 +15629,9 @@ function renderCompactWeekRosterDayCard(day, sourceEntries = entries, {
   const visibleRows = collapseRosterDuplicateSlotRows(rows, duplicateConflicts);
   const groupedRows = groupEntriesByDepartment(visibleRows);
 
-  const hasOpenShifts = visibleRows.some((row) => !row.entry);
+  const hasOpenShifts = visibleRows.some((row) => !hasAssignedRosterEmployee(row.entry || row));
   const hasVisibleContent = visibleRows.length || approvedAbsences.length;
-  const openCount = visibleRows.filter((row) => !row.entry).length;
+  const openCount = visibleRows.filter((row) => !hasAssignedRosterEmployee(row.entry || row)).length;
   const serviceCountText = `${visibleRows.length} dienst${visibleRows.length === 1 ? "" : "en"}`;
   const openCountText = openCount ? `${openCount} open` : "alles ingevuld";
   const relativeDayState = getRelativeDayState(day);
@@ -21638,7 +21648,7 @@ function hasSmartPlanningUnsavedChanges() {
 
   return smartPlanningProposalState.weeks.some((weekProposal) => (
     Boolean(weekProposal?.cleared) ||
-    (weekProposal?.items || []).some((item) => isSmartPlanningProposalItemChanged(item) || isSmartPlanningProposalItemKeptOpen(item))
+    (weekProposal?.items || []).some((item) => isSmartPlanningProposalItemChanged(item))
   ));
 }
 
@@ -21931,7 +21941,7 @@ function getSmartPlanningKeptOpenItems(data = null) {
   }
 
   return getSmartPlanningProposalItems()
-    .filter((item) => isSmartPlanningProposalItemKeptOpen(item) && !item.chosenEmployeeName)
+    .filter((item) => isSmartPlanningProposalItemKeptOpen(item) && !item.chosenEmployeeName && isSmartPlanningProposalItemChanged(item))
     .sort(compareSmartPlanningItemsByRosterOrder);
 }
 
@@ -21946,6 +21956,12 @@ function isSmartPlanningProposalItemChanged(item) {
   const originalEmployeeName = isSmartPlanningPlaceholderEmployeeName(item.originalEmployeeName)
     ? ""
     : (item.originalEmployeeName || "");
+  const openStateChanged = !chosenEmployeeName &&
+    Boolean(item.originalKeepOpen || item.originalLockedOpen) !== isSmartPlanningProposalItemKeptOpen(item);
+
+  if (openStateChanged) {
+    return true;
+  }
 
   if (!item.isExistingRosterEntry && !chosenEmployeeName) {
     return false;
@@ -21969,6 +21985,11 @@ function isSmartPlanningPlaceholderEmployeeName(employeeName = "") {
 
 function isSmartPlanningProposalItemKeptOpen(item) {
   return Boolean(item?.keepOpen || item?.lockedOpen);
+}
+
+function isPlanningEntryKeptOpen(entry = {}) {
+  const assignmentReason = String(entry?.assignmentReason || entry?.autoFillReason || "").trim().toLowerCase();
+  return Boolean(entry?.keepOpen || entry?.lockedOpen || assignmentReason === "bewust open");
 }
 
 function isSmartPlanningOpenProposalItem(item) {
@@ -22145,20 +22166,24 @@ function getUniqueSmartPlanningItemsByStableSlot(items = []) {
 
 function createSmartPlanningRosterEntry(item, shift) {
   const employeeName = item.chosenEmployeeName || "";
+  const isKeptOpen = !employeeName && isSmartPlanningProposalItemKeptOpen(item);
   const startTime = item.startTime || shift.startTime || "";
   const endTime = item.endTime || shift.endTime || "";
 
   return {
-    name: employeeName,
+    name: isKeptOpen ? "Open" : employeeName,
     day: item.day,
     startTime,
     endTime,
     hours: calculateHours(startTime, endTime) || 0,
     shiftId: (shift.id || "").startsWith("shop-") ? "" : (shift.id || item.shiftId || ""),
     shiftName: shift.name || item.shiftName || "Dienst",
-    replacementFor: isBakeryCoreShift(shift) && getPrimaryStandardEmployeeForShift(shift.name) && getPrimaryStandardEmployeeForShift(shift.name) !== employeeName
+    replacementFor: !isKeptOpen && isBakeryCoreShift(shift) && getPrimaryStandardEmployeeForShift(shift.name) && getPrimaryStandardEmployeeForShift(shift.name) !== employeeName
       ? getPrimaryStandardEmployeeForShift(shift.name)
-      : ""
+      : "",
+    keepOpen: isKeptOpen,
+    lockedOpen: isKeptOpen,
+    assignmentReason: isKeptOpen ? "Bewust open" : ""
   };
 }
 
@@ -22195,15 +22220,21 @@ function clearAppliedSmartPlanningAssignments(appliedItemIds) {
         }
 
         if (!item.chosenEmployeeName) {
+          const isKeptOpen = isSmartPlanningProposalItemKeptOpen(item);
+          const shift = isKeptOpen ? getSmartPlanningShiftFromProposalItem(item) : null;
+          const nextEntry = isKeptOpen && shift ? createSmartPlanningRosterEntry(item, shift) : null;
+
           return {
             ...item,
-            originalEmployeeName: "",
-            originalEntryKey: "",
-            isExistingRosterEntry: false,
-            keepOpen: false,
-            lockedOpen: false,
+            originalEmployeeName: isKeptOpen ? "Open" : "",
+            originalEntryKey: nextEntry ? getPlanningEntrySyncId(nextEntry) : "",
+            isExistingRosterEntry: isKeptOpen,
+            keepOpen: isKeptOpen,
+            lockedOpen: isKeptOpen,
+            originalKeepOpen: isKeptOpen,
+            originalLockedOpen: isKeptOpen,
             autoFillBlockReason: "",
-            assignmentReason: ""
+            assignmentReason: isKeptOpen ? "Bewust open" : ""
           };
         }
 
@@ -22221,6 +22252,8 @@ function clearAppliedSmartPlanningAssignments(appliedItemIds) {
           isExistingRosterEntry: true,
           keepOpen: false,
           lockedOpen: false,
+          originalKeepOpen: false,
+          originalLockedOpen: false,
           autoFillBlockReason: "",
           assignmentReason: "Bestaand"
         };
@@ -22373,15 +22406,29 @@ async function applySmartPlanningToRoster() {
       replacedEntries.push(...slotEntries);
     };
 
-    if (slotEntries.length && !employeeName) {
-      removeSlotEntries();
-      clearedCount += 1;
+    if (isSmartPlanningProposalItemKeptOpen(item) && !employeeName) {
+      if (!slotEntries.length) {
+        const openSlot = findMatchingOpenPlanningSlot(item, workingEntries);
+        if (!openSlot.shift || !openSlot.isOpen) {
+          addSkippedReason("slot niet open");
+          return;
+        }
+      }
+
+      const nextEntry = createSmartPlanningRosterEntry(item, shift);
+      if (slotEntries.length) {
+        removeSlotEntries();
+      }
+      workingEntries.push(nextEntry);
+      savedEntries.push(nextEntry);
+      keptOpenCount += 1;
       appliedItemIds.add(item.id);
       return;
     }
 
-    if (isSmartPlanningProposalItemKeptOpen(item) && !employeeName) {
-      keptOpenCount += 1;
+    if (slotEntries.length && !employeeName) {
+      removeSlotEntries();
+      clearedCount += 1;
       appliedItemIds.add(item.id);
       return;
     }
@@ -25340,6 +25387,8 @@ function createSmartPlanningProposalItemFromOpenItem(weekValue, item, index) {
     originalEmployeeName: "",
     keepOpen: false,
     lockedOpen: false,
+    originalKeepOpen: false,
+    originalLockedOpen: false,
     autoFillBlockReason: ""
   };
 }
@@ -25354,6 +25403,7 @@ function createSmartPlanningProposalItemFromExistingEntry(weekValue, entry, inde
   };
   const employeeName = entry.name || "";
   const isOpenEmployeeName = isSmartPlanningPlaceholderEmployeeName(employeeName);
+  const isKeptOpenEntry = isPlanningEntryKeptOpen(entry);
   const plannedStartTime = entry.startTime || shift.startTime || "";
   const plannedEndTime = entry.endTime || shift.endTime || "";
 
@@ -25374,10 +25424,12 @@ function createSmartPlanningProposalItemFromExistingEntry(weekValue, entry, inde
     originalEmployeeName: employeeName,
     originalEntryKey: getPlanningEntrySyncId(entry),
     isExistingRosterEntry: true,
-    keepOpen: false,
-    lockedOpen: false,
+    keepOpen: isKeptOpenEntry,
+    lockedOpen: isKeptOpenEntry,
+    originalKeepOpen: isKeptOpenEntry,
+    originalLockedOpen: isKeptOpenEntry,
     autoFillBlockReason: "",
-    assignmentReason: isOpenEmployeeName ? "" : "Bestaand"
+    assignmentReason: isKeptOpenEntry ? "Bewust open" : (isOpenEmployeeName ? "" : "Bestaand")
   };
 }
 
