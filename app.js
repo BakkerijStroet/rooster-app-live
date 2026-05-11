@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260509-android-normal-startup";
+const APP_VERSION = "20260509-safe-start";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -360,17 +360,15 @@ function isSafeStartupMode() {
   return /(?:^\?|&)safe=1(?:&|$)/.test(search);
 }
 
-const safeStartupMode = isSafeStartupMode();
+const safeStartupMode = true;
 
 function updateSafeModeStatus(message = "Laden...") {
   if (!safeModeStatus) {
     return;
   }
 
-  safeModeStatus.style.display = safeStartupMode ? "block" : "none";
-  safeModeStatus.textContent = safeStartupMode
-    ? `Veilige modus actief · ${message}`
-    : "";
+  safeModeStatus.style.display = "block";
+  safeModeStatus.textContent = `Veilige startup actief · ${message}`;
 }
 
 function reportAppError(userMessage, error, context = "") {
