@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260509-safe-start";
+const APP_VERSION = "20260511-extra-hours-worklogs";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -9524,7 +9524,7 @@ function getMobileWorkLogSubmitResult(workLogId) {
   if (workLog?.status === "open") {
     return {
       isSubmitted: true,
-      message: isExtraWorkedLog(workLog) ? "Extra uren opgeslagen." : "Uren succesvol ingediend."
+      message: isExtraWorkedLog(workLog) ? "Extra uren ingediend." : "Uren succesvol ingediend."
     };
   }
 
@@ -27235,7 +27235,7 @@ function showWorkLogValidationError(workLogId, field, message) {
   return false;
 }
 
-function saveWorkLogFromForm(workLogId, action = "save") {
+async function saveWorkLogFromForm(workLogId, action = "save") {
   const entry = getWorkLogContextById(workLogId);
 
   if (!entry) {
@@ -27285,6 +27285,7 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   const breakMinutes = Math.max(0, Number(breakMinutesInput.value) || 0);
   const notes = notesInput.value.trim();
   const existingLog = workLogs.find((log) => log.id === workLogId) || null;
+  const previousLogSnapshot = existingLog ? cloneSerializableValue(existingLog) : null;
   const employeeReply = employeeReplyInput ? employeeReplyInput.value.trim() : (existingLog?.employeeReply || "");
   const validation = getWorkLogValidationState(entry, {
     actualStart,
@@ -27296,7 +27297,7 @@ function saveWorkLogFromForm(workLogId, action = "save") {
     if (action === "submit" && existingLog.status === "open") {
       activeMobileWorkLogId = "";
       clearMobileWorkLogFormValues(workLogId);
-      setMobileHoursFeedback(workLogId, entry.isManualHours ? "Extra uren opgeslagen." : "Uren succesvol ingediend.", "success");
+      setMobileHoursFeedback(workLogId, entry.isManualHours ? "Extra uren ingediend." : "Uren succesvol ingediend.", "success");
       return true;
     }
 
@@ -27398,6 +27399,22 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   };
   const existingIndex = workLogs.findIndex((log) => log.id === workLogId);
 
+  function restoreWorkLogAfterFailedSave() {
+    const currentIndex = workLogs.findIndex((log) => log.id === workLogId);
+
+    if (previousLogSnapshot) {
+      if (currentIndex >= 0) {
+        workLogs[currentIndex] = previousLogSnapshot;
+      } else {
+        workLogs.push(previousLogSnapshot);
+      }
+    } else if (currentIndex >= 0) {
+      workLogs.splice(currentIndex, 1);
+    }
+
+    persistWorkLogsToLocalStorage();
+  }
+
   if (existingIndex >= 0) {
     workLogs[existingIndex] = nextLog;
   } else {
@@ -27412,11 +27429,35 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   savePreferences();
   try {
     saveWorkLogs();
+
+    if (action === "submit" && isWorkLogCentralSyncEnabled()) {
+      if (workLogCentralSyncTimer) {
+        clearTimeout(workLogCentralSyncTimer);
+        workLogCentralSyncTimer = null;
+      }
+
+      const isCentrallySaved = await syncWorkLogsToCentral();
+
+      if (!isCentrallySaved) {
+        restoreWorkLogAfterFailedSave();
+        rememberMobileWorkLogFormValues(workLogId);
+        const centralSaveMessage = entry.isManualHours
+          ? "Extra uren konden niet worden opgeslagen. Probeer opnieuw."
+          : "Uren indienen is niet gelukt. Probeer opnieuw.";
+        setWorkLogSubmitError(workLogId, centralSaveMessage);
+        showMessage(centralSaveMessage, "error");
+        return false;
+      }
+    }
   } catch (error) {
     console.error("saveWorkLogs mislukt", error);
+    restoreWorkLogAfterFailedSave();
     rememberMobileWorkLogFormValues(workLogId);
-    setWorkLogSubmitError(workLogId, "Uren opslaan is niet gelukt. Probeer opnieuw.");
-    showMessage("Uren opslaan is niet gelukt. Probeer opnieuw.", "error");
+    const saveErrorMessage = entry.isManualHours
+      ? "Extra uren konden niet worden opgeslagen. Probeer opnieuw."
+      : "Uren opslaan is niet gelukt. Probeer opnieuw.";
+    setWorkLogSubmitError(workLogId, saveErrorMessage);
+    showMessage(saveErrorMessage, "error");
     return false;
   }
 
@@ -27460,7 +27501,7 @@ function saveWorkLogFromForm(workLogId, action = "save") {
     setMobileHoursFeedback(
       workLogId,
       action === "submit"
-        ? (entry.isManualHours ? "Extra uren opgeslagen." : "Uren succesvol ingediend.")
+        ? (entry.isManualHours ? "Extra uren ingediend." : "Uren succesvol ingediend.")
         : "Uren opgeslagen.",
       "success"
     );
@@ -27482,7 +27523,7 @@ function saveWorkLogFromForm(workLogId, action = "save") {
   }
 
   const successMessage = action === "submit"
-    ? (entry.isManualHours ? "Extra uren opgeslagen." : "Uren succesvol ingediend.")
+    ? (entry.isManualHours ? "Extra uren ingediend." : "Uren succesvol ingediend.")
     : isPlannerCorrectionOnApproved
       ? "Goedgekeurde uren bijgewerkt."
       : entry.day === getTodayLocalDateValue()
@@ -30081,7 +30122,7 @@ copyPreviousWeekButton.addEventListener("click", () => {
   showMessage("Rooster bijgewerkt.", "success");
 });
 
-myHoursRegistrations?.addEventListener("click", (event) => {
+myHoursRegistrations?.addEventListener("click", async (event) => {
   const pickDateButton = event.target.closest("[data-hours-pick-date]");
 
   if (pickDateButton?.dataset.hoursPickDate && !isPlannerRole() && hoursDateInput) {
@@ -30260,7 +30301,7 @@ myHoursRegistrations?.addEventListener("click", (event) => {
     let wasSaved = false;
 
     try {
-      wasSaved = saveWorkLogFromForm(workLogId, effectiveWorkLogAction);
+      wasSaved = await saveWorkLogFromForm(workLogId, effectiveWorkLogAction);
     } catch (error) {
       console.error("Uren indienen mislukt", error);
 
