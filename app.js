@@ -27997,27 +27997,27 @@ function getHoursWeekReviewState(weekValue, employeeName = "") {
   });
 }
 
-function updateWorkLogStatus(workLogId, nextStatus, managerNote = "") {
+async function updateWorkLogStatus(workLogId, nextStatus, managerNote = "") {
   const workLog = workLogs.find((log) => log.id === workLogId);
 
   if (!workLog) {
     showMessage("De urenregistratie is niet gevonden.", "error");
-    return;
+    return false;
   }
 
   if (!isPlannerRole()) {
     showMessage("Alleen planner of directie kan uren goedkeuren.", "error");
-    return;
+    return false;
   }
 
   if (workLog.status === "approved") {
     showMessage("Goedgekeurde uren zijn geblokkeerd voor verdere wijziging.", "error");
-    return;
+    return false;
   }
 
   if ((nextStatus === "rejected" || nextStatus === "revision") && !managerNote?.trim()) {
     showMessage("Een opmerking is verplicht bij afkeuren of terugsturen.", "error");
-    return;
+    return false;
   }
 
   const statusLabels = {
@@ -28026,6 +28026,7 @@ function updateWorkLogStatus(workLogId, nextStatus, managerNote = "") {
     rejected: "afgekeurd",
     revision: "teruggestuurd voor opmerking"
   };
+  const previousLogSnapshot = cloneSerializableValue(workLog);
   workLog.status = nextStatus;
   workLog.managerNote = managerNote?.trim() || "";
   workLog.updatedAt = getNowIsoString();
@@ -28033,7 +28034,37 @@ function updateWorkLogStatus(workLogId, nextStatus, managerNote = "") {
     ...(workLog.auditTrail || []),
     createWorkLogAuditEntry(`status-${nextStatus}`, statusLabels[nextStatus] || nextStatus)
   ];
-  saveWorkLogs();
+
+  try {
+    saveWorkLogs();
+
+    if (isWorkLogCentralSyncEnabled()) {
+      if (workLogCentralSyncTimer) {
+        clearTimeout(workLogCentralSyncTimer);
+        workLogCentralSyncTimer = null;
+      }
+
+      const isCentrallySaved = await syncWorkLogsToCentral();
+
+      if (!isCentrallySaved) {
+        throw new Error("Urenstatus kon niet centraal worden opgeslagen.");
+      }
+    }
+  } catch (error) {
+    const currentIndex = workLogs.findIndex((log) => log.id === workLogId);
+
+    if (currentIndex >= 0) {
+      workLogs[currentIndex] = previousLogSnapshot;
+      persistWorkLogsToLocalStorage();
+    }
+
+    console.error("updateWorkLogStatus mislukt", error);
+    renderMyHours();
+    renderHoursApproval();
+    showMessage("Urenstatus opslaan is niet gelukt. Vernieuw de gegevens en probeer opnieuw.", "error");
+    return false;
+  }
+
   if (["approved", "rejected", "revision"].includes(nextStatus)) {
     registerWorkLogMailNotification(workLog, nextStatus, [workLog.employeeName]);
   }
@@ -28063,6 +28094,7 @@ function updateWorkLogStatus(workLogId, nextStatus, managerNote = "") {
           : "Status bijgewerkt.",
     "success"
   );
+  return true;
 }
 
 function approveWorkLogsForWeek(weekValue, employeeName = "") {
@@ -30917,7 +30949,11 @@ hoursApprovalQueue?.addEventListener("click", (event) => {
 
   if (reviewButton) {
     const noteInput = hoursApprovalQueue.querySelector(`[data-worklog-review-note="${reviewButton.dataset.worklogId}"]`);
-    updateWorkLogStatus(reviewButton.dataset.worklogId, reviewButton.dataset.worklogReview, noteInput?.value || "");
+    reviewButton.disabled = true;
+    updateWorkLogStatus(reviewButton.dataset.worklogId, reviewButton.dataset.worklogReview, noteInput?.value || "")
+      .finally(() => {
+        reviewButton.disabled = false;
+      });
     return;
   }
 
