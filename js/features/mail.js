@@ -8,28 +8,51 @@
     return typeof value === "string" ? value.trim() : "";
   }
 
+  function sanitizeMailRecipientList(recipients = []) {
+    return Array.isArray(recipients)
+      ? recipients
+        .filter((recipient) => recipient && typeof recipient.employeeName === "string")
+        .map((recipient) => ({
+          employeeName: recipient.employeeName.trim(),
+          email: normalizeEmployeeEmail(recipient.email)
+        }))
+      : [];
+  }
+
+  function sanitizeActualMailRecipients(recipients = []) {
+    return Array.isArray(recipients)
+      ? recipients
+        .map((recipient) => normalizeEmployeeEmail(recipient))
+        .filter(Boolean)
+      : [];
+  }
+
   function sanitizeRequestMailLog(mailLog = []) {
     return Array.isArray(mailLog)
       ? mailLog
         .filter((item) => item && typeof item.type === "string" && typeof item.at === "string")
-        .map((item) => ({
-          type: item.type,
-          at: item.at,
-          periodKey: typeof item.periodKey === "string" ? item.periodKey : "",
-          status: ["missing-email", "config-missing", "queued", "sent", "failed", "local-preview"].includes(item.status)
-            ? item.status
-            : "queued",
-          messageId: typeof item.messageId === "string" ? item.messageId : "",
-          error: typeof item.error === "string" ? item.error : "",
-          recipients: Array.isArray(item.recipients)
-            ? item.recipients
-              .filter((recipient) => recipient && typeof recipient.employeeName === "string")
-              .map((recipient) => ({
-                employeeName: recipient.employeeName.trim(),
-                email: normalizeEmployeeEmail(recipient.email)
-              }))
-            : []
-        }))
+        .map((item) => {
+          const recipients = sanitizeMailRecipientList(item.recipients);
+          const logicalRecipients = Array.isArray(item.logicalRecipients)
+            ? sanitizeMailRecipientList(item.logicalRecipients)
+            : recipients;
+
+          return {
+            type: item.type,
+            at: item.at,
+            periodKey: typeof item.periodKey === "string" ? item.periodKey : "",
+            status: ["missing-email", "config-missing", "queued", "sent", "failed", "local-preview"].includes(item.status)
+              ? item.status
+              : "queued",
+            messageId: typeof item.messageId === "string" ? item.messageId : "",
+            error: typeof item.error === "string" ? item.error : "",
+            recipients,
+            logicalRecipients,
+            actualRecipients: sanitizeActualMailRecipients(item.actualRecipients),
+            testMode: item.testMode === true,
+            forceTestRecipient: item.forceTestRecipient === true
+          };
+        })
       : [];
   }
 

@@ -3287,27 +3287,45 @@ const {
     return typeof value === "string" ? value.trim() : "";
   },
   sanitizeRequestMailLog = function fallbackSanitizeRequestMailLog(mailLog = []) {
+    const sanitizeMailRecipientList = (recipients = []) => Array.isArray(recipients)
+      ? recipients
+        .filter((recipient) => recipient && typeof recipient.employeeName === "string")
+        .map((recipient) => ({
+          employeeName: recipient.employeeName.trim(),
+          email: normalizeEmployeeEmail(recipient.email)
+        }))
+      : [];
+    const sanitizeActualMailRecipients = (recipients = []) => Array.isArray(recipients)
+      ? recipients
+        .map((recipient) => normalizeEmployeeEmail(recipient))
+        .filter(Boolean)
+      : [];
+
     return Array.isArray(mailLog)
       ? mailLog
         .filter((item) => item && typeof item.type === "string" && typeof item.at === "string")
-        .map((item) => ({
-          type: item.type,
-          at: item.at,
-          periodKey: typeof item.periodKey === "string" ? item.periodKey : "",
-          status: ["missing-email", "config-missing", "queued", "sent", "failed", "local-preview"].includes(item.status)
-            ? item.status
-            : "queued",
-          messageId: typeof item.messageId === "string" ? item.messageId : "",
-          error: typeof item.error === "string" ? item.error : "",
-          recipients: Array.isArray(item.recipients)
-            ? item.recipients
-              .filter((recipient) => recipient && typeof recipient.employeeName === "string")
-              .map((recipient) => ({
-                employeeName: recipient.employeeName.trim(),
-                email: normalizeEmployeeEmail(recipient.email)
-              }))
-            : []
-        }))
+        .map((item) => {
+          const recipients = sanitizeMailRecipientList(item.recipients);
+          const logicalRecipients = Array.isArray(item.logicalRecipients)
+            ? sanitizeMailRecipientList(item.logicalRecipients)
+            : recipients;
+
+          return {
+            type: item.type,
+            at: item.at,
+            periodKey: typeof item.periodKey === "string" ? item.periodKey : "",
+            status: ["missing-email", "config-missing", "queued", "sent", "failed", "local-preview"].includes(item.status)
+              ? item.status
+              : "queued",
+            messageId: typeof item.messageId === "string" ? item.messageId : "",
+            error: typeof item.error === "string" ? item.error : "",
+            recipients,
+            logicalRecipients,
+            actualRecipients: sanitizeActualMailRecipients(item.actualRecipients),
+            testMode: item.testMode === true,
+            forceTestRecipient: item.forceTestRecipient === true
+          };
+        })
       : [];
   }
 } = window.StroetMailFeature || {};
@@ -16329,7 +16347,12 @@ async function sendEmail(to, subject, message) {
     return {
       ok: true,
       id: typeof payload?.id === "string" ? payload.id : "",
-      message: payloadMessage || getAppMailSentMessage()
+      message: payloadMessage || getAppMailSentMessage(),
+      actualRecipients: Array.isArray(payload?.recipients)
+        ? payload.recipients.map((recipient) => normalizeEmployeeEmail(recipient)).filter(Boolean)
+        : [],
+      testMode: payload?.testMode === true,
+      forceTestRecipient: payload?.forceTestRecipient === true
     };
   } catch (error) {
     console.error("[test-mail] sendEmail:exception", error);
@@ -16507,7 +16530,10 @@ function queueRequestMailDelivery(request, mailEntry, options = {}) {
       updateMailLogEntry(request, mailEntry, {
         status: "sent",
         messageId: result.id || "",
-        error: ""
+        error: "",
+        actualRecipients: Array.isArray(result.actualRecipients) ? result.actualRecipients : [],
+        testMode: result.testMode === true,
+        forceTestRecipient: result.forceTestRecipient === true
       }, persist, resolveCurrentRequest);
       if (typeof onStatusChange === "function") {
         onStatusChange(request, mailEntry);
@@ -16576,7 +16602,11 @@ function registerRequestMailNotification(request, type, employeeNames = [], opti
         status: hasAtLeastOneEmail ? "queued" : "missing-email",
         messageId: "",
         error: "",
-        recipients
+        recipients,
+        logicalRecipients: recipients,
+        actualRecipients: [],
+        testMode: APP_MAIL_TEST_MODE_ENABLED,
+        forceTestRecipient: APP_MAIL_TEST_MODE_ENABLED
       };
   request.mailLog.unshift(mailEntry);
   request.mailLog = request.mailLog.slice(0, 10);

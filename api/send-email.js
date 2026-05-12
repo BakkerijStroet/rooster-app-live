@@ -157,7 +157,8 @@ async function handler(req, res) {
           statusCode: 200,
           id: typeof resendPayload?.id === "string" ? resendPayload.id : "",
           recipients: mailPlan.recipients,
-          testMode: mailPlan.isTestMode || mailPlan.forceTestRecipient
+          testMode: mailPlan.isTestMode || mailPlan.forceTestRecipient,
+          forceTestRecipient: mailPlan.forceTestRecipient
         };
       }
     }
@@ -188,7 +189,9 @@ async function handler(req, res) {
             ? `Mail verzonden naar ${result.recipients.join(", ")} (testmodus)`
             : "Mail verzonden",
           id: result.id || "",
-          recipients: result.recipients || []
+          recipients: result.recipients || [],
+          testMode: result.testMode === true,
+          forceTestRecipient: result.forceTestRecipient === true
         }
       : {
           success: false,
