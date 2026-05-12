@@ -2472,6 +2472,35 @@ textarea.input-error {
   color: var(--color-warning);
 }
 
+.mail-test-status {
+  display: grid;
+  gap: 4px;
+  margin: 10px 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-success-border);
+  border-radius: 8px;
+  background: var(--color-success-soft);
+  color: var(--color-success);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.mail-test-status strong,
+.mail-test-status span,
+.mail-test-status small {
+  display: block;
+}
+
+.mail-test-status small {
+  color: var(--color-text-muted);
+}
+
+.mail-test-status.is-warning {
+  border-color: var(--color-warning-border);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
 .warning-note {
   color: var(--color-primary);
 }

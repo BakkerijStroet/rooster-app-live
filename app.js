@@ -20393,6 +20393,7 @@ function renderMailSettings() {
 
   mailSenderNameInput.value = normalizeMailSenderName(mailSettings.senderName || "Bakkerij Stroet");
   mailSenderEmailInput.value = normalizeEmployeeEmail(mailSettings.senderEmail);
+  renderMailTestModeStatus();
 
   if (!hasConfiguredMailSender()) {
     mailSettingsStatus.textContent = `Nog niet compleet: vul afzendernaam en e-mailadres in. Testmail gaat daarna naar ${FIXED_TEST_MAIL_RECIPIENT}.`;
@@ -20403,6 +20404,27 @@ function renderMailSettings() {
     ? ` Laatst bijgewerkt op ${formatDateTime(mailSettings.updatedAt)}${mailSettings.updatedByName ? ` door ${mailSettings.updatedByName}` : ""}.`
     : "";
   mailSettingsStatus.textContent = `Actieve afzender: ${mailSettings.senderName} <${mailSettings.senderEmail}>. Testmail gaat naar ${FIXED_TEST_MAIL_RECIPIENT}.${updatedLabel}`;
+}
+
+function renderMailTestModeStatus() {
+  if (!mailTestModeBadge) {
+    return;
+  }
+
+  const appMailStatus = APP_MAIL_TEST_MODE_ENABLED
+    ? `App-mails: testmodus actief`
+    : `App-mails: productiemodus zichtbaar als waarschuwing`;
+  const employeeMailStatus = EMPLOYEE_MAIL_TEST_MODE_ENABLED
+    ? `Medewerker-mails: testmodus actief (${EMPLOYEE_MAIL_TEST_EMPLOYEE})`
+    : `Medewerker-mails: productiemodus zichtbaar als waarschuwing`;
+  const isSafeTestMode = APP_MAIL_TEST_MODE_ENABLED && EMPLOYEE_MAIL_TEST_MODE_ENABLED;
+
+  mailTestModeBadge.innerHTML = `
+    <strong>${isSafeTestMode ? "Mailtestmodus actief" : "Let op: mailtestmodus niet volledig actief"}</strong>
+    <span>Alle testmails gaan naar ${FIXED_TEST_MAIL_RECIPIENT}.</span>
+    <small>${appMailStatus} · ${employeeMailStatus}</small>
+  `;
+  mailTestModeBadge.classList.toggle("is-warning", !isSafeTestMode);
 }
 
 function getDayPlannerShifts(dateValue) {
@@ -26436,6 +26458,9 @@ function applyRoleUI() {
     mailTestModeBadge.classList.toggle("hidden", !showMailTestMode);
     mailTestModeBadge.hidden = !showMailTestMode;
     mailTestModeBadge.setAttribute("aria-hidden", showMailTestMode ? "false" : "true");
+    if (showMailTestMode) {
+      renderMailTestModeStatus();
+    }
   }
 
   if (!isPlannerRole()) {
