@@ -1,6 +1,6 @@
 # Project Summary - Rooster/Uren App
 
-Laatst bijgewerkt: 2026-05-11
+Laatst bijgewerkt: 2026-05-12
 
 ## 1. Projectoverzicht
 
@@ -15,6 +15,26 @@ Data werkt in twee standen:
 - Testmode: lokaal gescheiden, zonder Supabase/API-sync.
 
 Belangrijke grondregel: Supabase is in live-mode de centrale bron. Lege of stale localStorage mag nooit centrale data overschrijven of oude data terugzetten.
+
+## 1A. Actuele live status
+
+Huidige live versie: `20260512-preserve-filled-slots`.
+
+De app zit nu in de fase stabiliseren/afronden. De huidige werkafspraak is: geen brede refactors, geen Supabase-schemawijzigingen zonder plan en geen productie-mails zonder expliciet akkoord.
+
+Live bevestigd:
+
+- Bewust-open slots blijven persistent na opslaan en refresh.
+- Bestaande ingevulde slots worden niet meer overschreven of als open behandeld door `Voorstel maken`.
+- Proposal-state wordt verzoend met actuele live `planning_entries` voordat een voorstel wordt opgebouwd.
+- Medewerkers zien open en bewust-open diensten niet.
+- `Extra gewerkt` zonder geplande dienst werkt live via bestaande workLog-flow.
+- Planner approval voor workLogs wacht nu de directe live save af.
+- Mailtestmodus is zichtbaar in de planneromgeving.
+- Testmails worden geforceerd naar `info@bakkerijstroet.nl`.
+- Supabase/live gezondheid is na unpause bevestigd: `employee_data`, `request_data`, `work_logs` en `planning_entries` laden weer goed.
+
+Supabase was tijdelijk gepauzeerd door free-tier inactivity. Voor productiegebruik is Supabase Pro of een ander plan met minder inactivity-risico aan te raden.
 
 ## 2. Architectuur
 
@@ -58,10 +78,20 @@ Belangrijke modules:
 
 Er zijn recent geen Supabase-schemawijzigingen gedaan voor de beschreven features; wijzigingen zijn via bestaande payload/meta-velden en bestaande routes opgelost.
 
+### Supabase gezondheid
+
+- Supabase was tijdelijk gepauzeerd door free-tier inactivity.
+- Na unpause is live gezondheid bevestigd.
+- `employee_data`, `request_data`, `work_logs` en `planning_entries` laden weer goed en leveren niet-lege datasets.
+- Advies voor productiegebruik: Supabase Pro of een passend productieplan overwegen om inactivity-pauses te voorkomen.
+
 ## 3. Veiligheidsregels
 
 - Geen productie-mail naar echte medewerkers zonder expliciet akkoord.
 - Mailtestmodus gebruikt vaste testontvanger `info@bakkerijstroet.nl`.
+- In mailtestmodus forceert de serverroute de werkelijke ontvanger naar `info@bakkerijstroet.nl`.
+- MailLog houdt nieuwe entries auditbaar bij met logische ontvangers, werkelijke ontvangers en testmode/forceTestRecipient-vlaggen.
+- Oude mailLogs zonder deze auditvelden blijven backward-compatible.
 - Testmode raakt Supabase/API-sync niet.
 - Live-mode gebruikt centrale data als bron.
 - Tombstones in planning/request-data winnen van oude lokale data.
@@ -94,6 +124,7 @@ Planner-inbox voor workLogs:
 - Medewerkerfilter, weekfilter en export blijven beschikbaar.
 - Extra gewerkt zonder geplande dienst wordt meegenomen als normale workLog-regel.
 - Planner kan goedkeuren, terugsturen met opmerking of afwijzen.
+- Live fix bevestigd: planner approval wacht de directe live save af voordat de UI de status als definitief behandelt.
 
 Belangrijke helpers:
 
@@ -214,6 +245,9 @@ Belangrijk principe: liever OPEN dan een verkeerde medewerker.
 - Dubbele bezetting/save-merge bug is opgelost met stabiele slotKeys.
 - Bestaande ingevulde slots worden niet stil overschreven.
 - Open/bewust-open status blijft herkenbaar na save/reload.
+- `Voorstel maken` behandelt bestaande live ingevulde slots als leidend en maakt ze niet leeg/open.
+- Proposal-state wordt bij opbouw verzoend met actuele live planning.
+- Als live planning niet betrouwbaar geladen is, moet opslaan geblokkeerd worden in plaats van open slots te genereren.
 
 ## 6. Medewerkeromgeving
 
@@ -308,6 +342,10 @@ Belangrijke recente fix:
 - Bij submit in live-mode wordt centrale save direct geflusht.
 - Bij centrale fout wordt lokale tijdelijke wijziging teruggedraaid en toont de app: `Extra uren konden niet worden opgeslagen. Probeer opnieuw.`
 - Succesmelding: `Extra uren ingediend.`
+- Live validatie: `manual|Niek|2026-05-12` is veilig door de flow gegaan.
+- Live statusverloop bevestigd: `open` -> `approved`.
+- Geen duplicate workLog ontstaan bij refresh of approval.
+- Planner approval wacht nu de directe live save af.
 
 Stale localStorage:
 
@@ -359,30 +397,44 @@ Aanpak na Android/Samsung white screen:
 - Fallbacks zijn toegevoegd voor oudere browserfeatures zoals `crypto.randomUUID`, observer APIs, `CSS.escape`, matchMedia listeners en scrollIntoView opties.
 - Cache-busting wordt bij relevante fixes verhoogd via `APP_VERSION` en script/style querystrings.
 
-Huidige versie na laatste codefix: `20260511-open-slot-persistence`.
+Huidige live versie: `20260512-preserve-filled-slots`.
 
 ## 11. Mail
 
 Mail loopt via server-side route en bestaande mailhelpers.
 
-Bekend:
+Actuele veiligheidsstatus:
 
 - Aanvraagmails en wijzigingsmails gebruiken mailLog-statussen.
-- Mailtestmodus is aanwezig.
+- Mailtestmodus is zichtbaar in de planneromgeving.
 - Testontvanger blijft `info@bakkerijstroet.nl`.
+- `api/send-email.js` forceert bij `testMode` of `forceTestRecipient` de werkelijke ontvanger naar `info@bakkerijstroet.nl`.
 - Twan is gebruikt/bedoeld als veilige testmedewerker voor mailtests.
 - Productie-mail moet bewust worden aangezet.
 - Geen frontend secrets.
+- De daadwerkelijke mailveiligheid is niet gewijzigd door de auditpatch.
+
+MailLog auditvelden:
+
+- `recipients` blijft bestaan voor backward compatibility.
+- Nieuwe mailLog entries bevatten ook `logicalRecipients`, `actualRecipients`, `testMode` en `forceTestRecipient`.
+- `logicalRecipients` beschrijft voor wie de mail functioneel bedoeld was.
+- `actualRecipients` beschrijft waar de mailroute de mail echt naartoe heeft gestuurd.
+- In testmodus moet `actualRecipients` zichtbaar `["info@bakkerijstroet.nl"]` bevatten.
+- Oude mailLogs zonder deze velden blijven renderen; sanitizer vult `logicalRecipients` uit `recipients`, laat `actualRecipients` leeg en gebruikt `testMode: false` / `forceTestRecipient: false`.
 
 Openstaand:
 
-- Volledige live mailflow moet nog gecontroleerd worden per flow: vakantie, vrije dag, ziekmelding, goedkeuren, afwijzen, wijzigen, intrekken en ruilverzoek.
+- Volledige live mailflow moet nog gecontroleerd worden per flow: vakantie, vrije dag, ziekmelding, goedkeuren, afwijzen, intrekken en ruilverzoek.
 - Geen productie-mails naar echte medewerkers sturen zonder expliciet akkoord.
 
 ## 12. Recente commits
 
 Recente relevante commits:
 
+- `3634840` - `fix: record actual mail recipients in test mode logs`: mailLog auditvelden voor logische/werkelijke ontvangers en testmodus.
+- `83b0e81` - `fix: expose safe mail test mode status`: planner ziet mailtestmodus en vaste testontvanger expliciet.
+- `73f525e` - basis voor `20260512-preserve-filled-slots`: bestaande ingevulde slots blijven behouden bij voorstelopbouw.
 - `bf4ca57` - `fix: persist extra hours without planned shift`: extra gewerkt zonder geplande dienst wordt centraal als open workLog opgeslagen.
 - `10d15f2` - `fix: make safe startup the default`: normale startup gebruikt veilige login-start.
 - `08fea5b` - `fix: stabilize android normal startup`: normale Android-startup verder gestabiliseerd.
@@ -411,22 +463,20 @@ Recente relevante commits:
 
 ## 13. Open aandachtspunten
 
-Nog bewust testen:
+Nog bewust testen/afronden:
 
-- Live `Rooster opslaan` met ingevuld/open/bewust-open en refresh.
-- Wendy/ziek/operatie/herstel in juni in Rooster plannen.
-- Weekendhulpen en Saskia-belasting bij juli/vooruit plannen.
-- Extra beschikbaarheid + `Herbereken week` met weekendhulp op woensdag.
-- Niek: `Mijn uren` -> `Extra gewerkt` op zaterdag zonder geplande dienst, refresh, planner `Uren controleren`.
-- Medewerkerhistorie voor extra uren zonder geplande dienst.
-- Android/Google/Samsung normale URL op echte probleemtelefoon.
-- Een volledige mobiele medewerker-gebruikstest.
-- Mailflow volledig testen met Twan/testontvanger.
-- Productie-mail pas bewust aanzetten.
+- Volledige mailflows in testmodus: goedkeuren, afwijzen, intrekken, vakantie, ziekmelding en ruilverzoek.
+- Vrije-dag testaanvraag Twan `2026-12-05` kan worden gebruikt voor een gecontroleerde goedkeuren/afwijzen-mailtest nadat expliciet akkoord is gegeven.
+- Android/Samsung praktijktest op de echte probleemtelefoon.
+- Mobiele langere sessietest voor medewerkergebruik.
+- Daarna pas UX/polish.
+- Productie-mail pas bewust aanzetten na expliciet akkoord.
 
 ## 14. Ontwikkelafspraken
 
 - Houd wijzigingen klein en gericht.
+- De app zit nu in stabiliseren/afronden.
+- Geen brede refactors.
 - Geen Supabase-schema/API-wijzigingen zonder vooraf plan.
 - Geen harde deletes tenzij expliciet gevraagd en exact gematcht.
 - Geen echte productie-mails zonder akkoord.
