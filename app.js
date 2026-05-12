@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260511-open-slot-persistence";
+const APP_VERSION = "20260512-preserve-filled-slots";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -815,6 +815,7 @@ function resetCentralSyncStateForModeSwitch() {
   workLogCentralSyncInFlight = false;
   employeeDataCentralSyncInFlight = false;
   planningEntriesCentralSyncInFlight = false;
+  planningEntriesCentralSyncLoading = false;
   requestDataCentralSyncInFlight = false;
   workLogCentralSyncPending = false;
   employeeDataCentralSyncPending = false;
@@ -824,6 +825,7 @@ function resetCentralSyncStateForModeSwitch() {
   workLogCentralSnapshotSignature = "";
   employeeDataCentralSyncLoaded = false;
   planningEntriesCentralSyncLoaded = false;
+  planningEntriesCentralDataReady = false;
   requestDataCentralSyncLoaded = false;
 }
 
@@ -2201,7 +2203,9 @@ window.migrateLocalEmployeeDataToCentral = migrateLocalEmployeeDataToCentral;
 let planningEntriesCentralSyncTimer = null;
 let planningEntriesCentralSyncInFlight = false;
 let planningEntriesCentralSyncPending = false;
+let planningEntriesCentralSyncLoading = false;
 let planningEntriesCentralSyncLoaded = false;
+let planningEntriesCentralDataReady = false;
 let lastPlanningEntriesCentralSyncError = null;
 
 function isPlanningEntriesCentralSyncEnabled() {
@@ -2433,11 +2437,11 @@ async function syncPlanningEntriesToCentral() {
 }
 
 async function syncPlanningEntriesFromCentral({ queueMissingCentralSave = true, preferCentral = false } = {}) {
-  if (!isPlanningEntriesCentralSyncEnabled() || planningEntriesCentralSyncLoaded) {
+  if (!isPlanningEntriesCentralSyncEnabled() || planningEntriesCentralSyncLoaded || planningEntriesCentralSyncLoading) {
     return;
   }
 
-  planningEntriesCentralSyncLoaded = true;
+  planningEntriesCentralSyncLoading = true;
   const localBeforeSync = getPlanningEntriesSnapshot();
 
   try {
@@ -2467,8 +2471,19 @@ async function syncPlanningEntriesFromCentral({ queueMissingCentralSave = true, 
       // Upsert-only: ontbrekende centrale rows worden aangevuld, verwijderingen syncen we later expliciet.
       queuePlanningEntriesCentralSave();
     }
+    planningEntriesCentralSyncLoaded = true;
+    planningEntriesCentralDataReady = true;
+    lastPlanningEntriesCentralSyncError = null;
+    window.lastPlanningEntriesCentralSyncError = null;
+    if (activeTab === "planning") {
+      renderSmartPlanningPanel();
+    }
   } catch (error) {
+    planningEntriesCentralSyncLoaded = false;
+    planningEntriesCentralDataReady = false;
     reportPlanningEntriesCentralSyncError("load", error);
+  } finally {
+    planningEntriesCentralSyncLoading = false;
   }
 }
 
@@ -5192,6 +5207,7 @@ let smartPlanningTimeEditState = null;
 let smartPlanningDirty = false;
 let smartPlanningFocusedWeek = "";
 let pendingSmartPlanningScrollWeek = "";
+let lastSmartPlanningProposalBlockLogKey = "";
 const smartPlanningUnsavedWarningMessage = "Je hebt niet-opgeslagen wijzigingen in Rooster plannen. Wil je doorgaan zonder op te slaan?";
 const smartPlanningAutoFillMinScore = 800;
 const smartPlanningClearedWeekSnapshots = {};
@@ -21869,6 +21885,37 @@ function getSmartPlanningMonthData() {
   };
 }
 
+function canBuildSmartPlanningProposalFromCurrentPlanningData(options = {}) {
+  const { notify = false } = options;
+
+  if (!isPlanningEntriesCentralSyncEnabled()) {
+    return true;
+  }
+
+  if (planningEntriesCentralDataReady) {
+    return true;
+  }
+
+  const hasLoadError = Boolean(lastPlanningEntriesCentralSyncError);
+  const message = hasLoadError
+    ? "Roosterdata kon niet veilig centraal worden geladen. Ververs de pagina en probeer opnieuw voordat je een voorstel maakt of opslaat."
+    : "Roosterdata wordt nog geladen. Wacht tot de veilige startup gereed is voordat je een voorstel maakt of opslaat.";
+
+  if (notify) {
+    showMessage(message, hasLoadError ? "error" : "warning");
+  }
+
+  console.warn("[smart-planning:proposal-blocked]", {
+    mode: currentDataMode,
+    centralLoadStarted: planningEntriesCentralSyncLoaded || planningEntriesCentralSyncLoading,
+    centralLoading: planningEntriesCentralSyncLoading,
+    centralDataReady: planningEntriesCentralDataReady,
+    hasLoadError
+  });
+
+  return false;
+}
+
 function getSmartPlanningProposalWeeks(data = getSmartPlanningMonthData()) {
   const hasProposal = smartPlanningProposalState?.startWeek === data.selectedWeek;
 
@@ -22080,9 +22127,12 @@ function updateSmartPlanningApplyButton(data = getSmartPlanningMonthData()) {
   }
 
   const summary = getSmartPlanningApplySummary(data);
-  smartPlanningApplyProposalButton.disabled = smartPlanningIsSavingRoster || summary.pendingCount === 0;
+  const planningDataReady = canBuildSmartPlanningProposalFromCurrentPlanningData();
+  smartPlanningApplyProposalButton.disabled = smartPlanningIsSavingRoster || !planningDataReady || summary.pendingCount === 0;
   smartPlanningApplyProposalButton.textContent = smartPlanningIsSavingRoster ? "Opslaan..." : "Rooster opslaan";
-  smartPlanningApplyProposalButton.title = summary.pendingCount
+  smartPlanningApplyProposalButton.title = !planningDataReady
+    ? "Wacht tot roosterdata centraal geladen is voordat je opslaat."
+    : summary.pendingCount
     ? `${summary.pendingCount} keuze${summary.pendingCount === 1 ? "" : "s"} opslaan`
     : "Kies eerst minimaal één medewerker of maak een dienst leeg.";
 }
@@ -22325,7 +22375,20 @@ async function persistSmartPlanningRosterSaveToCentral(deletedEntries = [], next
 }
 
 async function applySmartPlanningToRoster() {
-  const data = getSmartPlanningMonthData();
+  if (!canBuildSmartPlanningProposalFromCurrentPlanningData({ notify: true })) {
+    smartPlanningIsSavingRoster = false;
+    smartPlanningApplyConfirmVisible = false;
+    renderSmartPlanningPanel();
+    return;
+  }
+
+  let data = getSmartPlanningMonthData();
+  reconcileSmartPlanningProposalWithCurrentPlanningData(data, {
+    notify: true,
+    skipCleared: true,
+    source: "save"
+  });
+  data = getSmartPlanningMonthData();
   const assignedItems = getSmartPlanningAssignedItems(data);
   const keptOpenItems = getSmartPlanningKeptOpenItems(data);
   const itemsToApply = [
@@ -22544,6 +22607,12 @@ async function applySmartPlanningToRoster() {
 
 function startSmartPlanningRosterSave() {
   if (smartPlanningIsSavingRoster) {
+    return;
+  }
+
+  if (!canBuildSmartPlanningProposalFromCurrentPlanningData({ notify: true })) {
+    smartPlanningApplyConfirmVisible = false;
+    renderSmartPlanningPanel();
     return;
   }
 
@@ -23566,7 +23635,14 @@ function debugEmployeeAvailability(employeeName, date) {
 window.debugEmployeeAvailability = debugEmployeeAvailability;
 
 function autoFillSmartPlanningProposal(options = {}) {
-  const data = getSmartPlanningMonthData();
+  if (!canBuildSmartPlanningProposalFromCurrentPlanningData({ notify: true })) {
+    smartPlanningApplyConfirmVisible = false;
+    smartPlanningClearWeekConfirmVisible = false;
+    renderSmartPlanningPanel();
+    return;
+  }
+
+  let data = getSmartPlanningMonthData();
   const explicitTargetWeek = options.weekValue || "";
   const targetWeek = explicitTargetWeek || smartPlanningFocusedWeek || data.selectedWeek;
   if (!isSmartPlanningProposalCurrent(data)) {
@@ -23574,7 +23650,12 @@ function autoFillSmartPlanningProposal(options = {}) {
   } else if (getSmartPlanningProposalWeekByValue(targetWeek)?.cleared) {
     rebuildSmartPlanningProposalWeek(targetWeek, { clearRestoreSnapshot: true });
   }
-  ensureSmartPlanningProposalHasVisibleOpenItems(getSmartPlanningMonthData());
+  data = getSmartPlanningMonthData();
+  reconcileSmartPlanningProposalWithCurrentPlanningData(data, {
+    notify: true,
+    skipCleared: true,
+    source: options.recalculate ? "recalculate" : "make-proposal"
+  });
 
   if (!smartPlanningProposalState?.weeks?.length) {
     showMessage("Er zijn geen diensten gevonden om automatisch te vullen.", "warning");
@@ -25344,13 +25425,24 @@ function renderSmartPlanningPanel() {
   }
 
   const data = getSmartPlanningMonthData();
+  const planningDataReady = canBuildSmartPlanningProposalFromCurrentPlanningData();
+  if (smartPlanningMakeProposalButton) {
+    smartPlanningMakeProposalButton.disabled = !planningDataReady;
+    smartPlanningMakeProposalButton.title = planningDataReady
+      ? ""
+      : "Wacht tot roosterdata centraal geladen is voordat je een voorstel maakt.";
+  }
   if (!isSmartPlanningProposalCurrent(data)) {
     refreshSmartPlanningDirtyState();
-    if (!smartPlanningDirty) {
+    if (!smartPlanningDirty && planningDataReady) {
       createSmartPlanningAdjustmentProposal({ render: false, silent: true });
+    } else if (!planningDataReady) {
+      smartPlanningProposalState = null;
+      smartPlanningApplyConfirmVisible = false;
+      smartPlanningClearWeekConfirmVisible = false;
     }
-  } else {
-    ensureSmartPlanningProposalHasVisibleOpenItems(data);
+  } else if (planningDataReady) {
+    reconcileSmartPlanningProposalWithCurrentPlanningData(data, { skipCleared: true, source: "render" });
   }
 
   ensureSmartPlanningFocusedWeek(data);
@@ -25436,10 +25528,212 @@ function createSmartPlanningProposalItemFromExistingEntry(weekValue, entry, inde
 function buildSmartPlanningProposalItemsForWeek(weekValue, weekData = getSmartPlanningWeekData(weekValue)) {
   const existingItems = sortRosterEntriesForDisplay(weekData.weekEntries || [])
     .map((entry, index) => createSmartPlanningProposalItemFromExistingEntry(weekValue, entry, index));
+  const existingSlotKeys = new Set(existingItems.map(getSmartPlanningItemStableSlotKey).filter(Boolean));
   const openItems = (weekData.openItems || [])
-    .map((item, index) => createSmartPlanningProposalItemFromOpenItem(weekValue, item, index));
+    .map((item, index) => createSmartPlanningProposalItemFromOpenItem(weekValue, item, index))
+    .filter((item) => {
+      const slotKey = getSmartPlanningItemStableSlotKey(item);
+      return !slotKey || !existingSlotKeys.has(slotKey);
+    });
 
   return [...existingItems, ...openItems].sort(compareSmartPlanningItemsByRosterOrder);
+}
+
+function getSmartPlanningProposalItemPreservePriority(item) {
+  if (!item) {
+    return 0;
+  }
+
+  return (item.isExistingRosterEntry ? 8 : 0) +
+    (isSmartPlanningProposalItemChanged(item) ? 4 : 0) +
+    (item.chosenEmployeeName ? 2 : 0) +
+    (isSmartPlanningProposalItemKeptOpen(item) ? 1 : 0);
+}
+
+function getSmartPlanningProposalItemsByStableSlot(items = []) {
+  const itemsBySlotKey = new Map();
+
+  (Array.isArray(items) ? items : []).forEach((item) => {
+    const slotKey = getSmartPlanningItemStableSlotKey(item);
+
+    if (!slotKey) {
+      return;
+    }
+
+    const existingItem = itemsBySlotKey.get(slotKey);
+    if (!existingItem || getSmartPlanningProposalItemPreservePriority(item) >= getSmartPlanningProposalItemPreservePriority(existingItem)) {
+      itemsBySlotKey.set(slotKey, item);
+    }
+  });
+
+  return itemsBySlotKey;
+}
+
+function isSameSmartPlanningExistingRosterItem(freshItem, currentItem) {
+  if (!freshItem?.isExistingRosterEntry || !currentItem?.isExistingRosterEntry) {
+    return false;
+  }
+
+  if (freshItem.originalEntryKey && currentItem.originalEntryKey) {
+    return freshItem.originalEntryKey === currentItem.originalEntryKey;
+  }
+
+  return freshItem.day === currentItem.day &&
+    (freshItem.originalEmployeeName || "") === (currentItem.originalEmployeeName || "") &&
+    getSmartPlanningOriginalStartTime(freshItem) === getSmartPlanningOriginalStartTime(currentItem) &&
+    getSmartPlanningOriginalEndTime(freshItem) === getSmartPlanningOriginalEndTime(currentItem) &&
+    String(freshItem.shiftName || "").toLowerCase() === String(currentItem.shiftName || "").toLowerCase();
+}
+
+function copySmartPlanningMutableProposalState(freshItem, currentItem) {
+  const chosenEmployeeName = isSmartPlanningPlaceholderEmployeeName(currentItem?.chosenEmployeeName)
+    ? ""
+    : (currentItem?.chosenEmployeeName || "");
+  const isKeptOpen = !chosenEmployeeName && isSmartPlanningProposalItemKeptOpen(currentItem);
+
+  return {
+    ...freshItem,
+    id: currentItem?.id || freshItem.id,
+    startTime: currentItem?.startTime || freshItem.startTime,
+    endTime: currentItem?.endTime || freshItem.endTime,
+    chosenEmployeeName,
+    keepOpen: isKeptOpen,
+    lockedOpen: isKeptOpen,
+    autoFillBlockReason: currentItem?.autoFillBlockReason || "",
+    assignmentReason: isKeptOpen
+      ? "Bewust open"
+      : (chosenEmployeeName ? (currentItem?.assignmentReason || freshItem.assignmentReason || "Handmatig") : (currentItem?.assignmentReason || freshItem.assignmentReason || ""))
+  };
+}
+
+function mergeSmartPlanningFreshProposalItem(freshItem, currentItem) {
+  if (!freshItem || !currentItem) {
+    return freshItem;
+  }
+
+  const freshSlotKey = getSmartPlanningItemStableSlotKey(freshItem);
+  const currentSlotKey = getSmartPlanningItemStableSlotKey(currentItem);
+
+  if (!freshSlotKey || freshSlotKey !== currentSlotKey) {
+    return freshItem;
+  }
+
+  if (isSameSmartPlanningExistingRosterItem(freshItem, currentItem)) {
+    return isSmartPlanningProposalItemChanged(currentItem)
+      ? copySmartPlanningMutableProposalState(freshItem, currentItem)
+      : freshItem;
+  }
+
+  if (!freshItem.isExistingRosterEntry && !currentItem.isExistingRosterEntry) {
+    const hasCurrentChoice = Boolean(currentItem.chosenEmployeeName) ||
+      isSmartPlanningProposalItemKeptOpen(currentItem) ||
+      isSmartPlanningProposalItemTimeChanged(currentItem) ||
+      Boolean(currentItem.assignmentReason) ||
+      Boolean(currentItem.autoFillBlockReason);
+
+    return hasCurrentChoice
+      ? copySmartPlanningMutableProposalState(freshItem, currentItem)
+      : freshItem;
+  }
+
+  return freshItem;
+}
+
+function getSmartPlanningProposalItemCounts(items = []) {
+  const safeItems = Array.isArray(items) ? items : [];
+  const filledCount = safeItems.filter((item) => item.chosenEmployeeName).length;
+  const keptOpenCount = safeItems.filter((item) => !item.chosenEmployeeName && isSmartPlanningProposalItemKeptOpen(item)).length;
+
+  return {
+    totalCount: safeItems.length,
+    filledCount,
+    openCount: safeItems.length - filledCount - keptOpenCount,
+    keptOpenCount,
+    existingFilledCount: safeItems.filter((item) => item.isExistingRosterEntry && item.chosenEmployeeName).length
+  };
+}
+
+function reconcileSmartPlanningProposalWithCurrentPlanningData(data = getSmartPlanningMonthData(), options = {}) {
+  if (!smartPlanningProposalState?.weeks?.length || !isSmartPlanningProposalCurrent(data)) {
+    return false;
+  }
+
+  if (!canBuildSmartPlanningProposalFromCurrentPlanningData({ notify: options.notify === true })) {
+    return false;
+  }
+
+  const { skipCleared = true, source = "proposal" } = options;
+  let changed = false;
+
+  data.visibleWeeks.forEach(({ weekValue, data: weekData }) => {
+    let weekProposal = getSmartPlanningProposalWeekByValue(weekValue);
+
+    if (!weekProposal) {
+      weekProposal = { weekValue, items: [] };
+      smartPlanningProposalState.weeks.push(weekProposal);
+    }
+
+    if (skipCleared && weekProposal.cleared) {
+      return;
+    }
+
+    const currentItems = weekProposal.items || [];
+    const freshItems = buildSmartPlanningProposalItemsForWeek(weekValue, weekData);
+    const currentItemsBySlotKey = getSmartPlanningProposalItemsByStableSlot(currentItems);
+    const nextItems = freshItems
+      .map((freshItem) => mergeSmartPlanningFreshProposalItem(
+        freshItem,
+        currentItemsBySlotKey.get(getSmartPlanningItemStableSlotKey(freshItem))
+      ))
+      .sort(compareSmartPlanningItemsByRosterOrder);
+    const beforeSignature = JSON.stringify(currentItems.map((item) => ({
+      slotKey: getSmartPlanningItemStableSlotKey(item),
+      chosenEmployeeName: item.chosenEmployeeName || "",
+      originalEmployeeName: item.originalEmployeeName || "",
+      isExistingRosterEntry: Boolean(item.isExistingRosterEntry),
+      keepOpen: Boolean(item.keepOpen),
+      lockedOpen: Boolean(item.lockedOpen),
+      startTime: item.startTime || "",
+      endTime: item.endTime || ""
+    })));
+    const afterSignature = JSON.stringify(nextItems.map((item) => ({
+      slotKey: getSmartPlanningItemStableSlotKey(item),
+      chosenEmployeeName: item.chosenEmployeeName || "",
+      originalEmployeeName: item.originalEmployeeName || "",
+      isExistingRosterEntry: Boolean(item.isExistingRosterEntry),
+      keepOpen: Boolean(item.keepOpen),
+      lockedOpen: Boolean(item.lockedOpen),
+      startTime: item.startTime || "",
+      endTime: item.endTime || ""
+    })));
+
+    if (beforeSignature === afterSignature && !weekProposal.cleared) {
+      return;
+    }
+
+    const beforeCounts = getSmartPlanningProposalItemCounts(currentItems);
+    weekProposal.items = nextItems;
+    weekProposal.cleared = false;
+    changed = true;
+
+    console.info("[smart-planning:proposal-reconciled]", {
+      source,
+      weekValue,
+      before: beforeCounts,
+      after: getSmartPlanningProposalItemCounts(nextItems),
+      liveFilledCount: (weekData.weekEntries || []).filter((entry) =>
+        entry?.name && !isSmartPlanningPlaceholderEmployeeName(entry.name) && !isPlanningEntryKeptOpen(entry)
+      ).length,
+      liveOpenCount: (weekData.openItems || []).length
+    });
+  });
+
+  if (changed) {
+    invalidateSmartPlanningEffectiveEntriesCache();
+    refreshSmartPlanningDirtyState();
+  }
+
+  return changed;
 }
 
 function resetSmartPlanningWeekTransientState(weekValue, options = {}) {
@@ -25498,6 +25792,19 @@ function rebuildSmartPlanningProposalWeek(weekValue, options = {}) {
 }
 
 function createSmartPlanningAdjustmentProposal(options = {}) {
+  if (!canBuildSmartPlanningProposalFromCurrentPlanningData({ notify: !options.silent })) {
+    smartPlanningProposalState = null;
+    selectedSmartPlanningOpenShiftId = "";
+    lastSmartPlanningAssignedItemId = "";
+    smartPlanningApplyConfirmVisible = false;
+    smartPlanningClearWeekConfirmVisible = false;
+    smartPlanningTimeEditState = null;
+    if (options.render !== false) {
+      renderSmartPlanningPanel();
+    }
+    return false;
+  }
+
   const data = getSmartPlanningMonthData();
   selectedSmartPlanningOpenShiftId = "";
   lastSmartPlanningAssignedItemId = "";
@@ -25529,6 +25836,7 @@ function createSmartPlanningAdjustmentProposal(options = {}) {
       ? `Bestaand rooster geladen. Pas alleen aan wat nodig is; opslaan bewaart alleen wijzigingen.`
       : "Geen diensten gevonden om aan te passen voor deze selectie.", totalItems ? "success" : "warning");
   }
+  return true;
 }
 
 function openEditableSmartPlanningRosterForSelectedWeek(selectedWeek = getSmartPlanningSelectedWeek()) {
