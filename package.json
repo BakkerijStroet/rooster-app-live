@@ -1,5 +1,8 @@
 {
   "name": "bakkerij-stroet-roosterapp",
   "private": true,
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "dependencies": {
+    "pdfjs-dist": "^5.7.284"
+  }
 }

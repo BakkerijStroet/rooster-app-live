@@ -549,6 +549,7 @@
       <button type="button" class="nav-tab planner-only-tab" data-tab="employees">Medewerkers</button>
       <button type="button" class="nav-tab" data-tab="requests">Aanvragen</button>
       <button type="button" class="nav-tab planner-only-tab" data-tab="vacations">Vakanties</button>
+      <button type="button" class="nav-tab planner-only-tab" data-tab="delivery">Bezorging</button>
       <button type="button" class="nav-tab planner-only-tab" data-tab="backup">Back-up</button>
       <button type="button" class="nav-tab" data-tab="my-schedule">Mijn rooster</button>
       <button type="button" class="nav-tab" data-tab="my-hours">Mijn uren</button>
@@ -1108,6 +1109,78 @@
             </div>
           </article>
         </section>
+
+      <section class="staff-panel role-planner app-panel aligned-view-panel director-screen-panel delivery-panel" data-panel="delivery">
+        <div class="view-header director-screen-header">
+          <div>
+            <h2>Bezorging</h2>
+            <p class="panel-note">Selecteer een PDF om de bezorging lokaal voor te bereiden.</p>
+          </div>
+        </div>
+        <article id="deliveryRunStatusBar" class="delivery-run-status-bar">
+          <span><strong>Bron</strong>Geen run geladen</span>
+          <span><strong>Bestand</strong>-</span>
+          <span><strong>Status</strong>Nog niet opgeslagen</span>
+          <span><strong>Bijgewerkt</strong>-</span>
+        </article>
+        <article class="capacity-card delivery-dashboard-card">
+          <h3>Dashboard</h3>
+          <div id="deliveryDashboard" class="delivery-dashboard-grid empty">Nog geen PDF gekozen.</div>
+        </article>
+        <article class="capacity-card delivery-saved-card">
+          <div class="delivery-saved-header">
+            <h3>Opgeslagen runs</h3>
+            <button type="button" id="deliverySavedRefreshButton" class="secondary">Vernieuwen</button>
+          </div>
+          <div id="deliverySavedRuns" class="delivery-saved-runs empty">Opgeslagen runs worden geladen.</div>
+        </article>
+        <article class="capacity-card delivery-upload-card">
+          <h3>PDF uploaden</h3>
+          <label class="delivery-file-picker">
+            <span>Bestand</span>
+            <input type="file" id="deliveryPdfInput" accept="application/pdf,.pdf">
+          </label>
+          <div id="deliveryPdfStatus" class="panel-note delivery-status" aria-live="polite">Nog geen PDF geselecteerd.</div>
+          <details class="delivery-ingest-details">
+            <summary>Voorlopige inlezing</summary>
+            <div id="deliveryLineCount" class="panel-note">Aantal gevonden tekstregels: 0</div>
+            <div class="delivery-preview-grid">
+              <div>
+                <h4>Ruwe tekst-preview</h4>
+                <pre id="deliveryRawPreview" class="delivery-raw-preview">Nog geen tekst beschikbaar.</pre>
+              </div>
+              <div>
+                <h4>Herkenning</h4>
+                <div id="deliveryRecognizedList" class="delivery-recognized-list empty">Nog geen klant- of productregels herkend.</div>
+              </div>
+            </div>
+            <div id="deliveryParseWarnings" class="delivery-warning-list empty">Geen meldingen.</div>
+          </details>
+        </article>
+        <article class="capacity-card delivery-preparation-card">
+          <h3>Voorbereiding</h3>
+          <div id="deliveryPreparation" class="delivery-preparation empty">Nog geen voorbereiding beschikbaar.</div>
+        </article>
+        <article class="capacity-card delivery-route-card">
+          <h3>Routeblokken</h3>
+          <div id="deliveryRouteBlocks" class="delivery-route-blocks empty">Nog geen routeblokken beschikbaar.</div>
+        </article>
+        <article class="capacity-card delivery-products-card">
+          <h3>Productoverzicht</h3>
+          <div id="deliveryProductOverview" class="delivery-product-overview empty">Nog geen productregels beschikbaar.</div>
+        </article>
+        <article class="capacity-card delivery-driver-card">
+          <h3>Chauffeurweergave</h3>
+          <div id="deliveryDriverPreview" class="delivery-driver-preview empty">Nog geen chauffeurweergave beschikbaar.</div>
+        </article>
+        <article class="capacity-card delivery-print-card">
+          <div class="delivery-print-header">
+            <h3>Printvoorbeeld</h3>
+            <button type="button" id="deliveryPrintPreviewButton" class="secondary">Printvoorbeeld maken</button>
+          </div>
+          <div id="deliveryPrintPreview" class="delivery-print-preview empty">Nog geen printvoorbeeld gemaakt.</div>
+        </article>
+      </section>
 
       <form id="schedule-form" class="form role-planner app-panel week-form-card" data-panel="week-current" data-week-panel data-slot="left">
         <h2>Invoer</h2>
@@ -1818,6 +1891,7 @@
   <script src="js/features/employee-panel-prep.js?v=20260509-safe-start"></script>
   <script src="js/features/requests-panel-prep.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/hours-panel-prep.js?v=20260508-smart-planning-dashboard"></script>
+  <script src="js/features/delivery.js?v=20260512-delivery-tab"></script>
   <script src="app.js?v=20260512-preserve-filled-slots"></script>
 </body>
 </html>
