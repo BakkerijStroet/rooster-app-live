@@ -1117,28 +1117,39 @@
             <p class="panel-note">Selecteer een PDF om de bezorging lokaal voor te bereiden.</p>
           </div>
         </div>
-        <article id="deliveryRunStatusBar" class="delivery-run-status-bar">
+        <article id="deliveryStartScreen" class="capacity-card delivery-start-screen">
+          <div class="delivery-start-copy">
+            <h3>Bezorglijst uploaden</h3>
+            <p>Sleep een bezorg-PDF hierheen. Daarna maken we automatisch dashboard, route, producten en controlepunten.</p>
+          </div>
+          <div id="deliveryDropZone" class="delivery-drop-zone" role="button" tabindex="0" aria-label="Bezorg-PDF uploaden">
+            <strong>Sleep PDF hierheen</strong>
+            <span>Alleen PDF-bestanden worden ondersteund.</span>
+            <button type="button" id="deliveryStartChooseButton" class="secondary">PDF kiezen</button>
+          </div>
+        </article>
+        <article id="deliveryRunStatusBar" class="delivery-run-status-bar delivery-work-card">
           <span><strong>Bron</strong>Geen run geladen</span>
           <span><strong>Bestand</strong>-</span>
           <span><strong>Status</strong>Nog niet opgeslagen</span>
           <span><strong>Bijgewerkt</strong>-</span>
         </article>
-        <article class="capacity-card delivery-dashboard-card">
+        <article class="capacity-card delivery-dashboard-card delivery-work-card">
           <h3>Dashboard</h3>
           <div id="deliveryDashboard" class="delivery-dashboard-grid empty">Nog geen PDF gekozen.</div>
         </article>
-        <article class="capacity-card delivery-actions-card">
+        <article class="capacity-card delivery-actions-card delivery-work-card">
           <h3>Acties &amp; betalingen</h3>
           <div id="deliveryActionsOverview" class="delivery-actions-overview empty">Nog geen acties of betalingen beschikbaar.</div>
         </article>
-        <article class="capacity-card delivery-saved-card">
+        <article class="capacity-card delivery-saved-card delivery-work-card">
           <div class="delivery-saved-header">
             <h3>Opgeslagen runs</h3>
             <button type="button" id="deliverySavedRefreshButton" class="secondary">Vernieuwen</button>
           </div>
           <div id="deliverySavedRuns" class="delivery-saved-runs empty">Opgeslagen runs worden geladen.</div>
         </article>
-        <article class="capacity-card delivery-upload-card">
+        <article class="capacity-card delivery-upload-card delivery-work-card">
           <h3>PDF uploaden</h3>
           <label class="delivery-file-picker">
             <span>Bestand</span>
@@ -1161,27 +1172,27 @@
             <div id="deliveryParseWarnings" class="delivery-warning-list empty">Geen meldingen.</div>
           </details>
         </article>
-        <article class="capacity-card delivery-preparation-card">
+        <article class="capacity-card delivery-preparation-card delivery-work-card">
           <h3>Voorbereiding</h3>
           <div id="deliveryPreparation" class="delivery-preparation empty">Nog geen voorbereiding beschikbaar.</div>
         </article>
-        <article class="capacity-card delivery-route-card">
+        <article class="capacity-card delivery-route-card delivery-work-card">
           <h3>Routeblokken</h3>
           <div id="deliveryRouteBlocks" class="delivery-route-blocks empty">Nog geen routeblokken beschikbaar.</div>
         </article>
-        <article class="capacity-card delivery-stop-detail-card">
+        <article class="capacity-card delivery-stop-detail-card delivery-work-card">
           <h3>Chauffeur-stop-detail</h3>
           <div id="deliveryStopDetail" class="delivery-stop-detail empty">Klik op een route-stop om het chauffeurdetail te bekijken.</div>
         </article>
-        <article class="capacity-card delivery-products-card">
+        <article class="capacity-card delivery-products-card delivery-work-card">
           <h3>Productoverzicht</h3>
           <div id="deliveryProductOverview" class="delivery-product-overview empty">Nog geen productregels beschikbaar.</div>
         </article>
-        <article class="capacity-card delivery-driver-card">
+        <article class="capacity-card delivery-driver-card delivery-work-card">
           <h3>Chauffeurweergave</h3>
           <div id="deliveryDriverPreview" class="delivery-driver-preview empty">Nog geen chauffeurweergave beschikbaar.</div>
         </article>
-        <article class="capacity-card delivery-print-card">
+        <article class="capacity-card delivery-print-card delivery-work-card">
           <div class="delivery-print-header">
             <h3>Printvoorbeeld</h3>
             <button type="button" id="deliveryPrintPreviewButton" class="secondary">Printvoorbeeld maken</button>

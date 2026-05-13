@@ -10964,6 +10964,66 @@ button,
   gap: 0.8rem;
 }
 
+.delivery-panel:not(.has-delivery-run) .delivery-work-card {
+  display: none !important;
+}
+
+.delivery-panel.has-delivery-run .delivery-start-screen,
+.delivery-start-screen.is-hidden {
+  display: none !important;
+}
+
+.delivery-start-screen {
+  display: grid;
+  gap: 1rem;
+  padding: 1.1rem;
+}
+
+.delivery-start-copy {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.delivery-start-copy h3 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 1.45rem;
+  line-height: 1.15;
+}
+
+.delivery-start-copy p {
+  max-width: 720px;
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.delivery-drop-zone {
+  display: grid;
+  place-items: center;
+  gap: 0.55rem;
+  min-height: 240px;
+  border: 2px dashed #d48b37;
+  border-radius: 8px;
+  padding: 1.2rem;
+  background: #fff7ed;
+  color: var(--color-text);
+  text-align: center;
+  cursor: pointer;
+}
+
+.delivery-drop-zone.is-dragging {
+  border-color: #8a4a12;
+  background: #fff0d8;
+}
+
+.delivery-drop-zone strong {
+  font-size: 1.25rem;
+}
+
+.delivery-drop-zone span {
+  color: var(--color-text-muted);
+}
+
 .delivery-run-status-bar {
   display: grid;
   grid-template-columns: repeat(4, minmax(130px, 1fr)) minmax(180px, 1.2fr);

@@ -1,4 +1,8 @@
 (() => {
+  const deliveryPanelElement = document.querySelector("[data-panel=\"delivery\"]");
+  const startScreenElement = document.getElementById("deliveryStartScreen");
+  const dropZoneElement = document.getElementById("deliveryDropZone");
+  const startChooseButton = document.getElementById("deliveryStartChooseButton");
   const runStatusBarElement = document.getElementById("deliveryRunStatusBar");
   const dashboardElement = document.getElementById("deliveryDashboard");
   const actionsOverviewElement = document.getElementById("deliveryActionsOverview");
@@ -26,6 +30,8 @@
   const PRODUCT_COUNT_PATTERN = /^(?:(\d+[,.]?\d*)|(\d+)\s*x|x\s*(\d+))\s+\S+/i;
   const PRODUCT_CATEGORY_ORDER = ["brood", "gebak", "broodjes", "warm"];
   const PAYMENT_STATUS_VALUES = ["OK", "Op rekening", "Niet betaald", "Betaald via Ideal", "Contant", "Pin", "Tikkie"];
+  const CURRENT_DELIVERY_PARSER_VERSION = "delivery-local-v2";
+  const OLD_PARSER_WARNING = "Deze run is gemaakt met een oudere parser. Upload de PDF opnieuw voor de nieuwste herkenning.";
   const PAYMENT_CORRECTION_OPTIONS = [
     "OK",
     "Op rekening",
@@ -54,6 +60,7 @@
     message: "Nog niet opgeslagen"
   };
   let latestHasLocalCorrections = false;
+  let latestParserVersionWarning = "";
   let selectedDeliveryStopIndex = -1;
 
   function escapeHtml(value) {
@@ -123,7 +130,14 @@
     statusElement.dataset.deliveryStatus = state;
   }
 
+  function setDeliveryWorkVisible(isVisible) {
+    deliveryPanelElement?.classList.toggle("has-delivery-run", Boolean(isVisible));
+    startScreenElement?.classList.toggle("is-hidden", Boolean(isVisible));
+  }
+
   function setEmptyPreview(message = "Nog geen tekst beschikbaar.") {
+    setDeliveryWorkVisible(false);
+
     if (lineCountElement) {
       lineCountElement.textContent = "Aantal gevonden tekstregels: 0";
     }
@@ -139,6 +153,7 @@
 
     if (warningsElement) {
       warningsElement.classList.add("empty");
+      warningsElement.innerHTML = "";
       warningsElement.textContent = "Geen meldingen.";
     }
 
@@ -192,6 +207,7 @@
       message: "Nog niet opgeslagen"
     };
     latestHasLocalCorrections = false;
+    latestParserVersionWarning = "";
     selectedDeliveryStopIndex = -1;
     renderDashboard([], "");
   }
@@ -1302,6 +1318,7 @@
     latestRouteStops = [];
     latestParseWarnings = [...new Set([message, advice, ...warnings])];
     latestDeliveryDate = "";
+    latestParserVersionWarning = "";
     selectedDeliveryStopIndex = -1;
 
     if (lineCountElement) {
@@ -1352,6 +1369,8 @@
   }
 
   function renderParseResult(lines, recognized, warnings, extractionQuality = null, parserSource = "") {
+    setDeliveryWorkVisible(true);
+
     if (extractionQuality?.unreliable) {
       renderUnreliableExtraction(lines, warnings, extractionQuality, parserSource);
       return;
@@ -1385,6 +1404,7 @@
     if (warningsElement) {
       if (!warnings.length) {
         warningsElement.classList.add("empty");
+        warningsElement.innerHTML = "";
         warningsElement.textContent = "Geen meldingen.";
       } else {
         warningsElement.classList.remove("empty");
@@ -1398,6 +1418,7 @@
     latestRouteStops = routeStops;
     latestParseWarnings = warnings;
     latestDeliveryDate = getDeliveryDate(lines);
+    latestParserVersionWarning = "";
     latestRunId = "";
     latestRunBaseUpdatedAt = "";
     latestHasLocalCorrections = false;
@@ -1753,8 +1774,14 @@
     }
 
     const updatedLabel = latestRunUpdatedAt ? formatSavedRunDateTime(latestRunUpdatedAt) : "-";
-    const warning = shouldShowUnsavedWarning()
-      ? `<span class="delivery-run-status-warning">${escapeHtml(latestHasLocalCorrections ? "Lokale correcties nog niet opgeslagen" : "Wijzigingen worden nog niet opgeslagen")}</span>`
+    const warnings = [
+      shouldShowUnsavedWarning()
+        ? (latestHasLocalCorrections ? "Lokale correcties nog niet opgeslagen" : "Wijzigingen worden nog niet opgeslagen")
+        : "",
+      latestParserVersionWarning
+    ].filter(Boolean);
+    const warning = warnings.length
+      ? `<span class="delivery-run-status-warning">${warnings.map(escapeHtml).join(" ")}</span>`
       : "";
 
     runStatusBarElement.dataset.deliveryRunSource = latestRunSource;
@@ -1880,8 +1907,14 @@
   }
 
   function renderSavedRunPayload(run) {
+    setDeliveryWorkVisible(true);
+
     const payload = run?.payload || {};
     const routeStops = getStopsFromSavedPayload(payload);
+    const parserVersion = typeof payload.parserVersion === "string" ? payload.parserVersion : "";
+    const parserVersionWarning = parserVersion === CURRENT_DELIVERY_PARSER_VERSION
+      ? ""
+      : OLD_PARSER_WARNING;
 
     latestRouteStops = routeStops;
     latestParseWarnings = Array.isArray(payload.parseWarnings) ? payload.parseWarnings.filter((warning) => typeof warning === "string") : [];
@@ -1897,6 +1930,7 @@
       message: "Opgeslagen run geopend"
     };
     latestHasLocalCorrections = false;
+    latestParserVersionWarning = parserVersionWarning;
     selectedDeliveryStopIndex = -1;
 
     if (pdfInput) {
@@ -1922,13 +1956,19 @@
     }
 
     if (warningsElement) {
-      if (latestParseWarnings.length) {
+      const visibleWarnings = [
+        latestParserVersionWarning,
+        ...latestParseWarnings
+      ].filter(Boolean);
+
+      if (visibleWarnings.length) {
         warningsElement.classList.remove("empty");
-        warningsElement.innerHTML = latestParseWarnings.slice(0, 12).map((warning) => `
+        warningsElement.innerHTML = visibleWarnings.slice(0, 12).map((warning) => `
           <div class="delivery-warning-item">${escapeHtml(warning)}</div>
         `).join("");
       } else {
         warningsElement.classList.add("empty");
+        warningsElement.innerHTML = "";
         warningsElement.textContent = "Geen meldingen.";
       }
     }
@@ -2768,7 +2808,7 @@
     }));
 
     return {
-      parserVersion: "delivery-local-v1",
+      parserVersion: CURRENT_DELIVERY_PARSER_VERSION,
       deliveryDate: latestDeliveryDate,
       source: {
         filename: latestSourceFilename,
@@ -3003,8 +3043,8 @@
     };
   }
 
-  async function handlePdfSelection() {
-    const file = pdfInput?.files?.[0] || null;
+  async function handlePdfSelection(fileOverride = null) {
+    const file = fileOverride || pdfInput?.files?.[0] || null;
 
     if (!file) {
       setStatus("Nog geen PDF geselecteerd.");
@@ -3022,6 +3062,7 @@
     const sizeLabel = formatFileSize(file.size);
     setStatus(`${file.name}${sizeLabel ? ` (${sizeLabel})` : ""} geselecteerd. Tekst wordt lokaal gelezen...`, "ready");
     setEmptyPreview("PDF wordt lokaal gelezen...");
+    setDeliveryWorkVisible(true);
 
     try {
       const result = await parsePdfFile(file);
@@ -3085,6 +3126,44 @@
 
   setEmptyPreview();
   void fetchSavedRuns();
+  startChooseButton?.addEventListener("click", () => {
+    pdfInput?.click();
+  });
+  dropZoneElement?.addEventListener("click", (event) => {
+    if (event.target.closest("button")) {
+      return;
+    }
+
+    pdfInput?.click();
+  });
+  dropZoneElement?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      pdfInput?.click();
+    }
+  });
+  ["dragenter", "dragover"].forEach((eventName) => {
+    dropZoneElement?.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      dropZoneElement.classList.add("is-dragging");
+    });
+  });
+  ["dragleave", "drop"].forEach((eventName) => {
+    dropZoneElement?.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      dropZoneElement.classList.remove("is-dragging");
+    });
+  });
+  dropZoneElement?.addEventListener("drop", (event) => {
+    const file = event.dataTransfer?.files?.[0] || null;
+
+    if (!file) {
+      setStatus("Geen bestand gevonden in de upload.", "error");
+      return;
+    }
+
+    void handlePdfSelection(file);
+  });
   pdfInput?.addEventListener("change", () => {
     void handlePdfSelection();
   });
