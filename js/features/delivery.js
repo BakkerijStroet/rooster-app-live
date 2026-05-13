@@ -3104,24 +3104,41 @@
 
   async function parsePdfFileWithServer(file, browserResult) {
     let response;
+    const requestUrl = new URL("/api/delivery-parse-pdf", window.location.origin);
+    const requestBody = JSON.stringify({
+      mode: "test",
+      sourceFilename: file.name || "",
+      sourceHash: browserResult.sourceHash || "",
+      fileBase64: arrayBufferToBase64(browserResult.buffer)
+    });
+    const requestBodyBytes = new Blob([requestBody]).size;
+
+    if (requestBodyBytes > 4.25 * 1024 * 1024) {
+      const sizeError = new Error(`Serverparser-aanvraag is te groot (${formatFileSize(requestBodyBytes)}). Gebruik een PDF van maximaal 3 MB.`);
+      sizeError.statusCode = 413;
+      throw sizeError;
+    }
 
     try {
-      response = await fetch("/api/delivery-parse-pdf", {
+      response = await fetch(requestUrl.toString(), {
         method: "POST",
+        cache: "no-store",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-          mode: "test",
-          sourceFilename: file.name || "",
-          sourceHash: browserResult.sourceHash || "",
-          fileBase64: arrayBufferToBase64(browserResult.buffer)
-        })
+        body: requestBody
       });
     } catch (error) {
       const message = error?.message || "netwerkfout";
-      const networkError = new Error(`Serverparser kon niet worden bereikt: ${message}`);
+      const networkError = new Error(`Serverparser kon niet worden bereikt: ${message}. URL: ${requestUrl.pathname}. Origin: ${window.location.origin}. Aanvraag: ${formatFileSize(requestBodyBytes) || `${requestBodyBytes} bytes`}.`);
       networkError.statusCode = 0;
+      console.error("[delivery] serverparser fetch mislukt", {
+        url: requestUrl.toString(),
+        origin: window.location.origin,
+        requestBodyBytes,
+        online: navigator.onLine,
+        error
+      });
       throw networkError;
     }
 
