@@ -339,7 +339,12 @@ function ensurePdfjsDomStubs() {
 
 async function getPdfjsDocument(buffer) {
   ensurePdfjsDomStubs();
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const [pdfjs, pdfjsWorker] = await Promise.all([
+    import("pdfjs-dist/legacy/build/pdf.mjs"),
+    import("pdfjs-dist/legacy/build/pdf.worker.mjs")
+  ]);
+  globalThis.pdfjsWorker = pdfjsWorker;
+
   const loadingTask = pdfjs.getDocument({
     data: new Uint8Array(buffer),
     disableFontFace: true,
