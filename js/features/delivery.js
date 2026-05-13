@@ -1,6 +1,7 @@
 (() => {
   const runStatusBarElement = document.getElementById("deliveryRunStatusBar");
   const dashboardElement = document.getElementById("deliveryDashboard");
+  const actionsOverviewElement = document.getElementById("deliveryActionsOverview");
   const savedRunsElement = document.getElementById("deliverySavedRuns");
   const savedRefreshButton = document.getElementById("deliverySavedRefreshButton");
   const pdfInput = document.getElementById("deliveryPdfInput");
@@ -142,6 +143,11 @@
     if (routeBlocksElement) {
       routeBlocksElement.classList.add("empty");
       routeBlocksElement.textContent = "Nog geen routeblokken beschikbaar.";
+    }
+
+    if (actionsOverviewElement) {
+      actionsOverviewElement.classList.add("empty");
+      actionsOverviewElement.textContent = "Nog geen acties of betalingen beschikbaar.";
     }
 
     if (preparationElement) {
@@ -1318,6 +1324,7 @@
     }
 
     renderDashboard([], "");
+    renderActionsOverview([]);
     renderPreparation([]);
     renderDriverPreview([], "");
 
@@ -1385,6 +1392,7 @@
     latestRunBaseUpdatedAt = "";
     latestHasLocalCorrections = false;
     renderDashboard(routeStops, latestDeliveryDate);
+    renderActionsOverview(routeStops);
     renderPreparation(routeStops);
     renderDriverPreview(routeStops, latestDeliveryDate);
     renderRouteBlocks(routeStops);
@@ -1447,6 +1455,7 @@
 
   function rerenderDeliveryPreview({ refreshPrint = false } = {}) {
     renderDashboard(latestRouteStops, latestDeliveryDate);
+    renderActionsOverview(latestRouteStops);
     renderPreparation(latestRouteStops);
     renderDriverPreview(latestRouteStops, latestDeliveryDate);
     renderRouteBlocks(latestRouteStops);
@@ -1583,6 +1592,123 @@
         </div>
       </section>
     `;
+  }
+
+  function normalizePaymentStatusLabel(status) {
+    return String(status || "").trim().toLowerCase();
+  }
+
+  function createActionItem(stop, index, group, reason) {
+    return {
+      index,
+      group,
+      reason,
+      customerName: getStopLabel(stop),
+      timeWindow: stop?.timeWindow || "tijd controle nodig",
+      paymentStatus: stop?.paymentStatus || "controle nodig"
+    };
+  }
+
+  function getActionPaymentGroups(stops) {
+    const groups = [
+      { key: "unpaid", title: "Niet betaald", items: [] },
+      { key: "account", title: "Op rekening", items: [] },
+      { key: "paid", title: "Betaald/OK", items: [] },
+      { key: "direct", title: "Tikkie/Pin/Contant", items: [] },
+      { key: "review", title: "Controle nodig", items: [] },
+      { key: "warm", title: "Warm/tijdkritisch", items: [] }
+    ];
+    const byKey = Object.fromEntries(groups.map((group) => [group.key, group]));
+
+    (Array.isArray(stops) ? stops : []).forEach((stop, index) => {
+      const status = normalizePaymentStatusLabel(stop?.paymentStatus);
+      const isDirectPayment = ["pin", "pin betaald", "contant", "contant betaald", "tikkie", "tikkie gestuurd"].includes(status);
+
+      if (status === "niet betaald") {
+        byKey.unpaid.items.push(createActionItem(stop, index, "unpaid", "betaling staat op niet betaald"));
+      }
+
+      if (status === "op rekening") {
+        byKey.account.items.push(createActionItem(stop, index, "account", "betaling op rekening"));
+      }
+
+      if (["ok", "betaald via ideal"].includes(status)) {
+        byKey.paid.items.push(createActionItem(stop, index, "paid", status === "ok" ? "betaling OK" : "betaald via Ideal"));
+      }
+
+      if (isDirectPayment) {
+        byKey.direct.items.push(createActionItem(stop, index, "direct", stop.paymentStatus));
+      }
+
+      if (stopHasReview(stop) || !stop?.paymentStatus || !stop?.timeWindow || !stop?.address || !stop?.customerName) {
+        byKey.review.items.push(createActionItem(stop, index, "review", getStopReviewReasons(stop).join(", ") || "controle nodig"));
+      }
+
+      if (isWarmStop(stop) || isTimeCriticalStop(stop)) {
+        const reasons = [
+          isWarmStop(stop) ? "warm controleren" : "",
+          isTimeCriticalStop(stop) ? "tijdkritisch" : ""
+        ].filter(Boolean);
+        byKey.warm.items.push(createActionItem(stop, index, "warm", reasons.join(", ")));
+      }
+    });
+
+    return groups;
+  }
+
+  function renderActionPaymentItem(item) {
+    return `
+      <article class="delivery-action-row" data-delivery-action-group="${escapeHtml(item.group)}">
+        <div>
+          <strong>${escapeHtml(item.customerName)}</strong>
+          <span>${escapeHtml(item.reason)}</span>
+        </div>
+        <span class="delivery-action-time">${escapeHtml(item.timeWindow)}</span>
+        <span class="delivery-payment-chip" data-delivery-payment="${escapeHtml(item.paymentStatus)}">${escapeHtml(item.paymentStatus)}</span>
+        <button type="button" class="secondary delivery-action-view-button" data-delivery-view-stop="${item.index}">Bekijk stop</button>
+      </article>
+    `;
+  }
+
+  function renderActionsOverview(stops) {
+    if (!actionsOverviewElement) {
+      return;
+    }
+
+    if (!Array.isArray(stops) || !stops.length) {
+      actionsOverviewElement.classList.add("empty");
+      actionsOverviewElement.textContent = "Nog geen acties of betalingen beschikbaar.";
+      return;
+    }
+
+    const groups = getActionPaymentGroups(stops);
+
+    actionsOverviewElement.classList.remove("empty");
+    actionsOverviewElement.innerHTML = groups.map((group) => `
+      <section class="delivery-action-group" data-delivery-action-group="${escapeHtml(group.key)}">
+        <header>
+          <h4>${escapeHtml(group.title)}</h4>
+          <span>${group.items.length}</span>
+        </header>
+        ${group.items.length
+          ? group.items.map(renderActionPaymentItem).join("")
+          : "<div class=\"delivery-action-empty\">Geen regels.</div>"}
+      </section>
+    `).join("");
+  }
+
+  function scrollToDeliveryStop(index) {
+    const stopElement = document.getElementById(`deliveryRouteStop${index}`);
+
+    if (!stopElement) {
+      return;
+    }
+
+    stopElement.scrollIntoView({ block: "center", behavior: "smooth" });
+    stopElement.classList.add("is-highlighted");
+    window.setTimeout?.(() => {
+      stopElement.classList.remove("is-highlighted");
+    }, 1600);
   }
 
   function getSaveStatusText() {
@@ -1795,6 +1921,7 @@
 
     setStatus("Opgeslagen run geopend.", "ready");
     renderDashboard(routeStops, latestDeliveryDate);
+    renderActionsOverview(routeStops);
     renderPreparation(routeStops);
     renderRouteBlocks(routeStops);
     renderProductOverview(routeStops);
@@ -2087,7 +2214,7 @@
             const hasReview = stopHasReview(stop);
 
             return `
-              <article class="delivery-route-stop${stop.categories.includes("warm") ? " has-warm" : ""}${hasReview ? " needs-review" : ""}">
+              <article id="deliveryRouteStop${index}" class="delivery-route-stop${stop.categories.includes("warm") ? " has-warm" : ""}${hasReview ? " needs-review" : ""}">
                 <div class="delivery-stop-header">
                   <div class="delivery-stop-title">${index + 1}. ${escapeHtml(stop.customerName || "Klant onbekend")}</div>
                   <div class="delivery-stop-time">${escapeHtml(stop.timeWindow || "Tijd controle nodig")}</div>
@@ -2876,6 +3003,15 @@
 
     event.preventDefault();
     applyStopCorrection(form);
+  });
+  actionsOverviewElement?.addEventListener("click", (event) => {
+    const viewButton = event.target.closest("[data-delivery-view-stop]");
+
+    if (!viewButton) {
+      return;
+    }
+
+    scrollToDeliveryStop(Number(viewButton.dataset.deliveryViewStop));
   });
   dashboardElement?.addEventListener("click", (event) => {
     const printButton = event.target.closest("[data-delivery-dashboard-print]");

@@ -11010,6 +11010,11 @@ button,
   gap: 0.8rem;
 }
 
+.delivery-actions-card {
+  display: grid;
+  gap: 0.8rem;
+}
+
 .delivery-preview-card {
   display: grid;
   gap: 0.8rem;
@@ -11186,6 +11191,7 @@ button,
 
 .delivery-upload-card h3,
 .delivery-dashboard-card h3,
+.delivery-actions-card h3,
 .delivery-saved-card h3,
 .delivery-preparation-card h3,
 .delivery-route-card h3,
@@ -11213,6 +11219,78 @@ button,
 
 .delivery-dashboard-cardlet b {
   color: var(--color-text);
+}
+
+.delivery-actions-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 0.65rem;
+}
+
+.delivery-action-group {
+  display: grid;
+  align-content: start;
+  gap: 0.45rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.62rem;
+  background: var(--color-surface-soft);
+}
+
+.delivery-action-group header {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.delivery-action-group h4 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 0.92rem;
+}
+
+.delivery-action-group header span {
+  border-radius: 999px;
+  padding: 0.08rem 0.42rem;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.delivery-action-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 0.38rem;
+  align-items: center;
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.45rem;
+}
+
+.delivery-action-row strong,
+.delivery-action-row span {
+  min-width: 0;
+}
+
+.delivery-action-row strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.delivery-action-row div span,
+.delivery-action-time,
+.delivery-action-empty {
+  color: var(--color-text-muted);
+  font-size: 0.84rem;
+}
+
+.delivery-action-row .delivery-payment-chip {
+  justify-self: start;
+}
+
+.delivery-action-view-button {
+  justify-self: end;
 }
 
 .delivery-dashboard-cardlet.has-warning {
@@ -11450,6 +11528,11 @@ button,
 
 .delivery-route-stop.needs-review {
   box-shadow: inset 3px 0 0 #d48b37;
+}
+
+.delivery-route-stop.is-highlighted {
+  outline: 3px solid rgba(212, 139, 55, 0.42);
+  outline-offset: 2px;
 }
 
 .delivery-stop-header {
@@ -11748,6 +11831,18 @@ button,
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   }
 
+  .delivery-actions-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .delivery-action-row {
+    grid-template-columns: 1fr;
+  }
+
+  .delivery-action-view-button {
+    justify-self: start;
+  }
+
   .delivery-saved-header {
     align-items: stretch;
     flex-direction: column;
@@ -11890,6 +11985,7 @@ button,
   body[data-active-tab="delivery"] .mobile-bottom-nav,
   body[data-active-tab="delivery"] .delivery-run-status-bar,
   body[data-active-tab="delivery"] .delivery-dashboard-card,
+  body[data-active-tab="delivery"] .delivery-actions-card,
   body[data-active-tab="delivery"] .delivery-saved-card,
   body[data-active-tab="delivery"] .delivery-upload-card,
   body[data-active-tab="delivery"] .delivery-preview-card,
