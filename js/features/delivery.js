@@ -3002,22 +3002,45 @@
   }
 
   async function parsePdfFileWithServer(file, browserResult) {
-    const response = await fetch("/api/delivery-parse-pdf", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        mode: "test",
-        sourceFilename: file.name || "",
-        sourceHash: browserResult.sourceHash || "",
-        fileBase64: arrayBufferToBase64(browserResult.buffer)
-      })
-    });
-    const result = await response.json().catch(() => ({}));
+    let response;
+
+    try {
+      response = await fetch("/api/delivery-parse-pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          mode: "test",
+          sourceFilename: file.name || "",
+          sourceHash: browserResult.sourceHash || "",
+          fileBase64: arrayBufferToBase64(browserResult.buffer)
+        })
+      });
+    } catch (error) {
+      const message = error?.message || "netwerkfout";
+      const networkError = new Error(`Serverparser kon niet worden bereikt: ${message}`);
+      networkError.statusCode = 0;
+      throw networkError;
+    }
+
+    const responseText = await response.text();
+    let result = {};
+
+    if (responseText) {
+      try {
+        result = JSON.parse(responseText);
+      } catch {
+        result = {
+          message: responseText.slice(0, 240)
+        };
+      }
+    }
 
     if (!response.ok || !result?.success) {
-      const message = result?.message || result?.warnings?.[0] || "Serverparser kon deze PDF niet lezen.";
+      const statusLabel = `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ""}`;
+      const detail = result?.message || result?.warnings?.[0] || "Serverparser kon deze PDF niet lezen.";
+      const message = `Serverparser mislukt (${statusLabel}): ${detail}`;
       const error = new Error(message);
       error.statusCode = response.status;
       throw error;

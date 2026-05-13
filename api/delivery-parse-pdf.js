@@ -260,6 +260,19 @@ function extractPageLines(textContent, pageNumber) {
 }
 
 function ensurePdfjsDomStubs() {
+  if (typeof Promise.withResolvers !== "function") {
+    Promise.withResolvers = function withResolvers() {
+      let resolve;
+      let reject;
+      const promise = new Promise((promiseResolve, promiseReject) => {
+        resolve = promiseResolve;
+        reject = promiseReject;
+      });
+
+      return { promise, resolve, reject };
+    };
+  }
+
   if (typeof globalThis.Blob !== "function") {
     globalThis.Blob = require("node:buffer").Blob;
   }
@@ -421,9 +434,12 @@ module.exports = async function handler(req, res) {
     });
   } catch (error) {
     const statusCode = Number.isInteger(error?.statusCode) ? error.statusCode : 500;
+    const rawMessage = error?.message || "Onbekende serverparser-fout.";
     const message = statusCode >= 500
-      ? "PDF kon server-side niet worden gelezen."
-      : error.message;
+      ? `PDF kon server-side niet worden gelezen: ${rawMessage}`
+      : rawMessage;
+
+    console.error("[delivery-parse-pdf]", rawMessage);
 
     sendJson(res, statusCode, {
       success: false,
