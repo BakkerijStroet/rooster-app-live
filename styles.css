@@ -11025,6 +11025,11 @@ button,
   gap: 0.8rem;
 }
 
+.delivery-stop-detail-card {
+  display: grid;
+  gap: 0.8rem;
+}
+
 .delivery-preparation-card {
   display: grid;
   gap: 0.8rem;
@@ -11195,6 +11200,7 @@ button,
 .delivery-saved-card h3,
 .delivery-preparation-card h3,
 .delivery-route-card h3,
+.delivery-stop-detail-card h3,
 .delivery-products-card h3,
 .delivery-driver-card h3 {
   margin: 0;
@@ -11520,6 +11526,7 @@ button,
   display: grid;
   gap: 0.32rem;
   padding: 0.58rem 0.68rem;
+  cursor: pointer;
 }
 
 .delivery-route-stop.has-warm {
@@ -11533,6 +11540,145 @@ button,
 .delivery-route-stop.is-highlighted {
   outline: 3px solid rgba(212, 139, 55, 0.42);
   outline-offset: 2px;
+}
+
+.delivery-route-stop.is-selected {
+  border-color: #8bb0d8;
+  box-shadow: inset 3px 0 0 #8bb0d8;
+}
+
+.delivery-stop-detail {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.delivery-stop-detail-surface {
+  display: grid;
+  gap: 0.72rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.8rem;
+  background: var(--color-surface-soft);
+}
+
+.delivery-stop-detail-surface.has-warm {
+  border-color: #d48b37;
+}
+
+.delivery-stop-detail-surface.needs-review {
+  box-shadow: inset 3px 0 0 #d48b37;
+}
+
+.delivery-stop-detail-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.delivery-stop-detail-hero span,
+.delivery-stop-detail-empty,
+.delivery-stop-detail-product small {
+  color: var(--color-text-muted);
+}
+
+.delivery-stop-detail-hero h4 {
+  margin: 0.08rem 0 0;
+  overflow-wrap: anywhere;
+  color: var(--color-text);
+  font-size: 1.45rem;
+  line-height: 1.12;
+}
+
+.delivery-stop-detail-hero strong {
+  border: 1px solid #d48b37;
+  border-radius: 999px;
+  padding: 0.28rem 0.65rem;
+  background: #fff0d8;
+  color: #8a4a12;
+  font-size: 1.08rem;
+  white-space: nowrap;
+}
+
+.delivery-stop-detail-address,
+.delivery-stop-detail-status,
+.delivery-stop-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.delivery-stop-detail-address span {
+  min-width: min(100%, 260px);
+  flex: 1 1 260px;
+  color: var(--color-text);
+  font-weight: 800;
+}
+
+.delivery-navigation-button {
+  text-decoration: none;
+}
+
+.delivery-stop-detail-alert {
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  background: #fff0d8;
+  color: #8a4a12;
+  font-weight: 850;
+}
+
+.delivery-stop-detail-alert.is-warm {
+  border: 1px solid #d48b37;
+  background: #ffe2b8;
+}
+
+.delivery-stop-detail-remark,
+.delivery-stop-detail-products {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.delivery-stop-detail-remark {
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.55rem;
+}
+
+.delivery-stop-detail-remark span {
+  color: var(--color-text-muted);
+}
+
+.delivery-stop-detail-products {
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.55rem;
+}
+
+.delivery-stop-detail-product {
+  display: grid;
+  grid-template-columns: minmax(44px, max-content) minmax(0, 1fr) max-content;
+  gap: 0.5rem;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.45rem 0.55rem;
+  background: var(--color-surface);
+}
+
+.delivery-stop-detail-product.has-warm {
+  border-color: #d48b37;
+  background: #fff7ed;
+}
+
+.delivery-stop-detail-product strong.is-large {
+  border-radius: 999px;
+  padding: 0.12rem 0.45rem;
+  background: #fff0d8;
+  color: #8a4a12;
+}
+
+.delivery-stop-detail-product span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .delivery-stop-header {
@@ -11843,6 +11989,16 @@ button,
     justify-self: start;
   }
 
+  .delivery-stop-detail-hero,
+  .delivery-stop-detail-product {
+    grid-template-columns: 1fr;
+  }
+
+  .delivery-stop-detail-hero strong {
+    justify-self: start;
+    white-space: normal;
+  }
+
   .delivery-saved-header {
     align-items: stretch;
     flex-direction: column;
@@ -11992,6 +12148,7 @@ button,
   body[data-active-tab="delivery"] .delivery-preparation-card,
   body[data-active-tab="delivery"] .delivery-driver-card,
   body[data-active-tab="delivery"] .delivery-route-card,
+  body[data-active-tab="delivery"] .delivery-stop-detail-card,
   body[data-active-tab="delivery"] .delivery-products-card,
   body[data-active-tab="delivery"] .delivery-print-header button {
     display: none !important;

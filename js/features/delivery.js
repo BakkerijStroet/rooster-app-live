@@ -13,6 +13,7 @@
   const preparationElement = document.getElementById("deliveryPreparation");
   const driverPreviewElement = document.getElementById("deliveryDriverPreview");
   const routeBlocksElement = document.getElementById("deliveryRouteBlocks");
+  const stopDetailElement = document.getElementById("deliveryStopDetail");
   const productOverviewElement = document.getElementById("deliveryProductOverview");
   const printPreviewButton = document.getElementById("deliveryPrintPreviewButton");
   const printPreviewElement = document.getElementById("deliveryPrintPreview");
@@ -53,6 +54,7 @@
     message: "Nog niet opgeslagen"
   };
   let latestHasLocalCorrections = false;
+  let selectedDeliveryStopIndex = -1;
 
   function escapeHtml(value) {
     return String(value || "")
@@ -145,6 +147,11 @@
       routeBlocksElement.textContent = "Nog geen routeblokken beschikbaar.";
     }
 
+    if (stopDetailElement) {
+      stopDetailElement.classList.add("empty");
+      stopDetailElement.textContent = "Klik op een route-stop om het chauffeurdetail te bekijken.";
+    }
+
     if (actionsOverviewElement) {
       actionsOverviewElement.classList.add("empty");
       actionsOverviewElement.textContent = "Nog geen acties of betalingen beschikbaar.";
@@ -185,6 +192,7 @@
       message: "Nog niet opgeslagen"
     };
     latestHasLocalCorrections = false;
+    selectedDeliveryStopIndex = -1;
     renderDashboard([], "");
   }
 
@@ -1294,6 +1302,7 @@
     latestRouteStops = [];
     latestParseWarnings = [...new Set([message, advice, ...warnings])];
     latestDeliveryDate = "";
+    selectedDeliveryStopIndex = -1;
 
     if (lineCountElement) {
       lineCountElement.textContent = `Aantal gevonden tekstregels: ${lines.length} - tekstextractie onbetrouwbaar${parserSource ? ` - parserbron: ${parserSource}` : ""}`;
@@ -1327,6 +1336,7 @@
     renderActionsOverview([]);
     renderPreparation([]);
     renderDriverPreview([], "");
+    renderStopDetail([]);
 
     if (routeBlocksElement) {
       routeBlocksElement.classList.add("empty");
@@ -1391,11 +1401,13 @@
     latestRunId = "";
     latestRunBaseUpdatedAt = "";
     latestHasLocalCorrections = false;
+    selectedDeliveryStopIndex = -1;
     renderDashboard(routeStops, latestDeliveryDate);
     renderActionsOverview(routeStops);
     renderPreparation(routeStops);
     renderDriverPreview(routeStops, latestDeliveryDate);
     renderRouteBlocks(routeStops);
+    renderStopDetail(routeStops);
     renderProductOverview(routeStops);
     clearPrintPreview();
   }
@@ -1459,6 +1471,7 @@
     renderPreparation(latestRouteStops);
     renderDriverPreview(latestRouteStops, latestDeliveryDate);
     renderRouteBlocks(latestRouteStops);
+    renderStopDetail(latestRouteStops);
     renderProductOverview(latestRouteStops);
 
     if (refreshPrint && latestRouteStops.length) {
@@ -1884,6 +1897,7 @@
       message: "Opgeslagen run geopend"
     };
     latestHasLocalCorrections = false;
+    selectedDeliveryStopIndex = -1;
 
     if (pdfInput) {
       pdfInput.value = "";
@@ -1924,6 +1938,7 @@
     renderActionsOverview(routeStops);
     renderPreparation(routeStops);
     renderRouteBlocks(routeStops);
+    renderStopDetail(routeStops);
     renderProductOverview(routeStops);
     renderDriverPreview(routeStops, latestDeliveryDate);
     renderPrintPreview();
@@ -2139,6 +2154,110 @@
     `;
   }
 
+  function renderStopDetailProducts(stop) {
+    const products = getSortedProductsForStop(stop);
+
+    if (!products.length) {
+      return "<div class=\"delivery-stop-detail-empty\">Geen exacte productregels gekoppeld.</div>";
+    }
+
+    return products.map((product) => {
+      const isLargeCount = Number(product.count) >= 10;
+      const isWarmProduct = product.category === "warm" || WARM_PREPARATION_PATTERN.test(product.rawLine || "");
+
+      return `
+        <div class="delivery-stop-detail-product${isWarmProduct ? " has-warm" : ""}">
+          <strong class="${isLargeCount ? "is-large" : ""}">${escapeHtml(product.count || "?")}</strong>
+          <span>${escapeHtml(product.rawLine)}</span>
+          ${product.category ? `<span class="delivery-category-chip" data-delivery-category="${escapeHtml(product.category)}">${escapeHtml(product.category)}</span>` : ""}
+          ${product.needsReview ? "<small>controle nodig</small>" : ""}
+        </div>
+      `;
+    }).join("");
+  }
+
+  function renderStopDetail(stops = latestRouteStops) {
+    if (!stopDetailElement) {
+      return;
+    }
+
+    const normalizedStops = Array.isArray(stops) ? stops : [];
+    const stop = normalizedStops[selectedDeliveryStopIndex] || null;
+
+    if (!stop) {
+      stopDetailElement.classList.add("empty");
+      stopDetailElement.textContent = normalizedStops.length
+        ? "Klik op een route-stop om het chauffeurdetail te bekijken."
+        : "Nog geen chauffeur-stop-detail beschikbaar.";
+      return;
+    }
+
+    const categories = stop.categories?.length ? stop.categories : ["controle nodig"];
+    const hasWarm = isWarmStop(stop);
+    const hasReview = stopHasReview(stop);
+    const navigationUrl = stop.address
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.address)}`
+      : "";
+
+    stopDetailElement.classList.remove("empty");
+    stopDetailElement.innerHTML = `
+      <section class="delivery-stop-detail-surface${hasWarm ? " has-warm" : ""}${hasReview ? " needs-review" : ""}">
+        <div class="delivery-stop-detail-hero">
+          <div>
+            <span>Stop ${selectedDeliveryStopIndex + 1}</span>
+            <h4>${escapeHtml(stop.customerName || "Klant onbekend")}</h4>
+          </div>
+          <strong>${escapeHtml(stop.timeWindow || "Tijd controle nodig")}</strong>
+        </div>
+        <div class="delivery-stop-detail-address">
+          <span>${escapeHtml(stop.address || "Adres onbekend")}</span>
+          ${navigationUrl
+            ? `<a class="secondary delivery-navigation-button" href="${escapeHtml(navigationUrl)}" target="_blank" rel="noopener">Navigeer</a>`
+            : "<button type=\"button\" class=\"secondary delivery-navigation-button\" disabled>Navigeer</button>"}
+        </div>
+        <div class="delivery-stop-detail-status">
+          <span class="delivery-payment-chip" data-delivery-payment="${escapeHtml(stop.paymentStatus || "controle nodig")}">${escapeHtml(stop.paymentStatus || "controle nodig")}</span>
+          <div class="delivery-stop-categories">
+            ${categories.map((category) => `
+              <span class="delivery-category-chip" data-delivery-category="${escapeHtml(category)}">${escapeHtml(category)}</span>
+            `).join("")}
+          </div>
+        </div>
+        ${hasWarm ? "<div class=\"delivery-stop-detail-alert is-warm\">Warm extra controleren</div>" : ""}
+        ${hasReview ? `<div class="delivery-stop-detail-alert">Controle nodig${stop.notes.length ? `: ${escapeHtml(stop.notes.join(", "))}` : ""}</div>` : ""}
+        <div class="delivery-stop-detail-remark">
+          <strong>Opmerking</strong>
+          <span>${escapeHtml(stop.remark || "Geen opmerking")}</span>
+        </div>
+        <div class="delivery-stop-detail-products">
+          <strong>Exacte productregels</strong>
+          ${renderStopDetailProducts(stop)}
+        </div>
+        <div class="delivery-stop-detail-actions">
+          <button type="button" class="secondary" disabled>Geleverd</button>
+          <button type="button" class="secondary" disabled>Betaald</button>
+          <button type="button" class="secondary" disabled>Probleem melden</button>
+        </div>
+      </section>
+    `;
+  }
+
+  function selectDeliveryStop(index, { scrollRoute = false } = {}) {
+    const normalizedIndex = Number(index);
+
+    if (!Number.isInteger(normalizedIndex) || !latestRouteStops[normalizedIndex]) {
+      return;
+    }
+
+    selectedDeliveryStopIndex = normalizedIndex;
+    renderRouteBlocks(latestRouteStops);
+    renderStopDetail(latestRouteStops);
+
+    if (scrollRoute) {
+      scrollToDeliveryStop(normalizedIndex);
+    }
+  }
+
   function getStopCorrectionPaymentValue(stop) {
     if (!stop?.paymentStatus) {
       return "Controle nodig";
@@ -2214,7 +2333,7 @@
             const hasReview = stopHasReview(stop);
 
             return `
-              <article id="deliveryRouteStop${index}" class="delivery-route-stop${stop.categories.includes("warm") ? " has-warm" : ""}${hasReview ? " needs-review" : ""}">
+              <article id="deliveryRouteStop${index}" class="delivery-route-stop${stop.categories.includes("warm") ? " has-warm" : ""}${hasReview ? " needs-review" : ""}${selectedDeliveryStopIndex === index ? " is-selected" : ""}" data-delivery-route-stop="${index}">
                 <div class="delivery-stop-header">
                   <div class="delivery-stop-title">${index + 1}. ${escapeHtml(stop.customerName || "Klant onbekend")}</div>
                   <div class="delivery-stop-time">${escapeHtml(stop.timeWindow || "Tijd controle nodig")}</div>
@@ -2984,6 +3103,7 @@
   routeBlocksElement?.addEventListener("click", (event) => {
     const editButton = event.target.closest("[data-delivery-edit-stop]");
     const cancelButton = event.target.closest("[data-delivery-cancel-correction]");
+    const routeStop = event.target.closest("[data-delivery-route-stop]");
 
     if (editButton) {
       toggleStopCorrection(Number(editButton.dataset.deliveryEditStop), true);
@@ -2992,6 +3112,15 @@
 
     if (cancelButton) {
       toggleStopCorrection(Number(cancelButton.dataset.deliveryCancelCorrection), false);
+      return;
+    }
+
+    if (event.target.closest(".delivery-stop-correction")) {
+      return;
+    }
+
+    if (routeStop) {
+      selectDeliveryStop(Number(routeStop.dataset.deliveryRouteStop));
     }
   });
   routeBlocksElement?.addEventListener("submit", (event) => {
@@ -3011,7 +3140,7 @@
       return;
     }
 
-    scrollToDeliveryStop(Number(viewButton.dataset.deliveryViewStop));
+    selectDeliveryStop(Number(viewButton.dataset.deliveryViewStop), { scrollRoute: true });
   });
   dashboardElement?.addEventListener("click", (event) => {
     const printButton = event.target.closest("[data-delivery-dashboard-print]");
