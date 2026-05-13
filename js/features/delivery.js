@@ -24,6 +24,16 @@
   const PRODUCT_COUNT_PATTERN = /^(?:(\d+[,.]?\d*)|(\d+)\s*x|x\s*(\d+))\s+\S+/i;
   const PRODUCT_CATEGORY_ORDER = ["brood", "gebak", "broodjes", "warm"];
   const PAYMENT_STATUS_VALUES = ["OK", "Op rekening", "Niet betaald", "Betaald via Ideal", "Contant", "Pin", "Tikkie"];
+  const PAYMENT_CORRECTION_OPTIONS = [
+    "OK",
+    "Op rekening",
+    "Niet betaald",
+    "Betaald via Ideal",
+    "Pin betaald",
+    "Contant betaald",
+    "Tikkie gestuurd",
+    "Controle nodig"
+  ];
   const CUTTING_PATTERN = /\b(gesneden|snijden|snij|gesn\.?)\b/i;
   const NOT_CUTTING_PATTERN = /\b(ongesneden|niet\s+gesneden|niet\s+snijden)\b/i;
   const WARM_PREPARATION_PATTERN = /\b(warm|saucijs|saucijzen|saucijzenbroodje|appelflap|frikandel|worstenbrood|ham[-\s]?kaas|kaassouffle|kroket|snack|pizza)\b/i;
@@ -34,11 +44,14 @@
   let latestSourceHash = "";
   let latestParserSource = "";
   let latestRunSource = "empty";
+  let latestRunId = "";
   let latestRunUpdatedAt = "";
+  let latestRunBaseUpdatedAt = "";
   let latestSaveState = {
     status: "empty",
     message: "Nog niet opgeslagen"
   };
+  let latestHasLocalCorrections = false;
 
   function escapeHtml(value) {
     return String(value || "")
@@ -158,11 +171,14 @@
     latestSourceHash = "";
     latestParserSource = "";
     latestRunSource = "empty";
+    latestRunId = "";
     latestRunUpdatedAt = "";
+    latestRunBaseUpdatedAt = "";
     latestSaveState = {
       status: "empty",
       message: "Nog niet opgeslagen"
     };
+    latestHasLocalCorrections = false;
     renderDashboard([], "");
   }
 
@@ -1365,6 +1381,9 @@
     latestRouteStops = routeStops;
     latestParseWarnings = warnings;
     latestDeliveryDate = getDeliveryDate(lines);
+    latestRunId = "";
+    latestRunBaseUpdatedAt = "";
+    latestHasLocalCorrections = false;
     renderDashboard(routeStops, latestDeliveryDate);
     renderPreparation(routeStops);
     renderDriverPreview(routeStops, latestDeliveryDate);
@@ -1414,6 +1433,39 @@
     `;
   }
 
+  function stopHasReview(stop) {
+    if (!stop) {
+      return false;
+    }
+
+    if (stop.reviewOverride === false) {
+      return false;
+    }
+
+    return Boolean(stop.needsReview || (Array.isArray(stop.notes) && stop.notes.length));
+  }
+
+  function rerenderDeliveryPreview({ refreshPrint = false } = {}) {
+    renderDashboard(latestRouteStops, latestDeliveryDate);
+    renderPreparation(latestRouteStops);
+    renderDriverPreview(latestRouteStops, latestDeliveryDate);
+    renderRouteBlocks(latestRouteStops);
+    renderProductOverview(latestRouteStops);
+
+    if (refreshPrint && latestRouteStops.length) {
+      renderPrintPreview();
+    }
+  }
+
+  function markDeliveryLocallyCorrected() {
+    latestHasLocalCorrections = true;
+    latestSaveState = {
+      status: "blocked",
+      message: "Lokale correcties nog niet opgeslagen"
+    };
+    setStatus("Lokale correcties nog niet opgeslagen.", "ready");
+  }
+
   function getDashboardStats(stops) {
     const normalizedStops = Array.isArray(stops) ? stops : [];
     const preparation = calculatePreparation(normalizedStops);
@@ -1432,7 +1484,7 @@
       unpaid: 0,
       review: 0
     });
-    const reviewStops = normalizedStops.filter((stop) => stop.needsReview || stop.notes.length);
+    const reviewStops = normalizedStops.filter(stopHasReview);
     const unknownStops = normalizedStops.filter((stop) => !stop.customerName || !stop.address);
     const warmStops = normalizedStops.filter((stop) => isWarmStop(stop));
     const warmMissingTimeCount = preparation.reviewNotes.filter((note) => note.includes("warm tijd ontbreekt")).length;
@@ -1451,6 +1503,10 @@
   }
 
   function getStopReviewReasons(stop) {
+    if (stop?.reviewOverride === false) {
+      return [];
+    }
+
     const reasons = [];
     const notes = Array.isArray(stop?.notes) ? stop.notes : [];
 
@@ -1531,8 +1587,11 @@
 
   function getSaveStatusText() {
     if (latestSaveState.status === "saving") return "Opslaan bezig";
+    if (latestSaveState.status === "updating") return "Correcties opslaan";
+    if (latestSaveState.status === "updated") return "Correcties opgeslagen";
     if (latestSaveState.status === "saved") return "Opgeslagen";
     if (latestSaveState.status === "opened") return "Opgeslagen run geopend";
+    if (latestSaveState.status === "update-conflict") return "Conflict";
     if (latestSaveState.status === "conflict") return "Bestaat al";
     if (latestSaveState.status === "blocked") return "Niet opgeslagen";
     if (latestSaveState.status === "error") return "Fout bij opslaan";
@@ -1546,7 +1605,7 @@
   }
 
   function shouldShowUnsavedWarning() {
-    return latestRunSource === "local" && ["ready", "error"].includes(latestSaveState.status);
+    return latestHasLocalCorrections || latestRunSource === "local" && ["ready", "error"].includes(latestSaveState.status);
   }
 
   function renderRunStatusBar() {
@@ -1556,7 +1615,7 @@
 
     const updatedLabel = latestRunUpdatedAt ? formatSavedRunDateTime(latestRunUpdatedAt) : "-";
     const warning = shouldShowUnsavedWarning()
-      ? `<span class="delivery-run-status-warning">Wijzigingen worden nog niet opgeslagen</span>`
+      ? `<span class="delivery-run-status-warning">${escapeHtml(latestHasLocalCorrections ? "Lokale correcties nog niet opgeslagen" : "Wijzigingen worden nog niet opgeslagen")}</span>`
       : "";
 
     runStatusBarElement.dataset.deliveryRunSource = latestRunSource;
@@ -1691,11 +1750,14 @@
     latestSourceFilename = run?.sourceFilename || payload?.source?.filename || "";
     latestSourceHash = run?.sourceHash || payload?.source?.hash || "";
     latestRunSource = "saved";
+    latestRunId = run?.id || "";
     latestRunUpdatedAt = run?.updatedAt || run?.createdAt || "";
+    latestRunBaseUpdatedAt = run?.updatedAt || "";
     latestSaveState = {
       status: "opened",
       message: "Opgeslagen run geopend"
     };
+    latestHasLocalCorrections = false;
 
     if (pdfInput) {
       pdfInput.value = "";
@@ -1775,6 +1837,25 @@
 
     const stats = getDashboardStats(stops);
     const hasStops = stats.stopCount > 0;
+    const canSaveNewRun = hasStops
+      && latestSourceHash
+      && !latestHasLocalCorrections
+      && latestSaveState.status !== "saving"
+      && latestSaveState.status !== "updating"
+      && latestSaveState.status !== "saved"
+      && latestSaveState.status !== "opened"
+      && latestSaveState.status !== "blocked";
+    const canSaveCorrections = hasStops
+      && latestRunSource === "saved"
+      && latestHasLocalCorrections
+      && latestRunId
+      && latestRunBaseUpdatedAt
+      && latestSaveState.status !== "saving"
+      && latestSaveState.status !== "updating";
+    const saveButtonAction = canSaveCorrections ? "patch" : "post";
+    const saveButtonLabel = latestRunSource === "saved" && latestHasLocalCorrections
+      ? "Correcties opslaan"
+      : "Run opslaan";
 
     dashboardElement.classList.toggle("empty", !hasStops);
     renderRunStatusBar();
@@ -1815,7 +1896,7 @@
         <h4>Opslag</h4>
         <strong>${escapeHtml(getSaveStatusText())}</strong>
         <span>${escapeHtml(latestSaveState.message || "Nog niet opgeslagen")}</span>
-        <button type="button" class="secondary" data-delivery-dashboard-save ${hasStops && latestSourceHash && latestSaveState.status !== "saving" && latestSaveState.status !== "saved" && latestSaveState.status !== "opened" ? "" : "disabled"}>Run opslaan</button>
+        <button type="button" class="secondary" data-delivery-dashboard-save data-delivery-save-action="${escapeHtml(saveButtonAction)}" ${canSaveNewRun || canSaveCorrections ? "" : "disabled"}>${escapeHtml(saveButtonLabel)}</button>
       </section>
     `;
   }
@@ -1859,7 +1940,7 @@
         warnings.push({ level: "red", text: `Tijdkritisch ${stop.timeWindow}: ${label}` });
       }
 
-      if (stop.needsReview || stop.notes.length) {
+      if (stopHasReview(stop)) {
         warnings.push({ level: "orange", text: `Controle nodig: ${label}` });
       }
 
@@ -1931,6 +2012,58 @@
     `;
   }
 
+  function getStopCorrectionPaymentValue(stop) {
+    if (!stop?.paymentStatus) {
+      return "Controle nodig";
+    }
+
+    if (stop.paymentStatus === "Pin") return "Pin betaald";
+    if (stop.paymentStatus === "Contant") return "Contant betaald";
+    if (stop.paymentStatus === "Tikkie") return "Tikkie gestuurd";
+
+    return PAYMENT_CORRECTION_OPTIONS.includes(stop.paymentStatus)
+      ? stop.paymentStatus
+      : "Controle nodig";
+  }
+
+  function renderStopCorrectionForm(stop, index) {
+    if (!stop.isEditing) {
+      return "";
+    }
+
+    const paymentValue = getStopCorrectionPaymentValue(stop);
+    const reviewChecked = stopHasReview(stop) ? "checked" : "";
+
+    return `
+      <form class="delivery-stop-correction" data-delivery-stop-correction="${index}">
+        <label>
+          <span>Tijd</span>
+          <input type="text" name="timeWindow" value="${escapeHtml(stop.timeWindow || "")}" placeholder="bijv. 09:30 of 10:00 / 11:00">
+        </label>
+        <label>
+          <span>Betaalstatus</span>
+          <select name="paymentStatus">
+            ${PAYMENT_CORRECTION_OPTIONS.map((option) => `
+              <option value="${escapeHtml(option)}" ${option === paymentValue ? "selected" : ""}>${escapeHtml(option)}</option>
+            `).join("")}
+          </select>
+        </label>
+        <label>
+          <span>Belangrijkste opmerking</span>
+          <input type="text" name="remark" value="${escapeHtml(stop.remark || "")}" placeholder="bijv. receptie, bellen, deurcode">
+        </label>
+        <label class="delivery-stop-correction-check">
+          <input type="checkbox" name="needsReview" ${reviewChecked}>
+          <span>Controle nodig</span>
+        </label>
+        <div class="delivery-stop-correction-actions">
+          <button type="submit" class="secondary">Correctie toepassen</button>
+          <button type="button" class="secondary" data-delivery-cancel-correction="${index}">Sluiten</button>
+        </div>
+      </form>
+    `;
+  }
+
   function renderRouteBlocks(stops) {
     if (!routeBlocksElement) {
       return;
@@ -1951,9 +2084,10 @@
             const categories = stop.categories.length
               ? stop.categories
               : ["controle nodig"];
+            const hasReview = stopHasReview(stop);
 
             return `
-              <article class="delivery-route-stop${stop.categories.includes("warm") ? " has-warm" : ""}${stop.needsReview || stop.notes.length ? " needs-review" : ""}">
+              <article class="delivery-route-stop${stop.categories.includes("warm") ? " has-warm" : ""}${hasReview ? " needs-review" : ""}">
                 <div class="delivery-stop-header">
                   <div class="delivery-stop-title">${index + 1}. ${escapeHtml(stop.customerName || "Klant onbekend")}</div>
                   <div class="delivery-stop-time">${escapeHtml(stop.timeWindow || "Tijd controle nodig")}</div>
@@ -1968,13 +2102,58 @@
                   </div>
                 </div>
                 <div class="delivery-stop-remark">${escapeHtml(stop.remark || "Opmerking controle nodig")}</div>
-                ${stop.needsReview || stop.notes.length ? `<div class="delivery-stop-note">controle nodig${stop.notes.length ? `: ${escapeHtml(stop.notes.join(", "))}` : ""}</div>` : ""}
+                ${hasReview ? `<div class="delivery-stop-note">controle nodig${stop.notes.length ? `: ${escapeHtml(stop.notes.join(", "))}` : ""}</div>` : ""}
+                <button type="button" class="secondary delivery-stop-correct-button" data-delivery-edit-stop="${index}">Corrigeren</button>
+                ${renderStopCorrectionForm(stop, index)}
               </article>
             `;
           }).join("")}
         </div>
       </section>
     `;
+  }
+
+  function toggleStopCorrection(index, isOpen) {
+    const stop = latestRouteStops[index];
+
+    if (!stop) {
+      return;
+    }
+
+    stop.isEditing = isOpen;
+    renderRouteBlocks(latestRouteStops);
+  }
+
+  function applyStopCorrection(form) {
+    const index = Number(form?.dataset?.deliveryStopCorrection);
+    const stop = latestRouteStops[index];
+
+    if (!stop || !form) {
+      return;
+    }
+
+    const formData = new FormData(form);
+    const paymentStatus = String(formData.get("paymentStatus") || "").trim();
+    const timeWindow = String(formData.get("timeWindow") || "").trim();
+    const remark = String(formData.get("remark") || "").trim();
+    const needsReview = formData.get("needsReview") === "on";
+
+    stop.timeWindow = timeWindow;
+    stop.paymentStatus = paymentStatus === "Controle nodig" ? "" : paymentStatus;
+    stop.remark = remark;
+    stop.reviewOverride = needsReview ? true : false;
+    stop.needsReview = needsReview;
+    stop.isEditing = false;
+
+    if (needsReview) {
+      const existingNotes = Array.isArray(stop.notes) ? stop.notes : [];
+      stop.notes = existingNotes.length ? existingNotes : ["controle nodig: handmatig gemarkeerd"];
+    } else {
+      stop.notes = [];
+    }
+
+    markDeliveryLocallyCorrected();
+    rerenderDeliveryPreview({ refreshPrint: true });
   }
 
   function getSortedProductsForStop(stop) {
@@ -2189,7 +2368,7 @@
     const warmStops = stops.filter((stop) =>
       stop.categories.includes("warm") || getAllProducts([stop]).some((product) => isWarmPreparationProduct(product))
     );
-    const reviewStops = stops.filter((stop) => stop.needsReview || stop.notes.length);
+    const reviewStops = stops.filter(stopHasReview);
     const preparation = calculatePreparation(stops);
 
     return `
@@ -2247,7 +2426,7 @@
               <div><em>Wat meenemen:</em> ${renderPrintCategoryChips(stop.categories)}</div>
               <div><em>Betaling:</em> <span class="delivery-payment-chip" data-delivery-payment="${escapeHtml(stop.paymentStatus || "controle nodig")}">${escapeHtml(stop.paymentStatus || "controle nodig")}</span></div>
               <div><em>Opmerking:</em> ${escapeHtml(stop.remark || "controle nodig")}</div>
-              ${stop.needsReview || stop.notes.length ? `<small>controle nodig${stop.notes.length ? `: ${escapeHtml(stop.notes.join(", "))}` : ""}</small>` : ""}
+              ${stopHasReview(stop) ? `<small>controle nodig${stop.notes.length ? `: ${escapeHtml(stop.notes.join(", "))}` : ""}</small>` : ""}
             </article>
           `).join("")}
         </div>
@@ -2330,6 +2509,17 @@
 
   function getDeliveryRunPayload() {
     const firstStop = latestRouteStops[0] || null;
+    const payloadStops = latestRouteStops.map((stop) => ({
+      customerName: stop.customerName || "",
+      address: stop.address || "",
+      categories: Array.isArray(stop.categories) ? stop.categories : [],
+      paymentStatus: stop.paymentStatus || "",
+      timeWindow: stop.timeWindow || "",
+      remark: stop.remark || "",
+      notes: Array.isArray(stop.notes) ? stop.notes : [],
+      needsReview: Boolean(stop.needsReview),
+      products: Array.isArray(stop.products) ? stop.products : []
+    }));
 
     return {
       parserVersion: "delivery-local-v1",
@@ -2342,12 +2532,12 @@
       routeBlocks: [
         {
           name: "Ronde 1",
-          stops: latestRouteStops
+          stops: payloadStops
         }
       ],
-      preparation: calculatePreparation(latestRouteStops),
+      preparation: calculatePreparation(payloadStops),
       driverPreview: {
-        warnings: getDriverWarnings(latestRouteStops),
+        warnings: getDriverWarnings(payloadStops),
         firstStop: firstStop
           ? {
               customerName: firstStop.customerName || "",
@@ -2364,7 +2554,7 @@
   }
 
   async function saveDeliveryRun() {
-    if (!latestRouteStops.length || !latestSourceHash || latestSaveState.status === "saving") {
+    if (!latestRouteStops.length || !latestSourceHash || latestHasLocalCorrections || latestSaveState.status === "saving") {
       return;
     }
 
@@ -2415,6 +2605,72 @@
     }
 
     renderDashboard(latestRouteStops, latestDeliveryDate);
+  }
+
+  async function saveDeliveryCorrections() {
+    if (
+      !latestRouteStops.length
+      || latestRunSource !== "saved"
+      || !latestRunId
+      || !latestRunBaseUpdatedAt
+      || !latestHasLocalCorrections
+      || latestSaveState.status === "updating"
+    ) {
+      return;
+    }
+
+    latestSaveState = {
+      status: "updating",
+      message: "Correcties opslaan..."
+    };
+    renderDashboard(latestRouteStops, latestDeliveryDate);
+
+    try {
+      const response = await fetch("/api/delivery-runs", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          mode: "test",
+          id: latestRunId,
+          baseUpdatedAt: latestRunBaseUpdatedAt,
+          payload: getDeliveryRunPayload()
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (response.status === 409) {
+        latestSaveState = {
+          status: "update-conflict",
+          message: "Conflict: opnieuw openen nodig"
+        };
+      } else if (!response.ok) {
+        latestSaveState = {
+          status: "error",
+          message: result?.message || "Opslaan mislukt"
+        };
+      } else {
+        const updatedAt = result?.run?.updatedAt || "";
+        latestRunUpdatedAt = updatedAt || latestRunUpdatedAt;
+        latestRunBaseUpdatedAt = updatedAt || latestRunBaseUpdatedAt;
+        latestHasLocalCorrections = false;
+        latestSaveState = {
+          status: "updated",
+          message: "Correcties opgeslagen"
+        };
+        setStatus("Correcties opgeslagen.", "ready");
+        void fetchSavedRuns();
+      }
+    } catch (error) {
+      latestSaveState = {
+        status: "error",
+        message: error?.message || "Opslaan mislukt"
+      };
+    }
+
+    renderDashboard(latestRouteStops, latestDeliveryDate);
+    renderRunStatusBar();
   }
 
   async function parsePdfFile(file) {
@@ -2527,7 +2783,9 @@
       latestSourceHash = result.sourceHash || "";
       latestParserSource = result.parser || "browser-local-v1";
       latestRunSource = "local";
+      latestRunId = "";
       latestRunUpdatedAt = "";
+      latestRunBaseUpdatedAt = "";
       latestSaveState = {
         status: "ready",
         message: "Nog niet opgeslagen"
@@ -2596,12 +2854,39 @@
 
     void openSavedRun(openButton.dataset.deliveryOpenRun);
   });
+  routeBlocksElement?.addEventListener("click", (event) => {
+    const editButton = event.target.closest("[data-delivery-edit-stop]");
+    const cancelButton = event.target.closest("[data-delivery-cancel-correction]");
+
+    if (editButton) {
+      toggleStopCorrection(Number(editButton.dataset.deliveryEditStop), true);
+      return;
+    }
+
+    if (cancelButton) {
+      toggleStopCorrection(Number(cancelButton.dataset.deliveryCancelCorrection), false);
+    }
+  });
+  routeBlocksElement?.addEventListener("submit", (event) => {
+    const form = event.target.closest("[data-delivery-stop-correction]");
+
+    if (!form) {
+      return;
+    }
+
+    event.preventDefault();
+    applyStopCorrection(form);
+  });
   dashboardElement?.addEventListener("click", (event) => {
     const printButton = event.target.closest("[data-delivery-dashboard-print]");
     const saveButton = event.target.closest("[data-delivery-dashboard-save]");
 
     if (saveButton && !saveButton.disabled) {
-      void saveDeliveryRun();
+      if (saveButton.dataset.deliverySaveAction === "patch") {
+        void saveDeliveryCorrections();
+      } else {
+        void saveDeliveryRun();
+      }
       return;
     }
 
