@@ -51,6 +51,7 @@
   let latestSourceFilename = "";
   let latestSourceHash = "";
   let latestParserSource = "";
+  let latestUploadDate = "";
   let latestRunSource = "empty";
   let latestRunId = "";
   let latestRunUpdatedAt = "";
@@ -100,6 +101,79 @@
       hour: "2-digit",
       minute: "2-digit"
     }).format(date);
+  }
+
+  function formatDateIso(value) {
+    const date = value instanceof Date ? value : new Date(value || "");
+
+    if (Number.isNaN(date.getTime())) {
+      return "";
+    }
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function parseDeliveryDateIso(value) {
+    const text = String(value || "").trim().toLowerCase();
+
+    if (!text) {
+      return "";
+    }
+
+    const numericMatch = text.match(/\b([0-3]?\d)[-/.]([01]?\d)[-/.]((?:20)?\d{2})\b/) ||
+      text.match(/\b((?:20)?\d{2})[-/.]([01]?\d)[-/.]([0-3]?\d)\b/);
+
+    if (numericMatch) {
+      const isYearFirst = numericMatch[1].length >= 4 || Number(numericMatch[1]) > 31;
+      const year = isYearFirst ? numericMatch[1] : numericMatch[3];
+      const month = isYearFirst ? numericMatch[2] : numericMatch[2];
+      const day = isYearFirst ? numericMatch[3] : numericMatch[1];
+      const fullYear = year.length === 2 ? `20${year}` : year;
+      return `${fullYear.padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+
+    const months = {
+      januari: "01",
+      februari: "02",
+      maart: "03",
+      april: "04",
+      mei: "05",
+      juni: "06",
+      juli: "07",
+      augustus: "08",
+      september: "09",
+      oktober: "10",
+      november: "11",
+      december: "12"
+    };
+    const namedMatch = text.match(/\b(?:maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag)?\s*([0-3]?\d)\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+((?:20)?\d{2})\b/i);
+
+    if (!namedMatch) {
+      return "";
+    }
+
+    const year = namedMatch[3].length === 2 ? `20${namedMatch[3]}` : namedMatch[3];
+    return `${year}-${months[namedMatch[2]]}-${String(namedMatch[1]).padStart(2, "0")}`;
+  }
+
+  function getDeliveryDisplayBaseName(sourceFilename) {
+    const baseName = String(sourceFilename || "")
+      .replace(/\.[^.]+$/, "")
+      .replace(/[_-]+BEZORGINGEN?$/i, "")
+      .replace(/[_-]+BEZORGEN(?:\s+test\s+\d+)?$/i, "")
+      .replace(/[_-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    return baseName || "Bezorglijst";
+  }
+
+  function getDeliveryRunDisplayTitle({ deliveryDate = "", sourceFilename = "", fallbackDate = "" } = {}) {
+    const dateLabel = parseDeliveryDateIso(deliveryDate) || formatDateIso(fallbackDate) || formatDateIso(new Date());
+    return `${dateLabel} - ${getDeliveryDisplayBaseName(sourceFilename)}`;
   }
 
   function formatHex(buffer) {
@@ -198,6 +272,7 @@
     latestSourceFilename = "";
     latestSourceHash = "";
     latestParserSource = "";
+    latestUploadDate = "";
     latestRunSource = "empty";
     latestRunId = "";
     latestRunUpdatedAt = "";
@@ -1774,6 +1849,11 @@
     }
 
     const updatedLabel = latestRunUpdatedAt ? formatSavedRunDateTime(latestRunUpdatedAt) : "-";
+    const displayTitle = getDeliveryRunDisplayTitle({
+      deliveryDate: latestDeliveryDate,
+      sourceFilename: latestSourceFilename,
+      fallbackDate: latestUploadDate || latestRunUpdatedAt
+    });
     const warnings = [
       shouldShowUnsavedWarning()
         ? (latestHasLocalCorrections ? "Lokale correcties nog niet opgeslagen" : "Wijzigingen worden nog niet opgeslagen")
@@ -1788,6 +1868,7 @@
     runStatusBarElement.dataset.deliverySaveStatus = latestSaveState.status;
     runStatusBarElement.innerHTML = `
       <span><strong>Bron</strong>${escapeHtml(getRunSourceText())}</span>
+      <span><strong>Run</strong>${escapeHtml(displayTitle)}</span>
       <span><strong>Bestand</strong>${escapeHtml(latestSourceFilename || "-")}</span>
       <span><strong>Status</strong>${escapeHtml(getSaveStatusText())}</span>
       <span><strong>Bijgewerkt</strong>${escapeHtml(updatedLabel)}</span>
@@ -1829,13 +1910,19 @@
     savedRunsElement.classList.remove("empty");
     savedRunsElement.innerHTML = runs.map((run) => {
       const deliveryDate = run?.payload?.deliveryDate || "Datum onbekend";
+      const displayTitle = getDeliveryRunDisplayTitle({
+        deliveryDate: run?.payload?.deliveryDate || "",
+        sourceFilename: run?.sourceFilename || run?.payload?.source?.filename || "",
+        fallbackDate: run?.payload?.source?.uploadedAt || run?.createdAt || run?.updatedAt || ""
+      });
       const stopCount = getSavedRunStopCount(run);
       const updatedAt = run?.updatedAt || run?.createdAt || "";
 
       return `
         <article class="delivery-saved-run">
-          <strong>${escapeHtml(run?.sourceFilename || "Bestand onbekend")}</strong>
+          <strong>${escapeHtml(displayTitle)}</strong>
           <span>${escapeHtml(deliveryDate)}</span>
+          <span>${escapeHtml(run?.sourceFilename || "Bestand onbekend")}</span>
           <span>${stopCount} stop${stopCount === 1 ? "" : "s"}</span>
           <small>Bijgewerkt: ${escapeHtml(formatSavedRunDateTime(updatedAt))}</small>
           <button type="button" class="secondary" data-delivery-open-run="${escapeHtml(run?.id || "")}">Openen</button>
@@ -1921,6 +2008,7 @@
     latestDeliveryDate = typeof payload.deliveryDate === "string" ? payload.deliveryDate : "";
     latestSourceFilename = run?.sourceFilename || payload?.source?.filename || "";
     latestSourceHash = run?.sourceHash || payload?.source?.hash || "";
+    latestUploadDate = payload?.source?.uploadedAt || run?.createdAt || "";
     latestRunSource = "saved";
     latestRunId = run?.id || "";
     latestRunUpdatedAt = run?.updatedAt || run?.createdAt || "";
@@ -1950,7 +2038,11 @@
       recognizedListElement.innerHTML = `
         <div class="delivery-recognized-item">
           <strong>Opgeslagen run</strong>
-          <span>${escapeHtml(latestSourceFilename || "Bestand onbekend")}</span>
+          <span>${escapeHtml(getDeliveryRunDisplayTitle({
+            deliveryDate: latestDeliveryDate,
+            sourceFilename: latestSourceFilename,
+            fallbackDate: latestUploadDate || latestRunUpdatedAt
+          }))}</span>
         </div>
       `;
     }
@@ -2038,6 +2130,13 @@
     const saveButtonLabel = latestRunSource === "saved" && latestHasLocalCorrections
       ? "Correcties opslaan"
       : "Run opslaan";
+    const displayTitle = hasStops
+      ? getDeliveryRunDisplayTitle({
+        deliveryDate,
+        sourceFilename: latestSourceFilename,
+        fallbackDate: latestUploadDate || latestRunUpdatedAt
+      })
+      : "";
 
     dashboardElement.classList.toggle("empty", !hasStops);
     renderRunStatusBar();
@@ -2077,6 +2176,7 @@
       <section class="delivery-dashboard-cardlet delivery-dashboard-save" data-delivery-save-status="${escapeHtml(latestSaveState.status)}">
         <h4>Opslag</h4>
         <strong>${escapeHtml(getSaveStatusText())}</strong>
+        <span>${escapeHtml(displayTitle || "Nog geen run geladen")}</span>
         <span>${escapeHtml(latestSaveState.message || "Nog niet opgeslagen")}</span>
         <button type="button" class="secondary" data-delivery-dashboard-save data-delivery-save-action="${escapeHtml(saveButtonAction)}" ${canSaveNewRun || canSaveCorrections ? "" : "disabled"}>${escapeHtml(saveButtonLabel)}</button>
       </section>
@@ -2813,7 +2913,8 @@
       source: {
         filename: latestSourceFilename,
         hash: latestSourceHash,
-        parser: latestParserSource
+        parser: latestParserSource,
+        uploadedAt: latestUploadDate
       },
       routeBlocks: [
         {
@@ -3092,6 +3193,7 @@
       latestSourceFilename = file.name || "";
       latestSourceHash = result.sourceHash || "";
       latestParserSource = result.parser || "browser-local-v1";
+      latestUploadDate = new Date().toISOString();
       latestRunSource = "local";
       latestRunId = "";
       latestRunUpdatedAt = "";
