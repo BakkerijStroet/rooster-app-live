@@ -11683,6 +11683,11 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   box-shadow: inset 3px 0 0 #d97b70;
 }
 
+.delivery-route-stop.has-resolved-problem {
+  border-color: #8bbf8b;
+  box-shadow: inset 3px 0 0 #8bbf8b;
+}
+
 .delivery-route-stop.is-highlighted {
   outline: 3px solid rgba(212, 139, 55, 0.42);
   outline-offset: 2px;
@@ -11713,6 +11718,19 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 
 .delivery-stop-detail-surface.needs-review {
   box-shadow: inset 3px 0 0 #d48b37;
+}
+
+.delivery-driver-stop-nav {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.delivery-driver-stop-nav strong {
+  justify-self: center;
+  color: var(--color-text);
+  font-size: 1rem;
 }
 
 .delivery-stop-detail-hero {
@@ -11746,6 +11764,49 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   white-space: nowrap;
 }
 
+.delivery-driver-status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.delivery-driver-status-chip {
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.24rem 0.65rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.88rem;
+  font-weight: 850;
+}
+
+.delivery-driver-status-chip[data-delivery-driver-status="warm"] {
+  border-color: #d48b37;
+  background: #ffe2b8;
+  color: #8a4a12;
+}
+
+.delivery-driver-status-chip[data-delivery-driver-status="danger"],
+.delivery-driver-status-chip[data-delivery-driver-status="problem"] {
+  border-color: #d97b70;
+  background: #fff1ed;
+  color: #8d241b;
+}
+
+.delivery-driver-status-chip[data-delivery-driver-status="review"] {
+  border-color: #d48b37;
+  background: #fff0d8;
+  color: #8a4a12;
+}
+
+.delivery-driver-status-chip[data-delivery-driver-status="done"],
+.delivery-driver-status-chip[data-delivery-driver-status="paid"],
+.delivery-driver-status-chip[data-delivery-driver-status="resolved"] {
+  border-color: #8bbf8b;
+  background: #eff9ee;
+  color: #2f6b32;
+}
+
 .delivery-stop-detail-address,
 .delivery-stop-detail-status,
 .delivery-stop-detail-actions {
@@ -11753,6 +11814,38 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
+}
+
+.delivery-route-stop-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.32rem;
+}
+
+.delivery-route-status-chip {
+  width: max-content;
+  max-width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.12rem 0.48rem;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.delivery-route-status-chip[data-delivery-route-status="problem"] {
+  border-color: #d97b70;
+  background: #fff1ed;
+  color: #8d241b;
+}
+
+.delivery-route-status-chip[data-delivery-route-status="done"],
+.delivery-route-status-chip[data-delivery-route-status="paid"],
+.delivery-route-status-chip[data-delivery-route-status="resolved"] {
+  border-color: #8bbf8b;
+  background: #eff9ee;
+  color: #2f6b32;
 }
 
 .delivery-stop-detail-address span {
@@ -11783,6 +11876,12 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   border: 1px solid #d97b70;
   background: #fff1ed;
   color: #8d241b;
+}
+
+.delivery-stop-detail-alert.is-resolved {
+  border: 1px solid #8bbf8b;
+  background: #eff9ee;
+  color: #2f6b32;
 }
 
 .delivery-stop-detail-remark,
@@ -11887,6 +11986,12 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   color: #8d241b;
   font-size: 0.82rem;
   font-weight: 850;
+}
+
+.delivery-stop-problem-badge.is-resolved {
+  border-color: #8bbf8b;
+  background: #eff9ee;
+  color: #2f6b32;
 }
 
 .delivery-stop-time {
@@ -12184,9 +12289,62 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
     grid-template-columns: 1fr;
   }
 
+  .delivery-stop-detail-surface {
+    gap: 0.9rem;
+    padding: 0.95rem;
+  }
+
+  .delivery-driver-stop-nav {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .delivery-driver-stop-nav strong {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    justify-self: start;
+    font-size: 1.18rem;
+  }
+
+  .delivery-driver-stop-nav button {
+    grid-row: 2;
+    min-height: 52px;
+    font-size: 1rem;
+    font-weight: 850;
+  }
+
+  .delivery-stop-detail-hero h4 {
+    font-size: 1.75rem;
+  }
+
+  .delivery-driver-status-chip {
+    padding: 0.38rem 0.78rem;
+    font-size: 1rem;
+  }
+
   .delivery-stop-detail-hero strong {
     justify-self: start;
     white-space: normal;
+  }
+
+  .delivery-stop-detail-product {
+    gap: 0.68rem;
+    padding: 0.72rem;
+  }
+
+  .delivery-stop-detail-product strong {
+    width: max-content;
+    min-width: 46px;
+    border-radius: 999px;
+    padding: 0.16rem 0.55rem;
+    background: #fff0d8;
+    color: #8a4a12;
+    font-size: 1.15rem;
+    text-align: center;
+  }
+
+  .delivery-stop-detail-product span {
+    font-size: 1rem;
+    line-height: 1.32;
   }
 
   .delivery-saved-header {

@@ -1565,8 +1565,25 @@
     `;
   }
 
-  function hasStopProblem(stop) {
+  function hasAnyStopProblem(stop) {
     return Boolean(stop?.driverProblem?.type || stop?.driverProblem?.remark);
+  }
+
+  function hasStopProblem(stop) {
+    return hasAnyStopProblem(stop) && !stop?.driverProblem?.resolvedAt;
+  }
+
+  function hasResolvedStopProblem(stop) {
+    return hasAnyStopProblem(stop) && Boolean(stop?.driverProblem?.resolvedAt);
+  }
+
+  function getDriverStatus(stop) {
+    const status = stop?.driverStatus || {};
+
+    return {
+      delivered: Boolean(status.delivered),
+      paid: Boolean(status.paid)
+    };
   }
 
   function formatProblemTime(value) {
@@ -1583,7 +1600,7 @@
   }
 
   function getStopProblemText(stop) {
-    if (!hasStopProblem(stop)) {
+    if (!hasAnyStopProblem(stop)) {
       return "";
     }
 
@@ -1641,12 +1658,17 @@
     const normalizedStops = Array.isArray(stops) ? stops : [];
     const preparation = calculatePreparation(normalizedStops);
     const paymentCounts = normalizedStops.reduce((counts, stop) => {
+      const driverStatus = getDriverStatus(stop);
       const status = stop.paymentStatus || "controle nodig";
 
-      if (status === "OK") counts.ok += 1;
-      if (status === "Op rekening") counts.account += 1;
-      if (status === "Niet betaald") counts.unpaid += 1;
-      if (!stop.paymentStatus) counts.review += 1;
+      if (driverStatus.paid) {
+        counts.ok += 1;
+      } else {
+        if (status === "OK") counts.ok += 1;
+        if (status === "Op rekening") counts.account += 1;
+        if (status === "Niet betaald") counts.unpaid += 1;
+        if (!stop.paymentStatus) counts.review += 1;
+      }
 
       return counts;
     }, {
@@ -1804,12 +1826,13 @@
     (Array.isArray(stops) ? stops : []).forEach((stop, index) => {
       const status = normalizePaymentStatusLabel(stop?.paymentStatus);
       const isDirectPayment = ["pin", "pin betaald", "contant", "contant betaald", "tikkie", "tikkie gestuurd"].includes(status);
+      const driverStatus = getDriverStatus(stop);
 
       if (hasStopProblem(stop)) {
         byKey.problems.items.push(createActionItem(stop, index, "problems", getStopProblemText(stop)));
       }
 
-      if (status === "niet betaald") {
+      if (status === "niet betaald" && !driverStatus.paid) {
         byKey.unpaid.items.push(createActionItem(stop, index, "unpaid", "betaling staat op niet betaald"));
       }
 
@@ -1817,15 +1840,20 @@
         byKey.account.items.push(createActionItem(stop, index, "account", "betaling op rekening"));
       }
 
-      if (["ok", "betaald via ideal"].includes(status)) {
-        byKey.paid.items.push(createActionItem(stop, index, "paid", status === "ok" ? "betaling OK" : "betaald via Ideal"));
+      if (driverStatus.paid || ["ok", "betaald via ideal"].includes(status)) {
+        byKey.paid.items.push(createActionItem(
+          stop,
+          index,
+          "paid",
+          driverStatus.paid ? "lokaal betaald gemarkeerd" : (status === "ok" ? "betaling OK" : "betaald via Ideal")
+        ));
       }
 
       if (isDirectPayment) {
         byKey.direct.items.push(createActionItem(stop, index, "direct", stop.paymentStatus));
       }
 
-      if (!stop?.paymentStatus) {
+      if (!stop?.paymentStatus && !driverStatus.paid) {
         byKey.review.items.push(createActionItem(stop, index, "review", "betaalstatus ontbreekt"));
       }
 
@@ -2422,6 +2450,89 @@
     `;
   }
 
+  function renderRouteStopStatusChips(stop) {
+    const driverStatus = getDriverStatus(stop);
+    const chips = [];
+
+    if (driverStatus.delivered) {
+      chips.push({ label: "geleverd", level: "done" });
+    }
+
+    if (driverStatus.paid) {
+      chips.push({ label: "betaald", level: "paid" });
+    }
+
+    if (hasStopProblem(stop)) {
+      chips.push({ label: "probleem", level: "problem" });
+    } else if (hasResolvedStopProblem(stop)) {
+      chips.push({ label: "opgelost", level: "resolved" });
+    }
+
+    if (!chips.length) {
+      chips.push({ label: "open", level: "open" });
+    }
+
+    return `
+      <div class="delivery-route-stop-status">
+        ${chips.map((chip) => `
+          <span class="delivery-route-status-chip" data-delivery-route-status="${escapeHtml(chip.level)}">${escapeHtml(chip.label)}</span>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  function getDriverStatusChips(stop) {
+    const chips = [];
+    const paymentStatus = normalizePaymentStatusLabel(stop?.paymentStatus);
+    const driverStatus = getDriverStatus(stop);
+
+    if (driverStatus.delivered) {
+      chips.push({ label: "Geleverd", level: "done" });
+    }
+
+    if (driverStatus.paid) {
+      chips.push({ label: "Betaald", level: "paid" });
+    }
+
+    if (isWarmStop(stop)) {
+      chips.push({ label: "warm", level: "warm" });
+    }
+
+    if (paymentStatus === "niet betaald" && !driverStatus.paid) {
+      chips.push({ label: "niet betaald", level: "danger" });
+    }
+
+    if (stopHasReview(stop)) {
+      chips.push({ label: "controle nodig", level: "review" });
+    }
+
+    if (hasStopProblem(stop)) {
+      chips.push({ label: "probleem gemeld", level: "problem" });
+    }
+
+    if (hasResolvedStopProblem(stop)) {
+      chips.push({ label: "probleem opgelost", level: "resolved" });
+    }
+
+    return chips;
+  }
+
+  function renderDriverStatusChips(stop) {
+    const chips = getDriverStatusChips(stop);
+
+    if (!chips.length) {
+      return "";
+    }
+
+    return `
+      <div class="delivery-driver-status-chips">
+        ${chips.map((chip) => `
+          <span class="delivery-driver-status-chip" data-delivery-driver-status="${escapeHtml(chip.level)}">${escapeHtml(chip.label)}</span>
+        `).join("")}
+      </div>
+    `;
+  }
+
   function renderStopDetail(stops = latestRouteStops) {
     if (!stopDetailElement) {
       return;
@@ -2444,6 +2555,10 @@
     const hasWarm = isWarmStop(stop);
     const hasReview = stopHasReview(stop);
     const problemText = getStopProblemText(stop);
+    const hasOpenProblem = hasStopProblem(stop);
+    const hasResolvedProblem = hasResolvedStopProblem(stop);
+    const driverStatus = getDriverStatus(stop);
+    const stopPositionLabel = `Stop ${selectedDeliveryStopIndex + 1} van ${normalizedStops.length}`;
     const navigationUrl = stop.address
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.address)}`
       : "";
@@ -2451,13 +2566,19 @@
     stopDetailElement.classList.remove("empty");
     stopDetailElement.innerHTML = `
       <section class="delivery-stop-detail-surface${hasWarm ? " has-warm" : ""}${hasReview ? " needs-review" : ""}">
+        <div class="delivery-driver-stop-nav">
+          <button type="button" class="secondary" data-delivery-driver-prev ${selectedDeliveryStopIndex <= 0 ? "disabled" : ""}>Vorige stop</button>
+          <strong>${escapeHtml(stopPositionLabel)}</strong>
+          <button type="button" class="secondary" data-delivery-driver-next ${selectedDeliveryStopIndex >= normalizedStops.length - 1 ? "disabled" : ""}>Volgende stop</button>
+        </div>
         <div class="delivery-stop-detail-hero">
           <div>
-            <span>Stop ${selectedDeliveryStopIndex + 1}</span>
+            <span>Geselecteerde stop</span>
             <h4>${escapeHtml(stop.customerName || "Klant onbekend")}</h4>
           </div>
           <strong>${escapeHtml(stop.timeWindow || "Tijd controle nodig")}</strong>
         </div>
+        ${renderDriverStatusChips(stop)}
         <div class="delivery-stop-detail-address">
           <span>${escapeHtml(stop.address || "Adres onbekend")}</span>
           ${navigationUrl
@@ -2473,7 +2594,8 @@
           </div>
         </div>
         ${hasWarm ? "<div class=\"delivery-stop-detail-alert is-warm\">Warm extra controleren</div>" : ""}
-        ${problemText ? `<div class="delivery-stop-detail-alert is-problem">Laatste probleemmelding: ${escapeHtml(problemText)}</div>` : ""}
+        ${hasOpenProblem ? `<div class="delivery-stop-detail-alert is-problem">Laatste probleemmelding: ${escapeHtml(problemText)}</div>` : ""}
+        ${hasResolvedProblem ? `<div class="delivery-stop-detail-alert is-resolved">Probleem opgelost: ${escapeHtml(problemText)}</div>` : ""}
         ${hasReview ? `<div class="delivery-stop-detail-alert">Controle nodig${stop.notes.length ? `: ${escapeHtml(stop.notes.join(", "))}` : ""}</div>` : ""}
         <div class="delivery-stop-detail-remark">
           <strong>Opmerking</strong>
@@ -2484,8 +2606,9 @@
           ${renderStopDetailProducts(stop)}
         </div>
         <div class="delivery-stop-detail-actions">
-          <button type="button" class="secondary" disabled>Geleverd</button>
-          <button type="button" class="secondary" disabled>Betaald</button>
+          <button type="button" class="secondary" data-delivery-driver-status-action="delivered">${driverStatus.delivered ? "Geleverd gemarkeerd" : "Geleverd"}</button>
+          <button type="button" class="secondary" data-delivery-driver-status-action="paid">${driverStatus.paid ? "Betaald gemarkeerd" : "Betaald"}</button>
+          <button type="button" class="secondary" data-delivery-driver-status-action="resolved" ${hasAnyStopProblem(stop) && !hasResolvedProblem ? "" : "disabled"}>${hasResolvedProblem ? "Probleem opgelost" : "Probleem opgelost"}</button>
           <button type="button" class="secondary" data-delivery-open-problem>Probleem melden</button>
         </div>
         ${renderProblemReportForm(stop)}
@@ -2493,7 +2616,7 @@
     `;
   }
 
-  function selectDeliveryStop(index, { scrollRoute = false } = {}) {
+  function selectDeliveryStop(index, { scrollRoute = false, scrollDetail = false } = {}) {
     const normalizedIndex = Number(index);
 
     if (!Number.isInteger(normalizedIndex) || !latestRouteStops[normalizedIndex]) {
@@ -2507,6 +2630,25 @@
     if (scrollRoute) {
       scrollToDeliveryStop(normalizedIndex);
     }
+
+    if (scrollDetail) {
+      stopDetailElement?.scrollIntoView({ block: "start", behavior: "auto" });
+    }
+  }
+
+  function moveSelectedDeliveryStop(delta) {
+    if (!latestRouteStops.length) {
+      return;
+    }
+
+    const currentIndex = selectedDeliveryStopIndex >= 0 ? selectedDeliveryStopIndex : 0;
+    const nextIndex = Math.min(Math.max(currentIndex + delta, 0), latestRouteStops.length - 1);
+
+    if (nextIndex === selectedDeliveryStopIndex) {
+      return;
+    }
+
+    selectDeliveryStop(nextIndex, { scrollDetail: true });
   }
 
   function getStopCorrectionPaymentValue(stop) {
@@ -2583,15 +2725,19 @@
               : ["controle nodig"];
             const hasReview = stopHasReview(stop);
             const problemText = getStopProblemText(stop);
+            const hasOpenProblem = hasStopProblem(stop);
+            const hasResolvedProblem = hasResolvedStopProblem(stop);
 
             return `
-              <article id="deliveryRouteStop${index}" class="delivery-route-stop${stop.categories.includes("warm") ? " has-warm" : ""}${hasReview ? " needs-review" : ""}${problemText ? " has-problem" : ""}${selectedDeliveryStopIndex === index ? " is-selected" : ""}" data-delivery-route-stop="${index}">
+              <article id="deliveryRouteStop${index}" class="delivery-route-stop${stop.categories.includes("warm") ? " has-warm" : ""}${hasReview ? " needs-review" : ""}${hasOpenProblem ? " has-problem" : ""}${hasResolvedProblem ? " has-resolved-problem" : ""}${selectedDeliveryStopIndex === index ? " is-selected" : ""}" data-delivery-route-stop="${index}">
                 <div class="delivery-stop-header">
                   <div class="delivery-stop-title">${index + 1}. ${escapeHtml(stop.customerName || "Klant onbekend")}</div>
                   <div class="delivery-stop-time">${escapeHtml(stop.timeWindow || "Tijd controle nodig")}</div>
                 </div>
-                ${problemText ? `<div class="delivery-stop-problem-badge">Probleem: ${escapeHtml(problemText)}</div>` : ""}
+                ${hasOpenProblem ? `<div class="delivery-stop-problem-badge">Probleem: ${escapeHtml(problemText)}</div>` : ""}
+                ${hasResolvedProblem ? `<div class="delivery-stop-problem-badge is-resolved">Opgelost: ${escapeHtml(problemText)}</div>` : ""}
                 <div class="delivery-stop-address">${escapeHtml(stop.address || "Adres onbekend")}</div>
+                ${renderRouteStopStatusChips(stop)}
                 <div class="delivery-stop-status-row">
                   <span class="delivery-payment-chip" data-delivery-payment="${escapeHtml(stop.paymentStatus || "controle nodig")}">${escapeHtml(stop.paymentStatus || "controle nodig")}</span>
                   <div class="delivery-stop-categories">
@@ -2683,6 +2829,36 @@
     };
     stop.isProblemFormOpen = false;
     rerenderDeliveryPreview({ refreshPrint: false });
+    stopDetailElement?.scrollIntoView({ block: "start", behavior: "auto" });
+  }
+
+  function applyDriverStatusAction(action) {
+    const stop = latestRouteStops[selectedDeliveryStopIndex];
+
+    if (!stop) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    stop.driverStatus = stop.driverStatus || {};
+
+    if (action === "delivered") {
+      stop.driverStatus.delivered = true;
+      stop.driverStatus.deliveredAt = stop.driverStatus.deliveredAt || now;
+    }
+
+    if (action === "paid") {
+      stop.driverStatus.paid = true;
+      stop.driverStatus.paidAt = stop.driverStatus.paidAt || now;
+    }
+
+    if (action === "resolved" && hasAnyStopProblem(stop)) {
+      stop.driverProblem.resolvedAt = stop.driverProblem.resolvedAt || now;
+    }
+
+    rerenderDeliveryPreview({ refreshPrint: false });
+    setStatus("Chauffeurstatus lokaal bijgewerkt. Niet opgeslagen.", "ready");
+    stopDetailElement?.scrollIntoView({ block: "start", behavior: "auto" });
   }
 
   function getSortedProductsForStop(stop) {
@@ -3509,6 +3685,24 @@
   stopDetailElement?.addEventListener("click", (event) => {
     const openProblemButton = event.target.closest("[data-delivery-open-problem]");
     const cancelProblemButton = event.target.closest("[data-delivery-cancel-problem]");
+    const previousStopButton = event.target.closest("[data-delivery-driver-prev]");
+    const nextStopButton = event.target.closest("[data-delivery-driver-next]");
+    const statusActionButton = event.target.closest("[data-delivery-driver-status-action]");
+
+    if (previousStopButton && !previousStopButton.disabled) {
+      moveSelectedDeliveryStop(-1);
+      return;
+    }
+
+    if (nextStopButton && !nextStopButton.disabled) {
+      moveSelectedDeliveryStop(1);
+      return;
+    }
+
+    if (statusActionButton && !statusActionButton.disabled) {
+      applyDriverStatusAction(statusActionButton.dataset.deliveryDriverStatusAction);
+      return;
+    }
 
     if (openProblemButton) {
       toggleProblemReportForm(true);
