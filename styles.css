@@ -11026,7 +11026,7 @@ button,
 
 .delivery-run-status-bar {
   display: grid;
-  grid-template-columns: repeat(4, minmax(130px, 1fr)) minmax(180px, 1.2fr);
+  grid-template-columns: repeat(5, minmax(120px, 1fr)) minmax(180px, 1.25fr);
   gap: 0.55rem;
   align-items: stretch;
   border: 1px solid var(--color-border);
@@ -11058,6 +11058,8 @@ button,
   grid-template-columns: max-content minmax(220px, 420px) minmax(180px, 1fr);
   gap: 0.7rem;
   align-items: end;
+  border-color: #d8a05b;
+  background: #fff7ed;
 }
 
 .delivery-dashboard-card {
@@ -11075,6 +11077,17 @@ button,
   gap: 0.8rem;
 }
 
+.delivery-control-card {
+  display: grid;
+  gap: 0.72rem;
+  border-color: #d48b37;
+  background: #fff7ed;
+}
+
+.delivery-control-card.is-hidden {
+  display: none !important;
+}
+
 .delivery-preview-card {
   display: grid;
   gap: 0.8rem;
@@ -11088,6 +11101,38 @@ button,
 .delivery-stop-detail-card {
   display: grid;
   gap: 0.8rem;
+  border-color: var(--color-border);
+  background: var(--color-surface-soft);
+}
+
+.delivery-stop-detail-card h3 {
+  color: var(--color-text-muted);
+}
+
+.delivery-driver-preview-card {
+  border-style: dashed;
+}
+
+body[data-role="employee"] [data-delivery-driver-preview-card] {
+  display: none !important;
+}
+
+.delivery-driver-preview-mode {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.delivery-driver-preview-mode summary {
+  display: grid;
+  gap: 0.15rem;
+  cursor: pointer;
+  color: var(--color-text);
+  font-weight: 850;
+}
+
+.delivery-driver-preview-mode summary small {
+  color: var(--color-text-muted);
+  font-weight: 700;
 }
 
 .delivery-preparation-card {
@@ -11188,13 +11233,12 @@ button,
 }
 
 .delivery-control-summary {
-  grid-column: 1 / -1;
   display: grid;
   gap: 0.58rem;
-  border: 1px solid #d8a05b;
-  border-radius: 8px;
-  padding: 0.72rem;
-  background: #fff7ed;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
 }
 
 .delivery-control-summary.is-clear {
@@ -11207,6 +11251,12 @@ button,
   gap: 0.75rem;
   align-items: center;
   justify-content: space-between;
+}
+
+.delivery-control-summary-header span {
+  color: #8a4a12;
+  font-size: 0.9rem;
+  font-weight: 800;
 }
 
 .delivery-control-summary h4 {
@@ -11229,12 +11279,37 @@ button,
   display: grid;
   gap: 0.16rem;
   border-left: 3px solid #d48b37;
+  border-radius: 6px;
   padding: 0.45rem 0.55rem;
   background: rgba(255, 255, 255, 0.74);
 }
 
+.delivery-control-item.is-urgent {
+  border-left-color: #d97b70;
+  background: #fff1ed;
+}
+
 .delivery-control-item strong {
   font-size: 0.95rem;
+}
+
+.delivery-control-item strong,
+.delivery-control-item span,
+.delivery-action-row strong,
+.delivery-action-row div span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.delivery-control-item strong,
+.delivery-action-row strong {
+  -webkit-line-clamp: 2;
+}
+
+.delivery-control-item span,
+.delivery-action-row div span {
+  -webkit-line-clamp: 3;
 }
 
 .delivery-control-item span,
@@ -11255,6 +11330,7 @@ button,
 }
 
 .delivery-upload-card h3,
+.delivery-control-card h3,
 .delivery-dashboard-card h3,
 .delivery-actions-card h3,
 .delivery-saved-card h3,
@@ -11584,8 +11660,8 @@ button,
 
 .delivery-route-stop {
   display: grid;
-  gap: 0.32rem;
-  padding: 0.58rem 0.68rem;
+  gap: 0.26rem;
+  padding: 0.52rem 0.62rem;
   cursor: pointer;
 }
 
@@ -11837,7 +11913,12 @@ button,
   color: #285f92;
 }
 
-.delivery-payment-chip[data-delivery-payment="Niet betaald"],
+.delivery-payment-chip[data-delivery-payment="Niet betaald"] {
+  border-color: #d97b70;
+  background: #fff1ed;
+  color: #8d241b;
+}
+
 .delivery-payment-chip[data-delivery-payment="controle nodig"] {
   border-color: #d48b37;
   background: #fff0d8;
@@ -12200,6 +12281,7 @@ button,
   body[data-active-tab="delivery"] .session-bar,
   body[data-active-tab="delivery"] .mobile-bottom-nav,
   body[data-active-tab="delivery"] .delivery-run-status-bar,
+  body[data-active-tab="delivery"] .delivery-control-card,
   body[data-active-tab="delivery"] .delivery-dashboard-card,
   body[data-active-tab="delivery"] .delivery-actions-card,
   body[data-active-tab="delivery"] .delivery-saved-card,

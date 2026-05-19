@@ -4,6 +4,8 @@
   const dropZoneElement = document.getElementById("deliveryDropZone");
   const startChooseButton = document.getElementById("deliveryStartChooseButton");
   const runStatusBarElement = document.getElementById("deliveryRunStatusBar");
+  const controlCardElement = document.getElementById("deliveryControlCard");
+  const controlSummaryElement = document.getElementById("deliveryControlSummary");
   const dashboardElement = document.getElementById("deliveryDashboard");
   const actionsOverviewElement = document.getElementById("deliveryActionsOverview");
   const savedRunsElement = document.getElementById("deliverySavedRuns");
@@ -17,6 +19,7 @@
   const preparationElement = document.getElementById("deliveryPreparation");
   const driverPreviewElement = document.getElementById("deliveryDriverPreview");
   const routeBlocksElement = document.getElementById("deliveryRouteBlocks");
+  const driverPreviewModeElement = document.querySelector(".delivery-driver-preview-mode");
   const stopDetailElement = document.getElementById("deliveryStopDetail");
   const productOverviewElement = document.getElementById("deliveryProductOverview");
   const printPreviewButton = document.getElementById("deliveryPrintPreviewButton");
@@ -238,8 +241,10 @@
 
     if (stopDetailElement) {
       stopDetailElement.classList.add("empty");
-      stopDetailElement.textContent = "Klik op een route-stop om het chauffeurdetail te bekijken.";
+      stopDetailElement.textContent = "Selecteer een stop voor chauffeur-preview.";
     }
+
+    renderControlSummary([]);
 
     if (actionsOverviewElement) {
       actionsOverviewElement.classList.add("empty");
@@ -285,6 +290,7 @@
     latestParserVersionWarning = "";
     selectedDeliveryStopIndex = -1;
     renderDashboard([], "");
+    renderControlSummary([]);
   }
 
   function isPdfFile(file) {
@@ -1425,6 +1431,7 @@
     }
 
     renderDashboard([], "");
+    renderControlSummary([]);
     renderActionsOverview([]);
     renderPreparation([]);
     renderDriverPreview([], "");
@@ -1499,6 +1506,7 @@
     latestHasLocalCorrections = false;
     selectedDeliveryStopIndex = -1;
     renderDashboard(routeStops, latestDeliveryDate);
+    renderControlSummary(routeStops);
     renderActionsOverview(routeStops);
     renderPreparation(routeStops);
     renderDriverPreview(routeStops, latestDeliveryDate);
@@ -1563,6 +1571,7 @@
 
   function rerenderDeliveryPreview({ refreshPrint = false } = {}) {
     renderDashboard(latestRouteStops, latestDeliveryDate);
+    renderControlSummary(latestRouteStops);
     renderActionsOverview(latestRouteStops);
     renderPreparation(latestRouteStops);
     renderDriverPreview(latestRouteStops, latestDeliveryDate);
@@ -1666,40 +1675,52 @@
       .filter((item) => item.reasons.length)
       .map((item) => ({
         ...item,
-        reason: item.reasons.slice(0, 3).join(", ")
-      }));
+        reason: item.reasons.slice(0, 3).join(", "),
+        urgency: getReviewUrgency(item.reasons)
+      }))
+      .sort((a, b) => a.urgency - b.urgency || a.customerName.localeCompare(b.customerName, "nl"));
   }
 
-  function renderDashboardReviewSummary(stops) {
+  function getReviewUrgency(reasons) {
+    const text = (Array.isArray(reasons) ? reasons.join(" ") : "").toLowerCase();
+
+    if (/niet betaald|betaalstatus|betaling|factuur/.test(text)) return 1;
+    if (/adres|klantnaam|onbekend/.test(text)) return 2;
+    if (/tijd/.test(text)) return 3;
+    if (/dubbele|gesplitste|meerpagina/.test(text)) return 4;
+    if (/product/.test(text)) return 5;
+    return 6;
+  }
+
+  function renderControlSummary(stops) {
+    if (!controlCardElement || !controlSummaryElement) {
+      return;
+    }
+
     const reviewItems = getDashboardReviewItems(stops);
 
     if (!reviewItems.length) {
-      return `
-        <section class="delivery-control-summary is-clear">
-          <div>
-            <h4>Controle nodig</h4>
-            <strong>Geen directe controlepunten</strong>
-          </div>
-        </section>
-      `;
+      controlCardElement.classList.add("is-hidden");
+      controlSummaryElement.innerHTML = "";
+      return;
     }
 
-    return `
-      <section class="delivery-control-summary">
-        <div class="delivery-control-summary-header">
-          <h4>Controle nodig</h4>
-          <strong>${reviewItems.length} stop${reviewItems.length === 1 ? "" : "s"}</strong>
-        </div>
-        <div class="delivery-control-list">
-          ${reviewItems.slice(0, 8).map((item) => `
-            <article class="delivery-control-item">
-              <strong>${escapeHtml(item.customerName)}</strong>
-              <span>${escapeHtml(item.reason)}</span>
-              <small>handmatig controleren</small>
-            </article>
-          `).join("")}
-        </div>
-      </section>
+    controlCardElement.classList.remove("is-hidden");
+    controlSummaryElement.classList.remove("is-clear");
+    controlSummaryElement.innerHTML = `
+      <div class="delivery-control-summary-header">
+        <span>Meest urgente controlepunten eerst</span>
+        <strong>${reviewItems.length} stop${reviewItems.length === 1 ? "" : "s"}</strong>
+      </div>
+      <div class="delivery-control-list">
+        ${reviewItems.slice(0, 10).map((item) => `
+          <article class="delivery-control-item${item.urgency <= 2 ? " is-urgent" : ""}">
+            <strong>${escapeHtml(item.customerName)}</strong>
+            <span>${escapeHtml(item.reason)}</span>
+            <small>handmatig controleren</small>
+          </article>
+        `).join("")}
+      </div>
     `;
   }
 
@@ -1721,10 +1742,10 @@
   function getActionPaymentGroups(stops) {
     const groups = [
       { key: "unpaid", title: "Niet betaald", items: [] },
+      { key: "review", title: "Controle nodig betaling", items: [] },
       { key: "account", title: "Op rekening", items: [] },
       { key: "paid", title: "Betaald/OK", items: [] },
       { key: "direct", title: "Tikkie/Pin/Contant", items: [] },
-      { key: "review", title: "Controle nodig", items: [] },
       { key: "warm", title: "Warm/tijdkritisch", items: [] }
     ];
     const byKey = Object.fromEntries(groups.map((group) => [group.key, group]));
@@ -1749,8 +1770,8 @@
         byKey.direct.items.push(createActionItem(stop, index, "direct", stop.paymentStatus));
       }
 
-      if (stopHasReview(stop) || !stop?.paymentStatus || !stop?.timeWindow || !stop?.address || !stop?.customerName) {
-        byKey.review.items.push(createActionItem(stop, index, "review", getStopReviewReasons(stop).join(", ") || "controle nodig"));
+      if (!stop?.paymentStatus) {
+        byKey.review.items.push(createActionItem(stop, index, "review", "betaalstatus ontbreekt"));
       }
 
       if (isWarmStop(stop) || isTimeCriticalStop(stop)) {
@@ -1793,15 +1814,21 @@
     const groups = getActionPaymentGroups(stops);
 
     actionsOverviewElement.classList.remove("empty");
-    actionsOverviewElement.innerHTML = groups.map((group) => `
+    const visibleGroups = groups.filter((group) => group.items.length);
+
+    if (!visibleGroups.length) {
+      actionsOverviewElement.classList.add("empty");
+      actionsOverviewElement.textContent = "Geen acties of betalingen gevonden.";
+      return;
+    }
+
+    actionsOverviewElement.innerHTML = visibleGroups.map((group) => `
       <section class="delivery-action-group" data-delivery-action-group="${escapeHtml(group.key)}">
         <header>
           <h4>${escapeHtml(group.title)}</h4>
           <span>${group.items.length}</span>
         </header>
-        ${group.items.length
-          ? group.items.map(renderActionPaymentItem).join("")
-          : "<div class=\"delivery-action-empty\">Geen regels.</div>"}
+        ${group.items.map(renderActionPaymentItem).join("")}
       </section>
     `).join("");
   }
@@ -1869,8 +1896,8 @@
     runStatusBarElement.innerHTML = `
       <span><strong>Bron</strong>${escapeHtml(getRunSourceText())}</span>
       <span><strong>Run</strong>${escapeHtml(displayTitle)}</span>
-      <span><strong>Bestand</strong>${escapeHtml(latestSourceFilename || "-")}</span>
       <span><strong>Status</strong>${escapeHtml(getSaveStatusText())}</span>
+      <span><strong>Parser</strong>${escapeHtml(latestParserSource || "-")}</span>
       <span><strong>Bijgewerkt</strong>${escapeHtml(updatedLabel)}</span>
       ${warning}
     `;
@@ -2008,6 +2035,7 @@
     latestDeliveryDate = typeof payload.deliveryDate === "string" ? payload.deliveryDate : "";
     latestSourceFilename = run?.sourceFilename || payload?.source?.filename || "";
     latestSourceHash = run?.sourceHash || payload?.source?.hash || "";
+    latestParserSource = payload?.source?.parser || "";
     latestUploadDate = payload?.source?.uploadedAt || run?.createdAt || "";
     latestRunSource = "saved";
     latestRunId = run?.id || "";
@@ -2067,6 +2095,7 @@
 
     setStatus("Opgeslagen run geopend.", "ready");
     renderDashboard(routeStops, latestDeliveryDate);
+    renderControlSummary(routeStops);
     renderActionsOverview(routeStops);
     renderPreparation(routeStops);
     renderRouteBlocks(routeStops);
@@ -2141,40 +2170,34 @@
     dashboardElement.classList.toggle("empty", !hasStops);
     renderRunStatusBar();
     dashboardElement.innerHTML = `
-      ${renderDashboardReviewSummary(hasStops ? stops : [])}
       <section class="delivery-dashboard-cardlet">
-        <h4>Vandaag</h4>
+        <h4>Stops</h4>
         <strong>${escapeHtml(hasStops ? (deliveryDate || "Datum controle nodig") : "Nog geen PDF gekozen")}</strong>
         <span>${stats.stopCount} stop${stats.stopCount === 1 ? "" : "s"}</span>
         <span>${stats.routeBlockCount} routeblok${stats.routeBlockCount === 1 ? "" : "ken"}</span>
       </section>
       <section class="delivery-dashboard-cardlet">
+        <h4>Warm/snacks</h4>
+        <strong>${stats.warmStopCount} stop${stats.warmStopCount === 1 ? "" : "s"}</strong>
+        <span>${stats.warmCount} stuks warm</span>
+        <span>${hasStops ? (stats.warmMissingTimeCount ? `${stats.warmMissingTimeCount} tijd ontbreekt` : "Tijdcontrole rustig") : "Nog geen warm-check"}</span>
+      </section>
+      <section class="delivery-dashboard-cardlet">
+        <h4>Betalingen</h4>
+        <span><b>${stats.paymentCounts.unpaid}</b> niet betaald</span>
+        <span><b>${stats.paymentCounts.review}</b> controle nodig</span>
+        <span><b>${stats.paymentCounts.account}</b> op rekening</span>
+        <span><b>${stats.paymentCounts.ok}</b> OK/Ideal</span>
+      </section>
+      <section class="delivery-dashboard-cardlet${stats.reviewCount ? " has-warning" : ""}">
         <h4>Acties nodig</h4>
         <strong>${stats.reviewCount}</strong>
         <span>controle nodig</span>
         <span>${stats.unknownCount} onbekende klant/adres</span>
         <span>${stats.missingPaymentCount} betaalstatus ontbreekt</span>
       </section>
-      <section class="delivery-dashboard-cardlet">
-        <h4>Betalingen</h4>
-        <span><b>${stats.paymentCounts.ok}</b> OK</span>
-        <span><b>${stats.paymentCounts.account}</b> op rekening</span>
-        <span><b>${stats.paymentCounts.unpaid}</b> niet betaald</span>
-        <span><b>${stats.paymentCounts.review}</b> controle nodig</span>
-      </section>
-      <section class="delivery-dashboard-cardlet${stats.warmMissingTimeCount ? " has-warning" : ""}">
-        <h4>Warm/snacks</h4>
-        <strong>${stats.warmStopCount} stop${stats.warmStopCount === 1 ? "" : "s"}</strong>
-        <span>${stats.warmCount} stuks warm</span>
-        <span>${hasStops ? (stats.warmMissingTimeCount ? `${stats.warmMissingTimeCount} tijd ontbreekt` : "Tijdcontrole rustig") : "Nog geen warm-check"}</span>
-      </section>
-      <section class="delivery-dashboard-cardlet delivery-dashboard-print">
-        <h4>Print</h4>
-        <span>${hasStops ? "Printvoorbeeld klaar om te maken." : "Kies eerst een PDF."}</span>
-        <button type="button" class="secondary" data-delivery-dashboard-print ${hasStops ? "" : "disabled"}>Printvoorbeeld maken</button>
-      </section>
       <section class="delivery-dashboard-cardlet delivery-dashboard-save" data-delivery-save-status="${escapeHtml(latestSaveState.status)}">
-        <h4>Opslag</h4>
+        <h4>Correcties/run</h4>
         <strong>${escapeHtml(getSaveStatusText())}</strong>
         <span>${escapeHtml(displayTitle || "Nog geen run geladen")}</span>
         <span>${escapeHtml(latestSaveState.message || "Nog niet opgeslagen")}</span>
@@ -2326,10 +2349,12 @@
 
     if (!stop) {
       stopDetailElement.classList.add("empty");
-      stopDetailElement.textContent = normalizedStops.length
-        ? "Klik op een route-stop om het chauffeurdetail te bekijken."
-        : "Nog geen chauffeur-stop-detail beschikbaar.";
+      stopDetailElement.textContent = "Selecteer een stop voor chauffeur-preview.";
       return;
+    }
+
+    if (driverPreviewModeElement) {
+      driverPreviewModeElement.open = true;
     }
 
     const categories = stop.categories?.length ? stop.categories : ["controle nodig"];
