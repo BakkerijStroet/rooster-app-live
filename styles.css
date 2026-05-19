@@ -11026,12 +11026,12 @@ button,
 
 .delivery-run-status-bar {
   display: grid;
-  grid-template-columns: repeat(5, minmax(120px, 1fr)) minmax(180px, 1.25fr);
-  gap: 0.55rem;
+  grid-template-columns: minmax(150px, 0.9fr) minmax(220px, 1.6fr) minmax(80px, 0.45fr) minmax(140px, 0.9fr) minmax(140px, 0.8fr) minmax(140px, 0.8fr);
+  gap: 0.68rem;
   align-items: stretch;
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  padding: 0.65rem;
+  padding: 0.78rem;
   background: var(--color-surface-soft);
 }
 
@@ -11048,6 +11048,7 @@ button,
 }
 
 .delivery-run-status-warning {
+  grid-column: 1 / -1;
   border-left: 3px solid #d48b37;
   padding-left: 0.55rem;
   color: #8a4a12 !important;
@@ -11062,6 +11063,20 @@ button,
   background: #fff7ed;
 }
 
+.delivery-work-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.75fr);
+  gap: 0.85rem;
+  align-items: start;
+}
+
+.delivery-work-primary,
+.delivery-work-side {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
 .delivery-dashboard-card {
   display: grid;
   gap: 0.9rem;
@@ -11073,6 +11088,11 @@ button,
 }
 
 .delivery-actions-card {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.delivery-quick-edit-card {
   display: grid;
   gap: 0.8rem;
 }
@@ -11232,6 +11252,10 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   gap: 0.65rem;
 }
 
+.delivery-work-side .delivery-dashboard-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
 .delivery-control-summary {
   display: grid;
   gap: 0.58rem;
@@ -11289,6 +11313,18 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   background: #fff1ed;
 }
 
+.delivery-control-more {
+  width: max-content;
+  max-width: 100%;
+  border: 1px solid #d48b37;
+  border-radius: 999px;
+  padding: 0.22rem 0.62rem;
+  background: #fff0d8;
+  color: #8a4a12;
+  font-size: 0.86rem;
+  font-weight: 850;
+}
+
 .delivery-control-item strong {
   font-size: 0.95rem;
 }
@@ -11333,6 +11369,7 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 .delivery-control-card h3,
 .delivery-dashboard-card h3,
 .delivery-actions-card h3,
+.delivery-quick-edit-card h3,
 .delivery-saved-card h3,
 .delivery-preparation-card h3,
 .delivery-route-card h3,
@@ -11363,10 +11400,47 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   color: var(--color-text);
 }
 
+.delivery-quick-edit {
+  display: grid;
+  gap: 0.58rem;
+}
+
+.delivery-quick-edit.empty {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.delivery-quick-edit-selected {
+  display: grid;
+  gap: 0.18rem;
+  border-left: 3px solid #8bb0d8;
+  border-radius: 6px;
+  padding: 0.48rem 0.58rem;
+  background: var(--color-surface-soft);
+}
+
+.delivery-quick-edit-selected strong {
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.delivery-quick-edit-selected span {
+  color: var(--color-text-muted);
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}
+
 .delivery-actions-overview {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 0.65rem;
+}
+
+.delivery-work-side .delivery-actions-overview {
+  grid-template-columns: 1fr;
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 0.08rem;
 }
 
 .delivery-action-group {
@@ -12263,6 +12337,18 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
     grid-template-columns: 1fr;
   }
 
+  .delivery-work-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .delivery-work-primary {
+    order: 1;
+  }
+
+  .delivery-work-side {
+    order: 2;
+  }
+
   .delivery-upload-card {
     grid-template-columns: 1fr;
     align-items: stretch;
@@ -12491,12 +12577,14 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   body[data-active-tab="delivery"] .delivery-control-card,
   body[data-active-tab="delivery"] .delivery-dashboard-card,
   body[data-active-tab="delivery"] .delivery-actions-card,
+  body[data-active-tab="delivery"] .delivery-quick-edit-card,
   body[data-active-tab="delivery"] .delivery-saved-card,
   body[data-active-tab="delivery"] .delivery-upload-card,
   body[data-active-tab="delivery"] .delivery-preview-card,
   body[data-active-tab="delivery"] .delivery-preparation-card,
   body[data-active-tab="delivery"] .delivery-driver-card,
   body[data-active-tab="delivery"] .delivery-route-card,
+  body[data-active-tab="delivery"] .delivery-work-layout,
   body[data-active-tab="delivery"] .delivery-stop-detail-card,
   body[data-active-tab="delivery"] .delivery-products-card,
   body[data-active-tab="delivery"] .delivery-print-header button {

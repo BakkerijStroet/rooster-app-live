@@ -8,6 +8,7 @@
   const controlSummaryElement = document.getElementById("deliveryControlSummary");
   const dashboardElement = document.getElementById("deliveryDashboard");
   const actionsOverviewElement = document.getElementById("deliveryActionsOverview");
+  const quickEditElement = document.getElementById("deliveryQuickEdit");
   const savedRunsElement = document.getElementById("deliverySavedRuns");
   const savedRefreshButton = document.getElementById("deliverySavedRefreshButton");
   const pdfInput = document.getElementById("deliveryPdfInput");
@@ -246,6 +247,8 @@
       routeBlocksElement.classList.add("empty");
       routeBlocksElement.textContent = "Nog geen routeblokken beschikbaar.";
     }
+
+    renderQuickEdit([]);
 
     if (stopDetailElement) {
       stopDetailElement.classList.add("empty");
@@ -1443,6 +1446,7 @@
     renderActionsOverview([]);
     renderPreparation([]);
     renderDriverPreview([], "");
+    renderQuickEdit([]);
     renderStopDetail([]);
 
     if (routeBlocksElement) {
@@ -1519,6 +1523,7 @@
     renderPreparation(routeStops);
     renderDriverPreview(routeStops, latestDeliveryDate);
     renderRouteBlocks(routeStops);
+    renderQuickEdit(routeStops);
     renderStopDetail(routeStops);
     renderProductOverview(routeStops);
     clearPrintPreview();
@@ -1637,6 +1642,7 @@
     renderPreparation(latestRouteStops);
     renderDriverPreview(latestRouteStops, latestDeliveryDate);
     renderRouteBlocks(latestRouteStops);
+    renderQuickEdit(latestRouteStops);
     renderStopDetail(latestRouteStops);
     renderProductOverview(latestRouteStops);
 
@@ -1781,11 +1787,11 @@
     controlSummaryElement.classList.remove("is-clear");
     controlSummaryElement.innerHTML = `
       <div class="delivery-control-summary-header">
-        <span>Meest urgente controlepunten eerst</span>
+        <span>Wat moet ik nu controleren?</span>
         <strong>${reviewItems.length} stop${reviewItems.length === 1 ? "" : "s"}</strong>
       </div>
       <div class="delivery-control-list">
-        ${reviewItems.slice(0, 10).map((item) => `
+        ${reviewItems.slice(0, 5).map((item) => `
           <article class="delivery-control-item${item.urgency <= 2 ? " is-urgent" : ""}">
             <strong>${escapeHtml(item.customerName)}</strong>
             <span>${escapeHtml(item.reason)}</span>
@@ -1793,6 +1799,7 @@
           </article>
         `).join("")}
       </div>
+      ${reviewItems.length > 5 ? `<div class="delivery-control-more">+ ${reviewItems.length - 5} meer controlepunt${reviewItems.length - 5 === 1 ? "" : "en"} in route en financieel overzicht</div>` : ""}
     `;
   }
 
@@ -1894,14 +1901,17 @@
       return;
     }
 
-    const groups = getActionPaymentGroups(stops);
+    const financialGroupOrder = ["unpaid", "review", "account", "paid", "direct"];
+    const groups = getActionPaymentGroups(stops)
+      .filter((group) => financialGroupOrder.includes(group.key))
+      .sort((groupA, groupB) => financialGroupOrder.indexOf(groupA.key) - financialGroupOrder.indexOf(groupB.key));
 
     actionsOverviewElement.classList.remove("empty");
     const visibleGroups = groups.filter((group) => group.items.length);
 
     if (!visibleGroups.length) {
       actionsOverviewElement.classList.add("empty");
-      actionsOverviewElement.textContent = "Geen acties of betalingen gevonden.";
+      actionsOverviewElement.textContent = "Geen financiële acties gevonden.";
       return;
     }
 
@@ -1979,6 +1989,7 @@
     runStatusBarElement.innerHTML = `
       <span><strong>Bron</strong>${escapeHtml(getRunSourceText())}</span>
       <span><strong>Run</strong>${escapeHtml(displayTitle)}</span>
+      <span><strong>Stops</strong>${latestRouteStops.length}</span>
       <span><strong>Status</strong>${escapeHtml(getSaveStatusText())}</span>
       <span><strong>Parser</strong>${escapeHtml(latestParserSource || "-")}</span>
       <span><strong>Bijgewerkt</strong>${escapeHtml(updatedLabel)}</span>
@@ -2182,6 +2193,7 @@
     renderActionsOverview(routeStops);
     renderPreparation(routeStops);
     renderRouteBlocks(routeStops);
+    renderQuickEdit(routeStops);
     renderStopDetail(routeStops);
     renderProductOverview(routeStops);
     renderDriverPreview(routeStops, latestDeliveryDate);
@@ -2625,6 +2637,7 @@
 
     selectedDeliveryStopIndex = normalizedIndex;
     renderRouteBlocks(latestRouteStops);
+    renderQuickEdit(latestRouteStops);
     renderStopDetail(latestRouteStops);
 
     if (scrollRoute) {
@@ -2665,8 +2678,8 @@
       : "Controle nodig";
   }
 
-  function renderStopCorrectionForm(stop, index) {
-    if (!stop.isEditing) {
+  function renderStopCorrectionForm(stop, index, { force = false, quick = false } = {}) {
+    if (!force && !stop.isEditing) {
       return "";
     }
 
@@ -2674,7 +2687,7 @@
     const reviewChecked = stopHasReview(stop) ? "checked" : "";
 
     return `
-      <form class="delivery-stop-correction" data-delivery-stop-correction="${index}">
+      <form class="delivery-stop-correction${quick ? " is-quick" : ""}" data-delivery-stop-correction="${index}">
         <label>
           <span>Tijd</span>
           <input type="text" name="timeWindow" value="${escapeHtml(stop.timeWindow || "")}" placeholder="bijv. 09:30 of 10:00 / 11:00">
@@ -2697,9 +2710,33 @@
         </label>
         <div class="delivery-stop-correction-actions">
           <button type="submit" class="secondary">Correctie toepassen</button>
-          <button type="button" class="secondary" data-delivery-cancel-correction="${index}">Sluiten</button>
+          ${quick ? "" : `<button type="button" class="secondary" data-delivery-cancel-correction="${index}">Sluiten</button>`}
         </div>
       </form>
+    `;
+  }
+
+  function renderQuickEdit(stops = latestRouteStops) {
+    if (!quickEditElement) {
+      return;
+    }
+
+    const normalizedStops = Array.isArray(stops) ? stops : [];
+    const stop = normalizedStops[selectedDeliveryStopIndex] || null;
+
+    if (!stop) {
+      quickEditElement.classList.add("empty");
+      quickEditElement.textContent = "Selecteer een stop in de route om tijd, betaling of opmerking aan te passen.";
+      return;
+    }
+
+    quickEditElement.classList.remove("empty");
+    quickEditElement.innerHTML = `
+      <div class="delivery-quick-edit-selected">
+        <strong>${escapeHtml(selectedDeliveryStopIndex + 1)}. ${escapeHtml(stop.customerName || "Klant onbekend")}</strong>
+        <span>${escapeHtml(stop.address || "Adres onbekend")}</span>
+      </div>
+      ${renderStopCorrectionForm(stop, selectedDeliveryStopIndex, { force: true, quick: true })}
     `;
   }
 
@@ -3664,6 +3701,16 @@
     }
   });
   routeBlocksElement?.addEventListener("submit", (event) => {
+    const form = event.target.closest("[data-delivery-stop-correction]");
+
+    if (!form) {
+      return;
+    }
+
+    event.preventDefault();
+    applyStopCorrection(form);
+  });
+  quickEditElement?.addEventListener("submit", (event) => {
     const form = event.target.closest("[data-delivery-stop-correction]");
 
     if (!form) {
