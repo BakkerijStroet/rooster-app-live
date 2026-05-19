@@ -1134,10 +1134,10 @@
           <span><strong>Stops</strong>0</span>
           <span><strong>Status</strong>Nog niet opgeslagen</span>
           <span><strong>Parser</strong>-</span>
-          <span><strong>Bijgewerkt</strong>-</span>
+          <button type="button" class="secondary" disabled>Printvoorbeeld</button>
         </article>
         <article class="capacity-card delivery-upload-card delivery-work-card">
-          <h3>Upload / nieuwe PDF</h3>
+          <h3>Nieuwe PDF kiezen</h3>
           <label class="delivery-file-picker">
             <span>Bestand</span>
             <input type="file" id="deliveryPdfInput" accept="application/pdf,.pdf">
@@ -1159,63 +1159,80 @@
             <div id="deliveryParseWarnings" class="delivery-warning-list empty">Geen meldingen.</div>
           </details>
         </article>
-        <article id="deliveryControlCard" class="capacity-card delivery-control-card delivery-work-card is-hidden">
-          <h3>Eerst controleren</h3>
-          <div id="deliveryControlSummary" class="delivery-control-summary"></div>
+        <article class="capacity-card delivery-route-card delivery-work-card">
+          <h3>Route-overzicht</h3>
+          <div id="deliveryRouteBlocks" class="delivery-route-blocks empty">Nog geen routeblokken beschikbaar.</div>
         </article>
-        <div class="delivery-work-layout delivery-work-card">
-          <div class="delivery-work-primary">
-            <article class="capacity-card delivery-route-card delivery-work-card">
-              <h3>Route-overzicht</h3>
-              <div id="deliveryRouteBlocks" class="delivery-route-blocks empty">Nog geen routeblokken beschikbaar.</div>
+        <div class="delivery-lower-sections delivery-work-card">
+          <details class="capacity-card delivery-lower-section">
+            <summary>Controle</summary>
+            <article id="deliveryControlCard" class="delivery-control-card is-hidden">
+              <h3>Eerst controleren</h3>
+              <div id="deliveryControlSummary" class="delivery-control-summary"></div>
             </article>
-          </div>
-          <aside class="delivery-work-side">
-            <article class="capacity-card delivery-actions-card delivery-work-card">
-              <h3>Financieel overzicht</h3>
-              <div id="deliveryActionsOverview" class="delivery-actions-overview empty">Nog geen acties of betalingen beschikbaar.</div>
-            </article>
-            <article class="capacity-card delivery-quick-edit-card delivery-work-card">
+            <article class="delivery-quick-edit-card">
               <h3>Snel aanpassen</h3>
               <div id="deliveryQuickEdit" class="delivery-quick-edit empty">Selecteer een stop om tijd, betaling of opmerking aan te passen.</div>
             </article>
-            <article class="capacity-card delivery-dashboard-card delivery-work-card">
+            <article class="delivery-dashboard-card">
               <h3>Korte samenvatting</h3>
               <div id="deliveryDashboard" class="delivery-dashboard-grid empty">Nog geen PDF gekozen.</div>
             </article>
-          </aside>
-        </div>
-        <article class="capacity-card delivery-products-card delivery-work-card">
-          <h3>Productoverzicht compact</h3>
-          <div id="deliveryProductOverview" class="delivery-product-overview empty">Nog geen productregels beschikbaar.</div>
-        </article>
-        <article class="capacity-card delivery-preparation-card delivery-work-card">
-          <h3>Voorbereiding</h3>
-          <div id="deliveryPreparation" class="delivery-preparation empty">Nog geen voorbereiding beschikbaar.</div>
-        </article>
-        <article class="capacity-card delivery-print-card delivery-work-card">
-          <div class="delivery-print-header">
-            <h3>Print/export</h3>
-            <button type="button" id="deliveryPrintPreviewButton" class="secondary">Printvoorbeeld maken</button>
-          </div>
-          <div id="deliveryPrintPreview" class="delivery-print-preview empty">Nog geen printvoorbeeld gemaakt.</div>
-        </article>
-        <article class="capacity-card delivery-saved-card delivery-work-card">
-          <div class="delivery-saved-header">
-            <h3>Opgeslagen runs</h3>
-            <button type="button" id="deliverySavedRefreshButton" class="secondary">Vernieuwen</button>
-          </div>
-          <div id="deliverySavedRuns" class="delivery-saved-runs empty">Opgeslagen runs worden geladen.</div>
-        </article>
-        <article class="capacity-card delivery-stop-detail-card delivery-driver-preview-card delivery-work-card" data-delivery-driver-preview-card>
-          <details class="delivery-driver-preview-mode">
-            <summary>
-              <span>Experimentele chauffeur-preview</span>
-              <small>Alleen voor Twan/admin/planner in testfase</small>
-            </summary>
-            <div id="deliveryStopDetail" class="delivery-stop-detail empty">Selecteer een stop voor chauffeur-preview.</div>
           </details>
-        </article>
+          <details class="capacity-card delivery-lower-section">
+            <summary>Financieel</summary>
+            <article class="delivery-actions-card">
+              <h3>Financieel overzicht</h3>
+              <div id="deliveryActionsOverview" class="delivery-actions-overview empty">Nog geen acties of betalingen beschikbaar.</div>
+            </article>
+          </details>
+          <details class="capacity-card delivery-lower-section">
+            <summary>Producten</summary>
+            <article class="delivery-products-card">
+              <h3>Productoverzicht compact</h3>
+              <div id="deliveryProductOverview" class="delivery-product-overview empty">Nog geen productregels beschikbaar.</div>
+            </article>
+          </details>
+          <details class="capacity-card delivery-lower-section">
+            <summary>Voorbereiding</summary>
+            <article class="delivery-preparation-card">
+              <h3>Voorbereiding</h3>
+              <div id="deliveryPreparation" class="delivery-preparation empty">Nog geen voorbereiding beschikbaar.</div>
+            </article>
+          </details>
+          <details class="capacity-card delivery-lower-section">
+            <summary>Print/export</summary>
+            <article class="delivery-print-card">
+              <div class="delivery-print-header">
+                <h3>Print/export</h3>
+                <button type="button" id="deliveryPrintPreviewButton" class="secondary">Printvoorbeeld maken</button>
+              </div>
+              <div id="deliveryPrintPreview" class="delivery-print-preview empty">Nog geen printvoorbeeld gemaakt.</div>
+            </article>
+          </details>
+          <details class="capacity-card delivery-lower-section delivery-driver-preview-card" data-delivery-driver-preview-card>
+            <summary>Chauffeur-preview</summary>
+            <article class="delivery-stop-detail-card">
+              <div class="delivery-driver-preview-mode">
+                <div>
+                  <strong>Experimentele chauffeur-preview</strong>
+                  <small>Alleen voor Twan/admin/planner in testfase</small>
+                </div>
+                <div id="deliveryStopDetail" class="delivery-stop-detail empty">Selecteer een stop voor chauffeur-preview.</div>
+              </div>
+            </article>
+          </details>
+          <details class="capacity-card delivery-lower-section">
+            <summary>Opgeslagen runs</summary>
+            <article class="delivery-saved-card">
+              <div class="delivery-saved-header">
+                <h3>Opgeslagen runs</h3>
+                <button type="button" id="deliverySavedRefreshButton" class="secondary">Vernieuwen</button>
+              </div>
+              <div id="deliverySavedRuns" class="delivery-saved-runs empty">Opgeslagen runs worden geladen.</div>
+            </article>
+          </details>
+        </div>
       </section>
 
       <form id="schedule-form" class="form role-planner app-panel week-form-card" data-panel="week-current" data-week-panel data-slot="left">

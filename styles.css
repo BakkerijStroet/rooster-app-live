@@ -11026,25 +11026,34 @@ button,
 
 .delivery-run-status-bar {
   display: grid;
-  grid-template-columns: minmax(150px, 0.9fr) minmax(220px, 1.6fr) minmax(80px, 0.45fr) minmax(140px, 0.9fr) minmax(140px, 0.8fr) minmax(140px, 0.8fr);
-  gap: 0.68rem;
-  align-items: stretch;
-  border: 1px solid var(--color-border);
+  grid-template-columns: minmax(220px, 1fr) max-content max-content max-content max-content;
+  gap: 0.45rem;
+  align-items: center;
+  border: 1px solid #d8a05b;
   border-radius: 8px;
-  padding: 0.78rem;
-  background: var(--color-surface-soft);
+  padding: 0.52rem 0.65rem;
+  background: #fffaf4;
 }
 
 .delivery-run-status-bar span {
   display: grid;
-  gap: 0.12rem;
+  gap: 0.04rem;
   color: var(--color-text);
   font-weight: 700;
+}
+
+.delivery-run-status-title {
+  min-width: 0;
 }
 
 .delivery-run-status-bar strong {
   color: var(--color-text-muted);
   font-size: 0.78rem;
+}
+
+.delivery-run-status-bar button {
+  min-height: 34px;
+  padding: 0.28rem 0.65rem;
 }
 
 .delivery-run-status-warning {
@@ -11064,15 +11073,15 @@ button,
 }
 
 .delivery-panel.has-delivery-run .delivery-upload-card {
-  grid-template-columns: max-content minmax(180px, 300px) minmax(160px, 1fr);
-  gap: 0.5rem;
-  padding: 0.62rem 0.72rem;
+  grid-template-columns: max-content minmax(180px, 260px) minmax(160px, 1fr);
+  gap: 0.42rem;
+  padding: 0.46rem 0.58rem;
   border-style: dashed;
   background: #fffaf4;
 }
 
 .delivery-panel.has-delivery-run .delivery-upload-card h3 {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 
 .delivery-panel.has-delivery-run .delivery-upload-card .delivery-ingest-details {
@@ -11131,12 +11140,40 @@ button,
 
 .delivery-route-card {
   display: grid;
-  gap: 0.8rem;
+  gap: 0.55rem;
   border-color: #d8a05b;
 }
 
 .delivery-work-primary .delivery-route-card {
   box-shadow: 0 16px 34px rgba(117, 82, 35, 0.1);
+}
+
+.delivery-lower-sections {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.delivery-lower-section {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.72rem;
+  background: var(--color-surface);
+}
+
+.delivery-lower-section summary {
+  cursor: pointer;
+  color: var(--color-text);
+  font-size: 0.98rem;
+  font-weight: 850;
+}
+
+.delivery-lower-section[open] summary {
+  margin-bottom: 0.55rem;
+}
+
+.delivery-lower-section article {
+  display: grid;
+  gap: 0.75rem;
 }
 
 .delivery-stop-detail-card {
@@ -11640,6 +11677,9 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 .delivery-route-block {
   display: grid;
   gap: 0.6rem;
+  border: 0;
+  padding: 0;
+  background: transparent;
 }
 
 .delivery-prep-grid {
@@ -11756,12 +11796,16 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 
 .delivery-route-block h4 {
   margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
 }
 
 .delivery-route-stop {
   display: grid;
-  gap: 0.34rem;
-  padding: 0.62rem 0.7rem;
+  grid-template-columns: 2.2rem 6.4rem minmax(0, 1fr) minmax(190px, 0.55fr) max-content max-content;
+  gap: 0.52rem;
+  align-items: center;
+  padding: 0.48rem 0.58rem;
   cursor: pointer;
 }
 
@@ -11776,6 +11820,25 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 .delivery-route-stop.is-drop-target {
   outline: 3px solid rgba(139, 176, 216, 0.45);
   outline-offset: 2px;
+}
+
+.delivery-stop-number {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid #d8a05b;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #8a4a12;
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.delivery-stop-main {
+  display: grid;
+  gap: 0.08rem;
+  min-width: 0;
 }
 
 .delivery-route-stop.has-warm {
@@ -11809,23 +11872,24 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 .delivery-route-order-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.38rem;
+  gap: 0.28rem;
   align-items: center;
+  justify-content: end;
 }
 
 .delivery-route-drag-handle {
   border: 1px dashed #d48b37;
   border-radius: 999px;
-  padding: 0.16rem 0.55rem;
+  padding: 0.12rem 0.42rem;
   background: #fff7ed;
   color: #8a4a12;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 850;
 }
 
 .delivery-route-order-controls button {
-  min-height: 34px;
-  padding: 0.24rem 0.58rem;
+  min-height: 30px;
+  padding: 0.18rem 0.48rem;
 }
 
 .delivery-stop-detail {
@@ -11957,10 +12021,10 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   max-width: 100%;
   border: 1px solid var(--color-border);
   border-radius: 999px;
-  padding: 0.12rem 0.48rem;
+  padding: 0.1rem 0.38rem;
   background: var(--color-surface);
   color: var(--color-text-muted);
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 850;
 }
 
@@ -12094,7 +12158,7 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--color-text);
-  font-size: 1.08rem;
+  font-size: 0.98rem;
   font-weight: 850;
   line-height: 1.18;
 }
@@ -12106,15 +12170,30 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   color: var(--color-text-muted);
 }
 
+.delivery-stop-address,
+.delivery-stop-remark {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.delivery-stop-address {
+  font-size: 0.83rem;
+}
+
+.delivery-stop-remark {
+  font-size: 0.8rem;
+}
+
 .delivery-stop-problem-badge {
   width: max-content;
   max-width: 100%;
   border: 1px solid #d97b70;
   border-radius: 999px;
-  padding: 0.16rem 0.52rem;
+  padding: 0.11rem 0.42rem;
   background: #fff1ed;
   color: #8d241b;
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 850;
 }
 
@@ -12126,20 +12205,23 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 
 .delivery-stop-time {
   border: 1px solid #d48b37;
-  border-radius: 999px;
-  padding: 0.12rem 0.5rem;
+  border-radius: 7px;
+  padding: 0.2rem 0.45rem;
   background: #fff0d8;
   color: #8a4a12;
-  font-size: 0.9rem;
-  font-weight: 800;
+  font-size: 0.98rem;
+  font-weight: 900;
+  text-align: center;
   white-space: nowrap;
 }
 
-.delivery-stop-status-row {
+.delivery-stop-route-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  gap: 0.28rem;
   align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
 }
 
 .delivery-stop-categories {
@@ -12153,9 +12235,9 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 .delivery-category-chip {
   border: 1px solid var(--color-border);
   border-radius: 999px;
-  padding: 0.18rem 0.5rem;
+  padding: 0.12rem 0.38rem;
   background: var(--color-surface);
-  font-size: 0.84rem;
+  font-size: 0.76rem;
   font-weight: 700;
 }
 
@@ -12176,6 +12258,13 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   background: var(--color-surface);
   font-size: 0.84rem;
   font-weight: 800;
+}
+
+.delivery-payment-chip.is-compact {
+  opacity: 0.82;
+  padding: 0.11rem 0.38rem;
+  font-size: 0.74rem;
+  font-weight: 750;
 }
 
 .delivery-payment-chip[data-delivery-payment="OK"],
@@ -12211,15 +12300,21 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 
 .delivery-stop-note {
   border-radius: 8px;
-  padding: 0.34rem 0.45rem;
+  padding: 0.22rem 0.38rem;
   background: #fff0d8;
   color: #8a4a12;
+  font-size: 0.78rem;
   font-weight: 750;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .delivery-stop-correct-button {
-  justify-self: start;
-  margin-top: 0.1rem;
+  justify-self: end;
+  min-height: 30px;
+  margin-top: 0;
+  padding: 0.18rem 0.48rem;
 }
 
 .delivery-stop-correction {
@@ -12390,7 +12485,13 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 
 @media (max-width: 780px) {
   .delivery-run-status-bar {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
+  }
+
+  .delivery-run-status-title,
+  .delivery-run-status-warning {
+    grid-column: 1 / -1;
   }
 
   .delivery-work-layout {
@@ -12408,6 +12509,27 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   .delivery-upload-card {
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .delivery-panel.has-delivery-run .delivery-upload-card {
+    grid-template-columns: 1fr;
+  }
+
+  .delivery-route-stop {
+    grid-template-columns: 2rem minmax(88px, max-content) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .delivery-stop-route-meta,
+  .delivery-stop-note,
+  .delivery-route-order-controls,
+  .delivery-stop-correct-button,
+  .delivery-stop-correction {
+    grid-column: 1 / -1;
+  }
+
+  .delivery-route-order-controls {
+    justify-content: start;
   }
 
   .delivery-dashboard-grid {

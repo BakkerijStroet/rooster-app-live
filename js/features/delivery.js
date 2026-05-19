@@ -1971,7 +1971,6 @@
       return;
     }
 
-    const updatedLabel = latestRunUpdatedAt ? formatSavedRunDateTime(latestRunUpdatedAt) : "-";
     const displayTitle = getDeliveryRunDisplayTitle({
       deliveryDate: latestDeliveryDate,
       sourceFilename: latestSourceFilename,
@@ -1990,12 +1989,11 @@
     runStatusBarElement.dataset.deliveryRunSource = latestRunSource;
     runStatusBarElement.dataset.deliverySaveStatus = latestSaveState.status;
     runStatusBarElement.innerHTML = `
-      <span><strong>Bron</strong>${escapeHtml(getRunSourceText())}</span>
-      <span><strong>Run</strong>${escapeHtml(displayTitle)}</span>
+      <span class="delivery-run-status-title"><strong>Bezorglijst</strong>${escapeHtml(displayTitle)}</span>
       <span><strong>Stops</strong>${latestRouteStops.length}</span>
-      <span><strong>Status</strong>${escapeHtml(getSaveStatusText())}</span>
+      <span><strong>Opslag</strong>${escapeHtml(getSaveStatusText())}</span>
       <span><strong>Parser</strong>${escapeHtml(latestParserSource || "-")}</span>
-      <span><strong>Bijgewerkt</strong>${escapeHtml(updatedLabel)}</span>
+      <button type="button" class="secondary" data-delivery-status-print ${latestRouteStops.length ? "" : "disabled"}>Printvoorbeeld</button>
       ${warning}
     `;
   }
@@ -2835,23 +2833,24 @@
 
             return `
               <article id="deliveryRouteStop${index}" class="delivery-route-stop${stop.categories.includes("warm") ? " has-warm" : ""}${hasReview ? " needs-review" : ""}${hasOpenProblem ? " has-problem" : ""}${hasResolvedProblem ? " has-resolved-problem" : ""}${selectedDeliveryStopIndex === index ? " is-selected" : ""}" data-delivery-route-stop="${index}" draggable="true">
-                <div class="delivery-stop-header">
-                  <div class="delivery-stop-title">${index + 1}. ${escapeHtml(stop.customerName || "Klant onbekend")}</div>
-                  <div class="delivery-stop-time">${escapeHtml(stop.timeWindow || "Tijd controle nodig")}</div>
+                <div class="delivery-stop-number" aria-label="Stop ${index + 1}">${index + 1}</div>
+                <div class="delivery-stop-time">${escapeHtml(stop.timeWindow || "Tijd controle nodig")}</div>
+                <div class="delivery-stop-main">
+                  <div class="delivery-stop-title">${escapeHtml(stop.customerName || "Klant onbekend")}</div>
+                  <div class="delivery-stop-address">${escapeHtml(stop.address || "Adres onbekend")}</div>
+                  <div class="delivery-stop-remark">${escapeHtml(stop.remark || "Opmerking controle nodig")}</div>
                 </div>
-                ${hasOpenProblem ? `<div class="delivery-stop-problem-badge">Probleem: ${escapeHtml(problemText)}</div>` : ""}
-                ${hasResolvedProblem ? `<div class="delivery-stop-problem-badge is-resolved">Opgelost: ${escapeHtml(problemText)}</div>` : ""}
-                <div class="delivery-stop-address">${escapeHtml(stop.address || "Adres onbekend")}</div>
-                ${renderRouteStopStatusChips(stop)}
-                <div class="delivery-stop-status-row">
-                  <span class="delivery-payment-chip" data-delivery-payment="${escapeHtml(stop.paymentStatus || "controle nodig")}">${escapeHtml(stop.paymentStatus || "controle nodig")}</span>
+                <div class="delivery-stop-route-meta">
+                  ${renderRouteStopStatusChips(stop)}
+                  ${hasOpenProblem ? `<span class="delivery-stop-problem-badge">Probleem</span>` : ""}
+                  ${hasResolvedProblem ? `<span class="delivery-stop-problem-badge is-resolved">Opgelost</span>` : ""}
+                  <span class="delivery-payment-chip is-compact" data-delivery-payment="${escapeHtml(stop.paymentStatus || "controle nodig")}">${escapeHtml(stop.paymentStatus || "controle nodig")}</span>
                   <div class="delivery-stop-categories">
                     ${categories.map((category) => `
                       <span class="delivery-category-chip" data-delivery-category="${escapeHtml(category)}">${escapeHtml(category)}</span>
                     `).join("")}
                   </div>
                 </div>
-                <div class="delivery-stop-remark">${escapeHtml(stop.remark || "Opmerking controle nodig")}</div>
                 ${hasReview ? `<div class="delivery-stop-note">controle nodig${stop.notes.length ? `: ${escapeHtml(stop.notes.join(", "))}` : ""}</div>` : ""}
                 ${renderRouteOrderControls(index, stops.length)}
                 <button type="button" class="secondary delivery-stop-correct-button" data-delivery-edit-stop="${index}">Corrigeren</button>
@@ -3316,6 +3315,16 @@
       renderPrintChecklistPage(latestRouteStops),
       renderPrintProductPage(latestRouteStops)
     ].join("");
+  }
+
+  function openPrintPreviewSection() {
+    const printSection = printPreviewElement?.closest("details");
+
+    if (printSection) {
+      printSection.open = true;
+    }
+
+    printPreviewElement?.scrollIntoView({ block: "start", behavior: "smooth" });
   }
 
   function getDeliveryRunPayload() {
@@ -3859,6 +3868,16 @@
 
     selectDeliveryStop(Number(viewButton.dataset.deliveryViewStop), { scrollRoute: true });
   });
+  runStatusBarElement?.addEventListener("click", (event) => {
+    const printButton = event.target.closest("[data-delivery-status-print]");
+
+    if (!printButton || printButton.disabled) {
+      return;
+    }
+
+    renderPrintPreview();
+    openPrintPreviewSection();
+  });
   stopDetailElement?.addEventListener("click", (event) => {
     const openProblemButton = event.target.closest("[data-delivery-open-problem]");
     const cancelProblemButton = event.target.closest("[data-delivery-cancel-problem]");
@@ -3915,7 +3934,7 @@
 
     if (printButton && !printButton.disabled) {
       renderPrintPreview();
-      printPreviewElement?.scrollIntoView({ block: "start", behavior: "smooth" });
+      openPrintPreviewSection();
     }
   });
   printPreviewButton?.addEventListener("click", renderPrintPreview);
