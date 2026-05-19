@@ -11063,6 +11063,22 @@ button,
   background: #fff7ed;
 }
 
+.delivery-panel.has-delivery-run .delivery-upload-card {
+  grid-template-columns: max-content minmax(180px, 300px) minmax(160px, 1fr);
+  gap: 0.5rem;
+  padding: 0.62rem 0.72rem;
+  border-style: dashed;
+  background: #fffaf4;
+}
+
+.delivery-panel.has-delivery-run .delivery-upload-card h3 {
+  font-size: 0.95rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-upload-card .delivery-ingest-details {
+  display: none;
+}
+
 .delivery-work-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.75fr);
@@ -11116,6 +11132,11 @@ button,
 .delivery-route-card {
   display: grid;
   gap: 0.8rem;
+  border-color: #d8a05b;
+}
+
+.delivery-work-primary .delivery-route-card {
+  box-shadow: 0 16px 34px rgba(117, 82, 35, 0.1);
 }
 
 .delivery-stop-detail-card {
@@ -11739,9 +11760,22 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 
 .delivery-route-stop {
   display: grid;
-  gap: 0.26rem;
-  padding: 0.52rem 0.62rem;
+  gap: 0.34rem;
+  padding: 0.62rem 0.7rem;
   cursor: pointer;
+}
+
+.delivery-route-stop[draggable="true"] {
+  cursor: grab;
+}
+
+.delivery-route-stop.is-dragging {
+  opacity: 0.58;
+}
+
+.delivery-route-stop.is-drop-target {
+  outline: 3px solid rgba(139, 176, 216, 0.45);
+  outline-offset: 2px;
 }
 
 .delivery-route-stop.has-warm {
@@ -11770,6 +11804,28 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 .delivery-route-stop.is-selected {
   border-color: #8bb0d8;
   box-shadow: inset 3px 0 0 #8bb0d8;
+}
+
+.delivery-route-order-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.38rem;
+  align-items: center;
+}
+
+.delivery-route-drag-handle {
+  border: 1px dashed #d48b37;
+  border-radius: 999px;
+  padding: 0.16rem 0.55rem;
+  background: #fff7ed;
+  color: #8a4a12;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.delivery-route-order-controls button {
+  min-height: 34px;
+  padding: 0.24rem 0.58rem;
 }
 
 .delivery-stop-detail {

@@ -75,6 +75,7 @@
   let latestHasLocalCorrections = false;
   let latestParserVersionWarning = "";
   let selectedDeliveryStopIndex = -1;
+  let draggedDeliveryStopIndex = -1;
 
   function escapeHtml(value) {
     return String(value || "")
@@ -300,6 +301,7 @@
     latestHasLocalCorrections = false;
     latestParserVersionWarning = "";
     selectedDeliveryStopIndex = -1;
+    draggedDeliveryStopIndex = -1;
     renderDashboard([], "");
     renderControlSummary([]);
   }
@@ -1517,6 +1519,7 @@
     latestRunBaseUpdatedAt = "";
     latestHasLocalCorrections = false;
     selectedDeliveryStopIndex = -1;
+    draggedDeliveryStopIndex = -1;
     renderDashboard(routeStops, latestDeliveryDate);
     renderControlSummary(routeStops);
     renderActionsOverview(routeStops);
@@ -1901,7 +1904,7 @@
       return;
     }
 
-    const financialGroupOrder = ["unpaid", "review", "account", "paid", "direct"];
+    const financialGroupOrder = ["problems", "unpaid", "review", "account", "paid", "direct"];
     const groups = getActionPaymentGroups(stops)
       .filter((group) => financialGroupOrder.includes(group.key))
       .sort((groupA, groupB) => financialGroupOrder.indexOf(groupA.key) - financialGroupOrder.indexOf(groupB.key));
@@ -2142,6 +2145,7 @@
     latestHasLocalCorrections = false;
     latestParserVersionWarning = parserVersionWarning;
     selectedDeliveryStopIndex = -1;
+    draggedDeliveryStopIndex = -1;
 
     if (pdfInput) {
       pdfInput.value = "";
@@ -2493,6 +2497,16 @@
     `;
   }
 
+  function renderRouteOrderControls(index, totalStops) {
+    return `
+      <div class="delivery-route-order-controls">
+        <span class="delivery-route-drag-handle" aria-hidden="true">Sleep</span>
+        <button type="button" class="secondary" data-delivery-move-stop="${index}" data-delivery-move-direction="-1" ${index <= 0 ? "disabled" : ""}>Omhoog</button>
+        <button type="button" class="secondary" data-delivery-move-stop="${index}" data-delivery-move-direction="1" ${index >= totalStops - 1 ? "disabled" : ""}>Omlaag</button>
+      </div>
+    `;
+  }
+
   function getDriverStatusChips(stop) {
     const chips = [];
     const paymentStatus = normalizePaymentStatusLabel(stop?.paymentStatus);
@@ -2664,6 +2678,60 @@
     selectDeliveryStop(nextIndex, { scrollDetail: true });
   }
 
+  function isPrintPreviewActive() {
+    return Boolean(
+      printPreviewElement
+      && !printPreviewElement.classList.contains("empty")
+      && printPreviewElement.querySelector(".delivery-print-page")
+    );
+  }
+
+  function getMovedSelectedStopIndex(fromIndex, toIndex) {
+    if (selectedDeliveryStopIndex === fromIndex) {
+      return toIndex;
+    }
+
+    if (fromIndex < selectedDeliveryStopIndex && selectedDeliveryStopIndex <= toIndex) {
+      return selectedDeliveryStopIndex - 1;
+    }
+
+    if (toIndex <= selectedDeliveryStopIndex && selectedDeliveryStopIndex < fromIndex) {
+      return selectedDeliveryStopIndex + 1;
+    }
+
+    return selectedDeliveryStopIndex;
+  }
+
+  function reorderDeliveryStop(fromIndex, toIndex, { scrollRoute = false } = {}) {
+    const sourceIndex = Number(fromIndex);
+    const targetIndex = Number(toIndex);
+
+    if (
+      !Number.isInteger(sourceIndex)
+      || !Number.isInteger(targetIndex)
+      || sourceIndex < 0
+      || targetIndex < 0
+      || sourceIndex >= latestRouteStops.length
+      || targetIndex >= latestRouteStops.length
+      || sourceIndex === targetIndex
+    ) {
+      return;
+    }
+
+    const nextSelectedIndex = getMovedSelectedStopIndex(sourceIndex, targetIndex);
+    const [movedStop] = latestRouteStops.splice(sourceIndex, 1);
+    latestRouteStops.splice(targetIndex, 0, movedStop);
+    selectedDeliveryStopIndex = nextSelectedIndex;
+    draggedDeliveryStopIndex = -1;
+
+    rerenderDeliveryPreview({ refreshPrint: isPrintPreviewActive() });
+    setStatus("Routevolgorde lokaal aangepast. Nog niet opgeslagen.", "ready");
+
+    if (scrollRoute) {
+      scrollToDeliveryStop(targetIndex);
+    }
+  }
+
   function getStopCorrectionPaymentValue(stop) {
     if (!stop?.paymentStatus) {
       return "Controle nodig";
@@ -2766,7 +2834,7 @@
             const hasResolvedProblem = hasResolvedStopProblem(stop);
 
             return `
-              <article id="deliveryRouteStop${index}" class="delivery-route-stop${stop.categories.includes("warm") ? " has-warm" : ""}${hasReview ? " needs-review" : ""}${hasOpenProblem ? " has-problem" : ""}${hasResolvedProblem ? " has-resolved-problem" : ""}${selectedDeliveryStopIndex === index ? " is-selected" : ""}" data-delivery-route-stop="${index}">
+              <article id="deliveryRouteStop${index}" class="delivery-route-stop${stop.categories.includes("warm") ? " has-warm" : ""}${hasReview ? " needs-review" : ""}${hasOpenProblem ? " has-problem" : ""}${hasResolvedProblem ? " has-resolved-problem" : ""}${selectedDeliveryStopIndex === index ? " is-selected" : ""}" data-delivery-route-stop="${index}" draggable="true">
                 <div class="delivery-stop-header">
                   <div class="delivery-stop-title">${index + 1}. ${escapeHtml(stop.customerName || "Klant onbekend")}</div>
                   <div class="delivery-stop-time">${escapeHtml(stop.timeWindow || "Tijd controle nodig")}</div>
@@ -2785,6 +2853,7 @@
                 </div>
                 <div class="delivery-stop-remark">${escapeHtml(stop.remark || "Opmerking controle nodig")}</div>
                 ${hasReview ? `<div class="delivery-stop-note">controle nodig${stop.notes.length ? `: ${escapeHtml(stop.notes.join(", "))}` : ""}</div>` : ""}
+                ${renderRouteOrderControls(index, stops.length)}
                 <button type="button" class="secondary delivery-stop-correct-button" data-delivery-edit-stop="${index}">Corrigeren</button>
                 ${renderStopCorrectionForm(stop, index)}
               </article>
@@ -3680,7 +3749,17 @@
   routeBlocksElement?.addEventListener("click", (event) => {
     const editButton = event.target.closest("[data-delivery-edit-stop]");
     const cancelButton = event.target.closest("[data-delivery-cancel-correction]");
+    const moveButton = event.target.closest("[data-delivery-move-stop]");
     const routeStop = event.target.closest("[data-delivery-route-stop]");
+
+    if (moveButton && !moveButton.disabled) {
+      reorderDeliveryStop(
+        Number(moveButton.dataset.deliveryMoveStop),
+        Number(moveButton.dataset.deliveryMoveStop) + Number(moveButton.dataset.deliveryMoveDirection),
+        { scrollRoute: true }
+      );
+      return;
+    }
 
     if (editButton) {
       toggleStopCorrection(Number(editButton.dataset.deliveryEditStop), true);
@@ -3709,6 +3788,57 @@
 
     event.preventDefault();
     applyStopCorrection(form);
+  });
+  routeBlocksElement?.addEventListener("dragstart", (event) => {
+    const routeStop = event.target.closest("[data-delivery-route-stop]");
+
+    if (!routeStop) {
+      return;
+    }
+
+    draggedDeliveryStopIndex = Number(routeStop.dataset.deliveryRouteStop);
+    routeStop.classList.add("is-dragging");
+    event.dataTransfer?.setData("text/plain", String(draggedDeliveryStopIndex));
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = "move";
+    }
+  });
+  routeBlocksElement?.addEventListener("dragover", (event) => {
+    const routeStop = event.target.closest("[data-delivery-route-stop]");
+
+    if (!routeStop || draggedDeliveryStopIndex < 0) {
+      return;
+    }
+
+    event.preventDefault();
+    routeStop.classList.add("is-drop-target");
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = "move";
+    }
+  });
+  routeBlocksElement?.addEventListener("dragleave", (event) => {
+    event.target.closest("[data-delivery-route-stop]")?.classList.remove("is-drop-target");
+  });
+  routeBlocksElement?.addEventListener("drop", (event) => {
+    const routeStop = event.target.closest("[data-delivery-route-stop]");
+
+    if (!routeStop) {
+      return;
+    }
+
+    event.preventDefault();
+    const sourceIndex = Number(event.dataTransfer?.getData("text/plain") || draggedDeliveryStopIndex);
+    const targetIndex = Number(routeStop.dataset.deliveryRouteStop);
+    document.querySelectorAll(".delivery-route-stop.is-drop-target, .delivery-route-stop.is-dragging").forEach((element) => {
+      element.classList.remove("is-drop-target", "is-dragging");
+    });
+    reorderDeliveryStop(sourceIndex, targetIndex, { scrollRoute: true });
+  });
+  routeBlocksElement?.addEventListener("dragend", () => {
+    draggedDeliveryStopIndex = -1;
+    document.querySelectorAll(".delivery-route-stop.is-drop-target, .delivery-route-stop.is-dragging").forEach((element) => {
+      element.classList.remove("is-drop-target", "is-dragging");
+    });
   });
   quickEditElement?.addEventListener("submit", (event) => {
     const form = event.target.closest("[data-delivery-stop-correction]");
