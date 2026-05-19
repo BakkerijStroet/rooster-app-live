@@ -2501,6 +2501,37 @@
         <span class="delivery-route-drag-handle" aria-hidden="true">Sleep</span>
         <button type="button" class="secondary" data-delivery-move-stop="${index}" data-delivery-move-direction="-1" ${index <= 0 ? "disabled" : ""}>Omhoog</button>
         <button type="button" class="secondary" data-delivery-move-stop="${index}" data-delivery-move-direction="1" ${index >= totalStops - 1 ? "disabled" : ""}>Omlaag</button>
+        <button type="button" class="secondary" disabled title="Route 2 verplaatsen volgt later">Route 2</button>
+      </div>
+    `;
+  }
+
+  function renderRouteStopIcons(stop, categories) {
+    const icons = [];
+
+    if (isWarmStop(stop)) {
+      icons.push({ icon: "🔥", label: "warm/snacks" });
+    }
+
+    if (categories.includes("brood")) {
+      icons.push({ icon: "🍞", label: "brood" });
+    }
+
+    if (categories.includes("gebak")) {
+      icons.push({ icon: "🎂", label: "banket/gebak" });
+    }
+
+    if (stopHasReview(stop) || hasStopProblem(stop)) {
+      icons.push({ icon: "❗", label: "controle nodig" });
+    }
+
+    if (!icons.length) {
+      return "";
+    }
+
+    return `
+      <div class="delivery-route-stop-icons">
+        ${icons.map((item) => `<span title="${escapeHtml(item.label)}" aria-label="${escapeHtml(item.label)}">${item.icon}</span>`).join("")}
       </div>
     `;
   }
@@ -2819,47 +2850,63 @@
 
     routeBlocksElement.classList.remove("empty");
     routeBlocksElement.innerHTML = `
-      <section class="delivery-route-block">
-        <h4>Ronde 1</h4>
-        <div class="delivery-route-stop-list">
+      <div class="delivery-route-planner-grid">
+        <section class="delivery-route-block delivery-route-lane is-active">
+          <header class="delivery-route-lane-header">
+            <div>
+              <h4>Route 1</h4>
+              <span>Bezorger 1</span>
+            </div>
+            <strong>${stops.length} stop${stops.length === 1 ? "" : "s"}</strong>
+          </header>
+          <div class="delivery-route-stop-list">
           ${stops.map((stop, index) => {
-            const categories = stop.categories.length
+            const categories = Array.isArray(stop.categories) && stop.categories.length
               ? stop.categories
               : ["controle nodig"];
             const hasReview = stopHasReview(stop);
             const problemText = getStopProblemText(stop);
             const hasOpenProblem = hasStopProblem(stop);
             const hasResolvedProblem = hasResolvedStopProblem(stop);
+            const warningLabel = hasOpenProblem
+              ? "Probleem"
+              : hasResolvedProblem
+                ? "Opgelost"
+                : hasReview
+                  ? "Controle"
+                  : "";
 
             return `
-              <article id="deliveryRouteStop${index}" class="delivery-route-stop${stop.categories.includes("warm") ? " has-warm" : ""}${hasReview ? " needs-review" : ""}${hasOpenProblem ? " has-problem" : ""}${hasResolvedProblem ? " has-resolved-problem" : ""}${selectedDeliveryStopIndex === index ? " is-selected" : ""}" data-delivery-route-stop="${index}" draggable="true">
+              <article id="deliveryRouteStop${index}" class="delivery-route-stop${categories.includes("warm") ? " has-warm" : ""}${hasReview ? " needs-review" : ""}${hasOpenProblem ? " has-problem" : ""}${hasResolvedProblem ? " has-resolved-problem" : ""}${selectedDeliveryStopIndex === index ? " is-selected" : ""}" data-delivery-route-stop="${index}" draggable="true">
                 <div class="delivery-stop-number" aria-label="Stop ${index + 1}">${index + 1}</div>
-                <div class="delivery-stop-time">${escapeHtml(stop.timeWindow || "Tijd controle nodig")}</div>
                 <div class="delivery-stop-main">
                   <div class="delivery-stop-title">${escapeHtml(stop.customerName || "Klant onbekend")}</div>
-                  <div class="delivery-stop-address">${escapeHtml(stop.address || "Adres onbekend")}</div>
-                  <div class="delivery-stop-remark">${escapeHtml(stop.remark || "Opmerking controle nodig")}</div>
                 </div>
-                <div class="delivery-stop-route-meta">
-                  ${renderRouteStopStatusChips(stop)}
-                  ${hasOpenProblem ? `<span class="delivery-stop-problem-badge">Probleem</span>` : ""}
-                  ${hasResolvedProblem ? `<span class="delivery-stop-problem-badge is-resolved">Opgelost</span>` : ""}
-                  <span class="delivery-payment-chip is-compact" data-delivery-payment="${escapeHtml(stop.paymentStatus || "controle nodig")}">${escapeHtml(stop.paymentStatus || "controle nodig")}</span>
-                  <div class="delivery-stop-categories">
-                    ${categories.map((category) => `
-                      <span class="delivery-category-chip" data-delivery-category="${escapeHtml(category)}">${escapeHtml(category)}</span>
-                    `).join("")}
-                  </div>
-                </div>
-                ${hasReview ? `<div class="delivery-stop-note">controle nodig${stop.notes.length ? `: ${escapeHtml(stop.notes.join(", "))}` : ""}</div>` : ""}
+                <div class="delivery-stop-time">${escapeHtml(stop.timeWindow || "Tijd controle nodig")}</div>
+                ${renderRouteStopIcons(stop, categories)}
+                ${warningLabel ? `<span class="delivery-route-warning-label" title="${escapeHtml(problemText || (Array.isArray(stop.notes) ? stop.notes.join(", ") : "") || warningLabel)}">${escapeHtml(warningLabel)}</span>` : "<span class=\"delivery-route-warning-label is-empty\">-</span>"}
                 ${renderRouteOrderControls(index, stops.length)}
-                <button type="button" class="secondary delivery-stop-correct-button" data-delivery-edit-stop="${index}">Corrigeren</button>
+                <button type="button" class="secondary delivery-stop-correct-button" data-delivery-edit-stop="${index}">Pas aan</button>
                 ${renderStopCorrectionForm(stop, index)}
               </article>
             `;
           }).join("")}
-        </div>
-      </section>
+          </div>
+        </section>
+        <section class="delivery-route-block delivery-route-lane is-secondary">
+          <header class="delivery-route-lane-header">
+            <div>
+              <h4>Route 2</h4>
+              <span>Bezorger 2</span>
+            </div>
+            <strong>0 stops</strong>
+          </header>
+          <div class="delivery-route-empty-lane">
+            <strong>Nog leeg</strong>
+            <span>Route 2 is alvast zichtbaar. Verplaatsen tussen routes koppelen we later veilig.</span>
+          </div>
+        </section>
+      </div>
     `;
   }
 
@@ -3754,6 +3801,20 @@
     }
 
     void openSavedRun(openButton.dataset.deliveryOpenRun);
+  });
+  deliveryPanelElement?.addEventListener("click", (event) => {
+    const newPdfButton = event.target.closest("[data-delivery-route-new-pdf]");
+    const routePrintButton = event.target.closest("[data-delivery-route-print]");
+
+    if (newPdfButton) {
+      pdfInput?.click();
+      return;
+    }
+
+    if (routePrintButton) {
+      renderPrintPreview();
+      openPrintPreviewSection();
+    }
   });
   routeBlocksElement?.addEventListener("click", (event) => {
     const editButton = event.target.closest("[data-delivery-edit-stop]");

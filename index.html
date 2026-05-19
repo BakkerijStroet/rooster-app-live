@@ -1128,44 +1128,22 @@
             <button type="button" id="deliveryStartChooseButton" class="secondary">PDF kiezen</button>
           </div>
         </article>
-        <article id="deliveryRunStatusBar" class="delivery-run-status-bar delivery-work-card">
-          <span><strong>Bron</strong>Geen run geladen</span>
-          <span><strong>Run</strong>-</span>
-          <span><strong>Stops</strong>0</span>
-          <span><strong>Status</strong>Nog niet opgeslagen</span>
-          <span><strong>Parser</strong>-</span>
-          <button type="button" class="secondary" disabled>Printvoorbeeld</button>
-        </article>
-        <article class="capacity-card delivery-upload-card delivery-work-card">
-          <h3>Nieuwe PDF kiezen</h3>
-          <label class="delivery-file-picker">
-            <span>Bestand</span>
-            <input type="file" id="deliveryPdfInput" accept="application/pdf,.pdf">
-          </label>
-          <div id="deliveryPdfStatus" class="panel-note delivery-status" aria-live="polite">Nog geen PDF geselecteerd.</div>
-          <details class="delivery-ingest-details">
-            <summary>Voorlopige inlezing</summary>
-            <div id="deliveryLineCount" class="panel-note">Aantal gevonden tekstregels: 0</div>
-            <div class="delivery-preview-grid">
-              <div>
-                <h4>Ruwe tekst-preview</h4>
-                <pre id="deliveryRawPreview" class="delivery-raw-preview">Nog geen tekst beschikbaar.</pre>
-              </div>
-              <div>
-                <h4>Herkenning</h4>
-                <div id="deliveryRecognizedList" class="delivery-recognized-list empty">Nog geen klant- of productregels herkend.</div>
-              </div>
-            </div>
-            <div id="deliveryParseWarnings" class="delivery-warning-list empty">Geen meldingen.</div>
-          </details>
-        </article>
         <article class="capacity-card delivery-route-card delivery-work-card">
-          <h3>Route-overzicht</h3>
+          <div class="delivery-route-planner-header">
+            <div>
+              <h3>Routeplanner</h3>
+              <span>Sleep stops in bezorgvolgorde. Route 2 staat klaar voor later.</span>
+            </div>
+            <div class="delivery-route-planner-actions">
+              <button type="button" class="secondary" data-delivery-route-new-pdf>Nieuwe PDF</button>
+              <button type="button" class="delivery-route-print-button" data-delivery-route-print>Print routes</button>
+            </div>
+          </div>
           <div id="deliveryRouteBlocks" class="delivery-route-blocks empty">Nog geen routeblokken beschikbaar.</div>
         </article>
         <div class="delivery-lower-sections delivery-work-card">
           <details class="capacity-card delivery-lower-section">
-            <summary>Controle</summary>
+            <summary>Administratie</summary>
             <article id="deliveryControlCard" class="delivery-control-card is-hidden">
               <h3>Eerst controleren</h3>
               <div id="deliveryControlSummary" class="delivery-control-summary"></div>
@@ -1220,6 +1198,40 @@
                 </div>
                 <div id="deliveryStopDetail" class="delivery-stop-detail empty">Selecteer een stop voor chauffeur-preview.</div>
               </div>
+            </article>
+          </details>
+          <details class="capacity-card delivery-lower-section">
+            <summary>Technisch/details</summary>
+            <article id="deliveryRunStatusBar" class="delivery-run-status-bar">
+              <span><strong>Bron</strong>Geen run geladen</span>
+              <span><strong>Run</strong>-</span>
+              <span><strong>Stops</strong>0</span>
+              <span><strong>Status</strong>Nog niet opgeslagen</span>
+              <span><strong>Parser</strong>-</span>
+              <button type="button" class="secondary" disabled>Printvoorbeeld</button>
+            </article>
+            <article class="delivery-upload-card">
+              <h3>Nieuwe PDF kiezen</h3>
+              <label class="delivery-file-picker">
+                <span>Bestand</span>
+                <input type="file" id="deliveryPdfInput" accept="application/pdf,.pdf">
+              </label>
+              <div id="deliveryPdfStatus" class="panel-note delivery-status" aria-live="polite">Nog geen PDF geselecteerd.</div>
+              <details class="delivery-ingest-details">
+                <summary>Voorlopige inlezing</summary>
+                <div id="deliveryLineCount" class="panel-note">Aantal gevonden tekstregels: 0</div>
+                <div class="delivery-preview-grid">
+                  <div>
+                    <h4>Ruwe tekst-preview</h4>
+                    <pre id="deliveryRawPreview" class="delivery-raw-preview">Nog geen tekst beschikbaar.</pre>
+                  </div>
+                  <div>
+                    <h4>Herkenning</h4>
+                    <div id="deliveryRecognizedList" class="delivery-recognized-list empty">Nog geen klant- of productregels herkend.</div>
+                  </div>
+                </div>
+                <div id="deliveryParseWarnings" class="delivery-warning-list empty">Geen meldingen.</div>
+              </details>
             </article>
           </details>
           <details class="capacity-card delivery-lower-section">

@@ -11142,10 +11142,105 @@ button,
   display: grid;
   gap: 0.55rem;
   border-color: #d8a05b;
+  padding: 0.65rem;
 }
 
 .delivery-work-primary .delivery-route-card {
   box-shadow: 0 16px 34px rgba(117, 82, 35, 0.1);
+}
+
+.delivery-route-planner-header {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.delivery-route-planner-header h3 {
+  margin: 0;
+}
+
+.delivery-route-planner-header span {
+  color: var(--color-text-muted);
+  font-size: 0.86rem;
+}
+
+.delivery-route-planner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: end;
+}
+
+.delivery-route-planner-actions button {
+  min-height: 32px;
+  padding: 0.2rem 0.58rem;
+}
+
+.delivery-route-planner-actions .delivery-route-print-button {
+  min-height: 48px;
+  min-width: 160px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0.55rem 1.15rem;
+  background: #8a4a12;
+  color: #fffaf4;
+  font-size: 1.06rem;
+  font-weight: 900;
+  box-shadow: 0 10px 24px rgba(138, 74, 18, 0.18);
+}
+
+.delivery-route-planner-actions .delivery-route-print-button:hover,
+.delivery-route-planner-actions .delivery-route-print-button:focus-visible {
+  background: #6f390c;
+}
+
+.delivery-route-planner-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.42fr);
+  gap: 0.55rem;
+  align-items: start;
+}
+
+.delivery-route-lane {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.5rem;
+  background: #fffaf4;
+}
+
+.delivery-route-lane.is-active {
+  border-color: #d8a05b;
+}
+
+.delivery-route-lane-header {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.delivery-route-lane-header h4 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 0.98rem;
+}
+
+.delivery-route-lane-header span,
+.delivery-route-lane-header strong {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.delivery-route-empty-lane {
+  display: grid;
+  gap: 0.25rem;
+  min-height: 120px;
+  border: 1px dashed var(--color-border);
+  border-radius: 8px;
+  padding: 0.7rem;
+  background: var(--color-surface-soft);
+  color: var(--color-text-muted);
 }
 
 .delivery-lower-sections {
@@ -11676,7 +11771,7 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 
 .delivery-route-block {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.45rem;
   border: 0;
   padding: 0;
   background: transparent;
@@ -11800,12 +11895,18 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   font-size: 0.9rem;
 }
 
+.delivery-route-stop-list {
+  max-height: min(62vh, 640px);
+  overflow: auto;
+  padding-right: 0.08rem;
+}
+
 .delivery-route-stop {
   display: grid;
-  grid-template-columns: 2.2rem 6.4rem minmax(0, 1fr) minmax(190px, 0.55fr) max-content max-content;
-  gap: 0.52rem;
+  grid-template-columns: 2rem minmax(150px, 1fr) max-content max-content max-content max-content;
+  gap: 0.34rem;
   align-items: center;
-  padding: 0.48rem 0.58rem;
+  padding: 0.34rem 0.42rem;
   cursor: pointer;
 }
 
@@ -11825,13 +11926,13 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 .delivery-stop-number {
   display: grid;
   place-items: center;
-  width: 2rem;
-  height: 2rem;
+  width: 1.72rem;
+  height: 1.72rem;
   border: 1px solid #d8a05b;
   border-radius: 999px;
   background: #fff7ed;
   color: #8a4a12;
-  font-size: 0.95rem;
+  font-size: 0.86rem;
   font-weight: 900;
 }
 
@@ -11872,7 +11973,7 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 .delivery-route-order-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.28rem;
+  gap: 0.22rem;
   align-items: center;
   justify-content: end;
 }
@@ -11880,16 +11981,16 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 .delivery-route-drag-handle {
   border: 1px dashed #d48b37;
   border-radius: 999px;
-  padding: 0.12rem 0.42rem;
+  padding: 0.1rem 0.34rem;
   background: #fff7ed;
   color: #8a4a12;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 850;
 }
 
 .delivery-route-order-controls button {
-  min-height: 30px;
-  padding: 0.18rem 0.48rem;
+  min-height: 28px;
+  padding: 0.12rem 0.38rem;
 }
 
 .delivery-stop-detail {
@@ -12158,7 +12259,7 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--color-text);
-  font-size: 0.98rem;
+  font-size: 0.93rem;
   font-weight: 850;
   line-height: 1.18;
 }
@@ -12178,11 +12279,11 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 }
 
 .delivery-stop-address {
-  font-size: 0.83rem;
+  font-size: 0.76rem;
 }
 
 .delivery-stop-remark {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
 }
 
 .delivery-stop-problem-badge {
@@ -12205,23 +12306,38 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 
 .delivery-stop-time {
   border: 1px solid #d48b37;
-  border-radius: 7px;
-  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+  padding: 0.15rem 0.38rem;
   background: #fff0d8;
   color: #8a4a12;
-  font-size: 0.98rem;
+  font-size: 0.86rem;
   font-weight: 900;
   text-align: center;
   white-space: nowrap;
 }
 
-.delivery-stop-route-meta {
+.delivery-route-stop-icons {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.28rem;
+  gap: 0.12rem;
   align-items: center;
-  justify-content: flex-start;
-  min-width: 0;
+  justify-content: center;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.delivery-route-warning-label {
+  border: 1px solid #d48b37;
+  border-radius: 999px;
+  padding: 0.09rem 0.34rem;
+  background: #fff0d8;
+  color: #8a4a12;
+  font-size: 0.72rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.delivery-route-warning-label.is-empty {
+  visibility: hidden;
 }
 
 .delivery-stop-categories {
@@ -12312,13 +12428,15 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 
 .delivery-stop-correct-button {
   justify-self: end;
-  min-height: 30px;
+  min-height: 28px;
   margin-top: 0;
-  padding: 0.18rem 0.48rem;
+  padding: 0.12rem 0.38rem;
+  font-size: 0.78rem;
 }
 
 .delivery-stop-correction {
   display: grid;
+  grid-column: 1 / -1;
   grid-template-columns: minmax(120px, 0.7fr) minmax(160px, 0.8fr) minmax(180px, 1fr) max-content;
   gap: 0.5rem;
   align-items: end;
@@ -12515,17 +12633,40 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
     grid-template-columns: 1fr;
   }
 
+  .delivery-route-planner-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .delivery-route-planner-actions {
+    justify-content: start;
+  }
+
+  .delivery-route-planner-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .delivery-route-stop-list {
+    max-height: none;
+    overflow: visible;
+  }
+
   .delivery-route-stop {
-    grid-template-columns: 2rem minmax(88px, max-content) minmax(0, 1fr);
+    grid-template-columns: 1.9rem minmax(0, 1fr) max-content;
     align-items: start;
   }
 
-  .delivery-stop-route-meta,
+  .delivery-route-stop-icons,
+  .delivery-route-warning-label,
   .delivery-stop-note,
   .delivery-route-order-controls,
   .delivery-stop-correct-button,
   .delivery-stop-correction {
     grid-column: 1 / -1;
+  }
+
+  .delivery-stop-time {
+    justify-self: end;
   }
 
   .delivery-route-order-controls {
@@ -12639,7 +12780,7 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   }
 
   .delivery-stop-time {
-    justify-self: start;
+    justify-self: end;
   }
 
   .delivery-product-row {
@@ -16263,6 +16404,19 @@ body[data-role="employee"] .employee-refresh-status.is-error {
     align-items: flex-start;
     flex-direction: column;
   }
+}
+
+button.delivery-route-print-button:not(:disabled) {
+  border-color: #8a4a12 !important;
+  background: #8a4a12 !important;
+  color: #fffaf4 !important;
+}
+
+button.delivery-route-print-button:not(:disabled):hover,
+button.delivery-route-print-button:not(:disabled):focus-visible {
+  border-color: #6f390c !important;
+  background: #6f390c !important;
+  color: #fffaf4 !important;
 }
 
 
