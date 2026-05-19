@@ -45,6 +45,14 @@
     "Tikkie gestuurd",
     "Controle nodig"
   ];
+  const DELIVERY_PROBLEM_TYPES = [
+    "Klant niet aanwezig",
+    "Product ontbreekt",
+    "Verkeerd adres",
+    "Te laat geleverd",
+    "Betaling probleem",
+    "Overig"
+  ];
   const CUTTING_PATTERN = /\b(gesneden|snijden|snij|gesn\.?)\b/i;
   const NOT_CUTTING_PATTERN = /\b(ongesneden|niet\s+gesneden|niet\s+snijden)\b/i;
   const WARM_PREPARATION_PATTERN = /\b(warm|saucijs|saucijzen|saucijzenbroodje|appelflap|frikandel|worstenbrood|ham[-\s]?kaas|kaassouffle|kroket|snack|pizza)\b/i;
@@ -1557,9 +1565,45 @@
     `;
   }
 
+  function hasStopProblem(stop) {
+    return Boolean(stop?.driverProblem?.type || stop?.driverProblem?.remark);
+  }
+
+  function formatProblemTime(value) {
+    const date = new Date(value || "");
+
+    if (Number.isNaN(date.getTime())) {
+      return "tijd onbekend";
+    }
+
+    return new Intl.DateTimeFormat("nl-NL", {
+      hour: "2-digit",
+      minute: "2-digit"
+    }).format(date);
+  }
+
+  function getStopProblemText(stop) {
+    if (!hasStopProblem(stop)) {
+      return "";
+    }
+
+    const problem = stop.driverProblem;
+    const parts = [
+      problem.type || "Probleem",
+      problem.remark || "",
+      formatProblemTime(problem.reportedAt)
+    ].filter(Boolean);
+
+    return parts.join(" - ");
+  }
+
   function stopHasReview(stop) {
     if (!stop) {
       return false;
+    }
+
+    if (hasStopProblem(stop)) {
+      return true;
     }
 
     if (stop.reviewOverride === false) {
@@ -1630,11 +1674,16 @@
   }
 
   function getStopReviewReasons(stop) {
-    if (stop?.reviewOverride === false) {
+    const reasons = [];
+
+    if (hasStopProblem(stop)) {
+      reasons.push(`probleem: ${getStopProblemText(stop)}`);
+    }
+
+    if (stop?.reviewOverride === false && !hasStopProblem(stop)) {
       return [];
     }
 
-    const reasons = [];
     const notes = Array.isArray(stop?.notes) ? stop.notes : [];
 
     if (!stop?.paymentStatus) {
@@ -1684,6 +1733,7 @@
   function getReviewUrgency(reasons) {
     const text = (Array.isArray(reasons) ? reasons.join(" ") : "").toLowerCase();
 
+    if (/probleem/.test(text)) return 0;
     if (/niet betaald|betaalstatus|betaling|factuur/.test(text)) return 1;
     if (/adres|klantnaam|onbekend/.test(text)) return 2;
     if (/tijd/.test(text)) return 3;
@@ -1741,6 +1791,7 @@
 
   function getActionPaymentGroups(stops) {
     const groups = [
+      { key: "problems", title: "Problemen", items: [] },
       { key: "unpaid", title: "Niet betaald", items: [] },
       { key: "review", title: "Controle nodig betaling", items: [] },
       { key: "account", title: "Op rekening", items: [] },
@@ -1753,6 +1804,10 @@
     (Array.isArray(stops) ? stops : []).forEach((stop, index) => {
       const status = normalizePaymentStatusLabel(stop?.paymentStatus);
       const isDirectPayment = ["pin", "pin betaald", "contant", "contant betaald", "tikkie", "tikkie gestuurd"].includes(status);
+
+      if (hasStopProblem(stop)) {
+        byKey.problems.items.push(createActionItem(stop, index, "problems", getStopProblemText(stop)));
+      }
 
       if (status === "niet betaald") {
         byKey.unpaid.items.push(createActionItem(stop, index, "unpaid", "betaling staat op niet betaald"));
@@ -2339,6 +2394,34 @@
     }).join("");
   }
 
+  function renderProblemReportForm(stop) {
+    if (!stop?.isProblemFormOpen) {
+      return "";
+    }
+
+    return `
+      <form class="delivery-problem-form" data-delivery-problem-form>
+        <label>
+          <span>Probleemtype</span>
+          <select name="problemType">
+            ${DELIVERY_PROBLEM_TYPES.map((type) => `
+              <option value="${escapeHtml(type)}">${escapeHtml(type)}</option>
+            `).join("")}
+          </select>
+        </label>
+        <label>
+          <span>Korte opmerking</span>
+          <input type="text" name="problemRemark" maxlength="160" placeholder="Bijvoorbeeld: klant neemt niet op">
+        </label>
+        <small>Tijd wordt automatisch lokaal ingevuld bij opslaan.</small>
+        <div class="delivery-problem-actions">
+          <button type="submit" class="secondary">Probleem opslaan</button>
+          <button type="button" class="secondary" data-delivery-cancel-problem>Sluiten</button>
+        </div>
+      </form>
+    `;
+  }
+
   function renderStopDetail(stops = latestRouteStops) {
     if (!stopDetailElement) {
       return;
@@ -2360,6 +2443,7 @@
     const categories = stop.categories?.length ? stop.categories : ["controle nodig"];
     const hasWarm = isWarmStop(stop);
     const hasReview = stopHasReview(stop);
+    const problemText = getStopProblemText(stop);
     const navigationUrl = stop.address
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.address)}`
       : "";
@@ -2389,6 +2473,7 @@
           </div>
         </div>
         ${hasWarm ? "<div class=\"delivery-stop-detail-alert is-warm\">Warm extra controleren</div>" : ""}
+        ${problemText ? `<div class="delivery-stop-detail-alert is-problem">Laatste probleemmelding: ${escapeHtml(problemText)}</div>` : ""}
         ${hasReview ? `<div class="delivery-stop-detail-alert">Controle nodig${stop.notes.length ? `: ${escapeHtml(stop.notes.join(", "))}` : ""}</div>` : ""}
         <div class="delivery-stop-detail-remark">
           <strong>Opmerking</strong>
@@ -2401,8 +2486,9 @@
         <div class="delivery-stop-detail-actions">
           <button type="button" class="secondary" disabled>Geleverd</button>
           <button type="button" class="secondary" disabled>Betaald</button>
-          <button type="button" class="secondary" disabled>Probleem melden</button>
+          <button type="button" class="secondary" data-delivery-open-problem>Probleem melden</button>
         </div>
+        ${renderProblemReportForm(stop)}
       </section>
     `;
   }
@@ -2496,13 +2582,15 @@
               ? stop.categories
               : ["controle nodig"];
             const hasReview = stopHasReview(stop);
+            const problemText = getStopProblemText(stop);
 
             return `
-              <article id="deliveryRouteStop${index}" class="delivery-route-stop${stop.categories.includes("warm") ? " has-warm" : ""}${hasReview ? " needs-review" : ""}${selectedDeliveryStopIndex === index ? " is-selected" : ""}" data-delivery-route-stop="${index}">
+              <article id="deliveryRouteStop${index}" class="delivery-route-stop${stop.categories.includes("warm") ? " has-warm" : ""}${hasReview ? " needs-review" : ""}${problemText ? " has-problem" : ""}${selectedDeliveryStopIndex === index ? " is-selected" : ""}" data-delivery-route-stop="${index}">
                 <div class="delivery-stop-header">
                   <div class="delivery-stop-title">${index + 1}. ${escapeHtml(stop.customerName || "Klant onbekend")}</div>
                   <div class="delivery-stop-time">${escapeHtml(stop.timeWindow || "Tijd controle nodig")}</div>
                 </div>
+                ${problemText ? `<div class="delivery-stop-problem-badge">Probleem: ${escapeHtml(problemText)}</div>` : ""}
                 <div class="delivery-stop-address">${escapeHtml(stop.address || "Adres onbekend")}</div>
                 <div class="delivery-stop-status-row">
                   <span class="delivery-payment-chip" data-delivery-payment="${escapeHtml(stop.paymentStatus || "controle nodig")}">${escapeHtml(stop.paymentStatus || "controle nodig")}</span>
@@ -2565,6 +2653,36 @@
 
     markDeliveryLocallyCorrected();
     rerenderDeliveryPreview({ refreshPrint: true });
+  }
+
+  function toggleProblemReportForm(isOpen) {
+    const stop = latestRouteStops[selectedDeliveryStopIndex];
+
+    if (!stop) {
+      return;
+    }
+
+    stop.isProblemFormOpen = isOpen;
+    renderStopDetail(latestRouteStops);
+  }
+
+  function applyProblemReport(form) {
+    const stop = latestRouteStops[selectedDeliveryStopIndex];
+
+    if (!stop || !form) {
+      return;
+    }
+
+    const formData = new FormData(form);
+    const problemType = String(formData.get("problemType") || "").trim();
+    const problemRemark = String(formData.get("problemRemark") || "").trim();
+    stop.driverProblem = {
+      type: DELIVERY_PROBLEM_TYPES.includes(problemType) ? problemType : "Overig",
+      remark: problemRemark,
+      reportedAt: new Date().toISOString()
+    };
+    stop.isProblemFormOpen = false;
+    rerenderDeliveryPreview({ refreshPrint: false });
   }
 
   function getSortedProductsForStop(stop) {
@@ -3387,6 +3505,29 @@
     }
 
     selectDeliveryStop(Number(viewButton.dataset.deliveryViewStop), { scrollRoute: true });
+  });
+  stopDetailElement?.addEventListener("click", (event) => {
+    const openProblemButton = event.target.closest("[data-delivery-open-problem]");
+    const cancelProblemButton = event.target.closest("[data-delivery-cancel-problem]");
+
+    if (openProblemButton) {
+      toggleProblemReportForm(true);
+      return;
+    }
+
+    if (cancelProblemButton) {
+      toggleProblemReportForm(false);
+    }
+  });
+  stopDetailElement?.addEventListener("submit", (event) => {
+    const form = event.target.closest("[data-delivery-problem-form]");
+
+    if (!form) {
+      return;
+    }
+
+    event.preventDefault();
+    applyProblemReport(form);
   });
   dashboardElement?.addEventListener("click", (event) => {
     const printButton = event.target.closest("[data-delivery-dashboard-print]");

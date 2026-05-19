@@ -11379,6 +11379,11 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   background: var(--color-surface-soft);
 }
 
+.delivery-action-group[data-delivery-action-group="problems"] {
+  border-color: #d97b70;
+  background: #fff1ed;
+}
+
 .delivery-action-group header {
   display: flex;
   gap: 0.5rem;
@@ -11673,6 +11678,11 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   box-shadow: inset 3px 0 0 #d48b37;
 }
 
+.delivery-route-stop.has-problem {
+  border-color: #d97b70;
+  box-shadow: inset 3px 0 0 #d97b70;
+}
+
 .delivery-route-stop.is-highlighted {
   outline: 3px solid rgba(212, 139, 55, 0.42);
   outline-offset: 2px;
@@ -11769,8 +11779,15 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   background: #ffe2b8;
 }
 
+.delivery-stop-detail-alert.is-problem {
+  border: 1px solid #d97b70;
+  background: #fff1ed;
+  color: #8d241b;
+}
+
 .delivery-stop-detail-remark,
-.delivery-stop-detail-products {
+.delivery-stop-detail-products,
+.delivery-problem-form {
   display: grid;
   gap: 0.4rem;
 }
@@ -11817,6 +11834,26 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   overflow-wrap: anywhere;
 }
 
+.delivery-problem-form {
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.55rem;
+}
+
+.delivery-problem-form label {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.delivery-problem-form small {
+  color: var(--color-text-muted);
+}
+
+.delivery-problem-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .delivery-stop-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) max-content;
@@ -11838,6 +11875,18 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 .delivery-stop-remark,
 .delivery-stop-note {
   color: var(--color-text-muted);
+}
+
+.delivery-stop-problem-badge {
+  width: max-content;
+  max-width: 100%;
+  border: 1px solid #d97b70;
+  border-radius: 999px;
+  padding: 0.16rem 0.52rem;
+  background: #fff1ed;
+  color: #8d241b;
+  font-size: 0.82rem;
+  font-weight: 850;
 }
 
 .delivery-stop-time {
