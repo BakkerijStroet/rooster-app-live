@@ -270,13 +270,7 @@ function getItemsForColumn(row, anchors, columnIndex) {
     return [];
   }
 
-  const anchor = anchors[columnIndex];
-  const left = columnIndex === 0
-    ? -Infinity
-    : (anchors[columnIndex - 1].x + anchor.x) / 2;
-  const right = columnIndex >= anchors.length - 1
-    ? Infinity
-    : (anchor.x + anchors[columnIndex + 1].x) / 2;
+  const { left, right } = getColumnBounds(anchors, columnIndex);
 
   return row.items
     .filter((item) =>
@@ -285,6 +279,66 @@ function getItemsForColumn(row, anchors, columnIndex) {
       !isColumnHeaderLabel(item.text)
     )
     .sort((itemA, itemB) => itemA.x - itemB.x || itemA.index - itemB.index);
+}
+
+function getColumnBounds(anchors, columnIndex) {
+  const anchor = anchors[columnIndex];
+
+  return {
+    left: columnIndex === 0
+      ? -Infinity
+      : (anchors[columnIndex - 1].x + anchor.x) / 2,
+    right: columnIndex >= anchors.length - 1
+      ? Infinity
+      : (anchor.x + anchors[columnIndex + 1].x) / 2
+  };
+}
+
+function getColumnProductLinesForAnchor(rows, anchors, columnIndex, customerName = "") {
+  if (!Array.isArray(rows) || !anchors[columnIndex]) {
+    return [];
+  }
+
+  const { left, right } = getColumnBounds(anchors, columnIndex);
+  const items = rows.flatMap((row) => Array.isArray(row.items) ? row.items : []);
+  const normalizedCustomerName = normalizePdfText(customerName).toLowerCase();
+  const productItems = items.filter((item) =>
+    item.x >= left &&
+    item.x < right &&
+    isProductCandidateText(item.text) &&
+    normalizePdfText(item.text).toLowerCase() !== normalizedCustomerName &&
+    item.y < 220 &&
+    item.text.length <= 90
+  );
+  const countItems = items.filter((item) =>
+    item.x >= left &&
+    item.x < right &&
+    isCountText(item.text) &&
+    item.y >= 220 &&
+    item.y <= 330
+  );
+  const productLines = [];
+
+  countItems.forEach((countItem) => {
+    const match = productItems
+      .map((productItem) => ({
+        productItem,
+        xDelta: Math.abs(productItem.x - countItem.x),
+        yDelta: Math.abs(productItem.y - countItem.y)
+      }))
+      .filter((candidate) => candidate.xDelta <= 3.5)
+      .sort((candidateA, candidateB) =>
+        candidateA.xDelta - candidateB.xDelta ||
+        candidateA.yDelta - candidateB.yDelta ||
+        candidateA.productItem.index - candidateB.productItem.index
+      )[0]?.productItem || null;
+
+    if (match) {
+      productLines.push(normalizePdfText(`${countItem.text} ${match.text}`));
+    }
+  });
+
+  return [...new Set(productLines)];
 }
 
 function findColumnStopNameRow(rows) {
@@ -374,6 +428,9 @@ function getColumnStopHeaderLines(rows) {
     }
 
     headerLines.push(normalizePdfText(`STOPHEADER ${stopCode} | ${customerName} | ${address} | ${postcode}${timeWindow ? ` | ${timeWindow}` : ""}`));
+    getColumnProductLinesForAnchor(rows, anchors, columnIndex, customerName).forEach((productLine) => {
+      headerLines.push(normalizePdfText(`STOPPRODUCT ${stopCode} | ${customerName} | ${productLine}`));
+    });
   });
 
   return [...new Set(headerLines)];

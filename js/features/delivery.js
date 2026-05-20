@@ -34,7 +34,7 @@
   const PRODUCT_COUNT_PATTERN = /^(?:(\d+[,.]?\d*)|(\d+)\s*x|x\s*(\d+))\s+\S+/i;
   const PRODUCT_CATEGORY_ORDER = ["brood", "gebak", "broodjes", "warm"];
   const PAYMENT_STATUS_VALUES = ["OK", "Op rekening", "Niet betaald", "Betaald via Ideal", "Contant", "Pin", "Tikkie"];
-  const CURRENT_DELIVERY_PARSER_VERSION = "delivery-local-v4";
+  const CURRENT_DELIVERY_PARSER_VERSION = "delivery-local-v5";
   const OLD_PARSER_WARNING = "Deze run is gemaakt met een oudere parser. Upload de PDF opnieuw voor de nieuwste herkenning.";
   const PAYMENT_CORRECTION_OPTIONS = [
     "OK",
@@ -932,29 +932,74 @@
     return parseSeparatedStopHeaderLine(line) || parseCombinedStopHeaderLine(line);
   }
 
+  function getReconstructedStopKey(stop) {
+    return [
+      stop?.sourceCode || "",
+      String(stop?.customerName || "").toLowerCase(),
+      String(stop?.address || "").toLowerCase()
+    ].join("|");
+  }
+
+  function parseStopProductLine(line) {
+    const match = String(line || "").trim().match(/^STOPPRODUCT\s+([^|]*)\|\s*([^|]+)\|\s*(.+)$/i);
+
+    if (!match) {
+      return null;
+    }
+
+    return {
+      code: String(match[1] || "").trim(),
+      customerName: String(match[2] || "").trim(),
+      productLine: String(match[3] || "").trim()
+    };
+  }
+
   function buildReconstructedColumnStops(lines) {
     const stops = [];
     const seenKeys = new Set();
+    let currentStop = null;
 
     (Array.isArray(lines) ? lines : []).forEach((line) => {
       const stop = parseStopHeaderLine(line);
 
-      if (!stop) {
+      if (stop) {
+        const key = getReconstructedStopKey(stop);
+        const existingStop = stops.find((item) => getReconstructedStopKey(item) === key) || null;
+
+        if (existingStop) {
+          currentStop = existingStop;
+          return;
+        }
+
+        if (seenKeys.has(key)) {
+          return;
+        }
+
+        seenKeys.add(key);
+        stops.push(stop);
+        currentStop = stop;
         return;
       }
 
-      const key = [
-        stop.sourceCode || "",
-        stop.customerName.toLowerCase(),
-        stop.address.toLowerCase()
-      ].join("|");
+      const product = parseStopProductLine(line);
 
-      if (seenKeys.has(key)) {
+      if (!product?.productLine) {
         return;
       }
 
-      seenKeys.add(key);
-      stops.push(stop);
+      const matchingStop = stops.find((item) =>
+        (
+          product.code &&
+          item.sourceCode &&
+          item.sourceCode.toLowerCase() === product.code.toLowerCase()
+        ) ||
+        (
+          product.customerName &&
+          item.customerName.toLowerCase() === product.customerName.toLowerCase()
+        )
+      ) || currentStop;
+
+      addProductToStop(matchingStop, product.productLine, false);
     });
 
     return stops;
@@ -2629,7 +2674,7 @@
       icons.push({ icon: "🔥", label: "warm/snacks" });
     }
 
-    if (categories.includes("brood")) {
+    if (categories.includes("brood") || categories.includes("broodjes")) {
       icons.push({ icon: "🍞", label: "brood" });
     }
 
@@ -2991,7 +3036,7 @@
             const rowClasses = [
               "delivery-route-stop",
               isWarmStop(stop) ? "has-warm" : "",
-              categories.includes("brood") ? "has-bread" : "",
+              (categories.includes("brood") || categories.includes("broodjes")) ? "has-bread" : "",
               categories.includes("gebak") ? "has-pastry" : "",
               hasReview ? "needs-review" : "",
               hasOpenProblem ? "has-problem" : "",
