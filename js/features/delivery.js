@@ -641,19 +641,19 @@
     const normalizedLine = String(line || "").toLowerCase();
     const categories = [];
 
-    if (WARM_PREPARATION_PATTERN.test(normalizedLine) || /\b(hete|ovenwarm)\b/.test(normalizedLine)) {
+    if (WARM_PREPARATION_PATTERN.test(normalizedLine) || /\b(hete|ovenwarm|oven\s*warm|warmhouden)\b/.test(normalizedLine)) {
       categories.push("warm");
     }
 
-    if (/\b(broodje|pistolet|bolletje|sandwich|belegd)\b/.test(normalizedLine)) {
+    if (/\b(broodje|pistolet|bolletje|sandwich|belegd|gesorteerde\s+bol|gesort\s+mini\s+bol|witte\s+bol|luxe\s+bol|gezonde?\s+bol)\b/.test(normalizedLine)) {
       categories.push("broodjes");
     }
 
-    if (/\b(gebak|taart|vlaai|cake|koek|banket)\b/.test(normalizedLine)) {
+    if (/\b(gebak|taart|vlaai|cake|koek|banket|bavar|bavarois|appelrondje|appelcake|vruchtenschelp|vierkantje|bonbons?|aardbei|suikervrij\s+gebak|cake\s+a\s+break)\b/.test(normalizedLine)) {
       categories.push("gebak");
     }
 
-    if (/\b(brood|stokbrood|vloer|volkoren|tarwe|desem)\b/.test(normalizedLine)) {
+    if (/\b(brood|stokbrood|vloer|volkoren|tarwe|desem|mandje|bus|wit|witte|waldkorn|prokorn|spelt|meergr|hollands\s+grof|achterhoek\s+duuster|ruwe\s+bolster|oeoerenwit|admiraal|poesta|krentenbrood|rozijnenbrood|krentewegge|zomergranen|zesgranen|duutse\s+kneud)\b/.test(normalizedLine)) {
       categories.push("brood");
     }
 
@@ -2646,6 +2646,16 @@
     `;
   }
 
+  function getRouteStopTimeLabel(stop) {
+    const timeWindow = String(stop?.timeWindow || "").trim();
+
+    if (!timeWindow || /controle nodig/i.test(timeWindow)) {
+      return "tijd ?";
+    }
+
+    return timeWindow;
+  }
+
   function getDriverStatusChips(stop) {
     const chips = [];
     const paymentStatus = normalizePaymentStatusLabel(stop?.paymentStatus);
@@ -2994,7 +3004,7 @@
                 <div class="delivery-stop-main">
                   <div class="delivery-stop-title">${escapeHtml(stop.customerName || "Klant onbekend")}</div>
                 </div>
-                <div class="delivery-stop-time">${escapeHtml(stop.timeWindow || "Tijd controle nodig")}</div>
+                <div class="delivery-stop-time">${escapeHtml(getRouteStopTimeLabel(stop))}</div>
                 ${renderRouteOrderControls(index, stops.length)}
               </article>
             `;

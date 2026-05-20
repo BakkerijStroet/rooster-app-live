@@ -16599,11 +16599,15 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 }
 
 .delivery-panel.has-delivery-run .delivery-stop-time {
-  width: 4.75rem;
-  max-width: 4.75rem;
-  padding: 0.05rem 0.18rem;
+  width: 5.15rem;
+  max-width: 5.15rem;
+  padding: 0.06rem 0.22rem;
   border-radius: 5px;
-  font-size: 0.7rem;
+  border: 1px solid #e4c999;
+  background: #fff8ea;
+  color: #6f390c;
+  font-size: 0.72rem;
+  font-weight: 900;
   line-height: 1.1;
   justify-self: end;
   overflow: hidden;
@@ -16613,14 +16617,22 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 }
 
 .delivery-panel.has-delivery-run .delivery-route-stop-icons {
-  min-width: 2.1rem;
-  gap: 0.05rem;
+  min-width: 2.3rem;
+  gap: 0.07rem;
   justify-content: start;
-  font-size: 0.86rem;
+  font-size: 0.92rem;
+  line-height: 1;
 }
 
 .delivery-panel.has-delivery-run .delivery-route-stop-icons.is-empty {
-  min-width: 2.1rem;
+  min-width: 2.3rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-stop-icons span {
+  display: inline-grid;
+  place-items: center;
+  width: 0.95rem;
+  height: 0.95rem;
 }
 
 .delivery-panel.has-delivery-run .delivery-route-warning-label {
@@ -16720,8 +16732,9 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   }
 
   .delivery-panel.has-delivery-run .delivery-stop-time {
-    width: 3.9rem;
-    max-width: 3.9rem;
+    width: 4.15rem;
+    max-width: 4.15rem;
+    font-size: 0.66rem;
   }
 
   .delivery-panel.has-delivery-run .delivery-route-stop-icons,
