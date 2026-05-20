@@ -2866,9 +2866,19 @@
             const hasReview = stopHasReview(stop);
             const hasOpenProblem = hasStopProblem(stop);
             const hasResolvedProblem = hasResolvedStopProblem(stop);
+            const rowClasses = [
+              "delivery-route-stop",
+              isWarmStop(stop) ? "has-warm" : "",
+              categories.includes("brood") ? "has-bread" : "",
+              categories.includes("gebak") ? "has-pastry" : "",
+              hasReview ? "needs-review" : "",
+              hasOpenProblem ? "has-problem" : "",
+              hasResolvedProblem ? "has-resolved-problem" : "",
+              selectedDeliveryStopIndex === index ? "is-selected" : ""
+            ].filter(Boolean).join(" ");
 
             return `
-              <article id="deliveryRouteStop${index}" class="delivery-route-stop${categories.includes("warm") ? " has-warm" : ""}${hasReview ? " needs-review" : ""}${hasOpenProblem ? " has-problem" : ""}${hasResolvedProblem ? " has-resolved-problem" : ""}${selectedDeliveryStopIndex === index ? " is-selected" : ""}" data-delivery-route-stop="${index}" draggable="true">
+              <article id="deliveryRouteStop${index}" class="${rowClasses}" data-delivery-route-stop="${index}" draggable="true">
                 <div class="delivery-stop-number" aria-label="Stop ${index + 1}">${index + 1}</div>
                 <div class="delivery-stop-main">
                   <div class="delivery-stop-title">${escapeHtml(stop.customerName || "Klant onbekend")}</div>
@@ -2876,8 +2886,6 @@
                 <div class="delivery-stop-time">${escapeHtml(stop.timeWindow || "Tijd controle nodig")}</div>
                 ${renderRouteStopIcons(stop, categories)}
                 ${renderRouteOrderControls(index, stops.length)}
-                <button type="button" class="secondary delivery-stop-correct-button" data-delivery-edit-stop="${index}">Pas aan</button>
-                ${renderStopCorrectionForm(stop, index)}
               </article>
             `;
           }).join("")}

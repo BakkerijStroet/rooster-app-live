@@ -16518,14 +16518,45 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   padding: 0.16rem 0.22rem;
   border-radius: 6px;
   background: #fffdf9;
+  transition: background-color var(--transition-soft), border-color var(--transition-soft), box-shadow var(--transition-soft), transform var(--transition-soft);
 }
 
 .delivery-panel.has-delivery-run .delivery-route-stop.needs-review {
-  box-shadow: inset 2px 0 0 #d48b37;
+  box-shadow: inset 3px 0 0 #d48b37;
 }
 
 .delivery-panel.has-delivery-run .delivery-route-stop.has-problem {
-  box-shadow: inset 2px 0 0 #d97b70;
+  box-shadow: inset 3px 0 0 #d97b70;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-stop.has-warm {
+  border-color: #d48b37;
+  background: #fff7ed;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-stop.has-bread:not(.has-warm) {
+  border-color: #dfc491;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-stop.has-pastry:not(.has-warm) {
+  border-color: #d9b3c9;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-stop:hover,
+.delivery-panel.has-delivery-run .delivery-route-stop:focus-within {
+  border-color: #8bb0d8;
+  background: #fff8ee;
+  box-shadow: 0 2px 9px rgba(117, 82, 35, 0.09), inset 3px 0 0 #8bb0d8;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-stop.is-dragging {
+  opacity: 0.72;
+  transform: scale(0.992);
+}
+
+.delivery-panel.has-delivery-run .delivery-route-stop.is-drop-target {
+  outline: 2px solid rgba(139, 176, 216, 0.7);
+  outline-offset: 1px;
 }
 
 .delivery-panel.has-delivery-run .delivery-stop-number {
@@ -16535,8 +16566,9 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 }
 
 .delivery-panel.has-delivery-run .delivery-stop-title {
-  font-size: 0.8rem;
+  font-size: 0.88rem;
   line-height: 1.05;
+  font-weight: 900;
 }
 
 .delivery-panel.has-delivery-run .delivery-stop-address {
@@ -16557,15 +16589,16 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   min-width: 3.1rem;
   padding: 0.08rem 0.22rem;
   border-radius: 5px;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   line-height: 1.1;
+  justify-self: end;
 }
 
 .delivery-panel.has-delivery-run .delivery-route-stop-icons {
-  min-width: 2.4rem;
-  gap: 0.04rem;
+  min-width: 2.65rem;
+  gap: 0.08rem;
   justify-content: end;
-  font-size: 0.82rem;
+  font-size: 0.96rem;
 }
 
 .delivery-panel.has-delivery-run .delivery-route-warning-label {
@@ -16597,6 +16630,10 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   line-height: 1;
 }
 
+.delivery-panel.has-delivery-run .delivery-route-drag-handle {
+  cursor: grab;
+}
+
 .delivery-panel.has-delivery-run .delivery-stop-correct-button {
   display: none;
 }
@@ -16619,10 +16656,6 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 
 .delivery-panel.has-delivery-run .delivery-technical-section {
   order: 5;
-}
-
-.delivery-panel.has-delivery-run .delivery-driver-preview-card {
-  order: 6;
 }
 
 .delivery-panel.has-delivery-run .delivery-lower-section summary {
@@ -16653,19 +16686,17 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   }
 
   .delivery-panel.has-delivery-run .delivery-route-stop {
-    grid-template-columns: 1.35rem minmax(0, 1fr) max-content;
+    grid-template-columns: 1.35rem minmax(0, 1fr) max-content max-content;
   }
 
   .delivery-panel.has-delivery-run .delivery-route-stop-icons,
-  .delivery-panel.has-delivery-run .delivery-route-warning-label,
-  .delivery-panel.has-delivery-run .delivery-route-order-controls,
-  .delivery-panel.has-delivery-run .delivery-stop-correct-button {
+  .delivery-panel.has-delivery-run .delivery-route-order-controls {
     grid-column: auto;
   }
 
   .delivery-panel.has-delivery-run .delivery-route-order-controls {
-    grid-column: 1 / -1;
-    justify-content: start;
+    grid-column: 2 / -1;
+    justify-content: end;
   }
 }
 
