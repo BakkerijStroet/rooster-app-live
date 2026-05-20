@@ -34,7 +34,7 @@
   const PRODUCT_COUNT_PATTERN = /^(?:(\d+[,.]?\d*)|(\d+)\s*x|x\s*(\d+))\s+\S+/i;
   const PRODUCT_CATEGORY_ORDER = ["brood", "gebak", "broodjes", "warm"];
   const PAYMENT_STATUS_VALUES = ["OK", "Op rekening", "Niet betaald", "Betaald via Ideal", "Contant", "Pin", "Tikkie"];
-  const CURRENT_DELIVERY_PARSER_VERSION = "delivery-local-v2";
+  const CURRENT_DELIVERY_PARSER_VERSION = "delivery-local-v3";
   const OLD_PARSER_WARNING = "Deze run is gemaakt met een oudere parser. Upload de PDF opnieuw voor de nieuwste herkenning.";
   const PAYMENT_CORRECTION_OPTIONS = [
     "OK",
@@ -841,6 +841,123 @@
     };
   }
 
+  function normalizeStopHeaderPostcode(value) {
+    return String(value || "")
+      .trim()
+      .replace(/\b([1-9][0-9]{3})\s?([A-Z]{2})\b/i, "$1 $2");
+  }
+
+  function createStopFromHeaderParts({ code = "", customerName = "", address = "", postcode = "" } = {}) {
+    const normalizedCustomerName = String(customerName || "").trim();
+    const normalizedAddress = String(address || "").trim();
+    const normalizedPostcode = normalizeStopHeaderPostcode(postcode);
+
+    if (!normalizedCustomerName || !normalizedAddress || !POSTCODE_PATTERN.test(normalizedPostcode)) {
+      return null;
+    }
+
+    const notes = [
+      ...(/\d/.test(normalizedAddress) ? [] : ["controle nodig: adres twijfelachtig"]),
+      ...(/\b[1-9][0-9]{3}\s[A-Z]{2}\s+\S+/i.test(normalizedPostcode) ? [] : ["controle nodig: postcode/plaats twijfelachtig"])
+    ];
+
+    return {
+      customerName: normalizedCustomerName,
+      address: `${normalizedAddress}, ${normalizedPostcode}`,
+      sourceCode: String(code || "").trim(),
+      categories: [],
+      products: [],
+      paymentStatus: "",
+      timeWindow: "",
+      remark: "",
+      notes,
+      needsReview: notes.length > 0
+    };
+  }
+
+  function parseSeparatedStopHeaderLine(line) {
+    const match = String(line || "").trim().match(/^STOPHEADER\s+([^|]*)\|\s*([^|]+)\|\s*([^|]+)\|\s*([^|]+)$/i);
+
+    if (!match) {
+      return null;
+    }
+
+    return createStopFromHeaderParts({
+      code: match[1],
+      customerName: match[2],
+      address: match[3],
+      postcode: match[4]
+    });
+  }
+
+  function parseCombinedStopHeaderLine(line) {
+    let value = String(line || "").trim();
+    const codeMatch = value.match(/^(\d{4}[A-Z]{2}\d+(?:-\d+)?)\s+(.+)$/i);
+    let code = "";
+
+    if (codeMatch) {
+      code = codeMatch[1];
+      value = codeMatch[2].trim();
+    }
+
+    const postcodeMatch = value.match(/\b([1-9][0-9]{3}\s?[A-Z]{2}\s+[A-Za-z][A-Za-z.' -]{1,40})$/i);
+
+    if (!postcodeMatch) {
+      return null;
+    }
+
+    const postcode = postcodeMatch[1].trim();
+    const beforePostcode = value.slice(0, postcodeMatch.index).trim();
+    const addressPattern = /(?:[A-Za-z.'-]+\s+){0,5}[A-Za-z.'-]*(?:straat|laan|weg|plein|hof|pad|dijk|kade|singel|steeg|plantsoen|boulevard|blik)\s+\d+[a-z]?(?:-\d+)?$/i;
+    const addressMatch = beforePostcode.match(addressPattern);
+
+    if (!addressMatch) {
+      return null;
+    }
+
+    const address = addressMatch[0].trim();
+    const customerName = beforePostcode.slice(0, addressMatch.index).trim();
+
+    return createStopFromHeaderParts({
+      code,
+      customerName,
+      address,
+      postcode
+    });
+  }
+
+  function parseStopHeaderLine(line) {
+    return parseSeparatedStopHeaderLine(line) || parseCombinedStopHeaderLine(line);
+  }
+
+  function buildReconstructedColumnStops(lines) {
+    const stops = [];
+    const seenKeys = new Set();
+
+    (Array.isArray(lines) ? lines : []).forEach((line) => {
+      const stop = parseStopHeaderLine(line);
+
+      if (!stop) {
+        return;
+      }
+
+      const key = [
+        stop.sourceCode || "",
+        stop.customerName.toLowerCase(),
+        stop.address.toLowerCase()
+      ].join("|");
+
+      if (seenKeys.has(key)) {
+        return;
+      }
+
+      seenKeys.add(key);
+      stops.push(stop);
+    });
+
+    return stops;
+  }
+
   function addProductToStop(stop, line, needsReview = false) {
     if (!stop) {
       return;
@@ -1168,25 +1285,23 @@
   }
 
   function buildServerColumnDeliveryStops(lines) {
-    if (!looksLikeServerColumnDeliveryList(lines)) {
-      return [];
-    }
-
     const stops = [];
     const seenKeys = new Set();
 
-    SERVER_COLUMN_STOP_DEFINITIONS.forEach((definition) => {
-      const isVisible = definition.aliases.some((alias) => hasLineText(lines, alias));
+    if (looksLikeServerColumnDeliveryList(lines)) {
+      SERVER_COLUMN_STOP_DEFINITIONS.forEach((definition) => {
+        const isVisible = definition.aliases.some((alias) => hasLineText(lines, alias));
 
-      if (!isVisible || seenKeys.has(definition.key)) {
-        return;
-      }
+        if (!isVisible || seenKeys.has(definition.key)) {
+          return;
+        }
 
-      seenKeys.add(definition.key);
-      stops.push(createServerColumnStop(definition, lines));
-    });
+        seenKeys.add(definition.key);
+        stops.push(createServerColumnStop(definition, lines));
+      });
+    }
 
-    return stops;
+    return stops.length ? stops : buildReconstructedColumnStops(lines);
   }
 
   function buildRouteStops(lines) {

@@ -224,6 +224,132 @@ function getColumnProductLines(items) {
   return productLines;
 }
 
+function isColumnStopCodeText(value) {
+  return /^\d{4}[A-Z]{2}\d+(?:-\d+)?$/i.test(String(value || "").trim());
+}
+
+function isColumnPostcodeText(value) {
+  return /\b\d{4}\s?[A-Z]{2}\b/i.test(String(value || "").trim());
+}
+
+function isColumnAddressText(value) {
+  return /\b(?:straat|laan|weg|plein|hof|pad|dijk|kade|singel|steeg|plantsoen|boulevard|blik)\b/i.test(String(value || "").trim()) ||
+    /\b\d+[a-z]?(?:-\d+)?\b/i.test(String(value || "").trim());
+}
+
+function isColumnHeaderLabel(value) {
+  return /^(?:selecties|afleveradres|adres|postcode|bezorgingen|afdrukdatum:?|trial mode|pagina:?|nr)$/i.test(String(value || "").trim());
+}
+
+function getRowText(row) {
+  return row.items
+    .slice()
+    .sort((itemA, itemB) => itemA.x - itemB.x || itemA.index - itemB.index)
+    .map((item) => item.text)
+    .join(" ");
+}
+
+function getItemsForColumn(row, anchors, columnIndex) {
+  if (!row || !Array.isArray(row.items) || !anchors[columnIndex]) {
+    return [];
+  }
+
+  const anchor = anchors[columnIndex];
+  const left = columnIndex === 0
+    ? -Infinity
+    : (anchors[columnIndex - 1].x + anchor.x) / 2;
+  const right = columnIndex >= anchors.length - 1
+    ? Infinity
+    : (anchor.x + anchors[columnIndex + 1].x) / 2;
+
+  return row.items
+    .filter((item) =>
+      item.x >= left &&
+      item.x < right &&
+      !isColumnHeaderLabel(item.text)
+    )
+    .sort((itemA, itemB) => itemA.x - itemB.x || itemA.index - itemB.index);
+}
+
+function findColumnStopNameRow(rows) {
+  return rows
+    .filter((row) => row.y >= 60 && row.y <= 82)
+    .map((row) => {
+      const text = getRowText(row);
+      const hasExplicitLabel = /\b(?:selecties|afleveradres)\b/i.test(text);
+      const usefulItems = row.items.filter((item) => !isColumnHeaderLabel(item.text));
+      const productWordCount = usefulItems.filter((item) =>
+        /\b(?:mandje|bus|warm|saucijs|bol|gebak|stokbrood|tarwe|wit|volkoren|half|ongesneden|bezorgen)\b/i.test(item.text)
+      ).length;
+
+      return {
+        row,
+        score: (hasExplicitLabel ? 20 : 0) +
+          (82 - Math.abs(78 - row.y)) -
+          productWordCount * 3 +
+          Math.min(usefulItems.length, 8)
+      };
+    })
+    .filter((candidate) => candidate.row.items.some((item) => /[A-Za-z]/.test(item.text)))
+    .sort((candidateA, candidateB) => candidateB.score - candidateA.score)[0]?.row || null;
+}
+
+function findColumnPostcodeRow(rows) {
+  return rows
+    .filter((row) => row.y >= 340 && row.y <= 395)
+    .sort((rowA, rowB) =>
+      rowB.items.filter((item) => isColumnPostcodeText(item.text)).length -
+      rowA.items.filter((item) => isColumnPostcodeText(item.text)).length
+    )[0] || null;
+}
+
+function findColumnAddressRow(rows) {
+  return rows
+    .filter((row) => row.y >= 205 && row.y <= 245)
+    .sort((rowA, rowB) =>
+      rowB.items.filter((item) => isColumnAddressText(item.text)).length -
+      rowA.items.filter((item) => isColumnAddressText(item.text)).length
+    )[0] || null;
+}
+
+function getColumnStopHeaderLines(rows) {
+  const nameRow = findColumnStopNameRow(rows);
+  const postcodeRow = findColumnPostcodeRow(rows);
+  const addressRow = findColumnAddressRow(rows);
+
+  if (!nameRow || !postcodeRow || !addressRow) {
+    return [];
+  }
+
+  const anchors = postcodeRow.items
+    .filter((item) => isColumnPostcodeText(item.text))
+    .sort((itemA, itemB) => itemA.x - itemB.x || itemA.index - itemB.index);
+
+  if (!anchors.length) {
+    return [];
+  }
+
+  const codeRows = rows.filter((row) => row.y <= 25);
+  const headerLines = [];
+
+  anchors.forEach((anchor, columnIndex) => {
+    const customerName = normalizePdfText(getItemsForColumn(nameRow, anchors, columnIndex).map((item) => item.text).join(" "));
+    const address = normalizePdfText(getItemsForColumn(addressRow, anchors, columnIndex).map((item) => item.text).join(" "));
+    const postcode = normalizePdfText(anchor.text);
+    const stopCode = normalizePdfText(codeRows
+      .flatMap((row) => getItemsForColumn(row, anchors, columnIndex))
+      .find((item) => isColumnStopCodeText(item.text))?.text || "");
+
+    if (!customerName || !address || !postcode) {
+      return;
+    }
+
+    headerLines.push(normalizePdfText(`STOPHEADER ${stopCode} | ${customerName} | ${address} | ${postcode}`));
+  });
+
+  return [...new Set(headerLines)];
+}
+
 function extractPageLines(textContent, pageNumber) {
   const items = (Array.isArray(textContent?.items) ? textContent.items : [])
     .map((item, index) => ({
@@ -252,11 +378,12 @@ function extractPageLines(textContent, pageNumber) {
 
   const rows = getPageRows(items);
   const rowLines = getRowLines(rows);
+  const columnStopHeaderLines = getColumnStopHeaderLines(rows);
   const columnProductLines = getColumnProductLines(items)
     .map((item) => item.text)
     .filter(Boolean);
 
-  return [...rowLines, ...columnProductLines];
+  return [...columnStopHeaderLines, ...rowLines, ...columnProductLines];
 }
 
 function ensurePdfjsDomStubs() {
