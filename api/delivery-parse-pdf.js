@@ -237,6 +237,22 @@ function isColumnAddressText(value) {
     /\b\d+[a-z]?(?:-\d+)?\b/i.test(String(value || "").trim());
 }
 
+function isColumnTimeText(value) {
+  return /^\d{1,2}:\d{2}(?:\s*(?:\/|\u2013|-|tot)\s*\d{1,2}:\d{2})?$/i.test(String(value || "").trim());
+}
+
+function normalizeTimeWindowText(value) {
+  const match = String(value || "")
+    .trim()
+    .match(/^(\d{1,2}:\d{2})(?:\s*(?:\/|\u2013|-|tot)\s*(\d{1,2}:\d{2}))?$/i);
+
+  if (!match) {
+    return "";
+  }
+
+  return match[2] ? `${match[1]} / ${match[2]}` : match[1];
+}
+
 function isColumnHeaderLabel(value) {
   return /^(?:selecties|afleveradres|adres|postcode|bezorgingen|afdrukdatum:?|trial mode|pagina:?|nr)$/i.test(String(value || "").trim());
 }
@@ -312,10 +328,20 @@ function findColumnAddressRow(rows) {
     )[0] || null;
 }
 
+function findColumnTimeRow(rows) {
+  return rows
+    .filter((row) => row.y >= 480 && row.y <= 545)
+    .sort((rowA, rowB) =>
+      rowB.items.filter((item) => isColumnTimeText(item.text)).length -
+      rowA.items.filter((item) => isColumnTimeText(item.text)).length
+    )[0] || null;
+}
+
 function getColumnStopHeaderLines(rows) {
   const nameRow = findColumnStopNameRow(rows);
   const postcodeRow = findColumnPostcodeRow(rows);
   const addressRow = findColumnAddressRow(rows);
+  const timeRow = findColumnTimeRow(rows);
 
   if (!nameRow || !postcodeRow || !addressRow) {
     return [];
@@ -336,6 +362,9 @@ function getColumnStopHeaderLines(rows) {
     const customerName = normalizePdfText(getItemsForColumn(nameRow, anchors, columnIndex).map((item) => item.text).join(" "));
     const address = normalizePdfText(getItemsForColumn(addressRow, anchors, columnIndex).map((item) => item.text).join(" "));
     const postcode = normalizePdfText(anchor.text);
+    const timeWindow = normalizeTimeWindowText(getItemsForColumn(timeRow, anchors, columnIndex)
+      .map((item) => item.text)
+      .find((text) => isColumnTimeText(text)) || "");
     const stopCode = normalizePdfText(codeRows
       .flatMap((row) => getItemsForColumn(row, anchors, columnIndex))
       .find((item) => isColumnStopCodeText(item.text))?.text || "");
@@ -344,7 +373,7 @@ function getColumnStopHeaderLines(rows) {
       return;
     }
 
-    headerLines.push(normalizePdfText(`STOPHEADER ${stopCode} | ${customerName} | ${address} | ${postcode}`));
+    headerLines.push(normalizePdfText(`STOPHEADER ${stopCode} | ${customerName} | ${address} | ${postcode}${timeWindow ? ` | ${timeWindow}` : ""}`));
   });
 
   return [...new Set(headerLines)];

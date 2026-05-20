@@ -34,7 +34,7 @@
   const PRODUCT_COUNT_PATTERN = /^(?:(\d+[,.]?\d*)|(\d+)\s*x|x\s*(\d+))\s+\S+/i;
   const PRODUCT_CATEGORY_ORDER = ["brood", "gebak", "broodjes", "warm"];
   const PAYMENT_STATUS_VALUES = ["OK", "Op rekening", "Niet betaald", "Betaald via Ideal", "Contant", "Pin", "Tikkie"];
-  const CURRENT_DELIVERY_PARSER_VERSION = "delivery-local-v3";
+  const CURRENT_DELIVERY_PARSER_VERSION = "delivery-local-v4";
   const OLD_PARSER_WARNING = "Deze run is gemaakt met een oudere parser. Upload de PDF opnieuw voor de nieuwste herkenning.";
   const PAYMENT_CORRECTION_OPTIONS = [
     "OK",
@@ -847,10 +847,11 @@
       .replace(/\b([1-9][0-9]{3})\s?([A-Z]{2})\b/i, "$1 $2");
   }
 
-  function createStopFromHeaderParts({ code = "", customerName = "", address = "", postcode = "" } = {}) {
+  function createStopFromHeaderParts({ code = "", customerName = "", address = "", postcode = "", timeWindow = "" } = {}) {
     const normalizedCustomerName = String(customerName || "").trim();
     const normalizedAddress = String(address || "").trim();
     const normalizedPostcode = normalizeStopHeaderPostcode(postcode);
+    const normalizedTimeWindow = getTimeWindow(timeWindow);
 
     if (!normalizedCustomerName || !normalizedAddress || !POSTCODE_PATTERN.test(normalizedPostcode)) {
       return null;
@@ -868,7 +869,7 @@
       categories: [],
       products: [],
       paymentStatus: "",
-      timeWindow: "",
+      timeWindow: normalizedTimeWindow,
       remark: "",
       notes,
       needsReview: notes.length > 0
@@ -876,7 +877,7 @@
   }
 
   function parseSeparatedStopHeaderLine(line) {
-    const match = String(line || "").trim().match(/^STOPHEADER\s+([^|]*)\|\s*([^|]+)\|\s*([^|]+)\|\s*([^|]+)$/i);
+    const match = String(line || "").trim().match(/^STOPHEADER\s+([^|]*)\|\s*([^|]+)\|\s*([^|]+)\|\s*([^|]+?)(?:\|\s*([^|]+))?$/i);
 
     if (!match) {
       return null;
@@ -886,7 +887,8 @@
       code: match[1],
       customerName: match[2],
       address: match[3],
-      postcode: match[4]
+      postcode: match[4],
+      timeWindow: match[5] || ""
     });
   }
 
