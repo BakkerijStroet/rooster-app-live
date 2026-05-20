@@ -16419,6 +16419,256 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   color: #fffaf4 !important;
 }
 
+/* Compact dispatch board: keep the route as the work surface after upload. */
+.delivery-panel.has-delivery-run .delivery-route-card {
+  gap: 0.25rem;
+  border: 0;
+  padding: 0.18rem;
+  background: transparent;
+  box-shadow: none;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-planner-header {
+  gap: 0.35rem;
+  min-height: 0;
+  padding: 0 0.1rem 0.2rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-planner-header h3 {
+  color: var(--color-text-muted);
+  font-size: 0.92rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-planner-actions {
+  gap: 0.25rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-planner-actions button {
+  min-height: 28px;
+  padding: 0.12rem 0.48rem;
+  border-radius: 7px;
+  font-size: 0.78rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-planner-actions .delivery-route-print-button {
+  min-height: 30px;
+  min-width: 112px;
+  padding: 0.18rem 0.62rem;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  box-shadow: none;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-planner-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 0.34fr);
+  gap: 0.35rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-lane {
+  gap: 0.22rem;
+  border-radius: 7px;
+  padding: 0.28rem;
+  background: #fffaf4;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-lane.is-secondary {
+  background: #fffdf9;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-lane-header {
+  min-height: 0;
+  padding: 0 0.05rem 0.18rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-lane-header h4 {
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-lane-header span,
+.delivery-panel.has-delivery-run .delivery-route-lane-header strong {
+  font-size: 0.7rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-empty-lane {
+  min-height: 46px;
+  padding: 0.34rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-empty-lane span {
+  display: none;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-stop-list {
+  max-height: min(78vh, 820px);
+  gap: 0.18rem;
+  padding-right: 0.05rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-stop {
+  grid-template-columns: 1.45rem minmax(0, 1fr) max-content max-content max-content;
+  gap: 0.18rem;
+  min-height: 29px;
+  padding: 0.16rem 0.22rem;
+  border-radius: 6px;
+  background: #fffdf9;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-stop.needs-review {
+  box-shadow: inset 2px 0 0 #d48b37;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-stop.has-problem {
+  box-shadow: inset 2px 0 0 #d97b70;
+}
+
+.delivery-panel.has-delivery-run .delivery-stop-number {
+  width: 1.25rem;
+  height: 1.25rem;
+  font-size: 0.68rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-stop-title {
+  font-size: 0.8rem;
+  line-height: 1.05;
+}
+
+.delivery-panel.has-delivery-run .delivery-stop-address {
+  max-width: 100%;
+  color: var(--color-text-muted);
+  font-size: 0.66rem;
+  line-height: 1.05;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.delivery-panel.has-delivery-run .delivery-stop-address:empty {
+  display: none;
+}
+
+.delivery-panel.has-delivery-run .delivery-stop-time {
+  min-width: 3.1rem;
+  padding: 0.08rem 0.22rem;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  line-height: 1.1;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-stop-icons {
+  min-width: 2.4rem;
+  gap: 0.04rem;
+  justify-content: end;
+  font-size: 0.82rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-warning-label {
+  width: 1rem;
+  min-width: 1rem;
+  height: 1rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-size: 0.68rem;
+  line-height: 1;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-warning-label.is-empty {
+  display: none;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-order-controls {
+  gap: 0.08rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-drag-handle,
+.delivery-panel.has-delivery-run .delivery-route-order-controls button {
+  min-width: 1.32rem;
+  min-height: 1.32rem;
+  padding: 0;
+  border-radius: 5px;
+  font-size: 0.68rem;
+  line-height: 1;
+}
+
+.delivery-panel.has-delivery-run .delivery-stop-correct-button {
+  display: none;
+}
+
+.delivery-panel.has-delivery-run .delivery-stop-correction {
+  margin-top: 0.18rem;
+  padding-top: 0.22rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-lower-sections {
+  gap: 0.22rem;
+  margin-top: 0.35rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-lower-section {
+  gap: 0.28rem;
+  padding: 0.32rem 0.42rem;
+  border-radius: 7px;
+}
+
+.delivery-panel.has-delivery-run .delivery-technical-section {
+  order: 5;
+}
+
+.delivery-panel.has-delivery-run .delivery-driver-preview-card {
+  order: 6;
+}
+
+.delivery-panel.has-delivery-run .delivery-lower-section summary {
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.delivery-panel.has-delivery-run .delivery-lower-section[open] summary {
+  margin-bottom: 0.32rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-lower-section article {
+  gap: 0.45rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-lower-section h3 {
+  font-size: 0.9rem;
+}
+
+@media (max-width: 760px) {
+  .delivery-panel.has-delivery-run .delivery-route-planner-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .delivery-panel.has-delivery-run .delivery-route-stop-list {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .delivery-panel.has-delivery-run .delivery-route-stop {
+    grid-template-columns: 1.35rem minmax(0, 1fr) max-content;
+  }
+
+  .delivery-panel.has-delivery-run .delivery-route-stop-icons,
+  .delivery-panel.has-delivery-run .delivery-route-warning-label,
+  .delivery-panel.has-delivery-run .delivery-route-order-controls,
+  .delivery-panel.has-delivery-run .delivery-stop-correct-button {
+    grid-column: auto;
+  }
+
+  .delivery-panel.has-delivery-run .delivery-route-order-controls {
+    grid-column: 1 / -1;
+    justify-content: start;
+  }
+}
+
 
 
 

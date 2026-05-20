@@ -1131,8 +1131,7 @@
         <article class="capacity-card delivery-route-card delivery-work-card">
           <div class="delivery-route-planner-header">
             <div>
-              <h3>Routeplanner</h3>
-              <span>Sleep stops in bezorgvolgorde. Route 2 staat klaar voor later.</span>
+              <h3>Routes</h3>
             </div>
             <div class="delivery-route-planner-actions">
               <button type="button" class="secondary" data-delivery-route-new-pdf>Nieuwe PDF</button>
@@ -1143,7 +1142,7 @@
         </article>
         <div class="delivery-lower-sections delivery-work-card">
           <details class="capacity-card delivery-lower-section">
-            <summary>Administratie</summary>
+            <summary>Controle</summary>
             <article id="deliveryControlCard" class="delivery-control-card is-hidden">
               <h3>Eerst controleren</h3>
               <div id="deliveryControlSummary" class="delivery-control-summary"></div>
@@ -1178,16 +1177,6 @@
               <div id="deliveryPreparation" class="delivery-preparation empty">Nog geen voorbereiding beschikbaar.</div>
             </article>
           </details>
-          <details class="capacity-card delivery-lower-section">
-            <summary>Print/export</summary>
-            <article class="delivery-print-card">
-              <div class="delivery-print-header">
-                <h3>Print/export</h3>
-                <button type="button" id="deliveryPrintPreviewButton" class="secondary">Printvoorbeeld maken</button>
-              </div>
-              <div id="deliveryPrintPreview" class="delivery-print-preview empty">Nog geen printvoorbeeld gemaakt.</div>
-            </article>
-          </details>
           <details class="capacity-card delivery-lower-section delivery-driver-preview-card" data-delivery-driver-preview-card>
             <summary>Chauffeur-preview</summary>
             <article class="delivery-stop-detail-card">
@@ -1200,8 +1189,15 @@
               </div>
             </article>
           </details>
-          <details class="capacity-card delivery-lower-section">
-            <summary>Technisch/details</summary>
+          <details class="capacity-card delivery-lower-section delivery-technical-section">
+            <summary>Technisch</summary>
+            <article class="delivery-print-card">
+              <div class="delivery-print-header">
+                <h3>Print/export</h3>
+                <button type="button" id="deliveryPrintPreviewButton" class="secondary">Printvoorbeeld maken</button>
+              </div>
+              <div id="deliveryPrintPreview" class="delivery-print-preview empty">Nog geen printvoorbeeld gemaakt.</div>
+            </article>
             <article id="deliveryRunStatusBar" class="delivery-run-status-bar">
               <span><strong>Bron</strong>Geen run geladen</span>
               <span><strong>Run</strong>-</span>
@@ -1233,9 +1229,6 @@
                 <div id="deliveryParseWarnings" class="delivery-warning-list empty">Geen meldingen.</div>
               </details>
             </article>
-          </details>
-          <details class="capacity-card delivery-lower-section">
-            <summary>Opgeslagen runs</summary>
             <article class="delivery-saved-card">
               <div class="delivery-saved-header">
                 <h3>Opgeslagen runs</h3>

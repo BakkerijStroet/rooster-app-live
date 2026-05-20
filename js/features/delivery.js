@@ -2498,10 +2498,9 @@
   function renderRouteOrderControls(index, totalStops) {
     return `
       <div class="delivery-route-order-controls">
-        <span class="delivery-route-drag-handle" aria-hidden="true">Sleep</span>
-        <button type="button" class="secondary" data-delivery-move-stop="${index}" data-delivery-move-direction="-1" ${index <= 0 ? "disabled" : ""}>Omhoog</button>
-        <button type="button" class="secondary" data-delivery-move-stop="${index}" data-delivery-move-direction="1" ${index >= totalStops - 1 ? "disabled" : ""}>Omlaag</button>
-        <button type="button" class="secondary" disabled title="Route 2 verplaatsen volgt later">Route 2</button>
+        <span class="delivery-route-drag-handle" aria-label="Sleep stop" title="Sleep">↕</span>
+        <button type="button" class="secondary" data-delivery-move-stop="${index}" data-delivery-move-direction="-1" ${index <= 0 ? "disabled" : ""} aria-label="Stop omhoog" title="Omhoog">↑</button>
+        <button type="button" class="secondary" data-delivery-move-stop="${index}" data-delivery-move-direction="1" ${index >= totalStops - 1 ? "disabled" : ""} aria-label="Stop omlaag" title="Omlaag">↓</button>
       </div>
     `;
   }
@@ -2865,16 +2864,8 @@
               ? stop.categories
               : ["controle nodig"];
             const hasReview = stopHasReview(stop);
-            const problemText = getStopProblemText(stop);
             const hasOpenProblem = hasStopProblem(stop);
             const hasResolvedProblem = hasResolvedStopProblem(stop);
-            const warningLabel = hasOpenProblem
-              ? "Probleem"
-              : hasResolvedProblem
-                ? "Opgelost"
-                : hasReview
-                  ? "Controle"
-                  : "";
 
             return `
               <article id="deliveryRouteStop${index}" class="delivery-route-stop${categories.includes("warm") ? " has-warm" : ""}${hasReview ? " needs-review" : ""}${hasOpenProblem ? " has-problem" : ""}${hasResolvedProblem ? " has-resolved-problem" : ""}${selectedDeliveryStopIndex === index ? " is-selected" : ""}" data-delivery-route-stop="${index}" draggable="true">
@@ -2884,7 +2875,6 @@
                 </div>
                 <div class="delivery-stop-time">${escapeHtml(stop.timeWindow || "Tijd controle nodig")}</div>
                 ${renderRouteStopIcons(stop, categories)}
-                ${warningLabel ? `<span class="delivery-route-warning-label" title="${escapeHtml(problemText || (Array.isArray(stop.notes) ? stop.notes.join(", ") : "") || warningLabel)}">${escapeHtml(warningLabel)}</span>` : "<span class=\"delivery-route-warning-label is-empty\">-</span>"}
                 ${renderRouteOrderControls(index, stops.length)}
                 <button type="button" class="secondary delivery-stop-correct-button" data-delivery-edit-stop="${index}">Pas aan</button>
                 ${renderStopCorrectionForm(stop, index)}
