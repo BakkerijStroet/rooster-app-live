@@ -16523,9 +16523,9 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 
 .delivery-panel.has-delivery-run .delivery-route-stop {
   grid-template-columns: 1.34rem max-content minmax(0, 1fr) max-content max-content;
-  gap: 0.22rem;
-  min-height: 24px;
-  padding: 0.1rem 0.22rem;
+  gap: 0.3rem;
+  min-height: 36px;
+  padding: 0.22rem 0.34rem;
   border-radius: 5px;
   background: #fffdf9;
   transition: background-color var(--transition-soft), border-color var(--transition-soft), box-shadow var(--transition-soft), transform var(--transition-soft);
@@ -16570,13 +16570,13 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 }
 
 .delivery-panel.has-delivery-run .delivery-stop-number {
-  width: 1.08rem;
-  height: 1.08rem;
-  font-size: 0.62rem;
+  width: 1.18rem;
+  height: 1.18rem;
+  font-size: 0.68rem;
 }
 
 .delivery-panel.has-delivery-run .delivery-stop-title {
-  font-size: 0.86rem;
+  font-size: 0.9rem;
   line-height: 1.05;
   font-weight: 900;
   white-space: nowrap;
@@ -16599,44 +16599,43 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 }
 
 .delivery-panel.has-delivery-run .delivery-stop-time {
-  width: 6.2rem;
-  max-width: 6.2rem;
-  padding: 0.06rem 0.22rem;
-  border-radius: 5px;
-  border: 1px solid #e4c999;
-  background: #fff8ea;
+  min-width: 6.9rem;
+  max-width: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: #6f390c;
-  font-size: 0.74rem;
+  font-size: 0.84rem;
   font-weight: 900;
-  line-height: 1.1;
+  line-height: 1.15;
   justify-self: end;
-  overflow: hidden;
-  text-align: center;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-align: right;
+  text-overflow: clip;
   white-space: nowrap;
 }
 
 .delivery-panel.has-delivery-run .delivery-route-stop-icons {
   display: flex;
-  gap: 0.08rem;
+  gap: 0.12rem;
   align-items: center;
-  min-width: 2.6rem;
+  min-width: 3rem;
   justify-content: start;
   overflow: visible;
-  font-size: 1rem;
+  font-size: 1.06rem;
   line-height: 1;
 }
 
 .delivery-panel.has-delivery-run .delivery-route-stop-icons.is-empty {
-  min-width: 2.6rem;
+  min-width: 3rem;
 }
 
 .delivery-panel.has-delivery-run .delivery-route-stop-icons span {
   display: grid;
   flex: 0 0 auto;
   place-items: center;
-  width: 1rem;
-  height: 1rem;
+  width: 1.08rem;
+  height: 1.08rem;
 }
 
 .delivery-panel.has-delivery-run .delivery-route-warning-label {
@@ -16661,8 +16660,8 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 
 .delivery-panel.has-delivery-run .delivery-route-drag-handle,
 .delivery-panel.has-delivery-run .delivery-route-order-controls button {
-  min-width: 1.08rem;
-  min-height: 1.08rem;
+  min-width: 1.12rem;
+  min-height: 1.12rem;
   padding: 0;
   border-radius: 5px;
   font-size: 0.62rem;
@@ -16732,13 +16731,14 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 
   .delivery-panel.has-delivery-run .delivery-route-stop {
     grid-template-columns: 1.24rem max-content minmax(0, 1fr) max-content max-content;
-    gap: 0.16rem;
+    gap: 0.18rem;
+    min-height: 36px;
+    padding: 0.22rem 0.24rem;
   }
 
   .delivery-panel.has-delivery-run .delivery-stop-time {
-    width: 4.85rem;
-    max-width: 4.85rem;
-    font-size: 0.68rem;
+    min-width: 5.65rem;
+    font-size: 0.72rem;
   }
 
   .delivery-panel.has-delivery-run .delivery-route-stop-icons,
