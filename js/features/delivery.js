@@ -2854,7 +2854,6 @@
           <header class="delivery-route-lane-header">
             <div>
               <h4>Route 1</h4>
-              <span>Bezorger 1</span>
             </div>
             <strong>${stops.length} stop${stops.length === 1 ? "" : "s"}</strong>
           </header>
@@ -2895,7 +2894,6 @@
           <header class="delivery-route-lane-header">
             <div>
               <h4>Route 2</h4>
-              <span>Bezorger 2</span>
             </div>
             <strong>0 stops</strong>
           </header>
