@@ -25,6 +25,9 @@
   const productOverviewElement = document.getElementById("deliveryProductOverview");
   const printPreviewButton = document.getElementById("deliveryPrintPreviewButton");
   const printPreviewElement = document.getElementById("deliveryPrintPreview");
+  const plannerStatusElement = document.querySelector("[data-delivery-planner-status]");
+  const plannerApprovePrintButton = document.querySelector("[data-delivery-route-print]");
+  const routeResetButton = document.querySelector("[data-delivery-route-reset]");
 
   const POSTCODE_PATTERN = /\b[1-9][0-9]{3}\s?[A-Z]{2}\b/i;
   const ADDRESS_PATTERN = /\b[A-Za-zÀ-ÿ.' -]*(?:straat|laan|weg|plein|hof|pad|dijk|kade|singel|steeg|plantsoen|boulevard)\s+\d+[a-z]?(?:\s*,?\s*[A-Za-zÀ-ÿ.' -]+)?\b/i;
@@ -72,6 +75,8 @@
     status: "empty",
     message: "Nog niet opgeslagen"
   };
+  let latestPlannerStatus = "draft";
+  let latestRouteProposalState = "none";
   let latestHasLocalCorrections = false;
   let latestParserVersionWarning = "";
   let selectedDeliveryStopIndex = -1;
@@ -222,6 +227,52 @@
     startScreenElement?.classList.toggle("is-hidden", Boolean(isVisible));
   }
 
+  function renderPlannerStatus() {
+    if (plannerApprovePrintButton) {
+      plannerApprovePrintButton.disabled = !latestRouteStops.length;
+    }
+
+    if (routeResetButton) {
+      const canReset = latestRouteStops.length > 0 && latestRouteProposalState !== "none";
+      routeResetButton.hidden = !canReset;
+      routeResetButton.disabled = latestRouteProposalState === "pdf-order";
+    }
+
+    if (!plannerStatusElement) {
+      return;
+    }
+
+    if (latestPlannerStatus === "approved" && latestRouteStops.length) {
+      plannerStatusElement.hidden = false;
+      plannerStatusElement.textContent = "Planning gecontroleerd";
+      return;
+    }
+
+    if (latestRouteProposalState === "suggested" && latestRouteStops.length) {
+      plannerStatusElement.hidden = false;
+      plannerStatusElement.textContent = "Voorstelroute gemaakt";
+      return;
+    }
+
+    if (latestRouteProposalState === "pdf-order" && latestRouteStops.length) {
+      plannerStatusElement.hidden = false;
+      plannerStatusElement.textContent = "PDF-volgorde";
+      return;
+    }
+
+    plannerStatusElement.hidden = true;
+    plannerStatusElement.textContent = "";
+  }
+
+  function resetDeliveryPlanningApproval() {
+    if (latestPlannerStatus !== "approved") {
+      return;
+    }
+
+    latestPlannerStatus = "draft";
+    renderPlannerStatus();
+  }
+
   function setEmptyPreview(message = "Nog geen tekst beschikbaar.") {
     setDeliveryWorkVisible(false);
 
@@ -298,12 +349,15 @@
       status: "empty",
       message: "Nog niet opgeslagen"
     };
+    latestPlannerStatus = "draft";
+    latestRouteProposalState = "none";
     latestHasLocalCorrections = false;
     latestParserVersionWarning = "";
     selectedDeliveryStopIndex = -1;
     draggedDeliveryStopIndex = -1;
     renderDashboard([], "");
     renderControlSummary([]);
+    renderPlannerStatus();
   }
 
   function isPdfFile(file) {
@@ -1575,6 +1629,8 @@
     latestParseWarnings = [...new Set([message, advice, ...warnings])];
     latestDeliveryDate = "";
     latestParserVersionWarning = "";
+    latestPlannerStatus = "draft";
+    latestRouteProposalState = "none";
     selectedDeliveryStopIndex = -1;
 
     if (lineCountElement) {
@@ -1612,6 +1668,7 @@
     renderDriverPreview([], "");
     renderQuickEdit([]);
     renderStopDetail([]);
+    renderPlannerStatus();
 
     if (routeBlocksElement) {
       routeBlocksElement.classList.add("empty");
@@ -1659,27 +1716,32 @@
       }
     }
 
+    const routeStops = applySuggestedRouteOrder(buildRouteStops(lines));
+    const visibleWarnings = routeStops.length
+      ? [...warnings, "Voorstelroute gemaakt - controleer en sleep waar nodig"]
+      : warnings;
+
     if (warningsElement) {
-      if (!warnings.length) {
+      if (!visibleWarnings.length) {
         warningsElement.classList.add("empty");
         warningsElement.innerHTML = "";
         warningsElement.textContent = "Geen meldingen.";
       } else {
         warningsElement.classList.remove("empty");
-        warningsElement.innerHTML = warnings.slice(0, 12).map((warning) => `
+        warningsElement.innerHTML = visibleWarnings.slice(0, 12).map((warning) => `
           <div class="delivery-warning-item">${escapeHtml(warning)}</div>
         `).join("");
       }
     }
 
-    const routeStops = buildRouteStops(lines);
     latestRouteStops = routeStops;
-    latestParseWarnings = warnings;
+    latestParseWarnings = visibleWarnings;
     latestDeliveryDate = getDeliveryDate(lines);
     latestParserVersionWarning = "";
     latestRunId = "";
     latestRunBaseUpdatedAt = "";
     latestHasLocalCorrections = false;
+    latestPlannerStatus = "draft";
     selectedDeliveryStopIndex = -1;
     draggedDeliveryStopIndex = -1;
     renderDashboard(routeStops, latestDeliveryDate);
@@ -1784,7 +1846,127 @@
     return parts.join(" - ");
   }
 
+  function getStopPdfOrderIndex(stop, fallbackIndex = 0) {
+    const value = Number(stop?._pdfOrderIndex);
+    return Number.isFinite(value) ? value : fallbackIndex;
+  }
+
+  function assignPdfOrderIndexes(stops) {
+    (Array.isArray(stops) ? stops : []).forEach((stop, index) => {
+      if (!Number.isFinite(Number(stop?._pdfOrderIndex))) {
+        stop._pdfOrderIndex = index;
+      }
+    });
+  }
+
+  function getRouteSortTime(stop) {
+    const match = String(stop?.timeWindow || "").match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
+
+    if (!match) {
+      return {
+        hasTime: false,
+        minutes: Number.POSITIVE_INFINITY,
+        block: Number.POSITIVE_INFINITY
+      };
+    }
+
+    const minutes = Number(match[1]) * 60 + Number(match[2]);
+
+    return {
+      hasTime: true,
+      minutes,
+      block: Math.floor(minutes / 30)
+    };
+  }
+
+  function getRouteAreaKey(stop) {
+    const address = String(stop?.address || "").toUpperCase();
+    const postcodeMatch = address.match(/\b([1-9][0-9]{3})\s?([A-Z]{2})\b/);
+
+    if (postcodeMatch) {
+      return postcodeMatch[1];
+    }
+
+    const placeMatch = address.match(/\b(NEEDE|BORCULO|HAARLO|EIBERGEN|DIEPENHEIM|RUURLO|LOCHEM)\b/);
+    return placeMatch ? placeMatch[1] : "";
+  }
+
+  function markRouteProposalReview(stop) {
+    const notes = Array.isArray(stop.notes) ? stop.notes : [];
+    const nextNotes = [...notes];
+
+    if (!String(stop.timeWindow || "").trim()) {
+      nextNotes.push("controle nodig: tijd ontbreekt voor routevoorstel");
+    }
+
+    if (!String(stop.address || "").trim()) {
+      nextNotes.push("controle nodig: adres ontbreekt voor routevoorstel");
+    }
+
+    if (nextNotes.length !== notes.length) {
+      stop.notes = [...new Set(nextNotes)];
+      stop.needsReview = true;
+    }
+  }
+
+  function compareSuggestedRouteStops(stopA, stopB) {
+    const timeA = getRouteSortTime(stopA);
+    const timeB = getRouteSortTime(stopB);
+
+    if (timeA.block !== timeB.block) {
+      return timeA.block - timeB.block;
+    }
+
+    const warmA = isWarmStop(stopA) ? 0 : 1;
+    const warmB = isWarmStop(stopB) ? 0 : 1;
+
+    if (warmA !== warmB) {
+      return warmA - warmB;
+    }
+
+    if (timeA.minutes !== timeB.minutes) {
+      return timeA.minutes - timeB.minutes;
+    }
+
+    const areaA = getRouteAreaKey(stopA);
+    const areaB = getRouteAreaKey(stopB);
+
+    if (areaA && areaB && areaA !== areaB) {
+      return areaA.localeCompare(areaB, "nl");
+    }
+
+    return getStopPdfOrderIndex(stopA) - getStopPdfOrderIndex(stopB);
+  }
+
+  function applySuggestedRouteOrder(stops) {
+    const normalizedStops = Array.isArray(stops) ? stops : [];
+
+    assignPdfOrderIndexes(normalizedStops);
+    normalizedStops.forEach(markRouteProposalReview);
+
+    latestRouteProposalState = normalizedStops.length ? "suggested" : "none";
+    return [...normalizedStops].sort(compareSuggestedRouteStops);
+  }
+
+  function resetRouteToPdfOrder() {
+    if (!latestRouteStops.length) {
+      return;
+    }
+
+    latestRouteStops.sort((stopA, stopB) => getStopPdfOrderIndex(stopA) - getStopPdfOrderIndex(stopB));
+    selectedDeliveryStopIndex = -1;
+    draggedDeliveryStopIndex = -1;
+    latestRouteProposalState = "pdf-order";
+    resetDeliveryPlanningApproval();
+    rerenderDeliveryPreview({ refreshPrint: isPrintPreviewActive() });
+    setStatus("Route teruggezet naar PDF-volgorde.", "ready");
+  }
+
   function stopHasReview(stop) {
+    if (latestPlannerStatus === "approved") {
+      return false;
+    }
+
     if (!stop) {
       return false;
     }
@@ -1801,6 +1983,7 @@
   }
 
   function rerenderDeliveryPreview({ refreshPrint = false } = {}) {
+    renderPlannerStatus();
     renderDashboard(latestRouteStops, latestDeliveryDate);
     renderControlSummary(latestRouteStops);
     renderActionsOverview(latestRouteStops);
@@ -1817,6 +2000,7 @@
   }
 
   function markDeliveryLocallyCorrected() {
+    resetDeliveryPlanningApproval();
     latestHasLocalCorrections = true;
     latestSaveState = {
       status: "blocked",
@@ -1909,6 +2093,10 @@
   }
 
   function getDashboardReviewItems(stops) {
+    if (latestPlannerStatus === "approved") {
+      return [];
+    }
+
     return (Array.isArray(stops) ? stops : [])
       .map((stop) => ({
         customerName: stop.customerName || stop.address || "Stop onbekend",
@@ -2303,6 +2491,8 @@
       message: "Opgeslagen run geopend"
     };
     latestHasLocalCorrections = false;
+    latestPlannerStatus = "draft";
+    latestRouteProposalState = "none";
     latestParserVersionWarning = parserVersionWarning;
     selectedDeliveryStopIndex = -1;
     draggedDeliveryStopIndex = -1;
@@ -2682,7 +2872,7 @@
       icons.push({ icon: "🎂", label: "banket/gebak" });
     }
 
-    if (stopHasReview(stop) || hasStopProblem(stop)) {
+    if (latestPlannerStatus !== "approved" && (stopHasReview(stop) || hasStopProblem(stop))) {
       icons.push({ icon: "❗", label: "controle nodig" });
     }
 
@@ -2919,6 +3109,7 @@
     latestRouteStops.splice(targetIndex, 0, movedStop);
     selectedDeliveryStopIndex = nextSelectedIndex;
     draggedDeliveryStopIndex = -1;
+    resetDeliveryPlanningApproval();
 
     rerenderDeliveryPreview({ refreshPrint: isPrintPreviewActive() });
     setStatus("Routevolgorde lokaal aangepast. Nog niet opgeslagen.", "ready");
@@ -3008,6 +3199,8 @@
     if (!routeBlocksElement) {
       return;
     }
+
+    renderPlannerStatus();
 
     if (!Array.isArray(stops) || !stops.length) {
       routeBlocksElement.classList.add("empty");
@@ -3384,6 +3577,20 @@
     `).join("");
   }
 
+  function renderPrintRouteIcons(stop) {
+    const categories = normalizeCategories(stop?.categories || []);
+    const icons = [];
+
+    if (isWarmStop(stop)) icons.push("🔥");
+    if (categories.includes("brood") || categories.includes("broodjes")) icons.push("🍞");
+    if (categories.includes("gebak")) icons.push("🎂");
+    if (latestPlannerStatus !== "approved" && (stopHasReview(stop) || hasStopProblem(stop))) icons.push("❗");
+
+    return icons.length
+      ? `<span class="delivery-print-route-icons">${icons.map(escapeHtml).join(" ")}</span>`
+      : "";
+  }
+
   function renderPrintPreparationPage(stops, warnings) {
     const products = getAllProducts(stops);
     const warmStops = stops.filter((stop) =>
@@ -3441,7 +3648,7 @@
         <div class="delivery-print-route-list">
           ${stops.map((stop, index) => `
             <article class="delivery-print-route-stop${stop.categories.includes("warm") ? " has-warm" : ""}">
-              <strong>${index + 1}. ${escapeHtml(stop.customerName || "Klant onbekend")}</strong>
+              <strong>${index + 1}. ${renderPrintRouteIcons(stop)} ${escapeHtml(stop.customerName || "Klant onbekend")}</strong>
               <span><em>Tijd:</em> ${escapeHtml(stop.timeWindow || "controle nodig")}</span>
               <span>${escapeHtml(stop.address || "Adres onbekend")}</span>
               <div><em>Wat meenemen:</em> ${renderPrintCategoryChips(stop.categories)}</div>
@@ -3536,6 +3743,17 @@
     }
 
     printPreviewElement?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+
+  function approvePlanningAndOpenPrint() {
+    if (!latestRouteStops.length) {
+      return;
+    }
+
+    latestPlannerStatus = "approved";
+    setStatus("Planning gecontroleerd. Printvoorbeeld geopend.", "ready");
+    rerenderDeliveryPreview({ refreshPrint: true });
+    openPrintPreviewSection();
   }
 
   function getDeliveryRunPayload() {
@@ -3969,15 +4187,20 @@
   deliveryPanelElement?.addEventListener("click", (event) => {
     const newPdfButton = event.target.closest("[data-delivery-route-new-pdf]");
     const routePrintButton = event.target.closest("[data-delivery-route-print]");
+    const routeResetButton = event.target.closest("[data-delivery-route-reset]");
 
     if (newPdfButton) {
       pdfInput?.click();
       return;
     }
 
-    if (routePrintButton) {
-      renderPrintPreview();
-      openPrintPreviewSection();
+    if (routePrintButton && !routePrintButton.disabled) {
+      approvePlanningAndOpenPrint();
+      return;
+    }
+
+    if (routeResetButton && !routeResetButton.disabled) {
+      resetRouteToPdfOrder();
     }
   });
   routeBlocksElement?.addEventListener("click", (event) => {
