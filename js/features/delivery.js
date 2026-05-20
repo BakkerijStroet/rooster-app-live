@@ -2524,12 +2524,8 @@
       icons.push({ icon: "❗", label: "controle nodig" });
     }
 
-    if (!icons.length) {
-      return "";
-    }
-
     return `
-      <div class="delivery-route-stop-icons">
+      <div class="delivery-route-stop-icons${icons.length ? "" : " is-empty"}">
         ${icons.map((item) => `<span title="${escapeHtml(item.label)}" aria-label="${escapeHtml(item.label)}">${item.icon}</span>`).join("")}
       </div>
     `;
@@ -2879,11 +2875,11 @@
             return `
               <article id="deliveryRouteStop${index}" class="${rowClasses}" data-delivery-route-stop="${index}" draggable="true">
                 <div class="delivery-stop-number" aria-label="Stop ${index + 1}">${index + 1}</div>
+                ${renderRouteStopIcons(stop, categories)}
                 <div class="delivery-stop-main">
                   <div class="delivery-stop-title">${escapeHtml(stop.customerName || "Klant onbekend")}</div>
                 </div>
                 <div class="delivery-stop-time">${escapeHtml(stop.timeWindow || "Tijd controle nodig")}</div>
-                ${renderRouteStopIcons(stop, categories)}
                 ${renderRouteOrderControls(index, stops.length)}
               </article>
             `;
