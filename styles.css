@@ -12531,6 +12531,34 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   font-size: 1.05rem;
 }
 
+.delivery-print-page h5 {
+  margin: 0;
+  font-size: 0.92rem;
+  letter-spacing: 0.01em;
+}
+
+.delivery-print-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.delivery-print-meta span {
+  display: grid;
+  gap: 0.1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.48rem 0.6rem;
+  background: var(--color-surface-soft);
+}
+
+.delivery-print-meta strong {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .delivery-print-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -12552,6 +12580,9 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 .delivery-print-section,
 .delivery-print-route-list,
 .delivery-print-checklist,
+.delivery-print-route-block,
+.delivery-print-check-route,
+.delivery-print-product-route,
 .delivery-print-product-stop {
   display: grid;
   gap: 0.45rem;
@@ -12563,11 +12594,66 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   gap: 0.35rem;
 }
 
+.delivery-print-route-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 0.55rem;
+  align-items: start;
+}
+
+.delivery-print-route-head strong {
+  min-width: 0;
+}
+
+.delivery-print-route-head > span {
+  color: #6f390c;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .delivery-print-route-icons {
   display: inline-flex;
   gap: 0.16rem;
   margin-right: 0.18rem;
   white-space: nowrap;
+}
+
+.delivery-print-address,
+.delivery-print-route-remark {
+  color: var(--color-text-secondary);
+  line-height: 1.28;
+}
+
+.delivery-print-route-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.22rem;
+}
+
+.delivery-print-route-category {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.14rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.1rem 0.38rem;
+  background: var(--color-surface);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.delivery-print-route-category.is-warm {
+  border-color: #d48b37;
+  background: #fff7ed;
+}
+
+.delivery-print-route-category.is-bread {
+  border-color: #dfc491;
+}
+
+.delivery-print-route-category.is-pastry {
+  border-color: #d9b3c9;
 }
 
 .delivery-print-route-stop.has-warm,

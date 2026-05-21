@@ -3931,6 +3931,260 @@
     `;
   }
 
+  function getPrintRoutes(stops) {
+    const normalizedStops = Array.isArray(stops) ? stops : [];
+    const routeOneStops = [];
+    const routeTwoStops = [];
+
+    normalizedStops.forEach((stop) => {
+      const routeLabel = String(stop?.routeName || stop?.routeBlockName || stop?.route || "").toLowerCase();
+      const routeNumber = Number(stop?.routeNumber || stop?.routeIndex || 0);
+
+      if (routeNumber === 2 || /(?:route|ronde|bezorger)\s*2\b/.test(routeLabel)) {
+        routeTwoStops.push(stop);
+      } else {
+        routeOneStops.push(stop);
+      }
+    });
+
+    return [
+      { name: "Route 1", stops: routeOneStops },
+      { name: "Route 2", stops: routeTwoStops }
+    ];
+  }
+
+  function getPrintRouteStopNumber(routeIndex, stopIndex) {
+    return `${routeIndex + 1}.${stopIndex + 1}`;
+  }
+
+  function getPrintRemark(stop) {
+    const remark = String(stop?.remark || "").trim();
+    const notes = Array.isArray(stop?.notes) ? stop.notes.filter(Boolean) : [];
+    return remark || notes[0] || "";
+  }
+
+  function getImportantPaymentLabel(stop) {
+    const paymentStatus = String(stop?.paymentStatus || "").trim();
+
+    if (!paymentStatus) {
+      return "betaling controle";
+    }
+
+    return /\b(?:niet betaald|op rekening|tikkie|contant|pin|controle)\b/i.test(paymentStatus)
+      ? paymentStatus
+      : "";
+  }
+
+  function renderPrintRouteIcons(stop) {
+    const categories = normalizeCategories(stop?.categories || []);
+    const icons = [];
+
+    if (isWarmStop(stop)) icons.push("&#128293;");
+    if (categories.includes("brood") || categories.includes("broodjes")) icons.push("&#127838;");
+    if (categories.includes("gebak")) icons.push("&#127874;");
+    if (latestPlannerStatus !== "approved" && (stopHasReview(stop) || hasStopProblem(stop))) icons.push("&#10071;");
+
+    return icons.length
+      ? `<span class="delivery-print-route-icons">${icons.join(" ")}</span>`
+      : "";
+  }
+
+  function renderPrintRouteCategorySummary(stop) {
+    const categories = normalizeCategories(stop?.categories || []);
+    const items = [];
+
+    if (isWarmStop(stop)) {
+      items.push(`<span class="delivery-print-route-category is-warm">&#128293; warm</span>`);
+    }
+
+    if (categories.includes("brood") || categories.includes("broodjes")) {
+      items.push(`<span class="delivery-print-route-category is-bread">&#127838; brood</span>`);
+    }
+
+    if (categories.includes("gebak")) {
+      items.push(`<span class="delivery-print-route-category is-pastry">&#127874; banket</span>`);
+    }
+
+    return items.length
+      ? items.join("")
+      : `<span class="delivery-print-note">wat meenemen controle nodig</span>`;
+  }
+
+  function renderPrintPreparationPage(stops, warnings) {
+    const routes = getPrintRoutes(stops);
+    const products = getAllProducts(stops);
+    const warmStops = stops.filter((stop) =>
+      normalizeCategories(stop.categories).includes("warm") || getAllProducts([stop]).some((product) => isWarmPreparationProduct(product))
+    );
+    const reviewStops = stops.filter(stopHasReview);
+    const preparation = calculatePreparation(stops);
+    const controlCount = reviewStops.length + warnings.length + preparation.reviewNotes.length;
+
+    return `
+      <section class="delivery-print-page delivery-print-preparation-page">
+        <h4>Blad 1: Voorbereiding</h4>
+        <div class="delivery-print-meta">
+          <span><strong>Datum</strong>${escapeHtml(latestDeliveryDate || "datum controle nodig")}</span>
+          <span><strong>Routes</strong>${routes.length}</span>
+        </div>
+        <div class="delivery-print-summary">
+          ${routes.map((route) => `<span>${escapeHtml(route.name)}: ${route.stops.length} stop${route.stops.length === 1 ? "" : "s"}</span>`).join("")}
+          <span>Productregels: ${products.length}</span>
+          <span>Snijden: ${escapeHtml(String(preparation.cuttingCount))} ${preparation.cuttingCount === 1 ? "brood" : "broden"}</span>
+          <span>Snijtijd: ${escapeHtml(preparation.cuttingDurationLabel)}</span>
+          <span>Warm/snacks: ${escapeHtml(String(preparation.warmCount))} stuks</span>
+          <span>Controle nodig: ${controlCount}</span>
+        </div>
+        <div class="delivery-print-section">
+          <strong>Snijden</strong>
+          <div>${escapeHtml(String(preparation.cuttingCount))} ${preparation.cuttingCount === 1 ? "brood" : "broden"} x 20 seconden = ${escapeHtml(preparation.cuttingDurationLabel)}</div>
+        </div>
+        <div class="delivery-print-section">
+          <strong>Warm/snacks</strong>
+          <div>Totaal warm: ${escapeHtml(String(preparation.warmCount))} stuks</div>
+          <div>Oven: ${escapeHtml(preparation.ovenDurationLabel)}</div>
+          <div>Inpakken: ${escapeHtml(preparation.packingDurationLabel)}</div>
+          <div>Ovenmoment indicatief: ${escapeHtml(preparation.ovenMomentLabel)}</div>
+        </div>
+        <div class="delivery-print-section">
+          <strong>Warm eerst controleren</strong>
+          ${warmStops.length
+            ? warmStops.map((stop, index) => `<div>${index + 1}. ${escapeHtml(getRouteStopTimeLabel(stop))} - ${escapeHtml(stop.customerName || "Klant onbekend")} - ${escapeHtml(stop.address || "Adres onbekend")}</div>`).join("")
+            : "<div>Geen warme categorie gevonden.</div>"}
+        </div>
+        <div class="delivery-print-section">
+          <strong>Controlepunten</strong>
+          ${reviewStops.length || warnings.length || preparation.reviewNotes.length
+            ? [
+                ...preparation.reviewNotes,
+                ...reviewStops.map((stop) => `${stop.customerName || "Klant onbekend"}: ${stop.notes.join(", ") || "controle nodig"}`),
+                ...warnings
+              ].slice(0, 18).map((warning) => `<div>${escapeHtml(warning)}</div>`).join("")
+            : "<div>Geen controlepunten.</div>"}
+        </div>
+        <div class="delivery-print-section">
+          <strong>Laadadvies</strong>
+          <div>Laad per route in bezorgvolgorde. Houd warm/snacks apart zichtbaar en controleer deze vlak voor vertrek.</div>
+          <div>Route 1 eerst klaarzetten. Route 2 blijft apart als daar stops in staan.</div>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderPrintRoutePage(stops) {
+    const routes = getPrintRoutes(stops);
+
+    return `
+      <section class="delivery-print-page delivery-print-route-page">
+        <h4>Blad 2: Route voor bezorger</h4>
+        ${routes.map((route, routeIndex) => `
+          <div class="delivery-print-route-block">
+            <h5>${escapeHtml(route.name)} (${route.stops.length} stop${route.stops.length === 1 ? "" : "s"})</h5>
+            <div class="delivery-print-route-list">
+              ${route.stops.length
+                ? route.stops.map((stop, stopIndex) => {
+                    const remark = getPrintRemark(stop);
+
+                    return `
+                      <article class="delivery-print-route-stop${isWarmStop(stop) ? " has-warm" : ""}">
+                        <div class="delivery-print-route-head">
+                          <strong>${escapeHtml(getPrintRouteStopNumber(routeIndex, stopIndex))} ${renderPrintRouteIcons(stop)} ${escapeHtml(stop.customerName || "Klant onbekend")}</strong>
+                          <span>${escapeHtml(getRouteStopTimeLabel(stop))}</span>
+                        </div>
+                        <div class="delivery-print-address">${escapeHtml(stop.address || "Adres onbekend")}</div>
+                        <div class="delivery-print-route-categories">${renderPrintRouteCategorySummary(stop)}</div>
+                        ${remark ? `<div class="delivery-print-route-remark">${escapeHtml(remark)}</div>` : ""}
+                        ${stopHasReview(stop) ? `<small>controle nodig${stop.notes.length ? `: ${escapeHtml(stop.notes.join(", "))}` : ""}</small>` : ""}
+                      </article>
+                    `;
+                  }).join("")
+                : "<div class=\"delivery-print-note\">Geen stops in deze route.</div>"}
+            </div>
+          </div>
+        `).join("")}
+      </section>
+    `;
+  }
+
+  function renderPrintChecklistPage(stops) {
+    const routes = getPrintRoutes(stops);
+
+    return `
+      <section class="delivery-print-page delivery-print-check-page">
+        <h4>Blad 3: Afvinklijst</h4>
+        ${routes.map((route, routeIndex) => `
+          <div class="delivery-print-check-route">
+            <h5>${escapeHtml(route.name)}</h5>
+            <div class="delivery-print-checklist">
+              ${route.stops.length
+                ? route.stops.map((stop, stopIndex) => {
+                    const paymentLabel = getImportantPaymentLabel(stop);
+                    const remark = getPrintRemark(stop);
+                    const checklistDetails = [
+                      paymentLabel,
+                      isWarmStop(stop) ? "warm" : "",
+                      remark
+                    ].filter(Boolean).map(escapeHtml).join(" | ");
+
+                    return `
+                      <div class="delivery-print-check-row">
+                        <span class="delivery-print-checkbox" aria-hidden="true"></span>
+                        <span><strong>${escapeHtml(getPrintRouteStopNumber(routeIndex, stopIndex))} ${escapeHtml(stop.customerName || "Klant onbekend")}</strong> ${escapeHtml(getRouteStopTimeLabel(stop))}</span>
+                        <span>${checklistDetails}</span>
+                      </div>
+                    `;
+                  }).join("")
+                : "<div class=\"delivery-print-note\">Geen stops.</div>"}
+            </div>
+          </div>
+        `).join("")}
+      </section>
+    `;
+  }
+
+  function renderPrintProductPage(stops) {
+    const routes = getPrintRoutes(stops).map((route) => ({
+      ...route,
+      stops: route.stops.map((stop) => ({
+        ...stop,
+        products: getSortedProductsForStop(stop)
+      }))
+    }));
+    const hasProducts = routes.some((route) => route.stops.some((stop) => stop.products.length));
+
+    return `
+      <section class="delivery-print-page delivery-print-product-page">
+        <h4>Blad 4: Productoverzicht met exacte producten en aantallen</h4>
+        ${hasProducts
+          ? routes.map((route, routeIndex) => `
+            <div class="delivery-print-product-route">
+              <h5>${escapeHtml(route.name)}</h5>
+              ${route.stops.map((stop, stopIndex) => stop.products.length ? `
+                <article class="delivery-print-product-stop">
+                  <strong>${escapeHtml(getPrintRouteStopNumber(routeIndex, stopIndex))} ${escapeHtml(stop.customerName || "Klant onbekend")}</strong>
+                  <span>${escapeHtml(stop.address || "Adres onbekend")}</span>
+                  ${stop.products.map((product) => {
+                    const numericCount = Number(product.count);
+                    const isLargeCount = Number.isFinite(numericCount) && numericCount >= 10;
+
+                    return `
+                      <div class="delivery-print-product-row${product.category === "warm" ? " has-warm" : ""}">
+                        <b class="${isLargeCount ? "is-large" : ""}">${escapeHtml(product.count || "?")}</b>
+                        <span>${escapeHtml(product.rawLine)}</span>
+                        ${product.category ? `<span class="delivery-category-chip" data-delivery-category="${escapeHtml(product.category)}">${escapeHtml(product.category)}</span>` : ""}
+                        ${product.needsReview ? `<small>controle nodig${product.count ? "" : ": aantal niet herkend"}</small>` : ""}
+                      </div>
+                    `;
+                  }).join("")}
+                </article>
+              ` : "").join("") || "<div class=\"delivery-print-note\">Geen productregels in deze route.</div>"}
+            </div>
+          `).join("")
+          : "<div class=\"delivery-print-note\">Geen productregels gevonden.</div>"}
+      </section>
+    `;
+  }
+
   function renderPrintPreview() {
     if (!printPreviewElement) {
       return;
