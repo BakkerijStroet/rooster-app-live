@@ -17292,38 +17292,38 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   }
 
   body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-page {
-    font-size: 6.6pt !important;
-    line-height: 1.02 !important;
+    font-size: 7.3pt !important;
+    line-height: 1.08 !important;
   }
 
   body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-page h4 {
-    margin-bottom: 1.6mm !important;
-    padding-bottom: 1mm !important;
-    font-size: 12pt !important;
+    margin-bottom: 2mm !important;
+    padding-bottom: 1.2mm !important;
+    font-size: 12.5pt !important;
   }
 
   body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-route {
-    gap: 0.5mm !important;
+    gap: 0.8mm !important;
   }
 
   body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-route h5 {
-    margin: 0.5mm 0 0.4mm !important;
-    padding: 0.3mm 0.7mm !important;
+    margin: 0.7mm 0 0.5mm !important;
+    padding: 0.45mm 0.9mm !important;
     background: #f4efe7 !important;
     border: 1px solid #b7a99a !important;
-    font-size: 8pt !important;
+    font-size: 8.6pt !important;
   }
 
   body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-stops {
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 0.75mm !important;
+    gap: 1mm !important;
   }
 
   body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-stop {
     display: grid !important;
-    gap: 0.3mm !important;
-    padding: 0.65mm 0.9mm !important;
+    gap: 0.45mm !important;
+    padding: 0.9mm 1.1mm !important;
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
@@ -17334,21 +17334,21 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   }
 
   body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-head strong {
-    font-size: 8pt !important;
-    line-height: 1.02 !important;
+    font-size: 8.8pt !important;
+    line-height: 1.08 !important;
   }
 
   body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-list {
     display: grid !important;
-    gap: 0.15mm !important;
+    gap: 0.25mm !important;
   }
 
   body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-row {
     display: grid !important;
-    grid-template-columns: 3.8mm 8.5mm minmax(0, 1fr) !important;
-    gap: 0.7mm !important;
+    grid-template-columns: 4.2mm 9.5mm minmax(0, 1fr) !important;
+    gap: 1mm !important;
     align-items: center !important;
-    padding: 0.25mm 0 !important;
+    padding: 0.4mm 0 !important;
     border-width: 1px 0 0 !important;
     background: transparent !important;
   }

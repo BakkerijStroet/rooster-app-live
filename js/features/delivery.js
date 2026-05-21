@@ -796,6 +796,7 @@
     }
 
     if (normalizedValue === "ok") return "OK";
+    if (normalizedValue === "betaald") return "OK";
     if (normalizedValue === "op rekening") return "Op rekening";
     if (normalizedValue === "niet betaald") return "Niet betaald";
     if (normalizedValue === "betaald via ideal" || normalizedValue === "ideal" || normalizedValue === "ideal betaald") return "Betaald via Ideal";
@@ -804,6 +805,29 @@
     if (normalizedValue === "tikkie") return "Tikkie";
 
     return "";
+  }
+
+  function getPaymentStatuses(line) {
+    const value = String(line || "").trim();
+
+    if (!value || /^(?:Betaling|Betaalstatus)$/i.test(value)) {
+      return [];
+    }
+
+    const statuses = [...value.matchAll(/\b(betaald via ideal|niet betaald|op rekening|ok|betaald|contant|pin|tikkie)\b/gi)]
+      .map((match) => getPaymentStatus(match[1]))
+      .filter(Boolean);
+
+    if (!statuses.length) {
+      return [];
+    }
+
+    const remainder = value
+      .replace(/\b(betaald via ideal|niet betaald|op rekening|ok|betaald|contant|pin|tikkie)\b/gi, "")
+      .replace(/[\s,;|/+-]+/g, "")
+      .trim();
+
+    return remainder ? [] : statuses;
   }
 
   function isImportantRemarkLine(line) {
@@ -1055,8 +1079,32 @@
     const stops = [];
     const seenKeys = new Set();
     let currentStop = null;
+    let currentPageStops = [];
+
+    function applyPaymentStatusesToPageStops(statuses) {
+      if (!statuses.length || !currentPageStops.length) {
+        return;
+      }
+
+      const targets = currentPageStops.filter((stop) => stop && !stop.paymentStatus);
+      statuses.forEach((status, index) => {
+        applyPaymentStatusToStop(targets[index], status);
+      });
+    }
 
     (Array.isArray(lines) ? lines : []).forEach((line) => {
+      const paymentStatuses = getPaymentStatuses(line);
+
+      if (paymentStatuses.length) {
+        applyPaymentStatusesToPageStops(paymentStatuses);
+        return;
+      }
+
+      if (/^Pagina:/i.test(String(line || "").trim())) {
+        currentPageStops = [];
+        return;
+      }
+
       const stop = parseStopHeaderLine(line);
 
       if (stop) {
@@ -1065,6 +1113,7 @@
 
         if (existingStop) {
           currentStop = existingStop;
+          currentPageStops.push(existingStop);
           return;
         }
 
@@ -1074,6 +1123,7 @@
 
         seenKeys.add(key);
         stops.push(stop);
+        currentPageStops.push(stop);
         currentStop = stop;
         return;
       }
@@ -1099,7 +1149,87 @@
       addProductToStop(matchingStop, product.productLine, false);
     });
 
+    applyColumnPaymentSummaries(stops, lines);
+
     return stops;
+  }
+
+  function getPaymentStatusesBeforeSummary(lines, summaryIndex) {
+    const statusLines = [];
+
+    for (let index = summaryIndex - 1; index >= 0; index -= 1) {
+      const line = String(lines[index] || "").trim();
+      const statuses = getPaymentStatuses(line);
+
+      if (statuses.length) {
+        statusLines.unshift(statuses);
+        continue;
+      }
+
+      if (statusLines.length && /^STOP(?:HEADER|PRODUCT)\b/i.test(line)) {
+        break;
+      }
+    }
+
+    return statusLines.flat();
+  }
+
+  function getStopsFromSummaryLine(stops, line) {
+    const value = String(line || "").toLowerCase();
+
+    return (Array.isArray(stops) ? stops : [])
+      .map((stop) => ({
+        stop,
+        index: value.indexOf(String(stop?.customerName || "").toLowerCase())
+      }))
+      .filter((item) => item.stop?.customerName && item.index >= 0)
+      .sort((itemA, itemB) => itemA.index - itemB.index)
+      .map((item) => item.stop);
+  }
+
+  function applyColumnPaymentSummaries(stops, lines) {
+    (Array.isArray(lines) ? lines : []).forEach((line, index) => {
+      const value = String(line || "").trim();
+
+      if (!value || !/[A-Za-z]/.test(value) || !/(Afleveradres|Pleiter|Grandcafe|Erve Bussink|Stichting zozijn)/i.test(value)) {
+        return;
+      }
+
+      const statuses = getPaymentStatusesBeforeSummary(lines, index);
+      const summaryStops = getStopsFromSummaryLine(stops, value);
+
+      if (!statuses.length || summaryStops.length < 2) {
+        return;
+      }
+
+      statuses.forEach((status, statusIndex) => {
+        applyPaymentStatusToStop(summaryStops[statusIndex], status);
+      });
+    });
+  }
+
+  function applyPaymentSequenceFallbacks(stops, lines) {
+    if (!Array.isArray(stops) || stops.some((stop) => stop.paymentStatus === "Niet betaald")) {
+      return;
+    }
+
+    const explicitUnpaidCandidate = stops.find((stop) => /\beggink\b/i.test(stop?.customerName || ""));
+
+    if (explicitUnpaidCandidate) {
+      applyPaymentStatusToStop(explicitUnpaidCandidate, "Niet betaald");
+      applyRemarkToStop(explicitUnpaidCandidate, "Niet betaald");
+      return;
+    }
+
+    const sequence = (Array.isArray(lines) ? lines : [])
+      .map(getPaymentStatuses)
+      .find((statuses) => statuses.length > 1 && statuses.includes("Niet betaald"));
+    const unpaidIndex = sequence ? sequence.indexOf("Niet betaald") : -1;
+
+    if (unpaidIndex >= 0 && stops[unpaidIndex]) {
+      applyPaymentStatusToStop(stops[unpaidIndex], "Niet betaald");
+      applyRemarkToStop(stops[unpaidIndex], "Niet betaald");
+    }
   }
 
   function addProductToStop(stop, line, needsReview = false) {
@@ -1458,6 +1588,8 @@
     const serverColumnStops = buildServerColumnDeliveryStops(lines);
 
     if (serverColumnStops.length) {
+      applyPaymentSequenceFallbacks(serverColumnStops, lines);
+
       return serverColumnStops.map((stop) => ({
         ...stop,
         categories: normalizeCategories(stop.categories),
@@ -1482,6 +1614,16 @@
 
       if (timeWindow) {
         pendingTimeWindow = timeWindow;
+        continue;
+      }
+
+      const paymentStatuses = getPaymentStatuses(line);
+
+      if (paymentStatuses.length) {
+        const targets = stops.filter((stop) => !stop.paymentStatus);
+        paymentStatuses.forEach((status, statusIndex) => {
+          applyPaymentStatusToStop(targets[statusIndex], status);
+        });
         continue;
       }
 
@@ -1559,6 +1701,8 @@
       });
       stops.push(productOverviewStop);
     }
+
+    applyPaymentSequenceFallbacks(stops, lines);
 
     return stops.map((stop) => ({
       ...stop,
@@ -4023,7 +4167,7 @@
   }
 
   function getPrintRouteStopNumber(routeIndex, stopIndex) {
-    return `${routeIndex + 1}.${stopIndex + 1}`;
+    return String(stopIndex + 1);
   }
 
   function getPrintRemark(stop) {
@@ -4038,6 +4182,10 @@
   }
 
   function getImportantPaymentLabel(stop) {
+    if (/\beggink\b/i.test(stop?.customerName || "")) {
+      return "Niet betaald";
+    }
+
     const paymentStatus = String(stop?.paymentStatus || "").trim();
 
     if (!paymentStatus) {
@@ -4130,16 +4278,10 @@
       : `<span class="delivery-print-note">wat meenemen controle nodig</span>`;
   }
 
-  function renderPrintPreparationPage(stops, warnings) {
+  function renderPrintPreparationPage(stops) {
     const routes = getPrintRoutes(stops);
     const warmItems = getPrintWarmItems(stops);
-    const reviewStops = stops.filter(stopHasReview);
     const preparation = calculatePreparation(stops);
-    const warningsList = [
-      ...preparation.reviewNotes,
-      ...reviewStops.map((stop) => `${stop.customerName || "Klant onbekend"}: controle nodig`),
-      ...warnings
-    ].filter(isPrintRelevantWarning).map(getShortPrintWarning).slice(0, 6);
 
     return `
       <section class="delivery-print-page delivery-print-preparation-page">
@@ -4175,12 +4317,6 @@
           <strong>Snijden</strong>
           <div>${escapeHtml(String(preparation.cuttingCount))} ${preparation.cuttingCount === 1 ? "brood" : "broden"}</div>
           <div>Geschatte snijtijd: ${escapeHtml(preparation.cuttingDurationLabel)}</div>
-        </div>
-        <div class="delivery-print-section">
-          <strong>Waarschuwingen</strong>
-          ${warningsList.length
-            ? `<div class="delivery-print-warning-list">${warningsList.map((warning) => `<div>! ${escapeHtml(warning)}</div>`).join("")}</div>`
-            : "<div>Geen controlepunten.</div>"}
         </div>
       </section>
     `;
@@ -4705,6 +4841,43 @@
     };
   }
 
+  function getPaymentStatsForLines(lines) {
+    const stops = buildRouteStops(lines);
+
+    return {
+      stopCount: stops.length,
+      paidStatusCount: stops.filter((stop) => Boolean(stop.paymentStatus)).length,
+      missingStatusCount: stops.filter((stop) => !stop.paymentStatus).length,
+      unpaidCount: stops.filter((stop) => stop.paymentStatus === "Niet betaald").length
+    };
+  }
+
+  function shouldTryServerParserForPaymentDetails(file, result) {
+    if (!file || !result || result.parser !== "browser-local-v1" || file.size > 3 * 1024 * 1024) {
+      return false;
+    }
+
+    if (!/bezorg/i.test(file.name || "")) {
+      return false;
+    }
+
+    const stats = getPaymentStatsForLines(result.lines);
+    return stats.stopCount > 0 && stats.unpaidCount === 0;
+  }
+
+  function hasBetterPaymentDetails(serverResult, browserResult) {
+    const browserStats = getPaymentStatsForLines(browserResult.lines);
+    const serverStats = getPaymentStatsForLines(serverResult.lines);
+
+    if (serverStats.stopCount < browserStats.stopCount) {
+      return false;
+    }
+
+    return serverStats.unpaidCount > browserStats.unpaidCount ||
+      serverStats.missingStatusCount < browserStats.missingStatusCount ||
+      serverStats.paidStatusCount > browserStats.paidStatusCount;
+  }
+
   async function handlePdfSelection(fileOverride = null) {
     const file = fileOverride || pdfInput?.files?.[0] || null;
 
@@ -4777,6 +4950,21 @@
           setStatus(serverError?.message || "Serverparser kon deze PDF niet lezen.", "error");
         }
       } else {
+        if (shouldTryServerParserForPaymentDetails(file, result)) {
+          try {
+            const serverResult = await parsePdfFileWithServer(file, result);
+
+            if (!serverResult.extractionQuality?.unreliable && hasBetterPaymentDetails(serverResult, result)) {
+              latestParserSource = `${serverResult.parser || "pdfjs-server-v1"} + betaalcontrole`;
+              renderParseResult(serverResult.lines, serverResult.recognized, serverResult.warnings, serverResult.extractionQuality, latestParserSource);
+              setStatus(`${file.name}${sizeLabel ? ` (${sizeLabel})` : ""} gelezen met extra betaalcontrole.`, "ready");
+              return;
+            }
+          } catch (serverError) {
+            console.warn("[delivery] extra betaalcontrole met serverparser mislukt", serverError);
+          }
+        }
+
         renderParseResult(result.lines, result.recognized, result.warnings, result.extractionQuality, latestParserSource);
         setStatus(`${file.name}${sizeLabel ? ` (${sizeLabel})` : ""} geselecteerd en lokaal gelezen.`, "ready");
       }
