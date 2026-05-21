@@ -17019,6 +17019,219 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   }
 }
 
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
+  body[data-active-tab="delivery"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  body[data-active-tab="delivery"] > :not(#deliveryPrintOutput),
+  body[data-active-tab="delivery"] .app-shell,
+  body[data-active-tab="delivery"] .brand-header,
+  body[data-active-tab="delivery"] .app-nav,
+  body[data-active-tab="delivery"] .session-bar,
+  body[data-active-tab="delivery"] .mobile-bottom-nav,
+  body[data-active-tab="delivery"] .delivery-panel,
+  body[data-active-tab="delivery"] .delivery-print-card,
+  body[data-active-tab="delivery"] .delivery-route-card,
+  body[data-active-tab="delivery"] .delivery-lower-sections,
+  body[data-active-tab="delivery"] button {
+    display: none !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    color: #111 !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-size: 8.6pt !important;
+    line-height: 1.16 !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput * {
+    box-shadow: none !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-page {
+    display: block !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    height: 281mm !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    break-after: page !important;
+    page-break-after: always !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-page:last-child {
+    break-after: auto !important;
+    page-break-after: auto !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput h4 {
+    margin: 0 0 4mm !important;
+    padding: 0 0 2mm !important;
+    border-bottom: 1px solid #111 !important;
+    font-size: 14pt !important;
+    line-height: 1.1 !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput h5 {
+    margin: 0 0 1.8mm !important;
+    font-size: 10pt !important;
+    line-height: 1.1 !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-meta,
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-section,
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-route-block,
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-check-route,
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-route {
+    margin: 0 0 3mm !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-meta {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 2mm !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-meta span,
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-section,
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-route-stop,
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-check-row,
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-stop,
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-row {
+    border: 1px solid #c8c0b7 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-meta span,
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-section {
+    padding: 2mm !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-warm-row {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) 10mm 24mm !important;
+    gap: 2mm !important;
+    padding: 0.8mm 0 !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-route-list,
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-checklist,
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-route {
+    display: grid !important;
+    gap: 1.2mm !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-route-stop {
+    padding: 1.4mm 1.8mm !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-route-head,
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-head {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) max-content !important;
+    gap: 3mm !important;
+    align-items: baseline !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-route-head > span,
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-head > span {
+    font-weight: 800 !important;
+    white-space: nowrap !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-address,
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-route-remark,
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-stop > small {
+    color: #444 !important;
+    font-size: 7.7pt !important;
+    line-height: 1.12 !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-check-row {
+    display: grid !important;
+    grid-template-columns: 5mm minmax(0, 1fr) minmax(30mm, 0.48fr) !important;
+    gap: 2mm !important;
+    align-items: center !important;
+    padding: 1.2mm 1.6mm !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-checkbox {
+    width: 4mm !important;
+    height: 4mm !important;
+    border: 1px solid #111 !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-page {
+    font-size: 7.2pt !important;
+    line-height: 1.08 !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-route {
+    gap: 0.8mm !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-route h5 {
+    margin: 0.8mm 0 0.5mm !important;
+    font-size: 8.4pt !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-stop {
+    display: grid !important;
+    gap: 0.5mm !important;
+    padding: 1mm 1.3mm !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-head strong {
+    font-size: 8.2pt !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-row {
+    display: grid !important;
+    grid-template-columns: 8mm minmax(0, 1fr) !important;
+    gap: 1.2mm !important;
+    align-items: start !important;
+    padding: 0.35mm 0 !important;
+    border-width: 1px 0 0 !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-row b {
+    font-weight: 900 !important;
+    white-space: nowrap !important;
+  }
+
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-row .delivery-category-chip,
+  body[data-active-tab="delivery"] #deliveryPrintOutput .delivery-print-product-row small {
+    display: none !important;
+  }
+}
+
 
 
 
