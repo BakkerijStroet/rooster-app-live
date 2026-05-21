@@ -77,6 +77,14 @@
   };
   let latestPlannerStatus = "draft";
   let latestRouteProposalState = "none";
+  let latestRouteCompleteness = {
+    isIncomplete: false,
+    reasons: [],
+    suspectedCount: 0,
+    builtCount: 0,
+    missingLines: []
+  };
+  let latestParserQualityBlocked = false;
   let latestHasLocalCorrections = false;
   let latestParserVersionWarning = "";
   let selectedDeliveryStopIndex = -1;
@@ -228,8 +236,10 @@
   }
 
   function renderPlannerStatus() {
+    const isPrintBlocked = isRoutePrintBlocked();
+
     if (plannerApprovePrintButton) {
-      plannerApprovePrintButton.disabled = !latestRouteStops.length;
+      plannerApprovePrintButton.disabled = !latestRouteStops.length || isPrintBlocked;
     }
 
     if (routeResetButton) {
@@ -242,26 +252,37 @@
       return;
     }
 
+    if (isPrintBlocked) {
+      plannerStatusElement.hidden = false;
+      plannerStatusElement.textContent = "Route onvolledig gelezen - printen geblokkeerd";
+      plannerStatusElement.dataset.deliveryPlannerState = "incomplete";
+      return;
+    }
+
     if (latestPlannerStatus === "approved" && latestRouteStops.length) {
       plannerStatusElement.hidden = false;
       plannerStatusElement.textContent = "Planning gecontroleerd";
+      plannerStatusElement.dataset.deliveryPlannerState = "approved";
       return;
     }
 
     if (latestRouteProposalState === "suggested" && latestRouteStops.length) {
       plannerStatusElement.hidden = false;
       plannerStatusElement.textContent = "Voorstelroute gemaakt";
+      plannerStatusElement.dataset.deliveryPlannerState = "suggested";
       return;
     }
 
     if (latestRouteProposalState === "pdf-order" && latestRouteStops.length) {
       plannerStatusElement.hidden = false;
       plannerStatusElement.textContent = "PDF-volgorde";
+      plannerStatusElement.dataset.deliveryPlannerState = "pdf-order";
       return;
     }
 
     plannerStatusElement.hidden = true;
     plannerStatusElement.textContent = "";
+    plannerStatusElement.dataset.deliveryPlannerState = "";
   }
 
   function resetDeliveryPlanningApproval() {
@@ -351,6 +372,14 @@
     };
     latestPlannerStatus = "draft";
     latestRouteProposalState = "none";
+    latestRouteCompleteness = {
+      isIncomplete: false,
+      suspectedCount: 0,
+      builtCount: 0,
+      missingLines: [],
+      reasons: []
+    };
+    latestParserQualityBlocked = false;
     latestHasLocalCorrections = false;
     latestParserVersionWarning = "";
     selectedDeliveryStopIndex = -1;
@@ -1386,6 +1415,12 @@
   }
 
   function buildServerColumnDeliveryStops(lines) {
+    const reconstructedStops = buildReconstructedColumnStops(lines);
+
+    if (reconstructedStops.length) {
+      return reconstructedStops;
+    }
+
     const stops = [];
     const seenKeys = new Set();
 
@@ -1631,6 +1666,14 @@
     latestParserVersionWarning = "";
     latestPlannerStatus = "draft";
     latestRouteProposalState = "none";
+    latestRouteCompleteness = {
+      isIncomplete: false,
+      suspectedCount: 0,
+      builtCount: 0,
+      missingLines: [],
+      reasons: []
+    };
+    latestParserQualityBlocked = true;
     selectedDeliveryStopIndex = -1;
 
     if (lineCountElement) {
@@ -1685,6 +1728,7 @@
 
   function renderParseResult(lines, recognized, warnings, extractionQuality = null, parserSource = "") {
     setDeliveryWorkVisible(true);
+    latestParserQualityBlocked = false;
 
     if (extractionQuality?.unreliable) {
       renderUnreliableExtraction(lines, warnings, extractionQuality, parserSource);
@@ -1717,8 +1761,17 @@
     }
 
     const routeStops = applySuggestedRouteOrder(buildRouteStops(lines));
+    latestRouteCompleteness = getRouteCompletenessInfo(lines, routeStops);
     const visibleWarnings = routeStops.length
-      ? [...warnings, "Voorstelroute gemaakt - controleer en sleep waar nodig"]
+      ? [
+        ...warnings,
+        latestRouteCompleteness.isIncomplete
+          ? `Route onvolledig gelezen - printen geblokkeerd: ${latestRouteCompleteness.builtCount} van vermoedelijk ${latestRouteCompleteness.suspectedCount} stops herkend. Controleer PDF of parser. Deze route mag nog niet gebruikt worden.`
+          : "",
+        ...latestRouteCompleteness.reasons.map((reason) => `Blokkade: ${reason}`),
+        ...latestRouteCompleteness.missingLines.map((line) => `Mogelijk niet gekoppeld: ${line}`),
+        "Voorstelroute gemaakt - controleer en sleep waar nodig"
+      ].filter(Boolean)
       : warnings;
 
     if (warningsElement) {
@@ -1946,6 +1999,146 @@
 
     latestRouteProposalState = normalizedStops.length ? "suggested" : "none";
     return [...normalizedStops].sort(compareSuggestedRouteStops);
+  }
+
+  function getStopCompletenessKey(stop) {
+    const customerName = String(stop?.customerName || "").toLowerCase().replace(/\s+/g, " ").trim();
+    const address = String(stop?.address || "")
+      .toLowerCase()
+      .replace(/\b([1-9][0-9]{3})\s?([a-z]{2})\b/g, "$1 $2")
+      .replace(/[,\s]+/g, " ")
+      .trim();
+
+    return [
+      String(stop?.sourceCode || "").toLowerCase(),
+      customerName,
+      address
+    ].join("|").trim();
+  }
+
+  function getLinePostcodeCount(line) {
+    return (String(line || "").match(/\b[1-9][0-9]{3}\s?[A-Z]{2}\b/gi) || []).length;
+  }
+
+  function isAggregateStopSummaryLine(line) {
+    const value = String(line || "").trim();
+
+    return /^(?:Postcode|Adres|Selecties|Afleveradres)\b/i.test(value) || getLinePostcodeCount(value) >= 3;
+  }
+
+  function isPotentialAddressHeaderLine(line) {
+    const value = String(line || "").trim();
+
+    if (!value || isProductLine(value) || isRouteNoiseLine(value)) {
+      return false;
+    }
+
+    return POSTCODE_PATTERN.test(value) && (
+      ADDRESS_PATTERN.test(value) ||
+      /\b(?:straat|laan|weg|plein|hof|pad|dijk|kade|singel|steeg|plantsoen|boulevard|blik|postbus)\b/i.test(value) ||
+      /^\s*STOPHEADER\b/i.test(value)
+    );
+  }
+
+  function getSuspectedStopReferences(lines) {
+    const references = [];
+    const seenKeys = new Set();
+
+    (Array.isArray(lines) ? lines : []).forEach((line) => {
+      const value = String(line || "").trim();
+
+      if (!value) {
+        return;
+      }
+
+      const parsedStop = parseStopHeaderLine(value);
+
+      if (parsedStop) {
+        const key = getStopCompletenessKey(parsedStop);
+
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          references.push({
+            line: value,
+            key,
+            label: parsedStop.customerName || value
+          });
+        }
+
+        return;
+      }
+
+      if (isAggregateStopSummaryLine(value)) {
+        return;
+      }
+
+      if (/^STOPHEADER\b/i.test(value) || isPotentialAddressHeaderLine(value)) {
+        const key = value.toLowerCase().replace(/\s+/g, " ");
+
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          references.push({
+            line: value,
+            key,
+            label: value
+          });
+        }
+      }
+    });
+
+    return references;
+  }
+
+  function getSuspectedStopCountFromRows(lines) {
+    return (Array.isArray(lines) ? lines : []).reduce((highestCount, line) => {
+      const value = String(line || "");
+      const postcodeCount = getLinePostcodeCount(value);
+
+      if (isAggregateStopSummaryLine(value)) {
+        return Math.max(highestCount, postcodeCount);
+      }
+
+      return highestCount;
+    }, 0);
+  }
+
+  function getRouteCompletenessInfo(lines, stops) {
+    const normalizedStops = Array.isArray(stops) ? stops : [];
+    const suspectedReferences = getSuspectedStopReferences(lines);
+    const rowSuspectedCount = getSuspectedStopCountFromRows(lines);
+    const suspectedCount = Math.max(suspectedReferences.length, rowSuspectedCount);
+    const builtCount = normalizedStops.length;
+    const builtKeys = new Set(normalizedStops.map(getStopCompletenessKey));
+    const missingLines = suspectedReferences
+      .filter((reference) => !builtKeys.has(reference.key))
+      .map((reference) => reference.line)
+      .slice(0, 8);
+    const countGap = Math.max(0, suspectedCount - builtCount);
+    const unknownCustomerCount = normalizedStops.filter((stop) =>
+      !String(stop?.customerName || "").trim() ||
+      /klant onbekend/i.test(String(stop?.customerName || ""))
+    ).length;
+    const suspectedMultiStopPdf = getSuspectedStopCountFromRows(lines) > 3 || suspectedReferences.length > 3;
+    const reasons = [
+      countGap > 0 ? `vermoedelijk ${countGap} stop${countGap === 1 ? "" : "s"} niet gebouwd` : "",
+      unknownCustomerCount ? `${unknownCustomerCount} onbekende klantnaam${unknownCustomerCount === 1 ? "" : "namen"}` : "",
+      missingLines.length ? `${missingLines.length} stop-/adresregel${missingLines.length === 1 ? "" : "s"} niet gekoppeld` : "",
+      builtCount >= 1 && builtCount <= 3 && suspectedMultiStopPdf ? "route heeft maar 1-3 stops terwijl PDF meerdere adressen lijkt te bevatten" : "",
+      latestParserQualityBlocked ? "parserkwaliteit onzeker" : ""
+    ].filter(Boolean);
+    const isIncomplete = reasons.length > 0;
+
+    return {
+      isIncomplete,
+      reasons,
+      suspectedCount,
+      builtCount,
+      missingLines
+    };
+  }
+
+  function isRoutePrintBlocked() {
+    return Boolean(latestRouteCompleteness.isIncomplete);
   }
 
   function resetRouteToPdfOrder() {
@@ -2343,7 +2536,7 @@
       <span><strong>Stops</strong>${latestRouteStops.length}</span>
       <span><strong>Opslag</strong>${escapeHtml(getSaveStatusText())}</span>
       <span><strong>Parser</strong>${escapeHtml(latestParserSource || "-")}</span>
-      <button type="button" class="secondary" data-delivery-status-print ${latestRouteStops.length ? "" : "disabled"}>Printvoorbeeld</button>
+      <button type="button" class="secondary" data-delivery-status-print ${latestRouteStops.length && !isRoutePrintBlocked() ? "" : "disabled"}>Printvoorbeeld</button>
       ${warning}
     `;
   }
@@ -2493,6 +2686,14 @@
     latestHasLocalCorrections = false;
     latestPlannerStatus = "draft";
     latestRouteProposalState = "none";
+    latestRouteCompleteness = {
+      isIncomplete: false,
+      suspectedCount: routeStops.length,
+      builtCount: routeStops.length,
+      missingLines: [],
+      reasons: []
+    };
+    latestParserQualityBlocked = false;
     latestParserVersionWarning = parserVersionWarning;
     selectedDeliveryStopIndex = -1;
     draggedDeliveryStopIndex = -1;
@@ -3210,6 +3411,21 @@
 
     routeBlocksElement.classList.remove("empty");
     routeBlocksElement.innerHTML = `
+      ${isRoutePrintBlocked() ? `
+        <div class="delivery-route-incomplete-alert">
+          <strong>Route onvolledig gelezen - printen geblokkeerd</strong>
+          <span>${escapeHtml(latestRouteCompleteness.builtCount)} van vermoedelijk ${escapeHtml(latestRouteCompleteness.suspectedCount)} stops herkend. Controleer PDF of parser. Deze route mag nog niet gebruikt worden.</span>
+          ${latestRouteCompleteness.reasons.length ? `
+            <small>Reden: ${latestRouteCompleteness.reasons.map(escapeHtml).join(" | ")}</small>
+          ` : ""}
+          <details>
+            <summary>Toon verdachte regels</summary>
+            ${latestRouteCompleteness.missingLines.length
+              ? `<small>${latestRouteCompleteness.missingLines.map(escapeHtml).join(" | ")}</small>`
+              : "<small>Geen losse verdachte regels beschikbaar; blokkade komt uit aantallen/klantnamen/parserkwaliteit.</small>"}
+          </details>
+        </div>
+      ` : ""}
       <div class="delivery-route-planner-grid">
         <section class="delivery-route-block delivery-route-lane is-active">
           <header class="delivery-route-lane-header">
@@ -3726,6 +3942,12 @@
       return;
     }
 
+    if (isRoutePrintBlocked()) {
+      printPreviewElement.classList.add("empty");
+      printPreviewElement.textContent = "Route onvolledig gelezen - printen geblokkeerd. Controleer PDF of parser. Deze route mag nog niet gebruikt worden.";
+      return;
+    }
+
     printPreviewElement.classList.remove("empty");
     printPreviewElement.innerHTML = [
       renderPrintPreparationPage(latestRouteStops, latestParseWarnings),
@@ -3746,7 +3968,10 @@
   }
 
   function approvePlanningAndOpenPrint() {
-    if (!latestRouteStops.length) {
+    if (!latestRouteStops.length || isRoutePrintBlocked()) {
+      if (isRoutePrintBlocked()) {
+        setStatus("Route onvolledig gelezen - printen geblokkeerd.", "error");
+      }
       return;
     }
 

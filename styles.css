@@ -16496,6 +16496,43 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   display: none;
 }
 
+.delivery-panel.has-delivery-run .delivery-planner-status[data-delivery-planner-state="incomplete"] {
+  border-color: #d97b70;
+  background: #fff1ed;
+  color: #8f2f25;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-incomplete-alert {
+  display: grid;
+  gap: 0.12rem;
+  margin-bottom: 0.22rem;
+  padding: 0.28rem 0.42rem;
+  border: 1px solid #d97b70;
+  border-radius: 6px;
+  background: #fff1ed;
+  color: #8f2f25;
+  font-size: 0.74rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-incomplete-alert strong {
+  font-size: 0.78rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-incomplete-alert small {
+  color: #7f3b32;
+  line-height: 1.35;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-incomplete-alert details {
+  margin-top: 0.08rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-incomplete-alert summary {
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
 .delivery-panel.has-delivery-run .delivery-route-planner-grid {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.45rem;
