@@ -4131,6 +4131,7 @@
   }
 
   function renderPrintPreparationPage(stops, warnings) {
+    const routes = getPrintRoutes(stops);
     const warmItems = getPrintWarmItems(stops);
     const reviewStops = stops.filter(stopHasReview);
     const preparation = calculatePreparation(stops);
@@ -4138,14 +4139,21 @@
       ...preparation.reviewNotes,
       ...reviewStops.map((stop) => `${stop.customerName || "Klant onbekend"}: controle nodig`),
       ...warnings
-    ].filter(isPrintRelevantWarning).map(getShortPrintWarning).slice(0, 10);
+    ].filter(isPrintRelevantWarning).map(getShortPrintWarning).slice(0, 6);
 
     return `
       <section class="delivery-print-page delivery-print-preparation-page">
-        <h4>Voorbereiding</h4>
+        <h4>Laden & voorbereiding</h4>
         <div class="delivery-print-meta">
           <span><strong>Datum</strong>${escapeHtml(latestDeliveryDate || "datum controle nodig")}</span>
-          <span><strong>Print</strong>Route voor bezorger</span>
+        </div>
+        <div class="delivery-print-route-summary">
+          ${routes.map((route) => `
+            <div>
+              <strong>${escapeHtml(route.name)}</strong>
+              <span>${escapeHtml(String(route.stops.length))} ${route.stops.length === 1 ? "stop" : "stops"}</span>
+            </div>
+          `).join("")}
         </div>
         <div class="delivery-print-section">
           <strong>Warme snacks</strong>
@@ -4153,6 +4161,7 @@
             ? `<div class="delivery-print-warm-list">
                 ${warmItems.map((item) => `
                   <div class="delivery-print-warm-row">
+                    <span class="delivery-print-checkbox" aria-hidden="true"></span>
                     <span>${escapeHtml(item.productText)}</span>
                     <span>${escapeHtml(item.stop.customerName || "Klant onbekend")}</span>
                     <b>${escapeHtml(item.count)}</b>
@@ -4170,7 +4179,7 @@
         <div class="delivery-print-section">
           <strong>Waarschuwingen</strong>
           ${warningsList.length
-            ? warningsList.map((warning) => `<div>${escapeHtml(warning)}</div>`).join("")
+            ? `<div class="delivery-print-warning-list">${warningsList.map((warning) => `<div>! ${escapeHtml(warning)}</div>`).join("")}</div>`
             : "<div>Geen controlepunten.</div>"}
         </div>
       </section>
@@ -4182,7 +4191,7 @@
 
     return `
       <section class="delivery-print-page delivery-print-route-page">
-        <h4>Blad 2: Route voor bezorger</h4>
+        <h4>Route voor bezorger</h4>
         ${routes.map((route, routeIndex) => `
           <div class="delivery-print-route-block">
             <h5>${escapeHtml(route.name)}</h5>
@@ -4216,7 +4225,7 @@
 
     return `
       <section class="delivery-print-page delivery-print-check-page">
-        <h4>Blad 3: Afvinklijst</h4>
+        <h4>Afvinken & betalingen</h4>
         ${routes.map((route, routeIndex) => `
           <div class="delivery-print-check-route">
             <h5>${escapeHtml(route.name)}</h5>
@@ -4225,16 +4234,16 @@
                 ? route.stops.map((stop, stopIndex) => {
                     const paymentLabel = getImportantPaymentLabel(stop);
                     const remark = getShortPrintRemark(stop);
-                    const checklistDetails = [
-                      paymentLabel,
-                      remark
-                    ].filter(Boolean).map(escapeHtml).join(" | ");
-
                     return `
                       <div class="delivery-print-check-row">
-                        <span class="delivery-print-checkbox" aria-hidden="true"></span>
-                        <span><strong>${escapeHtml(getPrintRouteStopNumber(routeIndex, stopIndex))} ${escapeHtml(stop.customerName || "Klant onbekend")}</strong> ${escapeHtml(getRouteStopTimeLabel(stop))}</span>
-                        <span class="delivery-print-payment">${checklistDetails}</span>
+                        <span class="delivery-print-check-cell"><span class="delivery-print-checkbox" aria-hidden="true"></span><b>geleverd</b></span>
+                        <span class="delivery-print-check-cell"><span class="delivery-print-checkbox" aria-hidden="true"></span><b>betaald</b></span>
+                        <span class="delivery-print-check-main">
+                          <strong>${escapeHtml(getPrintRouteStopNumber(routeIndex, stopIndex))} ${escapeHtml(stop.customerName || "Klant onbekend")}</strong>
+                          ${remark ? `<small>${escapeHtml(remark)}</small>` : ""}
+                        </span>
+                        <span class="delivery-print-check-time">${escapeHtml(getRouteStopTimeLabel(stop))}</span>
+                        <span class="delivery-print-payment">${escapeHtml(paymentLabel)}</span>
                       </div>
                     `;
                   }).join("")
@@ -4254,40 +4263,53 @@
         products: getSortedProductsForStop(stop)
       }))
     }));
-    const hasProducts = routes.some((route) => route.stops.some((stop) => stop.products.length));
+    const hasStops = routes.some((route) => route.stops.length);
 
     return `
       <section class="delivery-print-page delivery-print-product-page">
-        <h4>Blad 4: Productoverzicht met exacte producten en aantallen</h4>
-        ${hasProducts
+        <h4>Producten / laden</h4>
+        ${hasStops
           ? routes.map((route, routeIndex) => `
             <div class="delivery-print-product-route">
               <h5>${escapeHtml(route.name)}</h5>
-              ${route.stops.map((stop, stopIndex) => stop.products.length ? `
-                <article class="delivery-print-product-stop">
-                  <div class="delivery-print-product-head">
-                    <strong>${escapeHtml(getPrintRouteStopNumber(routeIndex, stopIndex))} ${escapeHtml(stop.customerName || "Klant onbekend")}</strong>
-                    <span>${escapeHtml(getRouteStopTimeLabel(stop))}</span>
-                  </div>
-                  <small>${escapeHtml(stop.address || "Adres onbekend")}</small>
-                  ${stop.products.map((product) => {
-                    const numericCount = Number(product.count);
-                    const isLargeCount = Number.isFinite(numericCount) && numericCount >= 10;
-
-                    return `
-                      <div class="delivery-print-product-row${product.category === "warm" ? " has-warm" : ""}">
-                        <b class="${isLargeCount ? "is-large" : ""}">${escapeHtml(product.count || "?")}</b>
-                        <span>${escapeHtml(product.rawLine)}</span>
-                        ${product.category ? `<span class="delivery-category-chip" data-delivery-category="${escapeHtml(product.category)}">${escapeHtml(product.category)}</span>` : ""}
-                        ${product.needsReview ? `<small>controle nodig${product.count ? "" : ": aantal niet herkend"}</small>` : ""}
+              <div class="delivery-print-product-stops">
+                ${route.stops.length
+                  ? route.stops.map((stop, stopIndex) => `
+                    <article class="delivery-print-product-stop${isWarmStop(stop) ? " has-warm" : ""}">
+                      <div class="delivery-print-product-head">
+                        <strong>${escapeHtml(getPrintRouteStopNumber(routeIndex, stopIndex))} ${escapeHtml(stop.customerName || "Klant onbekend")}</strong>
+                        <span>${escapeHtml(getRouteStopTimeLabel(stop))}</span>
                       </div>
-                    `;
-                  }).join("")}
-                </article>
-              ` : "").join("") || "<div class=\"delivery-print-note\">Geen productregels in deze route.</div>"}
+                      <small>${escapeHtml(stop.address || "Adres onbekend")}</small>
+                      <div class="delivery-print-product-list">
+                        ${stop.products.length
+                          ? stop.products.map((product) => {
+                            const numericCount = Number(product.count);
+                            const isLargeCount = Number.isFinite(numericCount) && numericCount >= 10;
+                            const isWarmProduct = product.category === "warm";
+
+                            return `
+                              <div class="delivery-print-product-row${isWarmProduct ? " has-warm" : ""}${isLargeCount ? " has-large-count" : ""}">
+                                <span class="delivery-print-checkbox" aria-hidden="true"></span>
+                                <b class="${isLargeCount ? "is-large" : ""}">${escapeHtml(product.count || "?")}</b>
+                                <span>${isWarmProduct ? "&#128293; " : ""}${escapeHtml(product.rawLine)}</span>
+                                ${product.needsReview ? `<small>controle nodig${product.count ? "" : ": aantal niet herkend"}</small>` : ""}
+                              </div>
+                            `;
+                          }).join("")
+                          : `<div class="delivery-print-product-row is-empty">
+                              <span class="delivery-print-checkbox" aria-hidden="true"></span>
+                              <b>?</b>
+                              <span>Geen productregels gekoppeld</span>
+                            </div>`}
+                      </div>
+                    </article>
+                  `).join("")
+                  : "<div class=\"delivery-print-note\">Geen stops in deze route.</div>"}
+              </div>
             </div>
           `).join("")
-          : "<div class=\"delivery-print-note\">Geen productregels gevonden.</div>"}
+          : "<div class=\"delivery-print-note\">Geen stops gevonden.</div>"}
       </section>
     `;
   }
