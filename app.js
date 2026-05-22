@@ -23932,7 +23932,8 @@ function compareSmartPlanningAutoFillCandidates(candidateA, candidateB, item) {
     candidateA.employeeName.localeCompare(candidateB.employeeName, "nl");
 }
 
-function getBestSmartPlanningAutoFillCandidate(item) {
+function getBestSmartPlanningAutoFillCandidate(item, options = {}) {
+  const { isCandidateBlocked = null } = options;
   const advice = getSmartPlanningAuthorizedEmployeeAdvice(item);
   const availableCandidates = [...advice.available];
 
@@ -23945,6 +23946,7 @@ function getBestSmartPlanningAutoFillCandidate(item) {
   );
 
   return availableCandidates.find((candidate) =>
+    !(typeof isCandidateBlocked === "function" && isCandidateBlocked(candidate)) &&
     getSmartPlanningAutoFillCandidateDecision(candidate, item).accepted
   ) || null;
 }
@@ -24211,8 +24213,32 @@ function autoFillSmartPlanningProposal(options = {}) {
       (!explicitTargetWeek || item.weekValue === targetWeek)
     )
     .sort(compareSmartPlanningItemsForAutoFill);
+  const autofillAssignmentsByEmployeeDay = new Map();
+  const registerAutofillAssignment = (employeeName, item) => {
+    if (!employeeName || !item?.day) {
+      return;
+    }
+
+    const dayKey = `${employeeName}|${item.day}`;
+    if (!autofillAssignmentsByEmployeeDay.has(dayKey)) {
+      autofillAssignmentsByEmployeeDay.set(dayKey, []);
+    }
+    autofillAssignmentsByEmployeeDay.get(dayKey).push(item);
+  };
+  const hasAutofillBlockingAssignment = (employeeName, item) => (
+    autofillAssignmentsByEmployeeDay.get(`${employeeName}|${item?.day || ""}`) || []
+  ).some((assignment) => assignment.id !== item?.id && !canCombineSmartPlanningShifts(assignment, item));
+
+  getSmartPlanningProposalItems().forEach((item) => {
+    if (!isSmartPlanningOpenProposalItem(item) && item.chosenEmployeeName) {
+      registerAutofillAssignment(item.chosenEmployeeName, item);
+    }
+  });
+
   openItems.forEach((item) => {
-    const candidate = getBestSmartPlanningAutoFillCandidate(item);
+    const candidate = getBestSmartPlanningAutoFillCandidate(item, {
+      isCandidateBlocked: (candidateItem) => hasAutofillBlockingAssignment(candidateItem.employeeName, item)
+    });
 
     if (!candidate) {
       remainingOpenCount += 1;
@@ -24229,6 +24255,7 @@ function autoFillSmartPlanningProposal(options = {}) {
     item.assignmentReason = getSmartPlanningAutoFillReason(candidate, item);
     lastSmartPlanningAssignedItemId = item.id;
     filledCount += 1;
+    registerAutofillAssignment(candidate.employeeName, item);
     invalidateSmartPlanningEffectiveEntriesCache();
   });
 
