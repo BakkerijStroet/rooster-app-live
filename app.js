@@ -17308,12 +17308,16 @@ function getPlannerRequestCoverageForDate(request, requestType, date) {
   const plannedShop = plannedByDepartment.shop.size;
   const plannedBakery = plannedByDepartment.bakery.size;
   const totalPlanned = plannedShop + plannedBakery;
+  const hasPlanningEntries = dayEntries.length > 0;
   let level = "ok";
   let label = "Bezetting ok";
 
-  if (totalPlanned === 0) {
+  if (!hasPlanningEntries) {
     level = "warning";
-    label = "Nog geen planning";
+    label = "Planning nog niet ingevuld";
+  } else if (totalPlanned === 0) {
+    level = "warning";
+    label = "Nog niemand ingepland";
   } else if (plannedShop <= 1 || plannedBakery <= 2 || (affectedEntryCount > 0 && projectedAbsenceCount >= 3)) {
     level = "danger";
     label = "Mogelijk probleem";
@@ -17329,6 +17333,7 @@ function getPlannerRequestCoverageForDate(request, requestType, date) {
     plannedBakery,
     plannedShop,
     projectedAbsenceCount,
+    hasPlanningEntries,
     otherAbsences,
     affectedEntryCount
   };
@@ -17363,6 +17368,7 @@ function getPlannerRequestCoverageContext(request, requestType) {
     label: highestContext.label,
     plannedBakery: highestContext.plannedBakery,
     plannedShop: highestContext.plannedShop,
+    hasPlanningEntries: highestContext.hasPlanningEntries,
     absenceSummary,
     absenceTitle,
     daySummary: dates.length > 1
@@ -17370,6 +17376,9 @@ function getPlannerRequestCoverageContext(request, requestType) {
         .slice(0, 7)
         .map((context) => {
           const dayLabel = formatWeekday(context.date).slice(0, 2).toLowerCase();
+          if (!context.hasPlanningEntries) {
+            return `${dayLabel} geen rooster`;
+          }
           const marker = context.level === "ok" ? "" : " !";
           return `${dayLabel} ${context.projectedAbsenceCount} afwezig${marker}`;
         })
@@ -17389,7 +17398,9 @@ function renderPlannerRequestCoverageContext(request, requestType) {
     <div class="request-coverage-context is-${context.level}" title="${escapeHtmlAttribute(context.absenceTitle)}">
       <span class="request-coverage-status">${context.label}</span>
       <span>Afwezig: ${escapeHtmlAttribute(context.absenceSummary)}</span>
-      <span>Ingepland: bakkerij ${context.plannedBakery} · winkel ${context.plannedShop}</span>
+      ${context.hasPlanningEntries
+        ? `<span>Ingepland: bakkerij ${context.plannedBakery} · winkel ${context.plannedShop}</span>`
+        : `<span>Nog geen rooster voor deze dag</span>`}
       ${context.daySummary ? `<span class="request-coverage-days">${escapeHtmlAttribute(context.daySummary)}</span>` : ""}
     </div>
   `;
