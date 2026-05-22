@@ -24258,6 +24258,12 @@ function autoFillSmartPlanningProposal(options = {}) {
     registerAutofillAssignment(candidate.employeeName, item);
     invalidateSmartPlanningEffectiveEntriesCache();
   });
+  const duplicateAssignmentCount = clearDuplicateSmartPlanningAutofillAssignments(explicitTargetWeek ? targetWeek : "");
+  if (duplicateAssignmentCount) {
+    filledCount = Math.max(0, filledCount - duplicateAssignmentCount);
+    remainingOpenCount += duplicateAssignmentCount;
+    blockReasons.set("Al gekozen", (blockReasons.get("Al gekozen") || 0) + duplicateAssignmentCount);
+  }
 
   if (!filledCount) {
     renderSmartPlanningPanel();
@@ -24289,6 +24295,50 @@ function autoFillSmartPlanningProposal(options = {}) {
 function recalculateSmartPlanningFocusedWeek() {
   const targetWeek = smartPlanningFocusedWeek || getSmartPlanningSelectedWeek();
   autoFillSmartPlanningProposal({ weekValue: targetWeek, recalculate: true });
+}
+
+function clearDuplicateSmartPlanningAutofillAssignments(targetWeek = "") {
+  if (!smartPlanningProposalState?.weeks?.length) {
+    return 0;
+  }
+
+  const assignmentsByEmployeeDay = new Map();
+  let clearedCount = 0;
+  const items = [...getSmartPlanningProposalItems()]
+    .filter((item) => !targetWeek || item.weekValue === targetWeek)
+    .sort(compareSmartPlanningItemsByRosterOrder);
+
+  items.forEach((item) => {
+    const employeeName = item.chosenEmployeeName || "";
+    if (!employeeName || !item.day) {
+      return;
+    }
+
+    const dayKey = `${employeeName}|${item.day}`;
+    const existingAssignments = assignmentsByEmployeeDay.get(dayKey) || [];
+    const hasBlockingAssignment = existingAssignments.some((assignment) =>
+      !canCombineSmartPlanningShifts(assignment, item)
+    );
+
+    if (hasBlockingAssignment) {
+      item.chosenEmployeeName = "";
+      item.keepOpen = false;
+      item.lockedOpen = false;
+      item.autoFillBlockReason = "Al gekozen";
+      item.assignmentReason = "";
+      clearedCount += 1;
+      return;
+    }
+
+    existingAssignments.push(item);
+    assignmentsByEmployeeDay.set(dayKey, existingAssignments);
+  });
+
+  if (clearedCount) {
+    invalidateSmartPlanningEffectiveEntriesCache();
+  }
+
+  return clearedCount;
 }
 
 function getSmartPlanningEmployeeAdvice(item) {
