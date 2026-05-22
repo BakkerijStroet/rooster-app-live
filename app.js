@@ -22076,6 +22076,28 @@ function compareSmartPlanningItemsByRosterOrder(itemA, itemB) {
     (sortEntryA.shiftName || "").localeCompare(sortEntryB.shiftName || "", "nl");
 }
 
+function getSmartPlanningAutoFillDepartmentPriority(item = {}) {
+  const shift = getSmartPlanningShiftFromProposalItem(item);
+  const categoryKey = getShiftCategoryKey(shift || {
+    name: item.shiftName || "",
+    isShopShift: item.department === "shop"
+  });
+
+  if (categoryKey === "shop") return 0;
+  if (categoryKey === "allround") return 1;
+  if (categoryKey === "bakery") return 2;
+  return 3;
+}
+
+function compareSmartPlanningItemsForAutoFill(itemA, itemB) {
+  const sortEntryA = mapSmartPlanningItemToRosterSortEntry(itemA);
+  const sortEntryB = mapSmartPlanningItemToRosterSortEntry(itemB);
+
+  return sortEntryA.day.localeCompare(sortEntryB.day) ||
+    getSmartPlanningAutoFillDepartmentPriority(itemA) - getSmartPlanningAutoFillDepartmentPriority(itemB) ||
+    compareSmartPlanningItemsByRosterOrder(itemA, itemB);
+}
+
 function getSmartPlanningDepartmentLabel(department = "all") {
   if (department === "bakery") return "Bakkerij";
   if (department === "shop") return "Winkel";
@@ -23380,6 +23402,41 @@ function getSmartPlanningPatternDisplayReason(employeeName, item) {
   return "Buiten normaal patroon";
 }
 
+function isSmartPlanningFixedSaturdayEmployee(employeeName, item) {
+  if (getWeekdayNumberFromDate(item?.day || "") !== 6) {
+    return false;
+  }
+
+  const patternId = getEmployeeBasePatternId(employeeName);
+  if (["saturday-only", "thu-fri-afternoon-sat", "wed-thu-fri-sat", "tue-fri-sat", "sophie-stage-sat"].includes(patternId)) {
+    return true;
+  }
+
+  if (patternId === "saskia-biweekly") {
+    return getWeekPatternVariant(item?.weekValue || getWeekValueFromDate(item?.day || "")) === "B";
+  }
+
+  return isWeekendEmployee(employeeName);
+}
+
+function isSmartPlanningFlexibleShopEmployee(employeeName, item) {
+  const shift = getSmartPlanningShiftFromProposalItem(item);
+  const categoryKey = getShiftCategoryKey(shift || {
+    name: item?.shiftName || "",
+    isShopShift: item?.department === "shop"
+  });
+
+  if (categoryKey !== "shop" && categoryKey !== "allround") {
+    return false;
+  }
+
+  if (isSmartPlanningEmergencyEmployee(employeeName)) {
+    return false;
+  }
+
+  return String(getEmployeeDepartmentSummary(employeeName) || "").toLowerCase().includes("winkel");
+}
+
 function applySmartPlanningFixedBakeryStaffing() {
   if (!smartPlanningProposalState?.weeks?.length) {
     return 0;
@@ -23431,6 +23488,10 @@ function getSmartPlanningAutoFillReason(candidate, item) {
     return "Vaste plek";
   }
 
+  if (scoreDetails.saturdayFixedScore > 0) {
+    return "Vaste zaterdag";
+  }
+
   if (scoreDetails.patternFitScore > 0) {
     return "Vast patroon";
   }
@@ -23480,6 +23541,7 @@ function getSmartPlanningAutoFillCandidateDecision(candidate, item) {
   const weekday = getWeekdayNumberFromDate(item.day);
   const patternId = getEmployeeBasePatternId(candidate.employeeName);
   const patternMatch = getSmartPlanningPatternMatchForItem(candidate.employeeName, item);
+  const isFlexibleShopCandidate = isSmartPlanningFlexibleShopEmployee(candidate.employeeName, item);
   const extraAvailabilityMatch = getEmployeeExtraAvailabilityMatch(
     candidate.employeeName,
     item.day,
@@ -23510,7 +23572,7 @@ function getSmartPlanningAutoFillCandidateDecision(candidate, item) {
     };
   }
 
-  if (!extraAvailabilityMatch && !patternId && scoreDetails.fixedScore <= 0) {
+  if (!extraAvailabilityMatch && !patternId && scoreDetails.fixedScore <= 0 && !isFlexibleShopCandidate) {
     return {
       accepted: false,
       reason: "Geen patroonmatch",
@@ -23557,6 +23619,8 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
   const categoryKey = getShiftCategoryKey(shift || { name: shiftName, isShopShift: item?.department === "shop" });
   const patternMatch = getSmartPlanningPatternMatchForItem(candidate.employeeName, item);
   const patternId = getEmployeeBasePatternId(candidate.employeeName);
+  const isFixedSaturdayCandidate = isSmartPlanningFixedSaturdayEmployee(candidate.employeeName, item);
+  const isFlexibleShopCandidate = isSmartPlanningFlexibleShopEmployee(candidate.employeeName, item);
   const extraAvailabilityMatch = getEmployeeExtraAvailabilityMatch(
     candidate.employeeName,
     item?.day || "",
@@ -23613,8 +23677,10 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
   const fixedScore = standardEmployeeScore || patternFitScore;
   const departmentSummary = getEmployeeDepartmentSummary(candidate.employeeName).toLowerCase();
   const departmentScore = categoryKey === "shop"
-    ? (departmentSummary.includes("winkel") ? 35 : 0)
+    ? (departmentSummary.includes("winkel") ? 90 : 0)
     : (departmentSummary.includes("bakkerij") ? 35 : 0);
+  const saturdayFixedScore = categoryKey === "shop" && isFixedSaturdayCandidate ? 260 : 0;
+  const flexibleShopScore = isFlexibleShopCandidate ? 75 : 0;
   const roleScore = getEmployeeAppRole(candidate.employeeName) === "planner" ? 5 : 0;
   const contractPenalty = (candidate.contractWarningPriority || 0) * 45;
   const loadPenalty = (candidate.plannedHours || 0) * 0.35;
@@ -23625,6 +23691,8 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
     sameWeekdayScore +
     sameCategoryWeekdayScore +
     sameCategoryScore +
+    saturdayFixedScore +
+    flexibleShopScore +
     departmentScore +
     roleScore -
     contractPenalty -
@@ -23641,6 +23709,8 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
     sameWeekdayScore,
     sameCategoryWeekdayScore,
     sameCategoryScore,
+    saturdayFixedScore,
+    flexibleShopScore,
     departmentScore,
     minScore: smartPlanningAutoFillMinScore,
     patternId,
@@ -23937,7 +24007,7 @@ function autoFillSmartPlanningProposal(options = {}) {
       isSmartPlanningOpenProposalItem(item) &&
       (!explicitTargetWeek || item.weekValue === targetWeek)
     )
-    .sort(compareSmartPlanningItemsByRosterOrder);
+    .sort(compareSmartPlanningItemsForAutoFill);
   openItems.forEach((item) => {
     const candidate = getBestSmartPlanningAutoFillCandidate(item);
 
