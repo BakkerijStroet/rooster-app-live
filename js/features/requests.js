@@ -23,7 +23,7 @@
       return "vakantie";
     }
 
-    if (["vrij", "vrije-dag", "vrije dag", "free", "timeoff"].includes(normalizedType)) {
+    if (["vrij", "vrije-dag", "vrije_dag", "vrije dag", "vrije dagen", "free", "timeoff", "time_off"].includes(normalizedType)) {
       return "vrij";
     }
 

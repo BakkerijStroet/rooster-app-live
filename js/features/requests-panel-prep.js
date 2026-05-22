@@ -12,16 +12,57 @@
 
   function matchesRequestStatusFilter(selectedStatus, request, getRequestDisplayStatus) {
     const displayStatus = getRequestDisplayStatus(request);
+    const requestStatus = normalizeRequestStatus(request?.status);
 
     if (selectedStatus === "") {
       return true;
     }
 
-    if (selectedStatus === "waiting") {
-      return displayStatus === "waiting" || displayStatus === "overdue";
+    if (selectedStatus === "open") {
+      return requestStatus === "open";
     }
 
-    return displayStatus === selectedStatus;
+    if (selectedStatus === "waiting") {
+      return requestStatus === "open" && (displayStatus === "waiting" || displayStatus === "overdue");
+    }
+
+    return requestStatus === selectedStatus;
+  }
+
+  function normalizeRequestStatus(status) {
+    const normalizedStatus = String(status || "").trim().toLowerCase();
+
+    if (["pending", "submitted", "ingediend"].includes(normalizedStatus)) {
+      return "open";
+    }
+
+    if (["goedgekeurd"].includes(normalizedStatus)) {
+      return "approved";
+    }
+
+    if (["afgekeurd"].includes(normalizedStatus)) {
+      return "rejected";
+    }
+
+    return normalizedStatus || "open";
+  }
+
+  function normalizeTimeOffRequestType(type) {
+    const normalizedType = String(type || "").trim().toLowerCase();
+
+    if (["ziek", "ziekte", "sick", "sickness", "ziekmelding", "operatie", "operation", "herstel", "herstelperiode", "recovery"].includes(normalizedType)) {
+      return "ziek";
+    }
+
+    if (["vakantie", "vacation", "verlof"].includes(normalizedType)) {
+      return "vakantie";
+    }
+
+    if (["vrij", "vrije-dag", "vrije_dag", "vrije dag", "vrije dagen", "free", "timeoff", "time_off"].includes(normalizedType)) {
+      return "vrij";
+    }
+
+    return normalizedType;
   }
 
   function getRequestRosterEffectText(request, requestType, entries, helpers) {
@@ -69,13 +110,13 @@
   }
 
   function getPlannerRequestSummaryCounts(timeOffRequests, swapRequests) {
-    const openTimeOffRequests = timeOffRequests.filter((request) => request.status === "open");
+    const openTimeOffRequests = timeOffRequests.filter((request) => normalizeRequestStatus(request?.status) === "open");
 
     return {
-      free: openTimeOffRequests.filter((request) => request.type === "vrij").length,
-      vacation: openTimeOffRequests.filter((request) => request.type === "vakantie").length,
-      sick: openTimeOffRequests.filter((request) => request.type === "ziek").length,
-      swaps: swapRequests.filter((request) => request.status === "open").length
+      free: openTimeOffRequests.filter((request) => normalizeTimeOffRequestType(request?.type) === "vrij").length,
+      vacation: openTimeOffRequests.filter((request) => normalizeTimeOffRequestType(request?.type) === "vakantie").length,
+      sick: openTimeOffRequests.filter((request) => normalizeTimeOffRequestType(request?.type) === "ziek").length,
+      swaps: swapRequests.filter((request) => normalizeRequestStatus(request?.status) === "open").length
     };
   }
 

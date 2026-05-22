@@ -4735,16 +4735,38 @@ const {
   },
   matchesRequestStatusFilter: matchesRequestStatusFilterHelper = function fallbackMatchesRequestStatusFilter(selectedStatus, request, getRequestDisplayStatus) {
     const displayStatus = getRequestDisplayStatus(request);
+    const normalizeRequestStatus = (status) => {
+      const normalizedStatus = String(status || "").trim().toLowerCase();
+
+      if (["pending", "submitted", "ingediend"].includes(normalizedStatus)) {
+        return "open";
+      }
+
+      if (["goedgekeurd"].includes(normalizedStatus)) {
+        return "approved";
+      }
+
+      if (["afgekeurd"].includes(normalizedStatus)) {
+        return "rejected";
+      }
+
+      return normalizedStatus || "open";
+    };
+    const requestStatus = normalizeRequestStatus(request?.status);
 
     if (selectedStatus === "") {
       return true;
     }
 
-    if (selectedStatus === "waiting") {
-      return displayStatus === "waiting" || displayStatus === "overdue";
+    if (selectedStatus === "open") {
+      return requestStatus === "open";
     }
 
-    return displayStatus === selectedStatus;
+    if (selectedStatus === "waiting") {
+      return requestStatus === "open" && (displayStatus === "waiting" || displayStatus === "overdue");
+    }
+
+    return requestStatus === selectedStatus;
   },
   getRequestRosterEffectText: getRequestRosterEffectTextHelper = function fallbackGetRequestRosterEffectText(request, requestType, entriesValue, helpers) {
     if (requestType === "timeoff") {
@@ -4790,13 +4812,47 @@ const {
     return "";
   },
   getPlannerRequestSummaryCounts: getPlannerRequestSummaryCountsHelper = function fallbackGetPlannerRequestSummaryCounts(timeOffRequestsValue, swapRequestsValue) {
-    const openTimeOffRequests = timeOffRequestsValue.filter((request) => request.status === "open");
+    const normalizeRequestStatus = (status) => {
+      const normalizedStatus = String(status || "").trim().toLowerCase();
+
+      if (["pending", "submitted", "ingediend"].includes(normalizedStatus)) {
+        return "open";
+      }
+
+      if (["goedgekeurd"].includes(normalizedStatus)) {
+        return "approved";
+      }
+
+      if (["afgekeurd"].includes(normalizedStatus)) {
+        return "rejected";
+      }
+
+      return normalizedStatus || "open";
+    };
+    const normalizeTimeOffSummaryType = (type) => {
+      const normalizedType = String(type || "").trim().toLowerCase();
+
+      if (["ziek", "ziekte", "sick", "sickness", "ziekmelding", "operatie", "operation", "herstel", "herstelperiode", "recovery"].includes(normalizedType)) {
+        return "ziek";
+      }
+
+      if (["vakantie", "vacation", "verlof"].includes(normalizedType)) {
+        return "vakantie";
+      }
+
+      if (["vrij", "vrije-dag", "vrije_dag", "vrije dag", "vrije dagen", "free", "timeoff", "time_off"].includes(normalizedType)) {
+        return "vrij";
+      }
+
+      return normalizedType;
+    };
+    const openTimeOffRequests = timeOffRequestsValue.filter((request) => normalizeRequestStatus(request?.status) === "open");
 
     return {
-      free: openTimeOffRequests.filter((request) => request.type === "vrij").length,
-      vacation: openTimeOffRequests.filter((request) => request.type === "vakantie").length,
-      sick: openTimeOffRequests.filter((request) => request.type === "ziek").length,
-      swaps: swapRequestsValue.filter((request) => request.status === "open").length
+      free: openTimeOffRequests.filter((request) => normalizeTimeOffSummaryType(request?.type) === "vrij").length,
+      vacation: openTimeOffRequests.filter((request) => normalizeTimeOffSummaryType(request?.type) === "vakantie").length,
+      sick: openTimeOffRequests.filter((request) => normalizeTimeOffSummaryType(request?.type) === "ziek").length,
+      swaps: swapRequestsValue.filter((request) => normalizeRequestStatus(request?.status) === "open").length
     };
   },
   buildEmployeeRequestCards: buildEmployeeRequestCardsHelper = function fallbackBuildEmployeeRequestCards({ visibleTimeOffRequests, visibleSwapRequests, helpers }) {
@@ -17268,11 +17324,13 @@ function getPlannerRequestTypeKey(request, requestType) {
     return "swap";
   }
 
-  if (request?.type === "vakantie") {
+  const normalizedType = normalizeTimeOffRequestType(request?.type);
+
+  if (normalizedType === "vakantie") {
     return "vacation";
   }
 
-  if (request?.type === "ziek") {
+  if (normalizedType === "ziek") {
     return "sick";
   }
 
@@ -17850,7 +17908,7 @@ function normalizeTimeOffRequestType(type = "") {
     return "vakantie";
   }
 
-  if (["vrij", "vrije-dag", "vrije dag", "free", "timeoff"].includes(normalizedType)) {
+  if (["vrij", "vrije-dag", "vrije_dag", "vrije dag", "vrije dagen", "free", "timeoff", "time_off"].includes(normalizedType)) {
     return "vrij";
   }
 
