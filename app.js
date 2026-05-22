@@ -25768,7 +25768,16 @@ function renderSmartPlanningProposalRoster(data, proposalItems) {
           { includeOpenRows: true }
         ));
         const duplicateConflicts = getRosterDuplicateSlotConflicts(rawDayRows, { includeOpenRows: true });
-        const dayRows = collapseRosterDuplicateSlotRows(rawDayRows, duplicateConflicts);
+        const seenDisplayRows = new Set();
+        const dayRows = collapseRosterDuplicateSlotRows(rawDayRows, duplicateConflicts)
+          .filter((row) => {
+            const rowKey = row.smartPlanningId || getRosterDuplicateSlotKey(row);
+            if (!rowKey || seenDisplayRows.has(rowKey)) {
+              return false;
+            }
+            seenDisplayRows.add(rowKey);
+            return true;
+          });
         const groupedRows = groupEntriesByDepartment(dayRows);
         const hasOpenShifts = dayRows.length > 0;
 
