@@ -775,6 +775,7 @@
             </label>
             <button type="button" id="smartPlanningMakeProposalButton" class="secondary" title="Vult open diensten met voorgestelde medewerkers.">Voorstel maken</button>
             <button type="button" id="smartPlanningRecalculateWeekButton" class="secondary" title="Vult alleen open diensten in de gekozen week opnieuw.">Herbereken week</button>
+            <button type="button" id="smartPlanningAddServiceButton" class="secondary">+ Dienst toevoegen</button>
             <button type="button" id="smartPlanningClearProposalButton" class="secondary">Week wissen</button>
             <button type="button" id="smartPlanningApplyProposalButton" disabled title="Kies eerst minimaal één medewerker.">Rooster opslaan</button>
           </div>
@@ -863,7 +864,7 @@
                 <li>Brooddienst: 1 persoon</li>
                 <li>Inpakdienst: 1 persoon</li>
                 <li>Productiedienst: 1 persoon</li>
-                <li>Allrounddienst 1 en 2: 1 persoon per dienst op donderdag, vrijdag en zaterdag</li>
+                <li>Allround: 1 persoon per dienst op donderdag, vrijdag en zaterdag</li>
                 <li>Bezorgdienst: 1 persoon</li>
               </ul>
             </article>
@@ -872,13 +873,13 @@
               <h3>Winkeldiensten per dag</h3>
               <p class="panel-note">Aantal benodigde winkeldiensten per dag. Bij meer dan het standaardschema worden feestdagblokken gebruikt.</p>
               <div class="staff-actions smart-planning-weekday-grid">
-                <label>Maandag<input type="number" id="winkelNeeded1" min="0" max="8"></label>
-                <label>Dinsdag<input type="number" id="winkelNeeded2" min="0" max="8"></label>
-                <label>Woensdag<input type="number" id="winkelNeeded3" min="0" max="8"></label>
-                <label>Donderdag<input type="number" id="winkelNeeded4" min="0" max="8"></label>
-                <label>Vrijdag<input type="number" id="winkelNeeded5" min="0" max="8"></label>
-                <label>Zaterdag<input type="number" id="winkelNeeded6" min="0" max="8"></label>
-                <label>Zondag<input type="number" id="winkelNeeded7" min="0" max="8"></label>
+                <label>Maandag<input type="number" id="winkelNeeded1" min="0" max="6"></label>
+                <label>Dinsdag<input type="number" id="winkelNeeded2" min="0" max="6"></label>
+                <label>Woensdag<input type="number" id="winkelNeeded3" min="0" max="6"></label>
+                <label>Donderdag<input type="number" id="winkelNeeded4" min="0" max="6"></label>
+                <label>Vrijdag<input type="number" id="winkelNeeded5" min="0" max="6"></label>
+                <label>Zaterdag<input type="number" id="winkelNeeded6" min="0" max="6"></label>
+                <label>Zondag<input type="number" id="winkelNeeded7" min="0" max="6"></label>
               </div>
             </article>
 

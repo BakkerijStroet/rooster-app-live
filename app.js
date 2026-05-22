@@ -49,6 +49,7 @@ const planningProposalReview = document.getElementById("planningProposalReview")
 const smartPlanningWeekInput = document.getElementById("smartPlanningWeek");
 const smartPlanningMakeProposalButton = document.getElementById("smartPlanningMakeProposalButton");
 const smartPlanningRecalculateWeekButton = document.getElementById("smartPlanningRecalculateWeekButton");
+const smartPlanningAddServiceButton = document.getElementById("smartPlanningAddServiceButton");
 const smartPlanningClearProposalButton = document.getElementById("smartPlanningClearProposalButton");
 const smartPlanningApplyProposalButton = document.getElementById("smartPlanningApplyProposalButton");
 const smartPlanningDemandSummary = document.getElementById("smartPlanningDemandSummary");
@@ -332,6 +333,8 @@ const employeeMetaStorageKey = "urenrooster-employee-meta";
 const auditLogStorageKey = "urenrooster-audit-log";
 const backupStorageKey = "urenrooster-backups";
 const mailSettingsStorageKey = "urenrooster-mail-settings";
+const genericShopShiftName = "Winkeldienst";
+const genericAllroundShiftName = "Allround";
 const EMPLOYEE_DATA_SAFETY_BACKUP_REASON = "Automatische veiligheidsbackup medewerkerdata";
 let lastEmployeeDataSafetyBackupSignature = "";
 
@@ -5278,6 +5281,7 @@ let smartPlanningApplyConfirmVisible = false;
 let smartPlanningIsSavingRoster = false;
 let smartPlanningClearWeekConfirmVisible = false;
 let smartPlanningTimeEditState = null;
+let smartPlanningAddServiceVisible = false;
 let smartPlanningDirty = false;
 let smartPlanningFocusedWeek = "";
 let pendingSmartPlanningScrollWeek = "";
@@ -6484,19 +6488,31 @@ function getPermissionShiftDescriptors() {
     });
   });
 
-  const shopDescriptors = [...shopNumbers]
+  const shopDescriptors = [
+    {
+      name: genericShopShiftName,
+      color: "shift-tone-winkel-1"
+    },
+    ...[...shopNumbers]
     .sort((numberA, numberB) => numberA - numberB)
     .map((number) => ({
       name: `Winkeldienst ${number}`,
       color: `shift-tone-winkel-${Math.min(number, 6)}`
-    }));
+    }))
+  ];
 
-  const allroundDescriptors = [...allroundNames]
+  const allroundDescriptors = [
+    {
+      name: genericAllroundShiftName,
+      color: "shift-tone-productie"
+    },
+    ...[...allroundNames]
     .sort((nameA, nameB) => nameA.localeCompare(nameB, "nl"))
     .map((name) => ({
       name,
       color: "shift-tone-productie"
-    }));
+    }))
+  ];
 
   const descriptors = [
     ...activeShifts.map((shift) => ({
@@ -6944,10 +6960,26 @@ function isEmployeeAuthorizedForShift(employeeName, shiftName) {
 
   const permissionMap = employeePermissions?.[employeeName];
   const normalizedShiftName = String(shiftName || "").trim().toLowerCase();
+  const shiftIsShop = isShopShiftName(shiftName);
+  const shiftIsAllround = isAllroundShiftName(shiftName);
   const matchingPermissionKey = permissionMap && typeof permissionMap === "object"
     ? Object.keys(permissionMap).find((permissionShiftName) => permissionShiftName.trim().toLowerCase() === normalizedShiftName)
     : "";
-  const permissionValue = matchingPermissionKey ? permissionMap[matchingPermissionKey] : permissionMap?.[shiftName];
+  let permissionValue = matchingPermissionKey ? permissionMap[matchingPermissionKey] : permissionMap?.[shiftName];
+
+  if (typeof permissionValue !== "boolean" && permissionMap && typeof permissionMap === "object" && (shiftIsShop || shiftIsAllround)) {
+    const relatedPermissionValues = Object.entries(permissionMap)
+      .filter(([permissionShiftName]) => shiftIsShop
+        ? isShopShiftName(permissionShiftName)
+        : isAllroundShiftName(permissionShiftName))
+      .map(([, value]) => value)
+      .filter((value) => typeof value === "boolean");
+
+    if (relatedPermissionValues.length) {
+      permissionValue = relatedPermissionValues.some(Boolean);
+    }
+  }
+
   return typeof permissionValue === "boolean" ? permissionValue : true;
 }
 
@@ -6956,7 +6988,20 @@ function getEmployeeShiftPreference(employeeName, shiftName) {
     return 0;
   }
 
-  const preferenceValue = Number(employeeShiftPreferences?.[employeeName]?.[shiftName]);
+  const preferenceMap = employeeShiftPreferences?.[employeeName] || {};
+  const preferenceValue = Number(preferenceMap?.[shiftName]);
+  if (!Number.isFinite(preferenceValue) && (isShopShiftName(shiftName) || isAllroundShiftName(shiftName))) {
+    const relatedPreference = Object.entries(preferenceMap)
+      .filter(([preferenceShiftName]) => isShopShiftName(shiftName)
+        ? isShopShiftName(preferenceShiftName)
+        : isAllroundShiftName(preferenceShiftName))
+      .map(([, value]) => Number(value))
+      .filter((value) => Number.isFinite(value) && value > 0)
+      .sort((valueA, valueB) => valueA - valueB)[0];
+
+    return Number.isFinite(relatedPreference) ? Math.floor(relatedPreference) : 0;
+  }
+
   return Number.isFinite(preferenceValue) && preferenceValue > 0 ? Math.floor(preferenceValue) : 0;
 }
 
@@ -7016,8 +7061,7 @@ function getDefaultShopTemplatesByWeekday() {
     4: [
       { number: 1, startTime: "07:00", endTime: "17:00" },
       { number: 2, startTime: "07:00", endTime: "17:00" },
-      { number: 3, startTime: "07:00", endTime: "13:00" },
-      { number: 4, startTime: "07:30", endTime: "13:30" }
+      { number: 3, startTime: "07:00", endTime: "13:00" }
     ],
     5: [
       { number: 1, startTime: "07:00", endTime: "17:00" },
@@ -7031,9 +7075,7 @@ function getDefaultShopTemplatesByWeekday() {
       { number: 3, startTime: "07:00", endTime: "17:00" },
       { number: 4, startTime: "07:30", endTime: "17:00" },
       { number: 5, startTime: "08:00", endTime: "17:00" },
-      { number: 6, startTime: "06:00", endTime: "12:00" },
-      { number: 7, startTime: "09:00", endTime: "12:00" },
-      { number: 8, startTime: "12:00", endTime: "17:00" }
+      { number: 6, startTime: "06:00", endTime: "12:00" }
     ],
     7: []
   };
@@ -7067,14 +7109,14 @@ function isWeekendEmployee(employeeName) {
 function getAllroundTemplatesByWeekday() {
   return {
     4: [
-      { id: "allround-1", name: "Allrounddienst 1", startTime: "14:00", endTime: "17:00", color: "shift-tone-productie" }
+      { id: "allround-1", name: genericAllroundShiftName, startTime: "14:00", endTime: "17:00", color: "shift-tone-productie" }
     ],
     5: [
-      { id: "allround-1", name: "Allrounddienst 1", startTime: "14:00", endTime: "17:00", color: "shift-tone-productie" }
+      { id: "allround-1", name: genericAllroundShiftName, startTime: "14:00", endTime: "17:00", color: "shift-tone-productie" }
     ],
     6: [
-      { id: "allround-1", name: "Allrounddienst 1", startTime: "06:00", endTime: "12:00", color: "shift-tone-productie" },
-      { id: "allround-2", name: "Allrounddienst 2", startTime: "08:00", endTime: "17:00", color: "shift-tone-productie" }
+      { id: "allround-1", name: genericAllroundShiftName, startTime: "06:00", endTime: "12:00", color: "shift-tone-productie" },
+      { id: "allround-2", name: genericAllroundShiftName, startTime: "08:00", endTime: "17:00", color: "shift-tone-productie" }
     ]
   };
 }
@@ -7097,10 +7139,19 @@ function loadPlanningSettings() {
 
   try {
     const winkelPerWeekday = { ...defaultCounts };
+    const legacyDefaultCounts = {
+      4: 4,
+      6: 8
+    };
 
     Object.keys(defaultCounts).forEach((weekday) => {
       const value = Number(parsedSettings?.winkelPerWeekday?.[weekday]);
-      winkelPerWeekday[weekday] = Number.isFinite(value) ? Math.max(0, Math.min(8, value)) : defaultCounts[weekday];
+      const migratedValue = Number.isFinite(value) && value === legacyDefaultCounts[weekday]
+        ? defaultCounts[weekday]
+        : value;
+      winkelPerWeekday[weekday] = Number.isFinite(migratedValue)
+        ? Math.max(0, Math.min(6, migratedValue))
+        : defaultCounts[weekday];
     });
 
     const overrides = {};
@@ -7764,32 +7815,32 @@ function getKingsDayDateValue(year) {
 function getHolidayAllroundTemplatesByWeekday() {
   return {
     1: [
-      { id: "allround-1", name: "Allrounddienst 1", startTime: "08:00", endTime: "14:00", color: "shift-tone-productie" },
-      { id: "allround-2", name: "Allrounddienst 2", startTime: "11:00", endTime: "17:00", color: "shift-tone-productie" }
+      { id: "allround-1", name: genericAllroundShiftName, startTime: "08:00", endTime: "14:00", color: "shift-tone-productie" },
+      { id: "allround-2", name: genericAllroundShiftName, startTime: "11:00", endTime: "17:00", color: "shift-tone-productie" }
     ],
     2: [
-      { id: "allround-1", name: "Allrounddienst 1", startTime: "08:00", endTime: "14:00", color: "shift-tone-productie" },
-      { id: "allround-2", name: "Allrounddienst 2", startTime: "11:00", endTime: "17:00", color: "shift-tone-productie" }
+      { id: "allround-1", name: genericAllroundShiftName, startTime: "08:00", endTime: "14:00", color: "shift-tone-productie" },
+      { id: "allround-2", name: genericAllroundShiftName, startTime: "11:00", endTime: "17:00", color: "shift-tone-productie" }
     ],
     3: [
-      { id: "allround-1", name: "Allrounddienst 1", startTime: "08:00", endTime: "14:00", color: "shift-tone-productie" },
-      { id: "allround-2", name: "Allrounddienst 2", startTime: "11:00", endTime: "17:00", color: "shift-tone-productie" }
+      { id: "allround-1", name: genericAllroundShiftName, startTime: "08:00", endTime: "14:00", color: "shift-tone-productie" },
+      { id: "allround-2", name: genericAllroundShiftName, startTime: "11:00", endTime: "17:00", color: "shift-tone-productie" }
     ],
     4: [
-      { id: "allround-1", name: "Allrounddienst 1", startTime: "14:00", endTime: "17:00", color: "shift-tone-productie" },
-      { id: "allround-2", name: "Allrounddienst 2", startTime: "08:00", endTime: "14:00", color: "shift-tone-productie" }
+      { id: "allround-1", name: genericAllroundShiftName, startTime: "14:00", endTime: "17:00", color: "shift-tone-productie" },
+      { id: "allround-2", name: genericAllroundShiftName, startTime: "08:00", endTime: "14:00", color: "shift-tone-productie" }
     ],
     5: [
-      { id: "allround-1", name: "Allrounddienst 1", startTime: "14:00", endTime: "17:00", color: "shift-tone-productie" },
-      { id: "allround-2", name: "Allrounddienst 2", startTime: "08:00", endTime: "14:00", color: "shift-tone-productie" }
+      { id: "allround-1", name: genericAllroundShiftName, startTime: "14:00", endTime: "17:00", color: "shift-tone-productie" },
+      { id: "allround-2", name: genericAllroundShiftName, startTime: "08:00", endTime: "14:00", color: "shift-tone-productie" }
     ],
     6: [
-      { id: "allround-1", name: "Allrounddienst 1", startTime: "06:00", endTime: "12:00", color: "shift-tone-productie" },
-      { id: "allround-2", name: "Allrounddienst 2", startTime: "08:00", endTime: "17:00", color: "shift-tone-productie" }
+      { id: "allround-1", name: genericAllroundShiftName, startTime: "06:00", endTime: "12:00", color: "shift-tone-productie" },
+      { id: "allround-2", name: genericAllroundShiftName, startTime: "08:00", endTime: "17:00", color: "shift-tone-productie" }
     ],
     7: [
-      { id: "allround-1", name: "Allrounddienst 1", startTime: "08:00", endTime: "14:00", color: "shift-tone-productie" },
-      { id: "allround-2", name: "Allrounddienst 2", startTime: "11:00", endTime: "17:00", color: "shift-tone-productie" }
+      { id: "allround-1", name: genericAllroundShiftName, startTime: "08:00", endTime: "14:00", color: "shift-tone-productie" },
+      { id: "allround-2", name: genericAllroundShiftName, startTime: "11:00", endTime: "17:00", color: "shift-tone-productie" }
     ]
   };
 }
@@ -8030,11 +8081,11 @@ function getWeekdayNumberFromDate(dateValue) {
 }
 
 function isShopShiftName(shiftName) {
-  return /^Winkeldienst \d+$/i.test(shiftName || "");
+  return /^Winkel(?:dienst)?(?:\s*\d+)?$/i.test(String(shiftName || "").trim());
 }
 
 function isAllroundShiftName(shiftName) {
-  return /^Allrounddienst [12]$/i.test(shiftName || "");
+  return /^Allround(?:dienst)?(?:\s*\d+)?$/i.test(String(shiftName || "").trim());
 }
 
 function isStageShiftName(shiftName) {
@@ -8046,7 +8097,7 @@ function isOptionalShift(shift) {
 }
 
 function getShopShiftNumber(shiftName) {
-  const match = String(shiftName || "").match(/Winkeldienst (\d+)/i);
+  const match = String(shiftName || "").match(/Winkel(?:dienst)?\s*(\d+)/i);
   return match ? Number(match[1]) : null;
 }
 
@@ -8106,7 +8157,8 @@ function getShopSlotsForDate(dateValue) {
 
   return sourceTemplates.slice(0, Math.max(0, Math.min(8, configuredCount))).map((slot) => ({
     id: `shop-${slot.number}`,
-    name: `Winkeldienst ${slot.number}`,
+    name: genericShopShiftName,
+    slotNumber: slot.number,
     startTime: slot.startTime,
     endTime: slot.endTime,
     color: getShopShiftColor(slot.number),
@@ -8830,8 +8882,27 @@ function getShiftName(entry) {
 }
 
 function getShiftForEntry(entry) {
+  if (entry.shiftId && entry.day && entry.shiftId.startsWith("allround-")) {
+    const allroundShift = getAllroundSlotsForDate(entry.day).find((shift) => shift.id === entry.shiftId);
+
+    if (allroundShift) {
+      return allroundShift;
+    }
+  }
+
+  if (entry.shiftId && entry.day && entry.shiftId.startsWith("shop-")) {
+    const shopShift = getShopSlotsForDate(entry.day).find((shift) => shift.id === entry.shiftId);
+
+    if (shopShift) {
+      return shopShift;
+    }
+  }
+
   if (entry.shiftName && isAllroundShiftName(entry.shiftName) && entry.day) {
-    const allroundShift = getAllroundSlotsForDate(entry.day).find((shift) => shift.name.toLowerCase() === entry.shiftName.toLowerCase());
+    const allroundShift = getAllroundSlotsForDate(entry.day).find((shift) =>
+      shift.name.toLowerCase() === entry.shiftName.toLowerCase() &&
+      (!entry.shiftId || shift.id === entry.shiftId)
+    );
 
     if (allroundShift) {
       return allroundShift;
@@ -8840,7 +8911,10 @@ function getShiftForEntry(entry) {
 
   if (entry.shiftName && isShopShiftName(entry.shiftName) && entry.day) {
     const shopShiftNumber = getShopShiftNumber(entry.shiftName);
-    const shopShift = getShopSlotsForDate(entry.day).find((shift) => shift.number === shopShiftNumber);
+    const shopShift = getShopSlotsForDate(entry.day).find((shift) =>
+      (shopShiftNumber ? shift.slotNumber === shopShiftNumber : false) ||
+      (entry.shiftId && shift.id === entry.shiftId)
+    );
 
     if (shopShift) {
       return shopShift;
@@ -11242,6 +11316,8 @@ function normalizeRosterDuplicateSlotShiftName(shiftName) {
 
   if (shopMatch) return `winkel ${shopMatch[1]}`;
   if (allroundMatch) return `allround ${allroundMatch[1]}`;
+  if (isShopShiftName(normalizedShiftName)) return "winkeldienst";
+  if (isAllroundShiftName(normalizedShiftName)) return "allround";
 
   return getCompactRosterShiftLabel(normalizedShiftName).toLowerCase().replace(/\s+/g, " ");
 }
@@ -11251,6 +11327,7 @@ function getRosterDuplicateSlotKey(row = {}) {
   const day = row.day || entry.day || "";
   const shiftName = row.shiftName || getShiftName(entry);
   const normalizedShiftName = normalizeRosterDuplicateSlotShiftName(shiftName);
+  const shiftId = String(row.shiftId || entry.shiftId || "").trim().toLowerCase();
   const department = row.department ||
     (row.isShopShift === true ? "shop" : getRosterDepartmentForEntry(row));
   const startTime = row.startTime || entry.startTime || "";
@@ -11260,7 +11337,11 @@ function getRosterDuplicateSlotKey(row = {}) {
     return "";
   }
 
-  return [day, department, normalizedShiftName, startTime, endTime].join("__");
+  const slotIdentity = shiftId && (isShopShiftName(shiftName) || isAllroundShiftName(shiftName))
+    ? `${normalizedShiftName}:${shiftId}`
+    : normalizedShiftName;
+
+  return [day, department, slotIdentity, startTime, endTime].join("__");
 }
 
 function getPlanningEntryStableSlotKey(entry = {}) {
@@ -12235,7 +12316,7 @@ function fillOpenShiftsForDay(selectedDate) {
       startTime: shift.startTime,
       endTime: shift.endTime,
       hours: calculateHours(shift.startTime, shift.endTime) || 0,
-      shiftId: shift.id.startsWith("shop-") ? "" : shift.id,
+      shiftId: shift.id || "",
       shiftName: shift.name,
       replacementFor: candidateResult.replacementFor || "",
       autoFillReason: candidateResult.autoFillReason || "",
@@ -12260,7 +12341,7 @@ function fillOpenShiftsForDay(selectedDate) {
       startTime: shift.startTime,
       endTime: shift.endTime,
       hours: calculateHours(shift.startTime, shift.endTime) || 0,
-      shiftId: shift.id.startsWith("shop-") ? "" : shift.id,
+      shiftId: shift.id || "",
       shiftName: shift.name,
       replacementFor: "",
       autoFillReason: candidateResult.autoFillReason || "",
@@ -12285,7 +12366,7 @@ function fillOpenShiftsForDay(selectedDate) {
       startTime: shift.startTime,
       endTime: shift.endTime,
       hours: calculateHours(shift.startTime, shift.endTime) || 0,
-      shiftId: "",
+      shiftId: shift.id || "",
       shiftName: shift.name,
       replacementFor: "",
       autoFillReason: candidateResult.autoFillReason || "",
@@ -14177,7 +14258,7 @@ function buildAutoFillProposalForWeek(selectedWeek, baseEntries = entries) {
         startTime: shift.startTime,
         endTime: shift.endTime,
         hours: calculateHours(shift.startTime, shift.endTime) || 0,
-        shiftId: shift.id.startsWith("shop-") ? "" : shift.id,
+        shiftId: shift.id || "",
         shiftName: shift.name,
         proposed: true,
         replacementFor: candidateResult.replacementFor || "",
@@ -20677,9 +20758,55 @@ function getDayPlannerShifts(dateValue) {
 }
 
 function getEntryForShiftOnDate(dateValue, shift, sourceEntries = getPlanningEntries()) {
-  return getEntryForShiftOnDateHelper(dateValue, shift, sourceEntries, {
-    getShiftName
-  });
+  const entriesForDate = (Array.isArray(sourceEntries) ? sourceEntries : [])
+    .filter((entry) => entry.day === dateValue);
+  const shiftId = String(shift?.id || "");
+  const shiftName = String(shift?.name || "").trim().toLowerCase();
+
+  if (shift?.isShopShift || shiftId.startsWith("shop-")) {
+    const shopSlotNumber = Number(String(shiftId).replace("shop-", "")) || Number(shift?.slotNumber) || null;
+    return entriesForDate.find((entry) =>
+      String(entry.shiftId || "") === shiftId ||
+      (
+        isShopShiftName(getShiftName(entry)) &&
+        (
+          (shopSlotNumber && getShopShiftNumber(getShiftName(entry)) === shopSlotNumber) ||
+          (!getShopShiftNumber(getShiftName(entry)) &&
+            (entry.startTime || "") === (shift.startTime || "") &&
+            (entry.endTime || "") === (shift.endTime || ""))
+        )
+      )
+    ) || null;
+  }
+
+  if (shift?.isAllroundShift || shiftId.startsWith("allround-")) {
+    const allroundSlotNumber = Number(String(shiftId).replace("allround-", "")) || null;
+    return entriesForDate.find((entry) =>
+      String(entry.shiftId || "") === shiftId ||
+      (
+        isAllroundShiftName(getShiftName(entry)) &&
+        (
+          (allroundSlotNumber && Number(String(getShiftName(entry)).match(/(\d+)/)?.[1] || 0) === allroundSlotNumber) ||
+          (!String(getShiftName(entry)).match(/(\d+)/) &&
+            (entry.startTime || "") === (shift.startTime || "") &&
+            (entry.endTime || "") === (shift.endTime || ""))
+        )
+      )
+    ) || null;
+  }
+
+  if (shiftId) {
+    const byShiftId = entriesForDate.find((entry) => String(entry.shiftId || "") === shiftId);
+
+    if (byShiftId) {
+      return byShiftId;
+    }
+  }
+
+  return entriesForDate.find((entry) =>
+    getShiftName(entry).toLowerCase() === shiftName &&
+    (!shiftId || !String(entry.shiftId || ""))
+  ) || null;
 }
 
 function getDayPlannerAssignments(dateValue, plannerShifts) {
@@ -20697,7 +20824,7 @@ function getDayPlannerAssignments(dateValue, plannerShifts) {
       startTime: shift.startTime,
       endTime: shift.endTime,
       hours: calculateHours(shift.startTime, shift.endTime) || 0,
-      shiftId: shift.id.startsWith("shop-") ? "" : shift.id,
+      shiftId: shift.id || "",
       shiftName: shift.name,
       replacementFor: isBakeryCoreShift(shift) && getPrimaryStandardEmployeeForShift(shift.name) && getPrimaryStandardEmployeeForShift(shift.name) !== employeeName
         ? getPrimaryStandardEmployeeForShift(shift.name)
@@ -20728,7 +20855,7 @@ function saveSingleDayPlannerShift(selectedDate, shift, employeeName) {
         startTime: shift.startTime,
         endTime: shift.endTime,
         hours: calculateHours(shift.startTime, shift.endTime) || 0,
-        shiftId: shift.id.startsWith("shop-") ? "" : shift.id,
+        shiftId: shift.id || "",
         shiftName: shift.name,
         replacementFor: isBakeryCoreShift(shift) && getPrimaryStandardEmployeeForShift(shift.name) && getPrimaryStandardEmployeeForShift(shift.name) !== employeeName
           ? getPrimaryStandardEmployeeForShift(shift.name)
@@ -21009,7 +21136,7 @@ function autoFillSmartDayPlanner() {
       startTime: shift.startTime,
       endTime: shift.endTime,
       hours: calculateHours(shift.startTime, shift.endTime) || 0,
-      shiftId: shift.id.startsWith("shop-") ? "" : shift.id,
+      shiftId: shift.id || "",
       shiftName: shift.name,
       replacementFor: candidateResult.replacementFor || ""
     });
@@ -21037,7 +21164,7 @@ function autoFillSmartDayPlanner() {
       startTime: shift.startTime,
       endTime: shift.endTime,
       hours: calculateHours(shift.startTime, shift.endTime) || 0,
-      shiftId: shift.id.startsWith("shop-") ? "" : shift.id,
+      shiftId: shift.id || "",
       shiftName: shift.name,
       replacementFor: ""
     });
@@ -21384,7 +21511,7 @@ function getServiceDefinitionsForDisplay() {
     ...getHolidayShopTemplates()
   ].forEach((template) => addService({
     id: `shop-${template.number}`,
-    name: `Winkeldienst ${template.number}`,
+    name: genericShopShiftName,
     startTime: template.startTime,
     endTime: template.endTime,
     color: getShopShiftColor(template.number),
@@ -22511,7 +22638,7 @@ function createSmartPlanningRosterEntry(item, shift) {
     startTime,
     endTime,
     hours: calculateHours(startTime, endTime) || 0,
-    shiftId: (shift.id || "").startsWith("shop-") ? "" : (shift.id || item.shiftId || ""),
+    shiftId: shift.id || item.shiftId || "",
     shiftName: shift.name || item.shiftName || "Dienst",
     replacementFor: !isKeptOpen && isBakeryCoreShift(shift) && getPrimaryStandardEmployeeForShift(shift.name) && getPrimaryStandardEmployeeForShift(shift.name) !== employeeName
       ? getPrimaryStandardEmployeeForShift(shift.name)
@@ -22956,7 +23083,8 @@ function getSmartPlanningShiftFromProposalItem(item) {
     name: item.shiftName || "Dienst",
     startTime: standardStartTime || item.startTime || "",
     endTime: standardEndTime || item.endTime || "",
-    isShopShift: item.department === "shop" || isShopShiftName(item.shiftName || "")
+    isShopShift: item.isShopShift === true || (item.department === "shop" && !isAllroundShiftName(item.shiftName || "")) || isShopShiftName(item.shiftName || ""),
+    isAllroundShift: item.isAllroundShift === true || isAllroundShiftName(item.shiftName || "")
   };
 
   return {
@@ -23595,6 +23723,21 @@ function getSmartPlanningAutoFillCandidateDecision(candidate, item) {
   const contractOverage = contractHours > 0 ? Math.max(0, Math.round((projectedHours - contractHours) * 10) / 10) : 0;
   const hasPracticePatternFallback = hasSmartPlanningPracticePatternFallback(scoreDetails);
   const isWeekendEmployeeOutsideWeekend = isWeekendEmployee(candidate.employeeName) && weekday >= 2 && weekday <= 5;
+  const lookup = getSmartPlanningLookupCache(entries);
+  const candidateEntry = smartPlanningProposalState?.mode === "adjust"
+    ? getSmartPlanningCandidateEntry(item, lookup)
+    : null;
+
+  if (
+    findSmartPlanningConflictInLookup(lookup, candidate.employeeName, item, candidateEntry) ||
+    hasBlockingSmartPlanningAssignment(candidate.employeeName, item, lookup)
+  ) {
+    return {
+      accepted: false,
+      reason: "Al gekozen",
+      scoreDetails
+    };
+  }
 
   if (!extraAvailabilityMatch && (patternId === "director-emergency" || patternId === "on-call" || candidate.isEmergencyOption)) {
     return {
@@ -25104,6 +25247,152 @@ function resetSmartPlanningTimeEditor() {
   showMessage("Standaardtijd teruggezet. Sla het rooster op om dit te bewaren.", "success");
 }
 
+function openSmartPlanningAddServiceDialog() {
+  if (!isPlannerRole()) {
+    return;
+  }
+
+  const weekValue = smartPlanningFocusedWeek || getSmartPlanningSelectedWeek();
+  if (!smartPlanningProposalState?.weeks?.length || !getSmartPlanningProposalWeekByValue(weekValue)) {
+    createSmartPlanningAdjustmentProposal({ render: false, silent: true });
+  }
+
+  smartPlanningAddServiceVisible = true;
+  activeSmartPlanningTab = "proposal";
+  setSmartPlanningFocusedWeek(weekValue);
+  renderSmartPlanningPanel();
+}
+
+function closeSmartPlanningAddServiceDialog() {
+  smartPlanningAddServiceVisible = false;
+  renderSmartPlanningPanelPreservingRosterScroll();
+}
+
+function renderSmartPlanningAddServiceDialog() {
+  if (!smartPlanningAddServiceVisible) {
+    return "";
+  }
+
+  const weekValue = smartPlanningFocusedWeek || getSmartPlanningSelectedWeek();
+  const weekDates = getWeekDates(weekValue);
+  const defaultDay = weekDates.find((day) => !isClosedPlannerDay(day) && getWeekdayNumberFromDate(day) >= 2) || weekDates[0] || "";
+  const activeEmployees = getActiveEmployees();
+
+  return `
+    <div class="smart-planning-time-dialog-backdrop" data-smart-planning-add-service-dialog>
+      <section class="smart-planning-time-dialog smart-planning-add-service-dialog" role="dialog" aria-modal="true" aria-label="Dienst toevoegen">
+        <header>
+          <h4>Dienst toevoegen</h4>
+          <button type="button" class="secondary" data-smart-planning-add-service-cancel aria-label="Sluiten">Sluiten</button>
+        </header>
+        <div class="smart-planning-time-grid">
+          <label>
+            Dag
+            <select data-smart-planning-add-service-day>
+              ${weekDates.map((day) => `<option value="${escapeHtmlAttribute(day)}" ${day === defaultDay ? "selected" : ""}>${formatWeekday(day)} ${formatDate(day)}</option>`).join("")}
+            </select>
+          </label>
+          <label>
+            Type
+            <select data-smart-planning-add-service-type>
+              <option value="shop">${genericShopShiftName}</option>
+              <option value="allround">${genericAllroundShiftName}</option>
+            </select>
+          </label>
+          <label>
+            Starttijd
+            <input type="time" data-smart-planning-add-service-start value="08:00">
+          </label>
+          <label>
+            Eindtijd
+            <input type="time" data-smart-planning-add-service-end value="17:00">
+          </label>
+          <label>
+            Medewerker
+            <select data-smart-planning-add-service-employee>
+              <option value="">Open laten</option>
+              ${activeEmployees.map((employeeName) => `<option value="${escapeHtmlAttribute(employeeName)}">${escapeHtmlAttribute(employeeName)}</option>`).join("")}
+            </select>
+          </label>
+        </div>
+        <div class="smart-planning-time-actions">
+          <button type="button" data-smart-planning-add-service-save>Toevoegen</button>
+          <button type="button" class="secondary" data-smart-planning-add-service-cancel>Annuleren</button>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function addSmartPlanningManualServiceFromDialog() {
+  const dialog = smartPlanningProposalList?.querySelector("[data-smart-planning-add-service-dialog]");
+  if (!dialog) {
+    return false;
+  }
+
+  const day = dialog.querySelector("[data-smart-planning-add-service-day]")?.value || "";
+  const type = dialog.querySelector("[data-smart-planning-add-service-type]")?.value || "shop";
+  const startTime = dialog.querySelector("[data-smart-planning-add-service-start]")?.value || "";
+  const endTime = dialog.querySelector("[data-smart-planning-add-service-end]")?.value || "";
+  const employeeName = dialog.querySelector("[data-smart-planning-add-service-employee]")?.value || "";
+
+  if (!day || !isValidSmartPlanningTimeValue(startTime) || !isValidSmartPlanningTimeValue(endTime)) {
+    showMessage("Kies een dag en geldige tijden.", "warning");
+    return false;
+  }
+
+  if (calculateHours(startTime, endTime) === null) {
+    showMessage("Eindtijd moet later zijn dan starttijd.", "warning");
+    return false;
+  }
+
+  const weekValue = getWeekValueFromDate(day);
+  let weekProposal = getSmartPlanningProposalWeekByValue(weekValue);
+  if (!weekProposal) {
+    weekProposal = { weekValue, items: [] };
+    smartPlanningProposalState.weeks.push(weekProposal);
+  }
+
+  const shiftName = type === "allround" ? genericAllroundShiftName : genericShopShiftName;
+  const department = "shop";
+  const idPrefix = type === "allround" ? "manual-allround" : "manual-shop";
+  const itemId = `${idPrefix}-${weekValue}-${day}-${startTime.replace(":", "")}-${endTime.replace(":", "")}-${Date.now()}`;
+  const nextItem = {
+    id: itemId,
+    weekValue,
+    day,
+    department,
+    shiftId: itemId,
+    shiftName,
+    startTime,
+    endTime,
+    standardStartTime: startTime,
+    standardEndTime: endTime,
+    originalStartTime: startTime,
+    originalEndTime: endTime,
+    originalEmployeeName: "",
+    chosenEmployeeName: employeeName,
+    keepOpen: false,
+    lockedOpen: false,
+    originalKeepOpen: false,
+    originalLockedOpen: false,
+    isShopShift: type === "shop",
+    isAllroundShift: type === "allround",
+    autoFillBlockReason: "",
+    assignmentReason: employeeName ? "Handmatig toegevoegd" : ""
+  };
+
+  weekProposal.items = [...(weekProposal.items || []), nextItem].sort(compareSmartPlanningItemsByRosterOrder);
+  selectedSmartPlanningOpenShiftId = employeeName ? "" : nextItem.id;
+  lastSmartPlanningAssignedItemId = employeeName ? nextItem.id : "";
+  smartPlanningAddServiceVisible = false;
+  invalidateSmartPlanningEffectiveEntriesCache();
+  refreshSmartPlanningDirtyState();
+  renderSmartPlanningPanelPreservingRosterScroll();
+  showMessage("Dienst toegevoegd aan het voorstel. Sla het rooster op om dit te bewaren.", "success");
+  return true;
+}
+
 function normalizeSmartPlanningUnavailableReason(reason = "") {
   const normalizedReason = String(reason || "").toLowerCase();
 
@@ -25780,6 +26069,7 @@ function renderSmartPlanningProposal(data = getSmartPlanningMonthData()) {
         </section>
       `}
     ${renderSmartPlanningTimeEditDialog()}
+    ${renderSmartPlanningAddServiceDialog()}
   `;
 }
 
@@ -29657,7 +29947,7 @@ openReplacementOverview?.addEventListener("change", (event) => {
     startTime: shift.startTime,
     endTime: shift.endTime,
     hours: calculateHours(shift.startTime, shift.endTime) || 0,
-    shiftId: shift.id.startsWith("shop-") ? "" : shift.id,
+    shiftId: shift.id || "",
     shiftName: shift.name,
     replacementFor: normalEmployee && normalEmployee !== replacementEmployee ? normalEmployee : ""
   });
@@ -29743,7 +30033,7 @@ weekReplacementOverview?.addEventListener("change", (event) => {
       startTime: shift.startTime,
       endTime: shift.endTime,
       hours: calculateHours(shift.startTime, shift.endTime) || 0,
-      shiftId: shift.id.startsWith("shop-") ? "" : shift.id,
+      shiftId: shift.id || "",
       shiftName: shift.name,
       replacementFor: normalEmployee && normalEmployee !== replacementEmployee ? normalEmployee : ""
     });
@@ -33206,6 +33496,10 @@ smartPlanningRecalculateWeekButton?.addEventListener("click", () => {
   recalculateSmartPlanningFocusedWeek();
 });
 
+smartPlanningAddServiceButton?.addEventListener("click", () => {
+  openSmartPlanningAddServiceDialog();
+});
+
 smartPlanningClearProposalButton?.addEventListener("click", () => {
   if (!isPlannerRole()) {
     return;
@@ -33294,6 +33588,34 @@ smartPlanningProposalList?.addEventListener("click", (event) => {
   }
 
   if (timeDialogBackdrop) {
+    event.stopPropagation();
+    return;
+  }
+
+  const addServiceSaveButton = event.target.closest("[data-smart-planning-add-service-save]");
+
+  if (addServiceSaveButton) {
+    event.stopPropagation();
+    addSmartPlanningManualServiceFromDialog();
+    return;
+  }
+
+  const addServiceCancelButton = event.target.closest("[data-smart-planning-add-service-cancel]");
+
+  if (addServiceCancelButton) {
+    event.stopPropagation();
+    closeSmartPlanningAddServiceDialog();
+    return;
+  }
+
+  const addServiceDialogBackdrop = event.target.closest("[data-smart-planning-add-service-dialog]");
+
+  if (addServiceDialogBackdrop && event.target === addServiceDialogBackdrop) {
+    closeSmartPlanningAddServiceDialog();
+    return;
+  }
+
+  if (addServiceDialogBackdrop) {
     event.stopPropagation();
     return;
   }
@@ -33436,6 +33758,12 @@ document.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && smartPlanningTimeEditState) {
     smartPlanningTimeEditState = null;
+    renderSmartPlanningPanel();
+    return;
+  }
+
+  if (event.key === "Escape" && smartPlanningAddServiceVisible) {
+    smartPlanningAddServiceVisible = false;
     renderSmartPlanningPanel();
     return;
   }
@@ -33909,7 +34237,7 @@ winkelNeededInputs.forEach((input, index) => {
       return;
     }
 
-    planningSettings.winkelPerWeekday[String(index + 1)] = Math.max(0, Math.min(8, Number(input.value) || 0));
+    planningSettings.winkelPerWeekday[String(index + 1)] = Math.max(0, Math.min(6, Number(input.value) || 0));
     savePlanningSettings();
     render();
     showSavedMessage();

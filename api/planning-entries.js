@@ -89,6 +89,8 @@ function normalizePlanningSlotShiftName(shiftName) {
 
   if (shopMatch) return `winkel ${shopMatch[1]}`;
   if (allroundMatch) return `allround ${allroundMatch[1]}`;
+  if (/^winkel(?:dienst)?$/i.test(normalizedShiftName)) return "winkeldienst";
+  if (/^allround(?:dienst)?$/i.test(normalizedShiftName)) return "allround";
   if (lowerShiftName.includes("draai")) return "draaidienst";
   if (lowerShiftName.includes("oven")) return "oven";
   if (lowerShiftName.includes("brood")) return "brood";
@@ -113,10 +115,14 @@ function getPlanningEntryStableSlotKey(entry) {
     return "";
   }
 
+  const normalizedShiftName = normalizePlanningSlotShiftName(normalizedEntry.shiftName);
+  const shiftId = normalizedEntry.shiftId.toLowerCase();
+  const isGenericShopSlot = ["winkeldienst", "allround"].includes(normalizedShiftName) && shiftId;
+
   return [
     normalizedEntry.day,
     getPlanningEntryDepartment(normalizedEntry),
-    normalizePlanningSlotShiftName(normalizedEntry.shiftName),
+    isGenericShopSlot ? `${normalizedShiftName}:${shiftId}` : normalizedShiftName,
     normalizedEntry.startTime,
     normalizedEntry.endTime
   ].join("__");

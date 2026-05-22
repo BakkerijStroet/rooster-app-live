@@ -34,10 +34,22 @@
     const getShiftName = typeof options.getShiftName === "function"
       ? options.getShiftName
       : ((entry) => entry?.shiftName || "");
+    const entriesForDate = (Array.isArray(sourceEntries) ? sourceEntries : [])
+      .filter((entry) => entry.day === dateValue);
+    const shiftId = String(shift?.id || "");
+    const shiftName = String(shift?.name || "").trim().toLowerCase();
 
-    return (Array.isArray(sourceEntries) ? sourceEntries : []).find((entry) =>
-      entry.day === dateValue &&
-      getShiftName(entry).toLowerCase() === String(shift?.name || "").toLowerCase()
+    if (shiftId) {
+      const byId = entriesForDate.find((entry) => String(entry.shiftId || "") === shiftId);
+
+      if (byId) {
+        return byId;
+      }
+    }
+
+    return entriesForDate.find((entry) =>
+      getShiftName(entry).toLowerCase() === shiftName &&
+      (!shiftId || !String(entry.shiftId || ""))
     ) || null;
   }
 
