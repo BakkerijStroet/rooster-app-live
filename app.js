@@ -17256,6 +17256,145 @@ function getRequestRosterEffectText(request, requestType) {
   });
 }
 
+function getPlannerRequestCoverageDateRange(request, requestType) {
+  if (requestType === "swap") {
+    return request?.date ? [request.date] : [];
+  }
+
+  return getVacationDateRange(getTimeOffStartDate(request), getTimeOffEndDate(request));
+}
+
+function isAssignedRosterEmployee(employeeName) {
+  const normalizedName = String(employeeName || "").trim().toLowerCase();
+  return Boolean(normalizedName && normalizedName !== "open" && normalizedName !== "niet ingepland");
+}
+
+function getPlannerRequestOtherAbsencesForDate(request, date) {
+  return timeOffRequests.filter((absence) =>
+    absence?.id !== request?.id &&
+    absence?.employeeName !== request?.employeeName &&
+    !isDeletedRequest(absence) &&
+    getVacationRequestStatusKey(absence) === "approved" &&
+    requestIncludesDate(absence, date)
+  );
+}
+
+function getPlannerRequestCoverageForDate(request, requestType, date) {
+  const requestEmployeeName = String(request?.employeeName || "").trim();
+  const dayEntries = entries.filter((entry) => entry.day === date);
+  const shouldExcludeRequestEmployee = requestType === "timeoff" && ["open", "approved"].includes(getVacationRequestStatusKey(request));
+  const plannedByDepartment = { bakery: new Set(), shop: new Set() };
+
+  dayEntries.forEach((entry) => {
+    const employeeName = String(entry.name || "").trim();
+
+    if (!isAssignedRosterEmployee(employeeName)) {
+      return;
+    }
+
+    if (shouldExcludeRequestEmployee && employeeName === requestEmployeeName) {
+      return;
+    }
+
+    plannedByDepartment[getRosterDepartmentForEntry(entry)].add(employeeName);
+  });
+
+  const otherAbsences = getPlannerRequestOtherAbsencesForDate(request, date);
+  const requestCountsAsAbsent = requestType === "timeoff" && ["open", "approved"].includes(getVacationRequestStatusKey(request));
+  const projectedAbsenceCount = otherAbsences.length + (requestCountsAsAbsent ? 1 : 0);
+  const affectedEntryCount = requestType === "timeoff"
+    ? dayEntries.filter((entry) => String(entry.name || "").trim() === requestEmployeeName).length
+    : 0;
+  const plannedShop = plannedByDepartment.shop.size;
+  const plannedBakery = plannedByDepartment.bakery.size;
+  const totalPlanned = plannedShop + plannedBakery;
+  let level = "ok";
+  let label = "Bezetting ok";
+
+  if (totalPlanned === 0) {
+    level = "warning";
+    label = "Nog geen planning";
+  } else if (plannedShop <= 1 || plannedBakery <= 2 || (affectedEntryCount > 0 && projectedAbsenceCount >= 3)) {
+    level = "danger";
+    label = "Mogelijk probleem";
+  } else if (plannedShop <= 2 || plannedBakery <= 4 || affectedEntryCount > 0 || projectedAbsenceCount >= 3) {
+    level = "warning";
+    label = "Lage bezetting";
+  }
+
+  return {
+    date,
+    level,
+    label,
+    plannedBakery,
+    plannedShop,
+    projectedAbsenceCount,
+    otherAbsences,
+    affectedEntryCount
+  };
+}
+
+function getPlannerRequestCoverageContext(request, requestType) {
+  const dates = getPlannerRequestCoverageDateRange(request, requestType);
+
+  if (!dates.length) {
+    return null;
+  }
+
+  const dayContexts = dates.map((date) => getPlannerRequestCoverageForDate(request, requestType, date));
+  const levelPriority = { danger: 2, warning: 1, ok: 0 };
+  const highestContext = dayContexts.reduce((current, item) =>
+    levelPriority[item.level] > levelPriority[current.level] ? item : current
+  , dayContexts[0]);
+  const totalOtherAbsences = dayContexts[0].otherAbsences;
+  const absenceSummary = [
+    totalOtherAbsences.filter((absence) => normalizeTimeOffRequestType(absence.type) === "vakantie").length ? `${totalOtherAbsences.filter((absence) => normalizeTimeOffRequestType(absence.type) === "vakantie").length} vakantie` : "",
+    totalOtherAbsences.filter((absence) => normalizeTimeOffRequestType(absence.type) === "vrij").length ? `${totalOtherAbsences.filter((absence) => normalizeTimeOffRequestType(absence.type) === "vrij").length} vrij` : "",
+    totalOtherAbsences.filter((absence) => normalizeTimeOffRequestType(absence.type) === "ziek").length ? `${totalOtherAbsences.filter((absence) => normalizeTimeOffRequestType(absence.type) === "ziek").length} ziek` : ""
+  ].filter(Boolean).join(" · ") || "geen";
+  const absenceTitle = totalOtherAbsences.length
+    ? totalOtherAbsences
+      .map((absence) => `${absence.employeeName || "Onbekend"} (${getAbsenceTypeLabel(absence.type)})`)
+      .join(", ")
+    : "Geen andere afwezigen";
+
+  return {
+    level: highestContext.level,
+    label: highestContext.label,
+    plannedBakery: highestContext.plannedBakery,
+    plannedShop: highestContext.plannedShop,
+    absenceSummary,
+    absenceTitle,
+    daySummary: dates.length > 1
+      ? dayContexts
+        .slice(0, 7)
+        .map((context) => {
+          const dayLabel = formatWeekday(context.date).slice(0, 2).toLowerCase();
+          const marker = context.level === "ok" ? "" : " !";
+          return `${dayLabel} ${context.projectedAbsenceCount} afwezig${marker}`;
+        })
+        .join(" · ") + (dayContexts.length > 7 ? ` · +${dayContexts.length - 7} dagen` : "")
+      : ""
+  };
+}
+
+function renderPlannerRequestCoverageContext(request, requestType) {
+  const context = getPlannerRequestCoverageContext(request, requestType);
+
+  if (!context) {
+    return "";
+  }
+
+  return `
+    <div class="request-coverage-context is-${context.level}" title="${escapeHtmlAttribute(context.absenceTitle)}">
+      <span class="request-coverage-status">${context.label}</span>
+      <span>Afwezig: ${escapeHtmlAttribute(context.absenceSummary)}</span>
+      <span>Ingepland: bakkerij ${context.plannedBakery} · winkel ${context.plannedShop}</span>
+      ${context.daySummary ? `<span class="request-coverage-days">${escapeHtmlAttribute(context.daySummary)}</span>` : ""}
+    </div>
+  `;
+}
+
 function getPlannerRequestNoteFromButton(button) {
   const input = button?.closest(".request-card")?.querySelector("[data-request-note-input]");
   return input ? input.value.trim() : "";
@@ -17789,6 +17928,7 @@ function renderPlannerRequestInboxItem(item) {
         ${actions}
       </div>
       ${renderRequestMailStatus(request, requestType === "swap" ? getSwapMailStatusText : getTimeOffMailStatusText)}
+      ${renderPlannerRequestCoverageContext(request, requestType)}
       ${getRequestRosterEffectText(request, requestType) ? `<div class="request-impact">${getRequestRosterEffectText(request, requestType)}</div>` : ""}
       ${isOpen && getRequestAttentionText(request) ? `<div class="request-impact request-attention-note">${getRequestAttentionText(request)}</div>` : ""}
     </article>
@@ -17876,6 +18016,7 @@ function renderPlannerRequestCards(target, requests, emptyText, requestType) {
           ${plannerNoteField}
         </div>
         ${swapExtra}
+        ${renderPlannerRequestCoverageContext(request, requestType)}
         ${viewModel.rosterEffectText ? `<div class="request-impact">${viewModel.rosterEffectText}</div>` : ""}
         ${sickOverlapNotice ? `<div class="request-impact request-attention-note">${sickOverlapNotice}</div>` : ""}
         ${viewModel.attentionText ? `<div class="request-impact request-attention-note">${viewModel.attentionText}</div>` : ""}

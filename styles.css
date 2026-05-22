@@ -8940,6 +8940,49 @@ button.hours-reminder-banner {
   overflow-wrap: anywhere;
 }
 
+.request-coverage-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 7px 9px;
+  border: 1px solid var(--color-success-border);
+  border-radius: 8px;
+  background: var(--color-success-soft);
+  color: var(--color-success);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.request-coverage-context.is-warning {
+  border-color: var(--color-warning-border);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.request-coverage-context.is-danger {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.request-coverage-context span {
+  min-width: 0;
+}
+
+.request-coverage-status {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.request-coverage-days {
+  flex-basis: 100%;
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
 .planner-request-actions {
   display: flex;
   flex-wrap: wrap;
@@ -9965,6 +10008,15 @@ button,
   .planner-request-description {
     white-space: normal;
     overflow-wrap: anywhere;
+  }
+
+  .request-coverage-context {
+    display: grid;
+    gap: 5px;
+  }
+
+  .request-coverage-days {
+    flex-basis: auto;
   }
 
   .planner-request-inbox-actions {
