@@ -5284,6 +5284,7 @@ let pendingSmartPlanningScrollWeek = "";
 let lastSmartPlanningProposalBlockLogKey = "";
 const smartPlanningUnsavedWarningMessage = "Je hebt niet-opgeslagen wijzigingen in Rooster plannen. Wil je doorgaan zonder op te slaan?";
 const smartPlanningAutoFillMinScore = 800;
+const smartPlanningSoftContractOverageHours = 1;
 const smartPlanningClearedWeekSnapshots = {};
 let smartPlanningProposalRevision = 0;
 let smartPlanningProposalItemsCache = {
@@ -23101,7 +23102,7 @@ function getSmartPlanningLookupCache(sourceEntries = entries) {
     employeeDayEntries.get(dayKey).push(entry);
 
     const weekKey = `${employeeName}|${getWeekValueFromDate(day)}`;
-    const entryHours = calculateHours(entry.startTime || "", entry.endTime || "") || 0;
+    const entryHours = getSmartPlanningContractProjectionHours(entry);
     employeeWeekHours.set(weekKey, (employeeWeekHours.get(weekKey) || 0) + entryHours);
   });
 
@@ -23152,6 +23153,31 @@ function getSmartPlanningCandidateEntry(item, lookup = getSmartPlanningLookupCac
   return item?.id ? lookup.entryByItemId.get(item.id) || null : null;
 }
 
+function getSmartPlanningContractBreakMinutes(shiftLike = {}) {
+  const configuredBreak = Number(shiftLike.breakMinutes);
+  if (Number.isFinite(configuredBreak) && configuredBreak > 0) {
+    return Math.max(0, configuredBreak);
+  }
+
+  const hours = calculateHours(shiftLike.startTime || "", shiftLike.endTime || "") || 0;
+  if (hours >= 9) {
+    return 30;
+  }
+
+  if (hours >= 6) {
+    return 15;
+  }
+
+  return 0;
+}
+
+function getSmartPlanningContractProjectionHours(shiftLike = {}) {
+  const hours = calculateHours(shiftLike.startTime || "", shiftLike.endTime || "") || 0;
+  const breakHours = getSmartPlanningContractBreakMinutes(shiftLike) / 60;
+
+  return Math.max(0, Math.round((hours - breakHours) * 10) / 10);
+}
+
 function getSmartPlanningEmployeeDayEntries(employeeName, day, lookup = getSmartPlanningLookupCache(entries), exceptEntry = null) {
   const dayEntries = lookup.employeeDayEntries.get(`${employeeName}|${day}`) || [];
   return exceptEntry ? dayEntries.filter((entry) => entry !== exceptEntry) : dayEntries;
@@ -23163,7 +23189,7 @@ function getSmartPlanningEmployeeWeekHoursFromLookup(employeeName, weekValue, lo
     return baseHours;
   }
 
-  return Math.max(0, baseHours - (calculateHours(exceptEntry.startTime || "", exceptEntry.endTime || "") || 0));
+  return Math.max(0, baseHours - getSmartPlanningContractProjectionHours(exceptEntry));
 }
 
 function findSmartPlanningConflictInLookup(lookup, employeeName, item, exceptEntry = null) {
@@ -23496,6 +23522,10 @@ function getSmartPlanningAutoFillReason(candidate, item) {
     return "Vast patroon";
   }
 
+  if (scoreDetails.practicePatternScore > 0) {
+    return "Praktijkpatroon";
+  }
+
   if (scoreDetails.sameShiftWeekdayScore > 0 || scoreDetails.sameShiftScore > 0 || scoreDetails.sameWeekdayScore > 0) {
     return "Eerdere planning";
   }
@@ -23527,6 +23557,10 @@ function getSmartPlanningProjectedWorkdayCount(employeeName, item, lookup = getS
   return workdays.size;
 }
 
+function hasSmartPlanningPracticePatternFallback(scoreDetails = {}) {
+  return (Number(scoreDetails.practicePatternScore) || 0) > 0;
+}
+
 function getSmartPlanningAutoFillCandidateDecision(candidate, item) {
   if (!candidate || !item) {
     return {
@@ -23551,8 +23585,16 @@ function getSmartPlanningAutoFillCandidateDecision(candidate, item) {
   const patternWorkdayCount = getSmartPlanningPatternWorkdayCount(candidate.employeeName, weekValue);
   const projectedWorkdayCount = getSmartPlanningProjectedWorkdayCount(candidate.employeeName, item);
   const contractHours = getEmployeeContractHours(candidate.employeeName);
-  const shiftHours = calculateHours(item.startTime || "", item.endTime || "") || 0;
+  const shift = getSmartPlanningShiftFromProposalItem(item);
+  const shiftHours = getSmartPlanningContractProjectionHours({
+    ...shift,
+    startTime: item.startTime || shift?.startTime || "",
+    endTime: item.endTime || shift?.endTime || ""
+  });
   const projectedHours = Math.round(((candidate.plannedHours || 0) + shiftHours) * 10) / 10;
+  const contractOverage = contractHours > 0 ? Math.max(0, Math.round((projectedHours - contractHours) * 10) / 10) : 0;
+  const hasPracticePatternFallback = hasSmartPlanningPracticePatternFallback(scoreDetails);
+  const isWeekendEmployeeOutsideWeekend = isWeekendEmployee(candidate.employeeName) && weekday >= 2 && weekday <= 5;
 
   if (!extraAvailabilityMatch && (patternId === "director-emergency" || patternId === "on-call" || candidate.isEmergencyOption)) {
     return {
@@ -23562,7 +23604,7 @@ function getSmartPlanningAutoFillCandidateDecision(candidate, item) {
     };
   }
 
-  if (!extraAvailabilityMatch && patternId && !isStrictPlanningPatternMatch(patternMatch)) {
+  if (!extraAvailabilityMatch && patternId && !isStrictPlanningPatternMatch(patternMatch) && (!hasPracticePatternFallback || isWeekendEmployeeOutsideWeekend)) {
     return {
       accepted: false,
       reason: isWeekendEmployee(candidate.employeeName) && weekday >= 2 && weekday <= 5
@@ -23572,7 +23614,7 @@ function getSmartPlanningAutoFillCandidateDecision(candidate, item) {
     };
   }
 
-  if (!extraAvailabilityMatch && !patternId && scoreDetails.fixedScore <= 0 && !isFlexibleShopCandidate) {
+  if (!extraAvailabilityMatch && !patternId && scoreDetails.fixedScore <= 0 && !isFlexibleShopCandidate && !hasPracticePatternFallback) {
     return {
       accepted: false,
       reason: "Geen patroonmatch",
@@ -23588,7 +23630,7 @@ function getSmartPlanningAutoFillCandidateDecision(candidate, item) {
     };
   }
 
-  if (contractHours > 0 && projectedHours > contractHours) {
+  if (contractHours > 0 && contractOverage > smartPlanningSoftContractOverageHours) {
     return {
       accepted: false,
       reason: "Te veel ingepland",
@@ -23682,10 +23724,27 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
   const saturdayFixedScore = categoryKey === "shop" && isFixedSaturdayCandidate ? 260 : 0;
   const flexibleShopScore = isFlexibleShopCandidate ? 75 : 0;
   const roleScore = getEmployeeAppRole(candidate.employeeName) === "planner" ? 5 : 0;
-  const contractPenalty = (candidate.contractWarningPriority || 0) * 45;
+  const historicalPracticeScore = sameShiftWeekdayScore + sameShiftScore + sameCategoryWeekdayScore + sameCategoryScore;
+  const sameWeekdayPracticeScore = sameShiftWeekdayScore + sameCategoryWeekdayScore;
+  let practicePatternScore = 0;
+  const isWeekendEmployeeOutsideWeekend = isWeekendEmployee(candidate.employeeName) && weekday >= 2 && weekday <= 5;
+
+  if (patternFitScore <= 0 && ["shop", "allround"].includes(categoryKey) && !isWeekendEmployeeOutsideWeekend) {
+    if (categoryKey === "shop" && isFixedSaturdayCandidate && weekday === 6) {
+      practicePatternScore = 650;
+    } else if (historicalPracticeScore >= 180 || sameWeekdayPracticeScore >= 120) {
+      practicePatternScore = 650;
+    } else if (isFlexibleShopCandidate && historicalPracticeScore >= 100) {
+      practicePatternScore = 520;
+    }
+  }
+
+  const contractPenalty = ((candidate.contractWarningPriority || 0) * 45) +
+    ((Number(candidate.contractOverage) || 0) * 110);
   const loadPenalty = (candidate.plannedHours || 0) * 0.35;
   const score = fixedScore +
     extraAvailabilityScore +
+    practicePatternScore +
     sameShiftWeekdayScore +
     sameShiftScore +
     sameWeekdayScore +
@@ -23703,6 +23762,7 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
     fixedScore,
     standardEmployeeScore,
     patternFitScore,
+    practicePatternScore,
     extraAvailabilityScore,
     sameShiftWeekdayScore,
     sameShiftScore,
@@ -24076,7 +24136,11 @@ function getSmartPlanningEmployeeAdvice(item) {
 
   const weekValue = getWeekValueFromDate(item.day);
   const shift = getSmartPlanningShiftFromProposalItem(item);
-  const shiftHours = calculateHours(item.startTime || "", item.endTime || "") || 0;
+  const shiftHours = getSmartPlanningContractProjectionHours({
+    ...shift,
+    startTime: item.startTime || shift?.startTime || "",
+    endTime: item.endTime || shift?.endTime || ""
+  });
   const lookup = getSmartPlanningLookupCache(entries);
   const candidateEntry = smartPlanningProposalState?.mode === "adjust"
     ? getSmartPlanningCandidateEntry(item, lookup)
@@ -24101,6 +24165,7 @@ function getSmartPlanningEmployeeAdvice(item) {
     const contractHours = getEmployeeContractHours(employeeName);
     const plannedHours = getSmartPlanningEmployeeWeekHoursFromLookup(employeeName, weekValue, lookup, candidateEntry);
     const projectedHours = Math.round((plannedHours + shiftHours) * 10) / 10;
+    const contractOverage = contractHours > 0 ? Math.max(0, Math.round((projectedHours - contractHours) * 10) / 10) : 0;
     const isEmergencyOption = isSmartPlanningEmergencyEmployee(employeeName);
     const patternInfo = getSmartPlanningPatternInfo(employeeName, item, lookup);
     const patternPriority = patternInfo.priority;
@@ -24134,8 +24199,10 @@ function getSmartPlanningEmployeeAdvice(item) {
         }
       }
 
-      if (contractHours > 0 && projectedHours > contractHours) {
+      if (contractHours > 0 && contractOverage > smartPlanningSoftContractOverageHours) {
         reasons.push("Contracturen overschreden");
+      } else if (contractHours > 0 && contractOverage > 0) {
+        reasons.push("Contracturen licht overschreden");
       } else if (contractHours > 0 && contractHours - projectedHours <= 2) {
         reasons.push("Contracturen bijna vol");
       }
@@ -24150,6 +24217,7 @@ function getSmartPlanningEmployeeAdvice(item) {
       contractHours,
       plannedHours,
       projectedHours,
+      contractOverage,
       isEmergencyOption,
       isExtraAvailable: Boolean(extraAvailabilityMatch),
       extraAvailabilityLabel: extraAvailabilityMatch ? getExtraAvailabilityRecordLabel(extraAvailabilityMatch) : "",
