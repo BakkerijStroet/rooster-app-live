@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260523-contract-balance";
+const APP_VERSION = "20260523-contract-balance-fix";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -25259,7 +25259,7 @@ function renderSmartPlanningContractBalance(weekValue, weekItems = []) {
         <div class="smart-planning-contract-balance-list">
           ${rowsToRender.map((row) => `
             <span class="smart-planning-contract-balance-row is-${row.stateClass}">
-              <b>${escapeHtml(row.employeeName)}</b>
+              <b>${escapeHtmlAttribute(row.employeeName)}</b>
               <small>Gepland ${formatHours(row.plannedHours)} · Contract ${formatHours(row.contractHours)}</small>
               <em>${formatSmartPlanningContractBalanceDifference(row.difference)}</em>
             </span>
