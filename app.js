@@ -22322,8 +22322,14 @@ function getSmartPlanningAutoFillDepartmentPriority(item = {}) {
 function compareSmartPlanningItemsForAutoFill(itemA, itemB) {
   const sortEntryA = mapSmartPlanningItemToRosterSortEntry(itemA);
   const sortEntryB = mapSmartPlanningItemToRosterSortEntry(itemB);
+  const weekA = itemA?.weekValue || (itemA?.day ? getWeekValueFromDate(itemA.day) : "");
+  const weekB = itemB?.weekValue || (itemB?.day ? getWeekValueFromDate(itemB.day) : "");
+  const saturdayShopPriorityA = isSmartPlanningSaturdayShopItem(itemA) ? -1 : 0;
+  const saturdayShopPriorityB = isSmartPlanningSaturdayShopItem(itemB) ? -1 : 0;
 
-  return sortEntryA.day.localeCompare(sortEntryB.day) ||
+  return weekA.localeCompare(weekB) ||
+    saturdayShopPriorityA - saturdayShopPriorityB ||
+    sortEntryA.day.localeCompare(sortEntryB.day) ||
     getSmartPlanningAutoFillDepartmentPriority(itemA) - getSmartPlanningAutoFillDepartmentPriority(itemB) ||
     compareSmartPlanningItemsByRosterOrder(itemA, itemB);
 }
@@ -23686,6 +23692,48 @@ function getSmartPlanningPatternDisplayReason(employeeName, item) {
   return "Buiten normaal patroon";
 }
 
+const smartPlanningExperiencedSaturdayShopEmployees = ["Saskia", "Wendy", "Luna", "Monique"];
+const smartPlanningMinimumExperiencedSaturdayShopEmployees = 2;
+
+function isSmartPlanningExperiencedSaturdayShopEmployee(employeeName = "") {
+  return smartPlanningExperiencedSaturdayShopEmployees
+    .some((candidateName) => candidateName.toLowerCase() === String(employeeName || "").trim().toLowerCase());
+}
+
+function isSmartPlanningSaturdayShopItem(item = {}) {
+  if (getWeekdayNumberFromDate(item?.day || "") !== 6) {
+    return false;
+  }
+
+  const shift = getSmartPlanningShiftFromProposalItem(item);
+  const categoryKey = getShiftCategoryKey(shift || {
+    name: item?.shiftName || "",
+    isShopShift: item?.department === "shop"
+  });
+
+  return categoryKey === "shop";
+}
+
+function getSmartPlanningExperiencedSaturdayShopCount(item = {}) {
+  if (!isSmartPlanningSaturdayShopItem(item)) {
+    return 0;
+  }
+
+  return getSmartPlanningProposalItems()
+    .filter((proposalItem) =>
+      proposalItem?.id !== item?.id &&
+      proposalItem?.day === item?.day &&
+      isSmartPlanningSaturdayShopItem(proposalItem) &&
+      isSmartPlanningExperiencedSaturdayShopEmployee(proposalItem.chosenEmployeeName)
+    )
+    .length;
+}
+
+function needsSmartPlanningExperiencedSaturdayShopCandidate(item = {}) {
+  return isSmartPlanningSaturdayShopItem(item) &&
+    getSmartPlanningExperiencedSaturdayShopCount(item) < smartPlanningMinimumExperiencedSaturdayShopEmployees;
+}
+
 function isSmartPlanningFixedSaturdayEmployee(employeeName, item) {
   if (getWeekdayNumberFromDate(item?.day || "") !== 6) {
     return false;
@@ -24111,11 +24159,19 @@ function getBestSmartPlanningAutoFillCandidate(item, options = {}) {
     return null;
   }
 
-  availableCandidates.sort((candidateA, candidateB) =>
+  const candidatePool = needsSmartPlanningExperiencedSaturdayShopCandidate(item)
+    ? availableCandidates.filter((candidate) => isSmartPlanningExperiencedSaturdayShopEmployee(candidate.employeeName))
+    : availableCandidates;
+
+  if (!candidatePool.length) {
+    return null;
+  }
+
+  candidatePool.sort((candidateA, candidateB) =>
     compareSmartPlanningAutoFillCandidates(candidateA, candidateB, item)
   );
 
-  return availableCandidates.find((candidate) =>
+  return candidatePool.find((candidate) =>
     !(typeof isCandidateBlocked === "function" && isCandidateBlocked(candidate)) &&
     getSmartPlanningAutoFillCandidateDecision(candidate, item).accepted
   ) || null;
@@ -24133,6 +24189,16 @@ function getSmartPlanningAutoFillBlockReason(item) {
   const authorizedAdvice = activeAdvice.filter((candidate) => candidate.isAuthorized && !candidate.reasons.includes("Niet bevoegd"));
   const decisionReasonCounts = new Map();
   const reasonCounts = new Map();
+
+  if (needsSmartPlanningExperiencedSaturdayShopCandidate(item)) {
+    const experiencedAvailableCount = availableCandidates
+      .filter((candidate) => isSmartPlanningExperiencedSaturdayShopEmployee(candidate.employeeName))
+      .length;
+
+    if (!experiencedAvailableCount) {
+      return "Minimaal 2 vaste dames zaterdag";
+    }
+  }
 
   availableCandidates.forEach((candidate) => {
     const decision = getSmartPlanningAutoFillCandidateDecision(candidate, item);
