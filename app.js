@@ -5780,7 +5780,7 @@ function getEmployeeEditorSnapshot(employeeName, draftOverride = null) {
     permissions: Object.fromEntries(
       getPermissionShiftDescriptors().map((shift) => [
         shift.name,
-        draft?.permissions?.[shift.name] !== false
+        getEmployeePermissionValue(draft?.permissions, shift.name)
       ])
     ),
     standardShift: typeof draft?.standardShift === "string" ? draft.standardShift : "",
@@ -6473,14 +6473,7 @@ function getPermissionShiftDescriptors() {
       return [];
     }
   })();
-  const shopNumbers = new Set(getHolidayShopTemplates().map((template) => template.number));
   const allroundNames = new Set();
-
-  Object.values(getDefaultShopTemplatesByWeekday()).forEach((templates) => {
-    templates.forEach((template) => {
-      shopNumbers.add(template.number);
-    });
-  });
 
   Object.values(getAllroundTemplatesByWeekday()).forEach((templates) => {
     templates.forEach((template) => {
@@ -6492,13 +6485,7 @@ function getPermissionShiftDescriptors() {
     {
       name: genericShopShiftName,
       color: "shift-tone-winkel-1"
-    },
-    ...[...shopNumbers]
-    .sort((numberA, numberB) => numberA - numberB)
-    .map((number) => ({
-      name: `Winkeldienst ${number}`,
-      color: `shift-tone-winkel-${Math.min(number, 6)}`
-    }))
+    }
   ];
 
   const allroundDescriptors = [
@@ -6526,6 +6513,52 @@ function getPermissionShiftDescriptors() {
   return descriptors.filter((descriptor, index, source) =>
     source.findIndex((candidate) => candidate.name.toLowerCase() === descriptor.name.toLowerCase()) === index
   );
+}
+
+function getEmployeePermissionValue(permissionMap, shiftName) {
+  if (!permissionMap || typeof permissionMap !== "object") {
+    return true;
+  }
+
+  const normalizedShiftName = String(shiftName || "").trim().toLowerCase();
+  const matchingPermissionKey = Object.keys(permissionMap)
+    .find((permissionShiftName) => permissionShiftName.trim().toLowerCase() === normalizedShiftName);
+  const shiftIsShop = isShopShiftName(shiftName);
+  const shiftIsAllround = isAllroundShiftName(shiftName);
+
+  if (shiftIsShop) {
+    const genericShopPermissionKey = Object.keys(permissionMap)
+      .find((permissionShiftName) => permissionShiftName.trim().toLowerCase() === genericShopShiftName.toLowerCase());
+    const genericShopPermissionValue = genericShopPermissionKey ? permissionMap[genericShopPermissionKey] : undefined;
+
+    if (typeof genericShopPermissionValue === "boolean") {
+      return genericShopPermissionValue;
+    }
+
+    const relatedShopPermissionValues = Object.entries(permissionMap)
+      .filter(([permissionShiftName]) => isShopShiftName(permissionShiftName))
+      .map(([, value]) => value)
+      .filter((value) => typeof value === "boolean");
+
+    if (relatedShopPermissionValues.length) {
+      return relatedShopPermissionValues.some(Boolean);
+    }
+  }
+
+  let permissionValue = matchingPermissionKey ? permissionMap[matchingPermissionKey] : permissionMap?.[shiftName];
+
+  if (typeof permissionValue !== "boolean" && shiftIsAllround) {
+    const relatedPermissionValues = Object.entries(permissionMap)
+      .filter(([permissionShiftName]) => isAllroundShiftName(permissionShiftName))
+      .map(([, value]) => value)
+      .filter((value) => typeof value === "boolean");
+
+    if (relatedPermissionValues.length) {
+      permissionValue = relatedPermissionValues.some(Boolean);
+    }
+  }
+
+  return typeof permissionValue === "boolean" ? permissionValue : true;
 }
 
 function loadEmployeePermissions() {
@@ -6958,29 +6991,7 @@ function isEmployeeAuthorizedForShift(employeeName, shiftName) {
     return true;
   }
 
-  const permissionMap = employeePermissions?.[employeeName];
-  const normalizedShiftName = String(shiftName || "").trim().toLowerCase();
-  const shiftIsShop = isShopShiftName(shiftName);
-  const shiftIsAllround = isAllroundShiftName(shiftName);
-  const matchingPermissionKey = permissionMap && typeof permissionMap === "object"
-    ? Object.keys(permissionMap).find((permissionShiftName) => permissionShiftName.trim().toLowerCase() === normalizedShiftName)
-    : "";
-  let permissionValue = matchingPermissionKey ? permissionMap[matchingPermissionKey] : permissionMap?.[shiftName];
-
-  if (typeof permissionValue !== "boolean" && permissionMap && typeof permissionMap === "object" && (shiftIsShop || shiftIsAllround)) {
-    const relatedPermissionValues = Object.entries(permissionMap)
-      .filter(([permissionShiftName]) => shiftIsShop
-        ? isShopShiftName(permissionShiftName)
-        : isAllroundShiftName(permissionShiftName))
-      .map(([, value]) => value)
-      .filter((value) => typeof value === "boolean");
-
-    if (relatedPermissionValues.length) {
-      permissionValue = relatedPermissionValues.some(Boolean);
-    }
-  }
-
-  return typeof permissionValue === "boolean" ? permissionValue : true;
+  return getEmployeePermissionValue(employeePermissions?.[employeeName], shiftName);
 }
 
 function getEmployeeShiftPreference(employeeName, shiftName) {
@@ -19582,7 +19593,7 @@ function toggleFavoriteEmployee(employeeName) {
 function getEmployeeAuthorizedShiftNames(employeeName) {
   const permissions = employeePermissions?.[employeeName] || {};
   return getPermissionShiftDescriptors()
-    .filter((shift) => permissions?.[shift.name] !== false)
+    .filter((shift) => getEmployeePermissionValue(permissions, shift.name))
     .map((shift) => shift.name);
 }
 
@@ -20621,7 +20632,7 @@ function renderEmployeePermissions() {
                     type="checkbox"
                     data-permission-employee="${employeeName}"
                     data-permission-shift="${shift.name}"
-                    ${employeeDraft?.permissions?.[shift.name] !== false ? "checked" : ""}
+                    ${getEmployeePermissionValue(employeeDraft?.permissions, shift.name) ? "checked" : ""}
                   >
                   <span>${shift.name}</span>
                 </div>
@@ -33230,12 +33241,21 @@ function saveSelectedEmployeeDetails(options = {}) {
   const normalizedLoginAllowed = nextStatus === "active" && employeeDraft?.loginAllowed !== false;
   const shouldEnableMailTestUser = Boolean(employeeDraft?.mailTestUser);
   const normalizedContractHours = normalizeContractHours(employeeDraft?.contractHours);
-  const normalizedPermissions = Object.fromEntries(
-    getPermissionShiftDescriptors().map((shift) => [
-      shift.name,
-      employeeDraft?.permissions?.[shift.name] !== false
-    ])
-  );
+  const existingPermissionMap = employeePermissions?.[employeeName] && typeof employeePermissions[employeeName] === "object"
+    ? cloneSerializableValue(employeePermissions[employeeName])
+    : {};
+  const draftPermissionMap = employeeDraft?.permissions && typeof employeeDraft.permissions === "object"
+    ? employeeDraft.permissions
+    : {};
+  const normalizedPermissions = {
+    ...existingPermissionMap,
+    ...Object.fromEntries(
+      getPermissionShiftDescriptors().map((shift) => [
+        shift.name,
+        getEmployeePermissionValue(draftPermissionMap, shift.name)
+      ])
+    )
+  };
   const normalizedStandardShift = typeof employeeDraft?.standardShift === "string" ? employeeDraft.standardShift : "";
   const normalizedBasePatternId = typeof employeeDraft?.basePatternId === "string" ? employeeDraft.basePatternId : getEmployeeBasePatternId(employeeName);
   const normalizedCustomRoster = normalizeEmployeeCustomRosterConfig(employeeDraft?.customRoster, employeeName);
