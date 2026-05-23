@@ -13304,8 +13304,11 @@ function getEmployeeShopPlanningRule(employeeName, day, shift, weekValue, source
     }
 
     if (preferredDaypart === shiftDaypart) {
+      const preferredScoreBonus = weekday === 2
+        ? 900
+        : (weekday === 6 ? 260 : 760);
       return {
-        scoreBonus: 760,
+        scoreBonus: preferredScoreBonus,
         scorePenalty: 0,
         saturdayPriorityAdjustment: isMonthSwitchWeek ? 22 : -16,
         patternMatch: {
