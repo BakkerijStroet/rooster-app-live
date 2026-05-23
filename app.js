@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260523-open-reason-labels";
+const APP_VERSION = "20260523-week-safety-check";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -24996,6 +24996,206 @@ function renderSmartPlanningOpenReasonSummary(items = []) {
   `;
 }
 
+function getSmartPlanningSafetyDepartmentKey(item = {}) {
+  const shiftName = String(item?.shiftName || "").toLowerCase();
+
+  if (shiftName.includes("bezorg")) {
+    return "delivery";
+  }
+
+  return item?.department === "shop" ? "shop" : "bakery";
+}
+
+function getSmartPlanningWeekSafetyContractRows(weekValue, weekItems = []) {
+  const plannedByEmployee = new Map();
+
+  weekItems.forEach((item) => {
+    if (!item?.chosenEmployeeName) {
+      return;
+    }
+
+    const currentHours = plannedByEmployee.get(item.chosenEmployeeName) || 0;
+    const shift = getSmartPlanningShiftFromProposalItem(item);
+    const projectedHours = getSmartPlanningContractProjectionHours({
+      ...shift,
+      startTime: item.startTime || shift?.startTime || "",
+      endTime: item.endTime || shift?.endTime || ""
+    });
+
+    plannedByEmployee.set(
+      item.chosenEmployeeName,
+      Math.round((currentHours + projectedHours) * 10) / 10
+    );
+  });
+
+  return getActiveEmployees()
+    .filter((employeeName) => getEmployeeContractHours(employeeName) > 0)
+    .map((employeeName) => {
+      const contractHours = getEmployeeContractHours(employeeName);
+      const plannedHours = plannedByEmployee.get(employeeName) || 0;
+      const difference = Math.round((plannedHours - contractHours) * 10) / 10;
+
+      return {
+        employeeName,
+        weekValue,
+        contractHours,
+        plannedHours,
+        difference
+      };
+    });
+}
+
+function getSmartPlanningWeekSafetyCheck(weekValue, weekItems = [], weekCard = null) {
+  const openItems = weekItems.filter((item) =>
+    !item.chosenEmployeeName &&
+    !isSmartPlanningProposalItemKeptOpen(item)
+  );
+  const openByDepartment = {
+    shop: 0,
+    bakery: 0,
+    delivery: 0
+  };
+
+  openItems.forEach((item) => {
+    const departmentKey = getSmartPlanningSafetyDepartmentKey(item);
+    openByDepartment[departmentKey] = (openByDepartment[departmentKey] || 0) + 1;
+  });
+
+  const saturdayShopDays = [...new Set(weekItems
+    .filter((item) => isSmartPlanningSaturdayShopItem(item))
+    .map((item) => item.day)
+  )];
+  const saturdayShopStatus = saturdayShopDays.map((day) => {
+    const experiencedCount = weekItems.filter((item) =>
+      item.day === day &&
+      isSmartPlanningSaturdayShopItem(item) &&
+      isSmartPlanningExperiencedSaturdayShopEmployee(item.chosenEmployeeName)
+    ).length;
+
+    return {
+      day,
+      experiencedCount,
+      ok: experiencedCount >= smartPlanningMinimumExperiencedSaturdayShopEmployees
+    };
+  });
+  const deliveryItems = weekItems
+    .filter((item) => getSmartPlanningFixedDeliveryEmployeeForItem(item));
+  const deliveryProblems = deliveryItems.filter((item) => {
+    const expectedEmployeeName = getSmartPlanningFixedDeliveryEmployeeForItem(item);
+    return !item.chosenEmployeeName || item.chosenEmployeeName !== expectedEmployeeName;
+  });
+  const contractRows = getSmartPlanningWeekSafetyContractRows(weekValue, weekItems);
+  const clearOverContractRows = contractRows.filter((row) => row.difference > 2);
+  const clearUnderContractRows = contractRows.filter((row) => row.difference < -2);
+
+  return {
+    weekValue,
+    openCount: openItems.length,
+    openByDepartment,
+    saturdayShopChecked: saturdayShopStatus.length > 0,
+    saturdayShopOk: saturdayShopStatus.length ? saturdayShopStatus.every((status) => status.ok) : true,
+    saturdayShopStatus,
+    deliveryChecked: deliveryItems.length > 0,
+    deliveryOk: deliveryItems.length ? deliveryProblems.length === 0 : true,
+    deliveryProblems,
+    conflictCount: Number(weekCard?.conflictCount) || 0,
+    overContractRows: clearOverContractRows,
+    underContractRows: clearUnderContractRows
+  };
+}
+
+function renderSmartPlanningWeekSafetyCheck(weekValue, weekItems = [], weekCard = null) {
+  if (!weekItems.length) {
+    return "";
+  }
+
+  const check = getSmartPlanningWeekSafetyCheck(weekValue, weekItems, weekCard);
+  const openDepartmentText = [
+    `winkel ${check.openByDepartment.shop || 0}`,
+    `bakkerij ${check.openByDepartment.bakery || 0}`,
+    `bezorging ${check.openByDepartment.delivery || 0}`
+  ].join(" · ");
+  const saturdayDetail = check.saturdayShopChecked
+    ? check.saturdayShopStatus
+      .map((status) => `${formatWeekday(status.day)} ${status.experiencedCount}/${smartPlanningMinimumExperiencedSaturdayShopEmployees}`)
+      .join(" · ")
+    : "Geen zaterdag-winkeldiensten";
+  const deliveryDetail = check.deliveryChecked
+    ? (check.deliveryProblems.length
+      ? check.deliveryProblems
+        .slice(0, 2)
+        .map((item) => `${formatWeekday(item.day)} ${getSmartPlanningFixedDeliveryEmployeeForItem(item)}`)
+        .join(" · ")
+      : "Vaste bezorgers staan erin")
+    : "Geen vaste bezorgdiensten";
+  const overContractDetail = check.overContractRows.length
+    ? check.overContractRows
+      .slice(0, 2)
+      .map((row) => `${row.employeeName} +${formatHours(row.difference)}`)
+      .join(" · ")
+    : "Geen duidelijke overschrijding";
+  const underContractDetail = check.underContractRows.length
+    ? check.underContractRows
+      .slice(0, 2)
+      .map((row) => `${row.employeeName} -${formatHours(Math.abs(row.difference))}`)
+      .join(" · ")
+    : "Geen duidelijke onderplanning";
+
+  const rows = [
+    {
+      label: "Open diensten",
+      value: String(check.openCount),
+      detail: openDepartmentText,
+      tone: check.openCount ? "warning" : "ok"
+    },
+    {
+      label: "Zaterdag winkel",
+      value: check.saturdayShopOk ? "ja" : "nee",
+      detail: saturdayDetail,
+      tone: check.saturdayShopOk ? "ok" : "danger"
+    },
+    {
+      label: "Bezorging",
+      value: check.deliveryOk ? "ja" : "nee",
+      detail: deliveryDetail,
+      tone: check.deliveryOk ? "ok" : "danger"
+    },
+    {
+      label: "Conflicts",
+      value: String(check.conflictCount),
+      detail: check.conflictCount ? "Controle nodig" : "Geen dubbele diensten",
+      tone: check.conflictCount ? "danger" : "ok"
+    },
+    {
+      label: "Boven contract",
+      value: String(check.overContractRows.length),
+      detail: overContractDetail,
+      tone: check.overContractRows.length ? "warning" : "ok"
+    },
+    {
+      label: "Onder contract",
+      value: String(check.underContractRows.length),
+      detail: underContractDetail,
+      tone: check.underContractRows.length ? "info" : "ok"
+    }
+  ];
+
+  return `
+    <section class="smart-planning-week-safety-check" aria-label="Weekcontrole">
+      <strong>Weekcontrole</strong>
+      <div>
+        ${rows.map((row) => `
+          <span class="smart-planning-week-safety-chip is-${row.tone}">
+            <b>${row.label}</b>
+            <em>${row.value}</em>
+            <small>${row.detail}</small>
+          </span>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
 function getSmartPlanningSickLeaveDebugSummary(data = getSmartPlanningMonthData()) {
   const visibleWeeks = Array.isArray(data?.visibleWeeks) ? data.visibleWeeks : [];
   const firstDay = visibleWeeks[0]?.dates?.[0] || "";
@@ -27143,6 +27343,7 @@ function renderSmartPlanningSelectedWeekEditor(data, weekCards, focusedWeek) {
         </div>
       </header>
       ${renderSmartPlanningWeekStatusBar(selectedCard)}
+      ${renderSmartPlanningWeekSafetyCheck(weekValue, weekItems, selectedCard)}
       ${renderSmartPlanningOpenReasonSummary(weekItems)}
       ${weekProposal?.cleared ? `
         <div class="smart-planning-week-empty-state">
