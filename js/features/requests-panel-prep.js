@@ -58,6 +58,38 @@
       return "vakantie";
     }
 
+    if (["examens", "examen", "exams"].includes(normalizedType)) {
+      return "examens";
+    }
+
+    if (["studiedag", "studiedagen", "study_day", "study-day"].includes(normalizedType)) {
+      return "studiedag";
+    }
+
+    if (["school", "schooldag", "school_day", "school-day"].includes(normalizedType)) {
+      return "school";
+    }
+
+    if (["weekend_weg", "weekend-weg", "weekend weg"].includes(normalizedType)) {
+      return "weekend_weg";
+    }
+
+    if (["tijdelijk_niet_beschikbaar", "tijdelijk-niet-beschikbaar", "tijdelijk niet beschikbaar", "niet_beschikbaar", "not_available"].includes(normalizedType)) {
+      return "tijdelijk_niet_beschikbaar";
+    }
+
+    if (["extra_beschikbaar", "extra-beschikbaar", "extra beschikbaar", "available_extra"].includes(normalizedType)) {
+      return "extra_beschikbaar";
+    }
+
+    if (["extra_vakantiewerk", "extra-vakantiewerk", "extra vakantiewerk"].includes(normalizedType)) {
+      return "extra_vakantiewerk";
+    }
+
+    if (["extra_zaterdag_beschikbaar", "extra-zaterdag-beschikbaar", "extra zaterdag beschikbaar"].includes(normalizedType)) {
+      return "extra_zaterdag_beschikbaar";
+    }
+
     if (["vrij", "vrije-dag", "vrije_dag", "vrije dag", "vrije dagen", "free", "timeoff", "time_off"].includes(normalizedType)) {
       return "vrij";
     }
@@ -67,6 +99,18 @@
 
   function getRequestRosterEffectText(request, requestType, entries, helpers) {
     if (requestType === "timeoff") {
+      if (isExtraAvailabilityRequest(request)) {
+        if (request.status === "approved") {
+          return "Goedgekeurd als extra beschikbaarheid voor voorstellen.";
+        }
+
+        if (request.status === "open") {
+          return "Na goedkeuring telt dit als extra beschikbaarheid in de slimme planner.";
+        }
+
+        return "Niet actief in de planning.";
+      }
+
       const startDate = helpers.getTimeOffStartDate(request);
       const endDate = helpers.getTimeOffEndDate(request);
       const affectedEntries = entries.filter((entry) =>
@@ -111,13 +155,31 @@
 
   function getPlannerRequestSummaryCounts(timeOffRequests, swapRequests) {
     const openTimeOffRequests = timeOffRequests.filter((request) => normalizeRequestStatus(request?.status) === "open");
+    const openRegularTimeOffRequests = openTimeOffRequests.filter((request) => !isAvailabilityRequest(request));
 
     return {
-      free: openTimeOffRequests.filter((request) => normalizeTimeOffRequestType(request?.type) === "vrij").length,
-      vacation: openTimeOffRequests.filter((request) => normalizeTimeOffRequestType(request?.type) === "vakantie").length,
-      sick: openTimeOffRequests.filter((request) => normalizeTimeOffRequestType(request?.type) === "ziek").length,
+      free: openRegularTimeOffRequests.filter((request) => normalizeTimeOffRequestType(request?.type) === "vrij").length,
+      vacation: openRegularTimeOffRequests.filter((request) => normalizeTimeOffRequestType(request?.type) === "vakantie").length,
+      sick: openRegularTimeOffRequests.filter((request) => normalizeTimeOffRequestType(request?.type) === "ziek").length,
+      availability: openTimeOffRequests.filter((request) => isAvailabilityRequest(request)).length,
       swaps: swapRequests.filter((request) => normalizeRequestStatus(request?.status) === "open").length
     };
+  }
+
+  function isExtraAvailabilityRequest(request = {}) {
+    const normalizedType = normalizeTimeOffRequestType(request?.availabilityType || request?.type || "");
+
+    return request?.availabilityKind === "extra" ||
+      ["extra_beschikbaar", "extra_vakantiewerk", "extra_zaterdag_beschikbaar"].includes(normalizedType);
+  }
+
+  function isAvailabilityRequest(request = {}) {
+    const normalizedType = normalizeTimeOffRequestType(request?.availabilityType || request?.type || "");
+
+    return request?.requestCategory === "availability" ||
+      request?.availabilityKind === "extra" ||
+      request?.availabilityKind === "unavailable" ||
+      ["examens", "studiedag", "school", "weekend_weg", "tijdelijk_niet_beschikbaar", "extra_beschikbaar", "extra_vakantiewerk", "extra_zaterdag_beschikbaar"].includes(normalizedType);
   }
 
   function isDeletedRequest(request) {

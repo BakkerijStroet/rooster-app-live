@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260512-preserve-filled-slots";
+const APP_VERSION = "20260523-availability-requests";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -182,6 +182,14 @@ const sickDateInput = document.getElementById("sickDate");
 const sickEndDateInput = document.getElementById("sickEndDate");
 const sickReasonInput = document.getElementById("sickReason");
 const submitSickButton = document.getElementById("submitSickButton");
+const availabilityEmployeeSelect = document.getElementById("availabilityEmployee");
+const availabilityModeSelect = document.getElementById("availabilityMode");
+const availabilityTypeSelect = document.getElementById("availabilityType");
+const availabilityStartDateInput = document.getElementById("availabilityStartDate");
+const availabilityEndDateInput = document.getElementById("availabilityEndDate");
+const availabilityWeekdaysFieldset = document.getElementById("availabilityWeekdays");
+const availabilityReasonInput = document.getElementById("availabilityReason");
+const submitAvailabilityButton = document.getElementById("submitAvailabilityButton");
 const swapEmployeeSelect = document.getElementById("swapEmployee");
 const swapDateInput = document.getElementById("swapDate");
 const swapEntrySelect = document.getElementById("swapEntry");
@@ -211,12 +219,14 @@ const requestStatusFilter = document.getElementById("requestStatusFilter");
 const requestTypeFreeButton = document.getElementById("requestTypeFreeButton");
 const requestTypeVacationButton = document.getElementById("requestTypeVacationButton");
 const requestTypeSickButton = document.getElementById("requestTypeSickButton");
+const requestTypeAvailabilityButton = document.getElementById("requestTypeAvailabilityButton");
 const requestTypeSwapButton = document.getElementById("requestTypeSwapButton");
 const requestViewFormButton = document.getElementById("requestViewFormButton");
 const requestViewMineButton = document.getElementById("requestViewMineButton");
 const requestFreeComposer = document.getElementById("requestFreeComposer");
 const requestVacationComposer = document.getElementById("requestVacationComposer");
 const requestSickComposer = document.getElementById("requestSickComposer");
+const requestAvailabilityComposer = document.getElementById("requestAvailabilityComposer");
 const requestSwapComposer = document.getElementById("requestSwapComposer");
 const requestsTopPanel = document.querySelector('[data-panel="requests"][data-slot="top"]');
 const requestTimeOffPanel = document.getElementById("requestTimeOffPanel");
@@ -568,6 +578,14 @@ function sanitizeTimeOffRequestsForStorage(sourceRequests = timeOffRequests) {
     const normalizedType = normalizeTimeOffRequestType(typeof request.type === "string" ? request.type : "vrij");
     const normalizedStartDate = getTimeOffRequestStartDateValue(request);
     const normalizedEndDate = getTimeOffRequestEndDateValue(request, normalizedStartDate, normalizedType);
+    const isAvailability = request.requestCategory === "availability" ||
+      request.availabilityKind === "extra" ||
+      request.availabilityKind === "unavailable" ||
+      ["examens", "studiedag", "school", "weekend_weg", "tijdelijk_niet_beschikbaar", "extra_beschikbaar", "extra_vakantiewerk", "extra_zaterdag_beschikbaar"].includes(normalizedType);
+    const availabilityKind = request.availabilityKind === "extra" ||
+      ["extra_beschikbaar", "extra_vakantiewerk", "extra_zaterdag_beschikbaar"].includes(normalizedType)
+      ? "extra"
+      : "unavailable";
 
     if (!normalizedStartDate) {
       return;
@@ -582,6 +600,12 @@ function sanitizeTimeOffRequestsForStorage(sourceRequests = timeOffRequests) {
       mailLog: sanitizeRequestMailLog(request.mailLog),
       status: request.status === "pending" ? "open" : request.status,
       type: normalizedType,
+      requestCategory: isAvailability ? "availability" : request.requestCategory,
+      availabilityKind: isAvailability ? availabilityKind : request.availabilityKind,
+      availabilityType: isAvailability ? normalizedType : request.availabilityType,
+      availabilityWeekdays: isAvailability && availabilityKind === "extra"
+        ? normalizeAvailabilityWeekdays(request.availabilityWeekdays || request.weekdays)
+        : (Array.isArray(request.availabilityWeekdays) ? normalizeAvailabilityWeekdays(request.availabilityWeekdays) : request.availabilityWeekdays),
       date: normalizedStartDate,
       startDate: normalizedStartDate,
       endDate: normalizedEndDate,
@@ -5226,6 +5250,17 @@ let ziekmeldingForm = {
   endDate: "",
   reason: ""
 };
+let beschikbaarheidForm = {
+  employeeName: "",
+  type: "vakantie",
+  availabilityKind: "unavailable",
+  availabilityType: "vakantie",
+  availabilityWeekdays: [],
+  date: "",
+  startDate: "",
+  endDate: "",
+  reason: ""
+};
 let ruilForm = {
   employeeName: "",
   date: "",
@@ -5235,6 +5270,21 @@ let ruilForm = {
 const DEFAULT_TIME_OFF_REASONS = {
   vrij: "Vrije dag aanvraag",
   vakantie: "Vakantie aanvraag"
+};
+const AVAILABILITY_REQUEST_TYPES = {
+  unavailable: [
+    { value: "vakantie", label: "Vakantie" },
+    { value: "examens", label: "Examens" },
+    { value: "studiedag", label: "Studiedag" },
+    { value: "school", label: "School" },
+    { value: "weekend_weg", label: "Weekend weg" },
+    { value: "tijdelijk_niet_beschikbaar", label: "Tijdelijk niet beschikbaar" }
+  ],
+  extra: [
+    { value: "extra_beschikbaar", label: "Extra beschikbaar" },
+    { value: "extra_vakantiewerk", label: "Extra vakantiewerk" },
+    { value: "extra_zaterdag_beschikbaar", label: "Extra zaterdag beschikbaar" }
+  ]
 };
 let showSuitableEmployees = false;
 let autoFillPreviewEntries = [];
@@ -5709,7 +5759,7 @@ function getEmployeeExtraAvailabilityMatch(employeeName, day, startTime = "", en
   const weekValue = getWeekValueFromDate(day);
   const weekday = getWeekdayNumberFromDate(day);
 
-  return getEmployeeExtraAvailability(employeeName).find((record) => {
+  const employeeMetaMatch = getEmployeeExtraAvailability(employeeName).find((record) => {
     const dateMatches = record.mode === "date" && record.date === day;
     const weekMatches = record.mode === "week" &&
       record.week === weekValue &&
@@ -5718,6 +5768,12 @@ function getEmployeeExtraAvailabilityMatch(employeeName, day, startTime = "", en
     return (dateMatches || weekMatches) &&
       isTimeRangeInsideExtraAvailability(record, startTime, endTime);
   }) || null;
+
+  if (employeeMetaMatch) {
+    return employeeMetaMatch;
+  }
+
+  return getApprovedExtraAvailabilityRequestMatch(employeeName, day, startTime, endTime);
 }
 
 function createEmployeeEditorDraft(employeeName) {
@@ -8981,6 +9037,7 @@ function getApprovedTimeOff(employeeName, date) {
     const requestStatus = String(request?.status || "").trim().toLowerCase();
 
     return !isDeletedRequest(request) &&
+      !isExtraAvailabilityRequest(request) &&
       normalizeEmployeeAvailabilityLookupName(request.employeeName) === normalizedEmployeeName &&
       timeOffRequestIncludesAvailabilityDate(request, date) &&
       (
@@ -9004,6 +9061,11 @@ const {
       return "Ziek";
     }
 
+    const availabilityLabel = getAvailabilityTypeLabel(type);
+    if (availabilityLabel) {
+      return availabilityLabel;
+    }
+
     return "Vrij";
   },
   getAbsenceCardClass = function fallbackGetAbsenceCardClass(type) {
@@ -9013,6 +9075,15 @@ const {
 
     if (type === "ziek") {
       return "sick";
+    }
+
+    const normalizedType = normalizeTimeOffRequestType(type);
+    if (["extra_beschikbaar", "extra_vakantiewerk", "extra_zaterdag_beschikbaar"].includes(normalizedType)) {
+      return "availability-extra";
+    }
+
+    if (["examens", "studiedag", "school", "weekend_weg", "tijdelijk_niet_beschikbaar"].includes(normalizedType)) {
+      return "availability-unavailable";
     }
 
     return "free";
@@ -9026,6 +9097,11 @@ const {
 
     if (normalizedType === "ziek") {
       return "ziek";
+    }
+
+    const availabilityLabel = getAvailabilityTypeLabel(normalizedType);
+    if (availabilityLabel) {
+      return availabilityLabel.toLowerCase();
     }
 
     return "vrije dag";
@@ -10762,7 +10838,7 @@ function getApprovedTimeOffVisibleForCurrentRole(sourceRequests = timeOffRequest
   }
 
   if (isPlannerRole()) {
-    const nextRequests = [...sourceRequests];
+    const nextRequests = sourceRequests.filter((request) => !isExtraAvailabilityRequest(request));
     if (cacheKey) {
       derivedDataCache.approvedTimeOffKey = cacheKey;
       derivedDataCache.approvedTimeOff = nextRequests;
@@ -10774,7 +10850,7 @@ function getApprovedTimeOffVisibleForCurrentRole(sourceRequests = timeOffRequest
     return [];
   }
 
-  const nextRequests = sourceRequests.filter((request) => request.employeeName === scopedEmployeeName);
+  const nextRequests = sourceRequests.filter((request) => request.employeeName === scopedEmployeeName && !isExtraAvailabilityRequest(request));
   if (cacheKey) {
     derivedDataCache.approvedTimeOffKey = cacheKey;
     derivedDataCache.approvedTimeOff = nextRequests;
@@ -17435,6 +17511,14 @@ function matchesRequestStatusFilter(request) {
 }
 
 function getRequestRosterEffectText(request, requestType) {
+  if (requestType === "timeoff" && isExtraAvailabilityRequest(request)) {
+    return request.status === "approved"
+      ? "Goedgekeurd als extra beschikbaarheid voor de slimme planner."
+      : request.status === "open"
+        ? "Na goedkeuring telt dit als extra beschikbaarheid in de slimme planner."
+        : "Niet actief in de planning.";
+  }
+
   return getRequestRosterEffectTextHelper(request, requestType, entries, {
     getTimeOffStartDate,
     getTimeOffEndDate
@@ -17459,6 +17543,7 @@ function getPlannerRequestOtherAbsencesForDate(request, date) {
     absence?.id !== request?.id &&
     absence?.employeeName !== request?.employeeName &&
     !isDeletedRequest(absence) &&
+    !isExtraAvailabilityRequest(absence) &&
     getVacationRequestStatusKey(absence) === "approved" &&
     requestIncludesDate(absence, date)
   );
@@ -17467,7 +17552,8 @@ function getPlannerRequestOtherAbsencesForDate(request, date) {
 function getPlannerRequestCoverageForDate(request, requestType, date) {
   const requestEmployeeName = String(request?.employeeName || "").trim();
   const dayEntries = entries.filter((entry) => entry.day === date);
-  const shouldExcludeRequestEmployee = requestType === "timeoff" && ["open", "approved"].includes(getVacationRequestStatusKey(request));
+  const requestCountsAsAvailability = requestType === "timeoff" && isExtraAvailabilityRequest(request);
+  const shouldExcludeRequestEmployee = requestType === "timeoff" && !requestCountsAsAvailability && ["open", "approved"].includes(getVacationRequestStatusKey(request));
   const plannedByDepartment = { bakery: new Set(), shop: new Set() };
 
   dayEntries.forEach((entry) => {
@@ -17485,7 +17571,7 @@ function getPlannerRequestCoverageForDate(request, requestType, date) {
   });
 
   const otherAbsences = getPlannerRequestOtherAbsencesForDate(request, date);
-  const requestCountsAsAbsent = requestType === "timeoff" && ["open", "approved"].includes(getVacationRequestStatusKey(request));
+  const requestCountsAsAbsent = requestType === "timeoff" && !requestCountsAsAvailability && ["open", "approved"].includes(getVacationRequestStatusKey(request));
   const projectedAbsenceCount = otherAbsences.length + (requestCountsAsAbsent ? 1 : 0);
   const affectedEntryCount = requestType === "timeoff"
     ? dayEntries.filter((entry) => String(entry.name || "").trim() === requestEmployeeName).length
@@ -17659,6 +17745,10 @@ function getPlannerRequestTypeKey(request, requestType) {
     return "swap";
   }
 
+  if (isAvailabilityRequest(request)) {
+    return "availability";
+  }
+
   const normalizedType = normalizeTimeOffRequestType(request?.type);
 
   if (normalizedType === "vakantie") {
@@ -17696,7 +17786,12 @@ function getPlannerRequestDescription(request, requestType) {
     return `${request.shiftName || "Dienst"} ${request.startTime || ""} - ${request.endTime || ""} (${targetText})`;
   }
 
-  return request.reason || getAbsenceTypeLabel(request.type);
+  const weekdayText = isExtraAvailabilityRequest(request)
+    ? getAvailabilityWeekdayListLabel(getAvailabilityRequestWeekdays(request))
+    : "";
+  const baseText = request.reason || getAbsenceTypeLabel(request.type);
+
+  return weekdayText ? `${baseText} (${weekdayText})` : baseText;
 }
 
 function getPlannerRequestInboxItems() {
@@ -18223,6 +18318,10 @@ function renderPlannerRequestCards(target, requests, emptyText, requestType) {
 }
 
 function getComposerTimeOffType(composer) {
+  if (composer === "availability") {
+    return beschikbaarheidForm.type || beschikbaarheidForm.availabilityType || "vakantie";
+  }
+
   if (composer === "vacation") {
     return "vakantie";
   }
@@ -18245,11 +18344,159 @@ function normalizeTimeOffRequestType(type = "") {
     return "vakantie";
   }
 
+  if (["examens", "examen", "exams"].includes(normalizedType)) {
+    return "examens";
+  }
+
+  if (["studiedag", "studiedagen", "study_day", "study-day"].includes(normalizedType)) {
+    return "studiedag";
+  }
+
+  if (["school", "schooldag", "school_day", "school-day"].includes(normalizedType)) {
+    return "school";
+  }
+
+  if (["weekend_weg", "weekend-weg", "weekend weg"].includes(normalizedType)) {
+    return "weekend_weg";
+  }
+
+  if (["tijdelijk_niet_beschikbaar", "tijdelijk-niet-beschikbaar", "tijdelijk niet beschikbaar", "niet_beschikbaar", "not_available"].includes(normalizedType)) {
+    return "tijdelijk_niet_beschikbaar";
+  }
+
+  if (["extra_beschikbaar", "extra-beschikbaar", "extra beschikbaar", "available_extra"].includes(normalizedType)) {
+    return "extra_beschikbaar";
+  }
+
+  if (["extra_vakantiewerk", "extra-vakantiewerk", "extra vakantiewerk"].includes(normalizedType)) {
+    return "extra_vakantiewerk";
+  }
+
+  if (["extra_zaterdag_beschikbaar", "extra-zaterdag-beschikbaar", "extra zaterdag beschikbaar"].includes(normalizedType)) {
+    return "extra_zaterdag_beschikbaar";
+  }
+
   if (["vrij", "vrije-dag", "vrije_dag", "vrije dag", "vrije dagen", "free", "timeoff", "time_off"].includes(normalizedType)) {
     return "vrij";
   }
 
   return normalizedType;
+}
+
+function getAvailabilityRequestTypeOptions(kind = "unavailable") {
+  return AVAILABILITY_REQUEST_TYPES[kind === "extra" ? "extra" : "unavailable"];
+}
+
+function getAvailabilityTypeLabel(type = "") {
+  const normalizedType = normalizeTimeOffRequestType(type);
+  const option = [...AVAILABILITY_REQUEST_TYPES.unavailable, ...AVAILABILITY_REQUEST_TYPES.extra]
+    .find((item) => item.value === normalizedType);
+  return option?.label || "";
+}
+
+function getAvailabilityKind(request = {}) {
+  if (request?.availabilityKind === "extra" || request?.availabilityMode === "extra") {
+    return "extra";
+  }
+
+  const normalizedType = normalizeTimeOffRequestType(request?.availabilityType || request?.type || "");
+  if (!request?.requestCategory && !request?.availabilityKind && !request?.availabilityType && normalizedType === "vakantie") {
+    return "";
+  }
+
+  return AVAILABILITY_REQUEST_TYPES.extra.some((item) => item.value === normalizedType)
+    ? "extra"
+    : (request?.availabilityKind === "unavailable" || request?.requestCategory === "availability" ? "unavailable" : "");
+}
+
+function isAvailabilityRequest(request = {}) {
+  const normalizedType = normalizeTimeOffRequestType(request?.availabilityType || request?.type || "");
+
+  return request?.requestCategory === "availability" ||
+    request?.availabilityKind === "extra" ||
+    request?.availabilityKind === "unavailable" ||
+    Boolean(request?.availabilityType) ||
+    ["examens", "studiedag", "school", "weekend_weg", "tijdelijk_niet_beschikbaar", "extra_beschikbaar", "extra_vakantiewerk", "extra_zaterdag_beschikbaar"].includes(normalizedType);
+}
+
+function isExtraAvailabilityRequest(request = {}) {
+  return getAvailabilityKind(request) === "extra";
+}
+
+function isUnavailableAvailabilityRequest(request = {}) {
+  return isAvailabilityRequest(request) && getAvailabilityKind(request) !== "extra";
+}
+
+function getAvailabilityRequestLabel(request = {}) {
+  if (!isAvailabilityRequest(request)) {
+    return "";
+  }
+
+  const typeLabel = getAvailabilityTypeLabel(request.availabilityType || request.type) || getAbsenceTypeLabel(request.type);
+  return isExtraAvailabilityRequest(request)
+    ? typeLabel
+    : typeLabel;
+}
+
+function normalizeAvailabilityWeekdays(value) {
+  return [...new Set((Array.isArray(value) ? value : [])
+    .map((weekday) => Number(weekday))
+    .filter((weekday) => Number.isInteger(weekday) && weekday >= 1 && weekday <= 6))]
+    .sort((a, b) => a - b);
+}
+
+function getAvailabilityRequestWeekdays(request = {}) {
+  return normalizeAvailabilityWeekdays(request.availabilityWeekdays || request.weekdays);
+}
+
+function getAvailabilityWeekdayListLabel(weekdays = []) {
+  return normalizeAvailabilityWeekdays(weekdays)
+    .map((weekday) => ({
+      1: "maandag",
+      2: "dinsdag",
+      3: "woensdag",
+      4: "donderdag",
+      5: "vrijdag",
+      6: "zaterdag"
+    })[weekday])
+    .filter(Boolean)
+    .join(", ");
+}
+
+function getApprovedExtraAvailabilityRequestMatch(employeeName, day, startTime = "", endTime = "") {
+  if (!employeeName || !day) {
+    return null;
+  }
+
+  const normalizedEmployeeName = normalizeEmployeeAvailabilityLookupName(employeeName);
+  const weekday = getWeekdayNumberFromDate(day);
+  const request = timeOffRequests.find((item) => {
+    const requestStatus = String(item?.status || "").trim().toLowerCase();
+    const weekdays = getAvailabilityRequestWeekdays(item);
+
+    return !isDeletedRequest(item) &&
+      isExtraAvailabilityRequest(item) &&
+      requestStatus === "approved" &&
+      normalizeEmployeeAvailabilityLookupName(item.employeeName) === normalizedEmployeeName &&
+      requestIncludesDate(item, day) &&
+      (weekdays.length === 0 || weekdays.includes(weekday));
+  });
+
+  if (!request) {
+    return null;
+  }
+
+  return {
+    id: request.id,
+    mode: "date",
+    date: day,
+    week: getWeekValueFromDate(day),
+    weekdays: getAvailabilityRequestWeekdays(request),
+    startTime: startTime || "",
+    endTime: endTime || "",
+    note: getAvailabilityRequestLabel(request) || request.reason || "Extra beschikbaar",
+    requestId: request.id
+  };
 }
 
 function getTimeOffRequestStartDateValue(request) {
@@ -18292,10 +18539,16 @@ function getDefaultTimeOffReason(type) {
 
 function isRangeTimeOffType(type) {
   const normalizedType = normalizeTimeOffRequestType(type);
-  return normalizedType === "vakantie" || normalizedType === "ziek";
+  return normalizedType === "vakantie" ||
+    normalizedType === "ziek" ||
+    Boolean(getAvailabilityTypeLabel(normalizedType));
 }
 
 function getRequestTypeFromComposer(composer) {
+  if (composer === "availability") {
+    return "beschikbaarheid";
+  }
+
   if (composer === "vacation") {
     return "vakantie";
   }
@@ -18312,6 +18565,10 @@ function getRequestTypeFromComposer(composer) {
 }
 
 function getComposerFromRequestType(requestType) {
+  if (requestType === "beschikbaarheid") {
+    return "availability";
+  }
+
   if (requestType === "vakantie") {
     return "vacation";
   }
@@ -18328,6 +18585,10 @@ function getComposerFromRequestType(requestType) {
 }
 
 function getRequestComposerState(composer = activeRequestComposer) {
+  if (composer === "availability") {
+    return beschikbaarheidForm;
+  }
+
   if (composer === "vacation") {
     return vakantieForm;
   }
@@ -18344,6 +18605,21 @@ function getRequestComposerState(composer = activeRequestComposer) {
 }
 
 function getTimeOffFormElements(composer = activeRequestComposer) {
+  if (composer === "availability") {
+    return {
+      composerSection: requestAvailabilityComposer,
+      employeeSelect: availabilityEmployeeSelect,
+      dateInput: null,
+      startDateInput: availabilityStartDateInput,
+      endDateInput: availabilityEndDateInput,
+      reasonInput: availabilityReasonInput,
+      submitButton: submitAvailabilityButton,
+      modeSelect: availabilityModeSelect,
+      typeSelect: availabilityTypeSelect,
+      weekdaysFieldset: availabilityWeekdaysFieldset
+    };
+  }
+
   if (composer === "vacation") {
     return {
       composerSection: requestVacationComposer,
@@ -18380,7 +18656,53 @@ function getTimeOffFormElements(composer = activeRequestComposer) {
 }
 
 function getAllTimeOffEmployeeSelects() {
-  return [freeDayEmployeeSelect, vacationEmployeeSelect, sickEmployeeSelect].filter(Boolean);
+  return [freeDayEmployeeSelect, vacationEmployeeSelect, sickEmployeeSelect, availabilityEmployeeSelect].filter(Boolean);
+}
+
+function getAvailabilityWeekdayInputValues() {
+  if (!availabilityWeekdaysFieldset) {
+    return [];
+  }
+
+  return normalizeAvailabilityWeekdays(
+    Array.from(availabilityWeekdaysFieldset.querySelectorAll('input[type="checkbox"]:checked'))
+      .map((input) => input.value)
+  );
+}
+
+function setAvailabilityWeekdayInputValues(weekdays = []) {
+  if (!availabilityWeekdaysFieldset) {
+    return;
+  }
+
+  const selectedWeekdays = new Set(normalizeAvailabilityWeekdays(weekdays));
+  availabilityWeekdaysFieldset.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+    input.checked = selectedWeekdays.has(Number(input.value));
+  });
+}
+
+function renderAvailabilityTypeOptions() {
+  if (!availabilityTypeSelect) {
+    return;
+  }
+
+  const availabilityKind = availabilityModeSelect?.value === "extra" ? "extra" : "unavailable";
+  const currentValue = availabilityTypeSelect.value || beschikbaarheidForm.availabilityType || "";
+  const options = getAvailabilityRequestTypeOptions(availabilityKind);
+  availabilityTypeSelect.innerHTML = options
+    .map((option) => `<option value="${escapeHtmlAttribute(option.value)}">${option.label}</option>`)
+    .join("");
+  availabilityTypeSelect.value = options.some((option) => option.value === currentValue)
+    ? currentValue
+    : (options[0]?.value || "");
+}
+
+function updateAvailabilityComposerVisibility() {
+  const showWeekdays = availabilityModeSelect?.value === "extra";
+  availabilityWeekdaysFieldset?.classList.toggle("hidden", !showWeekdays);
+  if (availabilityWeekdaysFieldset) {
+    availabilityWeekdaysFieldset.hidden = !showWeekdays;
+  }
 }
 
 function syncTimeOffFormStateFromFields(composer = activeRequestComposer) {
@@ -18392,12 +18714,21 @@ function syncTimeOffFormStateFromFields(composer = activeRequestComposer) {
   }
 
   formState.employeeName = formElements.employeeSelect?.value || formState.employeeName || "";
-  formState.type = getComposerTimeOffType(composer);
+  if (composer === "availability") {
+    const availabilityKind = formElements.modeSelect?.value === "extra" ? "extra" : "unavailable";
+    const selectedType = formElements.typeSelect?.value || getAvailabilityRequestTypeOptions(availabilityKind)[0]?.value || "vakantie";
+    formState.availabilityKind = availabilityKind;
+    formState.availabilityType = selectedType;
+    formState.availabilityWeekdays = getAvailabilityWeekdayInputValues();
+    formState.type = selectedType;
+  } else {
+    formState.type = getComposerTimeOffType(composer);
+  }
   formState.date = formElements.dateInput?.value || "";
   formState.startDate = formElements.startDateInput?.value || "";
   formState.endDate = formElements.endDateInput?.value || "";
   formState.reason = formElements.reasonInput?.value || "";
-  if (!formState.reason) {
+  if (!formState.reason && composer !== "availability") {
     formState.reason = getDefaultTimeOffReason(formState.type);
   }
 }
@@ -18463,8 +18794,24 @@ function applyActiveRequestComposerStateToFields() {
     formElements.endDateInput.value = formState.endDate || "";
   }
 
+  if (composer === "availability") {
+    if (formElements.modeSelect && formElements.modeSelect.value !== (formState.availabilityKind || "unavailable")) {
+      formElements.modeSelect.value = formState.availabilityKind === "extra" ? "extra" : "unavailable";
+    }
+
+    renderAvailabilityTypeOptions();
+
+    if (formElements.typeSelect && formElements.typeSelect.value !== (formState.availabilityType || formState.type || "")) {
+      const typeOptionExists = Array.from(formElements.typeSelect.options).some((option) => option.value === (formState.availabilityType || formState.type || ""));
+      formElements.typeSelect.value = typeOptionExists ? (formState.availabilityType || formState.type || "") : formElements.typeSelect.value;
+    }
+
+    setAvailabilityWeekdayInputValues(formState.availabilityWeekdays || []);
+    updateAvailabilityComposerVisibility();
+  }
+
   if (formElements.reasonInput) {
-    const fallbackReason = getDefaultTimeOffReason(formState.type);
+    const fallbackReason = composer === "availability" ? "" : getDefaultTimeOffReason(formState.type);
     const nextReason = formState.reason || fallbackReason || "";
     if (formElements.reasonInput.value !== nextReason) {
       formElements.reasonInput.value = nextReason;
@@ -18485,11 +18832,18 @@ function resetTimeOffComposer(options = {}) {
 
   if (formState && nextComposer !== "swap") {
     formState.employeeName = preserveEmployee ? (formElements?.employeeSelect?.value || formState.employeeName || "") : "";
-    formState.type = getComposerTimeOffType(nextComposer);
+    if (nextComposer === "availability") {
+      formState.availabilityKind = "unavailable";
+      formState.availabilityType = "vakantie";
+      formState.availabilityWeekdays = [];
+      formState.type = "vakantie";
+    } else {
+      formState.type = getComposerTimeOffType(nextComposer);
+    }
     formState.date = "";
     formState.startDate = "";
     formState.endDate = "";
-    formState.reason = getDefaultTimeOffReason(formState.type);
+    formState.reason = nextComposer === "availability" ? "" : getDefaultTimeOffReason(formState.type);
   }
 
   if (!formElements) {
@@ -18513,7 +18867,13 @@ function resetTimeOffComposer(options = {}) {
   }
 
   if (formElements.reasonInput) {
-    formElements.reasonInput.value = getDefaultTimeOffReason(formState?.type);
+    formElements.reasonInput.value = nextComposer === "availability" ? "" : getDefaultTimeOffReason(formState?.type);
+  }
+
+  if (nextComposer === "availability") {
+    renderAvailabilityTypeOptions();
+    setAvailabilityWeekdayInputValues([]);
+    updateAvailabilityComposerVisibility();
   }
 }
 
@@ -18577,7 +18937,7 @@ function resetRequestComposerForms(nextComposer = activeRequestComposer) {
 }
 
 function activateRequestComposer(nextComposer, options = {}) {
-  const timeOffComposers = ["free", "vacation", "sick"];
+  const timeOffComposers = ["free", "vacation", "sick", "availability"];
   const normalizedComposer = typeof nextComposer === "string" ? nextComposer : "";
   const preserveTimeOffEdit = Boolean(
     editingTimeOffId &&
@@ -18592,7 +18952,7 @@ function activateRequestComposer(nextComposer, options = {}) {
 
   if (activeRequestComposer === "swap") {
     syncSwapFormStateFromFields();
-  } else if (activeRequestComposer === "free" || activeRequestComposer === "vacation" || activeRequestComposer === "sick") {
+  } else if (timeOffComposers.includes(activeRequestComposer)) {
     syncTimeOffFormStateFromFields(activeRequestComposer);
     if (preserveTimeOffEdit) {
       Object.assign(previousTimeOffState, getRequestComposerState(activeRequestComposer));
@@ -18613,7 +18973,14 @@ function activateRequestComposer(nextComposer, options = {}) {
     const previousStartDate = previousTimeOffState.startDate || previousTimeOffState.date || "";
     const previousEndDate = previousTimeOffState.endDate || previousStartDate;
     targetFormState.employeeName = previousTimeOffState.employeeName || "";
-    targetFormState.type = getComposerTimeOffType(normalizedComposer);
+    if (normalizedComposer === "availability") {
+      targetFormState.availabilityKind = previousTimeOffState.availabilityKind || "unavailable";
+      targetFormState.availabilityType = previousTimeOffState.availabilityType || "vakantie";
+      targetFormState.availabilityWeekdays = previousTimeOffState.availabilityWeekdays || [];
+      targetFormState.type = targetFormState.availabilityType;
+    } else {
+      targetFormState.type = getComposerTimeOffType(normalizedComposer);
+    }
     targetFormState.date = previousStartDate;
     targetFormState.startDate = previousStartDate;
     targetFormState.endDate = isRangeTimeOffType(targetFormState.type) ? previousEndDate : "";
@@ -18711,6 +19078,7 @@ function renderRequestComposerState() {
     requestFreeComposer?.querySelector(".employee-picker-control"),
     requestVacationComposer?.querySelector(".employee-picker-control"),
     requestSickComposer?.querySelector(".employee-picker-control"),
+    requestAvailabilityComposer?.querySelector(".employee-picker-control"),
     requestSwapComposer?.querySelector(".employee-picker-control")
   ].filter(Boolean);
   const swapDateLabel = swapDateInput?.closest("label") || null;
@@ -18718,6 +19086,7 @@ function renderRequestComposerState() {
   requestTypeFreeButton?.classList.toggle("active", activeRequestType === "vrije-dag");
   requestTypeVacationButton?.classList.toggle("active", activeRequestType === "vakantie");
   requestTypeSickButton?.classList.toggle("active", activeRequestType === "ziekmelding");
+  requestTypeAvailabilityButton?.classList.toggle("active", activeRequestType === "beschikbaarheid");
   requestTypeSwapButton?.classList.toggle("active", activeRequestType === "ruilen");
   requestViewFormButton?.classList.toggle("active", !isEmployee || activeRequestsView === "form");
   requestViewMineButton?.classList.toggle("active", isEmployee && activeRequestsView === "mine");
@@ -18737,6 +19106,7 @@ function renderRequestComposerState() {
   requestFreeComposer?.classList.toggle("hidden", !showEmployeeForms || activeRequestType !== "vrije-dag");
   requestVacationComposer?.classList.toggle("hidden", !showEmployeeForms || activeRequestType !== "vakantie");
   requestSickComposer?.classList.toggle("hidden", !showEmployeeForms || activeRequestType !== "ziekmelding");
+  requestAvailabilityComposer?.classList.toggle("hidden", !showEmployeeForms || activeRequestType !== "beschikbaarheid");
   requestSwapComposer?.classList.toggle("hidden", !showEmployeeForms || activeRequestType !== "ruilen");
   if (requestFreeComposer) {
     requestFreeComposer.hidden = !showEmployeeForms || activeRequestType !== "vrije-dag";
@@ -18746,6 +19116,9 @@ function renderRequestComposerState() {
   }
   if (requestSickComposer) {
     requestSickComposer.hidden = !showEmployeeForms || activeRequestType !== "ziekmelding";
+  }
+  if (requestAvailabilityComposer) {
+    requestAvailabilityComposer.hidden = !showEmployeeForms || activeRequestType !== "beschikbaarheid";
   }
   if (requestSwapComposer) {
     requestSwapComposer.hidden = !showEmployeeForms || activeRequestType !== "ruilen";
@@ -18799,6 +19172,7 @@ function renderRequestComposerState() {
     requestFreeComposer?.classList.toggle("request-form-hidden-mobile", !showEmployeeForms || activeRequestType !== "vrije-dag");
     requestVacationComposer?.classList.toggle("request-form-hidden-mobile", !showEmployeeForms || activeRequestType !== "vakantie");
     requestSickComposer?.classList.toggle("request-form-hidden-mobile", !showEmployeeForms || activeRequestType !== "ziekmelding");
+    requestAvailabilityComposer?.classList.toggle("request-form-hidden-mobile", !showEmployeeForms || activeRequestType !== "beschikbaarheid");
     requestSwapComposer?.classList.toggle("request-form-hidden-mobile", !showEmployeeForms || activeRequestType !== "ruilen");
     return;
   }
@@ -18806,6 +19180,7 @@ function renderRequestComposerState() {
   requestFreeComposer?.classList.toggle("request-form-hidden-mobile", !showEmployeeForms || activeRequestType !== "vrije-dag");
   requestVacationComposer?.classList.toggle("request-form-hidden-mobile", !showEmployeeForms || activeRequestType !== "vakantie");
   requestSickComposer?.classList.toggle("request-form-hidden-mobile", !showEmployeeForms || activeRequestType !== "ziekmelding");
+  requestAvailabilityComposer?.classList.toggle("request-form-hidden-mobile", !showEmployeeForms || activeRequestType !== "beschikbaarheid");
   requestSwapComposer?.classList.toggle("request-form-hidden-mobile", !showEmployeeForms || activeRequestType !== "ruilen");
 }
 
@@ -21863,7 +22238,7 @@ function renderTimeOffRequests() {
           <span class="status-pill status-${getRequestDisplayStatus(request)}">${getRequestDisplayLabel(request)}</span>
         </div>
         ${isPlannerRole() ? `<div class="request-meta">${getAbsenceTypeLabel(request.type)}</div>` : ""}
-        <div class="request-meta">${getTimeOffDisplayRange(request)}${request.reason ? ` - ${request.reason}` : ""}</div>
+        <div class="request-meta">${getTimeOffDisplayRange(request)}${isExtraAvailabilityRequest(request) && getAvailabilityRequestWeekdays(request).length ? ` - ${getAvailabilityWeekdayListLabel(getAvailabilityRequestWeekdays(request))}` : ""}${request.reason ? ` - ${request.reason}` : ""}</div>
         <div class="request-impact">${getRequestRosterEffectText(request, "timeoff")}</div>
         ${getSickLeaveOverlapNotice(request) ? `<div class="request-impact request-attention-note">${getSickLeaveOverlapNotice(request)}</div>` : ""}
         ${request.status === "open" && getRequestAttentionText(request) ? `<div class="request-impact request-attention-note">${getRequestAttentionText(request)}</div>` : ""}
@@ -27377,6 +27752,10 @@ function renderRequestsOpenSummary() {
         <span>Open vakantieaanvragen</span>
         <strong>${summaryCounts.vacation}</strong>
       </button>
+      <button type="button" class="planner-summary-chip planner-summary-filter${activeTypeFilter === "availability" ? " active" : ""}" data-planner-request-filter="availability">
+        <span>Open beschikbaarheid</span>
+        <strong>${summaryCounts.availability || 0}</strong>
+      </button>
     `;
   } else {
     setClassName(requestsOpenSummary, "dashboard-grid");
@@ -30987,12 +31366,17 @@ function handlePlannerInboxTimeOffAction(button) {
 
   if (button.dataset.requestAction === "approve") {
     const managerNote = getPlannerRequestNoteFromButton(button);
-    const scheduledEntries = entries.filter((entry) =>
-      entry.name === request.employeeName &&
-      requestIncludesDate(request, entry.day)
-    );
+    const isExtraAvailability = isExtraAvailabilityRequest(request);
+    const scheduledEntries = isExtraAvailability
+      ? []
+      : entries.filter((entry) =>
+        entry.name === request.employeeName &&
+        requestIncludesDate(request, entry.day)
+      );
     const absenceLabel = getAbsenceTypeLabel(request.type);
-    let approvalMessage = `${absenceLabel} is goedgekeurd en direct zichtbaar in het rooster.`;
+    let approvalMessage = isExtraAvailability
+      ? `${absenceLabel} is goedgekeurd en telt mee als extra beschikbaarheid.`
+      : `${absenceLabel} is goedgekeurd en direct zichtbaar in het rooster.`;
 
     if (scheduledEntries.length > 0) {
       const removedEntries = applyApprovedTimeOffToRoster(request);
@@ -31199,17 +31583,25 @@ function startEditingTimeOffRequest(request) {
   }
 
   const normalizedRequestType = normalizeTimeOffRequestType(request.type);
-  activeRequestComposer = normalizedRequestType === "vakantie"
-    ? "vacation"
-    : normalizedRequestType === "ziek"
-      ? "sick"
-      : "free";
+  activeRequestComposer = isAvailabilityRequest(request)
+    ? "availability"
+    : normalizedRequestType === "vakantie"
+      ? "vacation"
+      : normalizedRequestType === "ziek"
+        ? "sick"
+        : "free";
   activeRequestType = getRequestTypeFromComposer(activeRequestComposer);
   activeRequestsView = "form";
   editingTimeOffId = request.id;
   const targetFormState = getRequestComposerState(activeRequestComposer);
   targetFormState.employeeName = request.employeeName;
   targetFormState.type = normalizedRequestType || "vrij";
+  if (activeRequestComposer === "availability") {
+    targetFormState.availabilityKind = getAvailabilityKind(request) || "unavailable";
+    targetFormState.availabilityType = normalizeTimeOffRequestType(request.availabilityType || request.type || "vakantie");
+    targetFormState.availabilityWeekdays = getAvailabilityRequestWeekdays(request);
+    targetFormState.type = targetFormState.availabilityType;
+  }
   targetFormState.date = getTimeOffStartDate(request);
   targetFormState.startDate = getTimeOffStartDate(request);
   targetFormState.endDate = getTimeOffEndDate(request);
@@ -32802,7 +33194,15 @@ function submitTimeOffRequest(composer) {
   const currentTimeOffForm = getRequestComposerState(composer);
   const formElements = getTimeOffFormElements(composer);
   const employeeName = !isPlannerRole() ? ownEmployeeName : (currentTimeOffForm.employeeName || formElements?.employeeSelect?.value || "");
-  const type = normalizeTimeOffRequestType(currentTimeOffForm.type || getComposerTimeOffType(composer));
+  const isAvailabilityComposer = composer === "availability";
+  const availabilityKind = isAvailabilityComposer && currentTimeOffForm.availabilityKind === "extra" ? "extra" : "unavailable";
+  const availabilityType = isAvailabilityComposer
+    ? normalizeTimeOffRequestType(currentTimeOffForm.availabilityType || currentTimeOffForm.type || getAvailabilityRequestTypeOptions(availabilityKind)[0]?.value || "vakantie")
+    : "";
+  const availabilityWeekdays = isAvailabilityComposer ? normalizeAvailabilityWeekdays(currentTimeOffForm.availabilityWeekdays) : [];
+  const type = isAvailabilityComposer
+    ? availabilityType
+    : normalizeTimeOffRequestType(currentTimeOffForm.type || getComposerTimeOffType(composer));
   const isRangeType = isRangeTimeOffType(type);
   const startDate = isRangeType ? currentTimeOffForm.startDate : currentTimeOffForm.date;
   const endDate = isRangeType ? (currentTimeOffForm.endDate || startDate) : startDate;
@@ -32826,7 +33226,7 @@ function submitTimeOffRequest(composer) {
     return showTimeOffError(startDateField, isRangeType ? "Kies eerst een begindatum." : "Kies eerst een datum.");
   }
 
-  if (type === "vakantie" && !currentTimeOffForm.endDate) {
+  if (type === "vakantie" && !isAvailabilityComposer && !currentTimeOffForm.endDate) {
     return showTimeOffError(endDateField, "Kies eerst een einddatum.");
   }
 
@@ -32834,16 +33234,22 @@ function submitTimeOffRequest(composer) {
     return showTimeOffError(endDateField, "De einddatum kan niet vóór de begindatum liggen.");
   }
 
-  if ((type === "vakantie" || type === "vrij") && startDate < getTodayLocalDateValue()) {
+  if ((type === "vakantie" || type === "vrij" || isAvailabilityComposer) && startDate < getTodayLocalDateValue()) {
     return showTimeOffError(
       startDateField,
-      type === "vakantie"
+      isAvailabilityComposer
+        ? "Beschikbaarheid doorgeven in het verleden is niet mogelijk."
+        : type === "vakantie"
         ? "Vakantie aanvragen in het verleden is niet mogelijk."
         : "Vrije dagen aanvragen in het verleden is niet mogelijk."
     );
   }
 
-  if (!reason) {
+  if (isAvailabilityComposer && availabilityKind === "extra" && availabilityWeekdays.length === 0) {
+    return showTimeOffError(formElements?.weekdaysFieldset || endDateField, "Kies minimaal één dag waarop je extra beschikbaar bent.");
+  }
+
+  if (!isAvailabilityComposer && !reason) {
     return showTimeOffError(reasonField, "Vul een korte reden in voor deze aanvraag.");
   }
 
@@ -32875,7 +33281,7 @@ function submitTimeOffRequest(composer) {
 
   let vacationWarningMessage = "";
   let sickOverrideWarningMessage = "";
-  if (type === "vakantie") {
+  if (type === "vakantie" && !isAvailabilityComposer) {
     const vacationSubmitCheck = getVacationSubmitCheck(employeeName, startDate, endDate, editingTimeOffId);
 
     if (!vacationSubmitCheck.allowed) {
@@ -32909,6 +33315,10 @@ function submitTimeOffRequest(composer) {
 
       request.employeeName = employeeName;
       request.type = type;
+      request.requestCategory = isAvailabilityComposer ? "availability" : request.requestCategory;
+      request.availabilityKind = isAvailabilityComposer ? availabilityKind : request.availabilityKind;
+      request.availabilityType = isAvailabilityComposer ? availabilityType : request.availabilityType;
+      request.availabilityWeekdays = isAvailabilityComposer && availabilityKind === "extra" ? availabilityWeekdays : (isAvailabilityComposer ? [] : request.availabilityWeekdays);
       request.date = startDate;
       request.startDate = startDate;
       request.endDate = endDate;
@@ -32922,6 +33332,10 @@ function submitTimeOffRequest(composer) {
       id: createRequestId("timeoff"),
       employeeName,
       type,
+      requestCategory: isAvailabilityComposer ? "availability" : undefined,
+      availabilityKind: isAvailabilityComposer ? availabilityKind : undefined,
+      availabilityType: isAvailabilityComposer ? availabilityType : undefined,
+      availabilityWeekdays: isAvailabilityComposer && availabilityKind === "extra" ? availabilityWeekdays : undefined,
       date: startDate,
       startDate,
       endDate,
@@ -32960,13 +33374,16 @@ function submitTimeOffRequest(composer) {
     action: isApprovedPlannerCorrection ? "timeoff-approved-updated" : (editingTimeOffId ? "timeoff-updated" : "timeoff-created"),
     message: isApprovedPlannerCorrection
       ? `Aanvraag bijgewerkt voor ${employeeName}.`
-      : `${getAbsenceTypeLabel(type)} opgeslagen voor ${employeeName}.`,
+      : `${isAvailabilityComposer ? "Beschikbaarheid" : getAbsenceTypeLabel(type)} opgeslagen voor ${employeeName}.`,
     details: {
       employeeName,
       date: startDate,
       startDate,
       endDate,
       type,
+      requestCategory: isAvailabilityComposer ? "availability" : undefined,
+      availabilityKind: isAvailabilityComposer ? availabilityKind : undefined,
+      availabilityWeekdays: isAvailabilityComposer ? availabilityWeekdays : undefined,
       status: currentTimeOffRequest?.status || "open"
     }
   });
@@ -32980,7 +33397,9 @@ function submitTimeOffRequest(composer) {
   render();
   const requestSuccessMessage = isApprovedPlannerCorrection
     ? "Aanvraag bijgewerkt."
-    : type === "vakantie"
+    : isAvailabilityComposer
+      ? "Beschikbaarheid succesvol verstuurd."
+      : type === "vakantie"
       ? "Vakantie succesvol opgeslagen."
       : type === "ziek"
         ? "Ziekmelding succesvol verstuurd."
@@ -33010,7 +33429,25 @@ submitSickButton?.addEventListener("click", () => {
   runButtonLoading(submitSickButton, "Versturen...", () => submitTimeOffRequest("sick"));
 });
 
-[requestFreeComposer, requestVacationComposer, requestSickComposer, requestSwapComposer].forEach((composerSection) => {
+submitAvailabilityButton?.addEventListener("click", () => {
+  runButtonLoading(submitAvailabilityButton, "Versturen...", () => submitTimeOffRequest("availability"));
+});
+
+availabilityModeSelect?.addEventListener("change", () => {
+  renderAvailabilityTypeOptions();
+  updateAvailabilityComposerVisibility();
+  syncTimeOffFormStateFromFields("availability");
+});
+
+availabilityTypeSelect?.addEventListener("change", () => {
+  syncTimeOffFormStateFromFields("availability");
+});
+
+availabilityWeekdaysFieldset?.addEventListener("change", () => {
+  syncTimeOffFormStateFromFields("availability");
+});
+
+[requestFreeComposer, requestVacationComposer, requestSickComposer, requestAvailabilityComposer, requestSwapComposer].forEach((composerSection) => {
   composerSection?.addEventListener("input", clearChangedFieldValidation);
   composerSection?.addEventListener("change", clearChangedFieldValidation);
 });
@@ -35217,6 +35654,10 @@ requestTypeVacationButton?.addEventListener("click", () => {
 
 requestTypeSickButton?.addEventListener("click", () => {
   activateRequestType("ziekmelding");
+});
+
+requestTypeAvailabilityButton?.addEventListener("click", () => {
+  activateRequestType("beschikbaarheid");
 });
 
 requestTypeSwapButton?.addEventListener("click", () => {

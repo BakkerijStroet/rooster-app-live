@@ -23,6 +23,38 @@
       return "vakantie";
     }
 
+    if (["examens", "examen", "exams"].includes(normalizedType)) {
+      return "examens";
+    }
+
+    if (["studiedag", "studiedagen", "study_day", "study-day"].includes(normalizedType)) {
+      return "studiedag";
+    }
+
+    if (["school", "schooldag", "school_day", "school-day"].includes(normalizedType)) {
+      return "school";
+    }
+
+    if (["weekend_weg", "weekend-weg", "weekend weg"].includes(normalizedType)) {
+      return "weekend_weg";
+    }
+
+    if (["tijdelijk_niet_beschikbaar", "tijdelijk-niet-beschikbaar", "tijdelijk niet beschikbaar", "niet_beschikbaar", "not_available"].includes(normalizedType)) {
+      return "tijdelijk_niet_beschikbaar";
+    }
+
+    if (["extra_beschikbaar", "extra-beschikbaar", "extra beschikbaar", "available_extra"].includes(normalizedType)) {
+      return "extra_beschikbaar";
+    }
+
+    if (["extra_vakantiewerk", "extra-vakantiewerk", "extra vakantiewerk"].includes(normalizedType)) {
+      return "extra_vakantiewerk";
+    }
+
+    if (["extra_zaterdag_beschikbaar", "extra-zaterdag-beschikbaar", "extra zaterdag beschikbaar"].includes(normalizedType)) {
+      return "extra_zaterdag_beschikbaar";
+    }
+
     if (["vrij", "vrije-dag", "vrije_dag", "vrije dag", "vrije dagen", "free", "timeoff", "time_off"].includes(normalizedType)) {
       return "vrij";
     }
@@ -41,6 +73,21 @@
       return "Ziek";
     }
 
+    const availabilityLabels = {
+      examens: "Examens",
+      studiedag: "Studiedag",
+      school: "School",
+      weekend_weg: "Weekend weg",
+      tijdelijk_niet_beschikbaar: "Tijdelijk niet beschikbaar",
+      extra_beschikbaar: "Extra beschikbaar",
+      extra_vakantiewerk: "Extra vakantiewerk",
+      extra_zaterdag_beschikbaar: "Extra zaterdag beschikbaar"
+    };
+
+    if (availabilityLabels[normalizedType]) {
+      return availabilityLabels[normalizedType];
+    }
+
     return "Vrij";
   }
 
@@ -55,6 +102,14 @@
       return "sick";
     }
 
+    if (["extra_beschikbaar", "extra_vakantiewerk", "extra_zaterdag_beschikbaar"].includes(normalizedType)) {
+      return "availability-extra";
+    }
+
+    if (["examens", "studiedag", "school", "weekend_weg", "tijdelijk_niet_beschikbaar"].includes(normalizedType)) {
+      return "availability-unavailable";
+    }
+
     return "free";
   }
 
@@ -67,6 +122,21 @@
 
     if (normalizedType === "ziek") {
       return "ziek";
+    }
+
+    const availabilityLabels = {
+      examens: "examens",
+      studiedag: "studiedag",
+      school: "school",
+      weekend_weg: "weekend weg",
+      tijdelijk_niet_beschikbaar: "niet beschikbaar",
+      extra_beschikbaar: "extra beschikbaar",
+      extra_vakantiewerk: "extra vakantiewerk",
+      extra_zaterdag_beschikbaar: "extra zaterdag beschikbaar"
+    };
+
+    if (availabilityLabels[normalizedType]) {
+      return availabilityLabels[normalizedType];
     }
 
     return "vrije dag";

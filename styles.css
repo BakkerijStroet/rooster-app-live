@@ -8853,6 +8853,52 @@ button.hours-reminder-banner {
   color: var(--color-danger);
 }
 
+.request-card.absence-availability-unavailable,
+.planner-note.absence-availability-unavailable,
+.mobile-free-item.absence-availability-unavailable {
+  box-shadow: inset 4px 0 0 var(--color-warning);
+  color: var(--color-warning);
+}
+
+.request-card.absence-availability-extra,
+.planner-note.absence-availability-extra,
+.mobile-free-item.absence-availability-extra {
+  box-shadow: inset 4px 0 0 var(--color-success);
+  color: var(--color-success);
+}
+
+.availability-weekdays {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.availability-weekdays legend {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.availability-weekdays .weekday-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 8px;
+}
+
+.availability-weekdays label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--color-surface);
+  font-size: 13px;
+}
+
 .request-top {
   display: flex;
   justify-content: space-between;
