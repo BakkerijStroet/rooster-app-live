@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260523-open-slot-reasons";
+const APP_VERSION = "20260523-open-reason-labels";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -24695,9 +24695,9 @@ function getPlanningOpenReasonFromText(reasonText = "", item = {}) {
   if (normalizedReason.includes("vaste dames") || normalizedReason.includes("zaterdag beschermd")) {
     return {
       code: "saturday-protection",
-      label: "Zaterdag beschermd",
+      label: "Zaterdag eerst ingevuld",
       detail: "Minimaal 2 vaste dames nodig.",
-      summaryLabel: "zaterdagbescherming",
+      summaryLabel: "zaterdag eerst vullen",
       tone: "attention"
     };
   }
@@ -24705,7 +24705,7 @@ function getPlanningOpenReasonFromText(reasonText = "", item = {}) {
   if (isDelivery || normalizedReason.includes("bezorg") || normalizedReason.includes("vaste bezorger")) {
     return {
       code: "delivery",
-      label: "Geen beschikbare bezorgmedewerker",
+      label: "Geen bezorger beschikbaar",
       detail: rawReason || "Vaste bezorger niet inzetbaar.",
       summaryLabel: "bezorging",
       tone: "info"
@@ -24715,9 +24715,9 @@ function getPlanningOpenReasonFromText(reasonText = "", item = {}) {
   if (normalizedReason.includes("bevoegd")) {
     return {
       code: "permission",
-      label: "Geen medewerker bevoegd",
+      label: "Niemand kan deze dienst werken",
       detail: "Bevoegdheden controleren.",
-      summaryLabel: "bevoegdheden/patronen",
+      summaryLabel: "geen passende medewerker",
       tone: "attention"
     };
   }
@@ -24733,8 +24733,10 @@ function getPlanningOpenReasonFromText(reasonText = "", item = {}) {
   ) {
     return {
       code: "absence",
-      label: "Geblokkeerd door vakantie/examens",
-      detail: rawReason || "Kandidaten zijn niet beschikbaar.",
+      label: normalizedReason.includes("iedereen") || normalizedReason.includes("alle kandidaten")
+        ? "Iedereen afwezig"
+        : "Medewerkers afwezig",
+      detail: rawReason || "Medewerkers zijn niet beschikbaar.",
       summaryLabel: "afwezigheid/vakantie",
       tone: "attention"
     };
@@ -24747,7 +24749,7 @@ function getPlanningOpenReasonFromText(reasonText = "", item = {}) {
   ) {
     return {
       code: "contract",
-      label: "Contracturen overschreden",
+      label: "Te veel uren ingepland",
       detail: "Kleine overschrijding krijgt straf; grote overschrijding blokkeert.",
       summaryLabel: "contracturen",
       tone: "attention"
@@ -24761,9 +24763,9 @@ function getPlanningOpenReasonFromText(reasonText = "", item = {}) {
   ) {
     return {
       code: "pattern",
-      label: "Geen patroonmatch",
-      detail: rawReason || "Basispatroon of praktijkpatroon ontbreekt.",
-      summaryLabel: "bevoegdheden/patronen",
+      label: "Niemand past logisch op deze dienst",
+      detail: rawReason || "Geen vaste of bekende match voor deze dienst.",
+      summaryLabel: "geen passende medewerker",
       tone: "info"
     };
   }
@@ -24786,20 +24788,62 @@ function getPlanningOpenReasonFromText(reasonText = "", item = {}) {
   if (normalizedReason.includes("logische medewerker")) {
     return {
       code: "staffing",
-      label: "Geen logische medewerker beschikbaar",
-      detail: "Kandidaten halen de minimale score niet.",
-      summaryLabel: "personeelstekort",
+      label: "Geen goede invaller beschikbaar",
+      detail: "Niemand komt logisch genoeg uit de planning.",
+      summaryLabel: "te weinig mensen beschikbaar",
       tone: "info"
     };
   }
 
   return {
     code: "staffing",
-    label: rawReason || "Geen logische medewerker beschikbaar",
-    detail: rawReason ? "Controleer medewerkeradvies voor details." : "Geen duidelijke kandidaat gevonden.",
-    summaryLabel: "personeelstekort",
+    label: rawReason || "Geen goede invaller beschikbaar",
+    detail: rawReason ? "Controleer medewerkeradvies voor details." : "Geen duidelijke medewerker gevonden.",
+    summaryLabel: "te weinig mensen beschikbaar",
     tone: "info"
   };
+}
+
+function getPlanningOpenReasonDisplayText(reasonText = "") {
+  const rawReason = String(reasonText || "").trim();
+  const normalizedReason = rawReason.toLowerCase();
+
+  if (!rawReason) {
+    return "";
+  }
+
+  if (normalizedReason.includes("patroon")) {
+    return "past niet logisch op deze dienst";
+  }
+
+  if (normalizedReason.includes("contracturen") || normalizedReason.includes("te veel")) {
+    return "te veel uren ingepland";
+  }
+
+  if (normalizedReason.includes("bevoegd")) {
+    return "kan deze dienst niet werken";
+  }
+
+  if (
+    normalizedReason.includes("vakantie") ||
+    normalizedReason.includes("vrij") ||
+    normalizedReason.includes("ziek") ||
+    normalizedReason.includes("afwezig") ||
+    normalizedReason.includes("examens") ||
+    normalizedReason.includes("school")
+  ) {
+    return "afwezig";
+  }
+
+  if (normalizedReason.includes("logische medewerker")) {
+    return "geen goede match";
+  }
+
+  if (normalizedReason.includes("bezorg")) {
+    return "geen bezorger beschikbaar";
+  }
+
+  return rawReason;
 }
 
 function getPlanningOpenSecondaryReason(item, primaryReason = {}) {
@@ -24822,7 +24866,7 @@ function getPlanningOpenSecondaryReason(item, primaryReason = {}) {
     const reason = decision.accepted
       ? (topCandidate.displayReason || "beschikbaar")
       : (decision.reason || topCandidate.displayReason || "niet gekozen");
-    return `${topCandidate.employeeName}: ${reason}`;
+    return `${topCandidate.employeeName}: ${getPlanningOpenReasonDisplayText(reason)}`;
   }
 
   if (advice.unavailable.length) {
@@ -24835,12 +24879,12 @@ function getPlanningOpenSecondaryReason(item, primaryReason = {}) {
       .sort((itemA, itemB) => itemB[1] - itemA[1] || itemA[0].localeCompare(itemB[0], "nl"))[0] || [];
 
     if (topReason) {
-      return `${count}x ${topReason}`;
+      return `${count}x ${getPlanningOpenReasonDisplayText(topReason)}`;
     }
   }
 
   if (primaryReason.code === "permission") {
-    return "Geen bevoegde actieve kandidaat.";
+    return "Geen actieve medewerker kan deze dienst werken.";
   }
 
   return "";
@@ -24901,7 +24945,7 @@ function getPlanningOpenReasonSummary(items = []) {
 
   openItems.forEach((item) => {
     const reason = getPlanningOpenReason(item);
-    const key = reason?.summaryLabel || "personeelstekort";
+    const key = reason?.summaryLabel || "te weinig mensen beschikbaar";
     groups.set(key, {
       label: key,
       count: (groups.get(key)?.count || 0) + 1,
