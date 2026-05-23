@@ -4402,6 +4402,13 @@ textarea.input-error {
   font-size: 0.58rem;
 }
 
+.smart-planning-day-add-service-button.secondary {
+  justify-self: start;
+  min-height: 1.45rem;
+  padding: 0.2rem 0.42rem;
+  font-size: 0.62rem;
+}
+
 .smart-planning-proposal-roster .smart-planning-proposal-day,
 .smart-planning-proposal-roster .planning-roster-groups,
 .smart-planning-proposal-roster .planning-roster-group,

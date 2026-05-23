@@ -5282,6 +5282,7 @@ let smartPlanningIsSavingRoster = false;
 let smartPlanningClearWeekConfirmVisible = false;
 let smartPlanningTimeEditState = null;
 let smartPlanningAddServiceVisible = false;
+let smartPlanningAddServiceDefaultDay = "";
 let smartPlanningDirty = false;
 let smartPlanningFocusedWeek = "";
 let pendingSmartPlanningScrollWeek = "";
@@ -22990,7 +22991,7 @@ async function applySmartPlanningToRoster() {
     };
 
     if (isSmartPlanningProposalItemKeptOpen(item) && !employeeName) {
-      if (!slotEntries.length) {
+      if (!slotEntries.length && !item.isManualAddedService) {
         const openSlot = findMatchingOpenPlanningSlot(item, workingEntries);
         if (!openSlot.shift || !openSlot.isOpen) {
           addSkippedReason("slot niet open");
@@ -23021,7 +23022,7 @@ async function applySmartPlanningToRoster() {
       return;
     }
 
-    if (!slotEntries.length) {
+    if (!slotEntries.length && !item.isManualAddedService) {
       const openSlot = findMatchingOpenPlanningSlot(item, workingEntries);
       if (!openSlot.shift || !openSlot.isOpen) {
         addSkippedReason("slot niet open");
@@ -25560,17 +25561,18 @@ function resetSmartPlanningTimeEditor() {
   showMessage("Standaardtijd teruggezet. Sla het rooster op om dit te bewaren.", "success");
 }
 
-function openSmartPlanningAddServiceDialog() {
+function openSmartPlanningAddServiceDialog(defaultDay = "") {
   if (!isPlannerRole()) {
     return;
   }
 
-  const weekValue = smartPlanningFocusedWeek || getSmartPlanningSelectedWeek();
+  const weekValue = defaultDay ? getWeekValueFromDate(defaultDay) : (smartPlanningFocusedWeek || getSmartPlanningSelectedWeek());
   if (!smartPlanningProposalState?.weeks?.length || !getSmartPlanningProposalWeekByValue(weekValue)) {
     createSmartPlanningAdjustmentProposal({ render: false, silent: true });
   }
 
   smartPlanningAddServiceVisible = true;
+  smartPlanningAddServiceDefaultDay = defaultDay || "";
   activeSmartPlanningTab = "proposal";
   setSmartPlanningFocusedWeek(weekValue);
   renderSmartPlanningPanel();
@@ -25578,7 +25580,59 @@ function openSmartPlanningAddServiceDialog() {
 
 function closeSmartPlanningAddServiceDialog() {
   smartPlanningAddServiceVisible = false;
+  smartPlanningAddServiceDefaultDay = "";
   renderSmartPlanningPanelPreservingRosterScroll();
+}
+
+function getSmartPlanningManualBakeryServiceTypes() {
+  const defaultTypes = [
+    { value: "Draaidienst", label: "Draaidienst", startTime: "00:00", endTime: "08:00" },
+    { value: "Ovendienst", label: "Oven", startTime: "00:00", endTime: "08:00" },
+    { value: "Brooddienst", label: "Brood", startTime: "06:00", endTime: "14:00" },
+    { value: "Banketdienst", label: "Banket", startTime: "04:00", endTime: "12:00" },
+    { value: "Inpakdienst", label: "Inpak", startTime: "06:00", endTime: "08:00" },
+    { value: "Productiedienst", label: "Productie", startTime: "08:00", endTime: "14:00" },
+    { value: "Bezorgdienst", label: "Bezorgdienst", startTime: "08:00", endTime: "12:30" },
+    { value: "Schoonmaak", label: "Schoonmaak", startTime: "14:00", endTime: "17:00" }
+  ];
+  const existingNames = new Set(shifts.map((shift) => shift.name));
+
+  if (existingNames.has(genericAllroundShiftName)) {
+    defaultTypes.push({ value: genericAllroundShiftName, label: genericAllroundShiftName, startTime: "08:00", endTime: "17:00" });
+  }
+
+  return defaultTypes;
+}
+
+function getSmartPlanningManualBakeryServiceType(typeName = "") {
+  const bakeryTypes = getSmartPlanningManualBakeryServiceTypes();
+  return bakeryTypes.find((type) => type.value === typeName) || bakeryTypes[0];
+}
+
+function syncSmartPlanningAddServiceDialogFields(dialog) {
+  if (!dialog) {
+    return;
+  }
+
+  const department = dialog.querySelector("[data-smart-planning-add-service-department]")?.value === "bakery" ? "bakery" : "shop";
+  const shopTypeWrap = dialog.querySelector("[data-smart-planning-add-service-shop-type-wrap]");
+  const bakeryTypeWrap = dialog.querySelector("[data-smart-planning-add-service-bakery-type-wrap]");
+  const activeTypeSelect = department === "bakery"
+    ? dialog.querySelector("[data-smart-planning-add-service-bakery-type]")
+    : dialog.querySelector("[data-smart-planning-add-service-shop-type]");
+  const selectedOption = activeTypeSelect?.selectedOptions?.[0] || activeTypeSelect?.options?.[activeTypeSelect.selectedIndex || 0];
+  const startInput = dialog.querySelector("[data-smart-planning-add-service-start]");
+  const endInput = dialog.querySelector("[data-smart-planning-add-service-end]");
+
+  shopTypeWrap?.classList.toggle("hidden", department !== "shop");
+  bakeryTypeWrap?.classList.toggle("hidden", department !== "bakery");
+
+  if (startInput && selectedOption?.dataset?.start) {
+    startInput.value = selectedOption.dataset.start;
+  }
+  if (endInput && selectedOption?.dataset?.end) {
+    endInput.value = selectedOption.dataset.end;
+  }
 }
 
 function renderSmartPlanningAddServiceDialog() {
@@ -25588,8 +25642,11 @@ function renderSmartPlanningAddServiceDialog() {
 
   const weekValue = smartPlanningFocusedWeek || getSmartPlanningSelectedWeek();
   const weekDates = getWeekDates(weekValue);
-  const defaultDay = weekDates.find((day) => !isClosedPlannerDay(day) && getWeekdayNumberFromDate(day) >= 2) || weekDates[0] || "";
+  const defaultDay = weekDates.includes(smartPlanningAddServiceDefaultDay)
+    ? smartPlanningAddServiceDefaultDay
+    : (weekDates.find((day) => !isClosedPlannerDay(day) && getWeekdayNumberFromDate(day) >= 2) || weekDates[0] || "");
   const activeEmployees = getActiveEmployees();
+  const bakeryTypes = getSmartPlanningManualBakeryServiceTypes();
 
   return `
     <div class="smart-planning-time-dialog-backdrop" data-smart-planning-add-service-dialog>
@@ -25606,10 +25663,23 @@ function renderSmartPlanningAddServiceDialog() {
             </select>
           </label>
           <label>
+            Afdeling
+            <select data-smart-planning-add-service-department>
+              <option value="shop">Winkel</option>
+              <option value="bakery">Bakkerij</option>
+            </select>
+          </label>
+          <label data-smart-planning-add-service-shop-type-wrap>
             Type
-            <select data-smart-planning-add-service-type>
-              <option value="shop">${genericShopShiftName}</option>
-              <option value="allround">${genericAllroundShiftName}</option>
+            <select data-smart-planning-add-service-shop-type>
+              <option value="shop" data-start="08:00" data-end="17:00">${genericShopShiftName}</option>
+              <option value="allround" data-start="07:00" data-end="13:00">${genericAllroundShiftName}</option>
+            </select>
+          </label>
+          <label data-smart-planning-add-service-bakery-type-wrap class="hidden">
+            Type
+            <select data-smart-planning-add-service-bakery-type>
+              ${bakeryTypes.map((type) => `<option value="${escapeHtmlAttribute(type.value)}" data-start="${escapeHtmlAttribute(type.startTime)}" data-end="${escapeHtmlAttribute(type.endTime)}">${escapeHtmlAttribute(type.label)}</option>`).join("")}
             </select>
           </label>
           <label>
@@ -25644,7 +25714,9 @@ function addSmartPlanningManualServiceFromDialog() {
   }
 
   const day = dialog.querySelector("[data-smart-planning-add-service-day]")?.value || "";
-  const type = dialog.querySelector("[data-smart-planning-add-service-type]")?.value || "shop";
+  const department = dialog.querySelector("[data-smart-planning-add-service-department]")?.value === "bakery" ? "bakery" : "shop";
+  const shopType = dialog.querySelector("[data-smart-planning-add-service-shop-type]")?.value || "shop";
+  const bakeryType = dialog.querySelector("[data-smart-planning-add-service-bakery-type]")?.value || "";
   const startTime = dialog.querySelector("[data-smart-planning-add-service-start]")?.value || "";
   const endTime = dialog.querySelector("[data-smart-planning-add-service-end]")?.value || "";
   const employeeName = dialog.querySelector("[data-smart-planning-add-service-employee]")?.value || "";
@@ -25666,9 +25738,15 @@ function addSmartPlanningManualServiceFromDialog() {
     smartPlanningProposalState.weeks.push(weekProposal);
   }
 
-  const shiftName = type === "allround" ? genericAllroundShiftName : genericShopShiftName;
-  const department = "shop";
-  const idPrefix = type === "allround" ? "manual-allround" : "manual-shop";
+  const bakeryTypeConfig = getSmartPlanningManualBakeryServiceType(bakeryType);
+  const shiftName = department === "bakery"
+    ? bakeryTypeConfig.value
+    : (shopType === "allround" ? genericAllroundShiftName : genericShopShiftName);
+  const isManualShopShift = department === "shop" && shopType === "shop";
+  const isManualAllroundShift = department === "shop" && shopType === "allround";
+  const idPrefix = department === "bakery"
+    ? `manual-bakery-${String(shiftName || "dienst").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "dienst"}`
+    : (isManualAllroundShift ? "manual-allround" : "manual-shop");
   const itemId = `${idPrefix}-${weekValue}-${day}-${startTime.replace(":", "")}-${endTime.replace(":", "")}-${Date.now()}`;
   const nextItem = {
     id: itemId,
@@ -25685,15 +25763,27 @@ function addSmartPlanningManualServiceFromDialog() {
     originalEndTime: endTime,
     originalEmployeeName: "",
     chosenEmployeeName: employeeName,
-    keepOpen: false,
-    lockedOpen: false,
+    keepOpen: !employeeName,
+    lockedOpen: !employeeName,
     originalKeepOpen: false,
     originalLockedOpen: false,
-    isShopShift: type === "shop",
-    isAllroundShift: type === "allround",
+    isManualAddedService: true,
+    isShopShift: isManualShopShift,
+    isAllroundShift: isManualAllroundShift,
     autoFillBlockReason: "",
-    assignmentReason: employeeName ? "Handmatig toegevoegd" : ""
+    assignmentReason: employeeName ? "Handmatig toegevoegd" : "Handmatig open"
   };
+
+  if (employeeName) {
+    invalidateSmartPlanningEffectiveEntriesCache();
+    const advice = getSmartPlanningAuthorizedEmployeeAdvice(nextItem);
+    const isAvailable = advice.available.some((employeeAdvice) => employeeAdvice.employeeName === employeeName);
+
+    if (!isAvailable) {
+      showMessage("Deze medewerker is niet bevoegd of niet beschikbaar voor deze dienst.", "warning");
+      return false;
+    }
+  }
 
   weekProposal.items = [...(weekProposal.items || []), nextItem].sort(compareSmartPlanningItemsByRosterOrder);
   selectedSmartPlanningOpenShiftId = employeeName ? "" : nextItem.id;
@@ -26020,8 +26110,11 @@ function renderSmartPlanningProposalRoster(data, proposalItems) {
         return `
           <article class="planning-day-card week-roster-day-card smart-planning-proposal-day ${hasOpenShifts ? "is-open-day" : "is-closed"} ${duplicateConflicts.length ? "has-duplicate-slot" : ""}">
             <header class="planning-day-header">
-              <strong>${formatSmartPlanningDayShortLabel(day)}</strong>
-              <span>${formatRosterDateLabel(day)}${duplicateConflicts.length ? " · conflict" : ""}</span>
+              <div>
+                <strong>${formatSmartPlanningDayShortLabel(day)}</strong>
+                <span>${formatRosterDateLabel(day)}${duplicateConflicts.length ? " · conflict" : ""}</span>
+              </div>
+              <button type="button" class="secondary smart-planning-day-add-service-button" data-smart-planning-add-service-day-button="${escapeHtmlAttribute(day)}">+ Dienst toevoegen</button>
             </header>
             <div class="roster-groups planning-roster-groups">
               ${dayRows.length
@@ -26692,11 +26785,17 @@ function reconcileSmartPlanningProposalWithCurrentPlanningData(data = getSmartPl
     const currentItems = weekProposal.items || [];
     const freshItems = buildSmartPlanningProposalItemsForWeek(weekValue, weekData);
     const currentItemsBySlotKey = getSmartPlanningProposalItemsByStableSlot(currentItems);
-    const nextItems = freshItems
+    const nextFreshItems = freshItems
       .map((freshItem) => mergeSmartPlanningFreshProposalItem(
         freshItem,
         currentItemsBySlotKey.get(getSmartPlanningItemStableSlotKey(freshItem))
-      ))
+      ));
+    const nextFreshSlotKeys = new Set(nextFreshItems.map(getSmartPlanningItemStableSlotKey).filter(Boolean));
+    const manualAddedItems = currentItems.filter((item) =>
+      item?.isManualAddedService &&
+      !nextFreshSlotKeys.has(getSmartPlanningItemStableSlotKey(item))
+    );
+    const nextItems = [...nextFreshItems, ...manualAddedItems]
       .sort(compareSmartPlanningItemsByRosterOrder);
     const beforeSignature = JSON.stringify(currentItems.map((item) => ({
       slotKey: getSmartPlanningItemStableSlotKey(item),
@@ -33879,6 +33978,14 @@ smartPlanningChecksList?.addEventListener("click", (event) => {
 });
 
 smartPlanningProposalList?.addEventListener("click", (event) => {
+  const addServiceDayButton = event.target.closest("[data-smart-planning-add-service-day-button]");
+
+  if (addServiceDayButton) {
+    event.stopPropagation();
+    openSmartPlanningAddServiceDialog(addServiceDayButton.dataset.smartPlanningAddServiceDayButton || "");
+    return;
+  }
+
   const timeEditButton = event.target.closest("[data-smart-planning-time-edit]");
 
   if (timeEditButton) {
@@ -34063,6 +34170,22 @@ smartPlanningProposalList?.addEventListener("click", (event) => {
   selectedSmartPlanningOpenShiftId = button.dataset.smartPlanningOpenShift || "";
   setSmartPlanningFocusedWeek(getSmartPlanningWeekValueForItemId(selectedSmartPlanningOpenShiftId));
   renderSmartPlanningPanel();
+});
+
+smartPlanningProposalList?.addEventListener("change", (event) => {
+  const addServiceDialog = event.target.closest("[data-smart-planning-add-service-dialog]");
+
+  if (!addServiceDialog) {
+    return;
+  }
+
+  if (
+    event.target.matches("[data-smart-planning-add-service-department]") ||
+    event.target.matches("[data-smart-planning-add-service-shop-type]") ||
+    event.target.matches("[data-smart-planning-add-service-bakery-type]")
+  ) {
+    syncSmartPlanningAddServiceDialogFields(addServiceDialog);
+  }
 });
 
 document.addEventListener("click", (event) => {
