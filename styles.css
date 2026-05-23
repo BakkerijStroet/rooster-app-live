@@ -4411,6 +4411,114 @@ textarea.input-error {
   background: #eff6ff;
 }
 
+.smart-planning-contract-balance {
+  margin: 0 0 6px;
+  border: 1px solid rgba(var(--color-border-rgb), 0.9);
+  border-radius: 10px;
+  background: rgba(var(--color-surface-rgb), 0.9);
+}
+
+.smart-planning-contract-balance summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 8px;
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.smart-planning-contract-balance summary span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.smart-planning-contract-balance summary strong {
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.smart-planning-contract-balance summary small,
+.smart-planning-contract-balance p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.smart-planning-contract-balance summary em {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1.2;
+  text-align: right;
+}
+
+.smart-planning-contract-balance p {
+  padding: 0 8px 8px;
+}
+
+.smart-planning-contract-balance-list {
+  display: grid;
+  gap: 5px;
+  padding: 0 8px 8px;
+}
+
+.smart-planning-contract-balance-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.85fr) minmax(0, 1fr) max-content;
+  gap: 7px;
+  align-items: center;
+  min-width: 0;
+  padding: 5px 7px;
+  border: 1px solid var(--color-neutral-border);
+  border-radius: 8px;
+  background: var(--color-neutral-soft);
+}
+
+.smart-planning-contract-balance-row b,
+.smart-planning-contract-balance-row small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.smart-planning-contract-balance-row b {
+  color: var(--color-text);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.smart-planning-contract-balance-row small {
+  color: var(--color-text-muted);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.smart-planning-contract-balance-row em {
+  color: var(--color-text);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 950;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.smart-planning-contract-balance-row.is-over {
+  border-color: var(--color-warning-border);
+  background: var(--color-warning-soft);
+}
+
+.smart-planning-contract-balance-row.is-under {
+  border-color: rgba(59, 130, 246, 0.28);
+  background: #eff6ff;
+}
+
 @media (max-width: 980px) {
   .smart-planning-dashboard-weeks {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4424,6 +4532,16 @@ textarea.input-error {
 
   .smart-planning-week-card-metrics {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .smart-planning-contract-balance summary,
+  .smart-planning-contract-balance-row {
+    grid-template-columns: 1fr;
+  }
+
+  .smart-planning-contract-balance summary em,
+  .smart-planning-contract-balance-row em {
+    text-align: left;
   }
 
 }

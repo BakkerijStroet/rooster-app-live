@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260523-week-safety-check";
+const APP_VERSION = "20260523-contract-balance";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -25006,6 +25006,8 @@ function getSmartPlanningSafetyDepartmentKey(item = {}) {
   return item?.department === "shop" ? "shop" : "bakery";
 }
 
+const smartPlanningContractBalanceAttentionHours = 2;
+
 function getSmartPlanningWeekSafetyContractRows(weekValue, weekItems = []) {
   const plannedByEmployee = new Map();
 
@@ -25085,8 +25087,8 @@ function getSmartPlanningWeekSafetyCheck(weekValue, weekItems = [], weekCard = n
     return !item.chosenEmployeeName || item.chosenEmployeeName !== expectedEmployeeName;
   });
   const contractRows = getSmartPlanningWeekSafetyContractRows(weekValue, weekItems);
-  const clearOverContractRows = contractRows.filter((row) => row.difference > 2);
-  const clearUnderContractRows = contractRows.filter((row) => row.difference < -2);
+  const clearOverContractRows = contractRows.filter((row) => row.difference > smartPlanningContractBalanceAttentionHours);
+  const clearUnderContractRows = contractRows.filter((row) => row.difference < -smartPlanningContractBalanceAttentionHours);
 
   return {
     weekValue,
@@ -25193,6 +25195,80 @@ function renderSmartPlanningWeekSafetyCheck(weekValue, weekItems = [], weekCard 
         `).join("")}
       </div>
     </section>
+  `;
+}
+
+function getSmartPlanningContractBalance(weekValue, weekItems = []) {
+  const rows = getSmartPlanningWeekSafetyContractRows(weekValue, weekItems)
+    .map((row) => ({
+      ...row,
+      stateClass: row.difference > smartPlanningContractBalanceAttentionHours
+        ? "over"
+        : row.difference < -smartPlanningContractBalanceAttentionHours
+          ? "under"
+          : "match"
+    }))
+    .sort((rowA, rowB) =>
+      Math.abs(rowB.difference) - Math.abs(rowA.difference) ||
+      rowA.employeeName.localeCompare(rowB.employeeName, "nl")
+    );
+  const overRows = rows.filter((row) => row.stateClass === "over");
+  const underRows = rows.filter((row) => row.stateClass === "under");
+  const matchRows = rows.filter((row) => row.stateClass === "match");
+
+  return {
+    rows,
+    notableRows: [...overRows, ...underRows],
+    overRows,
+    underRows,
+    matchRows
+  };
+}
+
+function formatSmartPlanningContractBalanceDifference(difference) {
+  if (difference === 0) {
+    return "0,00 uur";
+  }
+
+  return `${difference > 0 ? "+" : "-"}${formatHours(Math.abs(difference))}`;
+}
+
+function renderSmartPlanningContractBalance(weekValue, weekItems = []) {
+  const balance = getSmartPlanningContractBalance(weekValue, weekItems);
+
+  if (!balance.rows.length) {
+    return "";
+  }
+
+  const notableCount = balance.notableRows.length;
+  const summaryText = notableCount
+    ? `${notableCount} opvallend · ${balance.overRows.length} boven · ${balance.underRows.length} onder`
+    : `${balance.rows.length} medewerkers · geen opvallende afwijking`;
+  const rowsToRender = notableCount ? balance.notableRows : [];
+
+  return `
+    <details class="smart-planning-contract-balance">
+      <summary>
+        <span>
+          <strong>Urenbalans</strong>
+          <small>Netto planneruren t.o.v. contract</small>
+        </span>
+        <em>${summaryText}</em>
+      </summary>
+      ${rowsToRender.length ? `
+        <div class="smart-planning-contract-balance-list">
+          ${rowsToRender.map((row) => `
+            <span class="smart-planning-contract-balance-row is-${row.stateClass}">
+              <b>${escapeHtml(row.employeeName)}</b>
+              <small>Gepland ${formatHours(row.plannedHours)} · Contract ${formatHours(row.contractHours)}</small>
+              <em>${formatSmartPlanningContractBalanceDifference(row.difference)}</em>
+            </span>
+          `).join("")}
+        </div>
+      ` : `
+        <p>Geen medewerker zit duidelijk boven of onder contracturen.</p>
+      `}
+    </details>
   `;
 }
 
@@ -27344,6 +27420,7 @@ function renderSmartPlanningSelectedWeekEditor(data, weekCards, focusedWeek) {
       </header>
       ${renderSmartPlanningWeekStatusBar(selectedCard)}
       ${renderSmartPlanningWeekSafetyCheck(weekValue, weekItems, selectedCard)}
+      ${renderSmartPlanningContractBalance(weekValue, weekItems)}
       ${renderSmartPlanningOpenReasonSummary(weekItems)}
       ${weekProposal?.cleared ? `
         <div class="smart-planning-week-empty-state">
