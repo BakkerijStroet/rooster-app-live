@@ -13013,6 +13013,23 @@ function isLastRosterWeekOfMonth(weekValue) {
   return monday.getUTCMonth() !== nextMonday.getUTCMonth();
 }
 
+function isLastWeekdayOfMonth(dateValue, weekdayNumber) {
+  const date = new Date(`${dateValue}T00:00:00`);
+
+  if (Number.isNaN(date.getTime()) || (date.getDay() || 7) !== weekdayNumber) {
+    return false;
+  }
+
+  const nextWeekday = new Date(date);
+  nextWeekday.setDate(date.getDate() + 7);
+  return nextWeekday.getMonth() !== date.getMonth();
+}
+
+function isLastSaturdayRosterWeek(weekValue) {
+  const saturday = getWeekDates(weekValue)[5] || "";
+  return isLastWeekdayOfMonth(saturday, 6);
+}
+
 function getMonthKeyFromDate(dateValue) {
   const [year = "", month = ""] = String(dateValue || "").split("-");
   return year && month ? `${year}-${month}` : "";
@@ -13160,8 +13177,8 @@ function getEmployeeStrongPreferenceNote(employeeName, weekValue = getCurrentWee
   }
 
   if (normalizedName === "wendy") {
-    return isLastRosterWeekOfMonth(weekValue)
-      ? "Sterke voorkeur: laatste roosterweek van de maand di hele dag, wo ochtend, do ochtend, vr ochtend."
+    return isLastSaturdayRosterWeek(weekValue)
+      ? "Sterke voorkeur: week met vrije zaterdag di hele dag, wo ochtend, do ochtend, vr ochtend."
       : "Sterke voorkeur: di hele dag, wo ochtend, vr ochtend en za hele dag.";
   }
 
@@ -13176,7 +13193,7 @@ function getEmployeeStrongPreferenceNote(employeeName, weekValue = getCurrentWee
   return "";
 }
 
-function getEmployeeStrongPreferenceMatch(employeeName, shift, day, weekValue, sourceEntries = entries) {
+function getEmployeeShopPlanningRule(employeeName, day, shift, weekValue, sourceEntries = entries) {
   const normalizedName = String(employeeName || "").trim().toLowerCase();
   const weekday = getWeekdayNumberFromDate(day);
   const shiftDaypart = getShiftRosterDaypart(shift);
@@ -13188,37 +13205,68 @@ function getEmployeeStrongPreferenceMatch(employeeName, shift, day, weekValue, s
   }
 
   if (normalizedName === "saskia") {
-    const preferredWeekdays = getWeekPatternVariant(weekValue) === "A" ? [2, 4, 5] : [2, 5, 6];
+    const variant = getWeekPatternVariant(weekValue);
+    const preferredWeekdays = variant === "A" ? [2, 4, 5] : [2, 5, 6];
     const isPreferredDay = preferredWeekdays.includes(weekday);
     const saturdayOutsidePreferredWeek = weekday === 6 && !isPreferredDay;
 
-    return isPreferredDay && shiftDaypart === "full"
-      ? {
+    if (isPreferredDay && shiftDaypart === "full") {
+      return {
+        scoreBonus: 760,
+        scorePenalty: 0,
+        saturdayPriorityAdjustment: variant === "B" ? -18 : 24,
+        patternMatch: {
           score: 3,
           label: "Voorkeursrooster",
-          detail: `Past binnen Saskia ${getWeekPatternVariant(weekValue) === "A" ? "oneven" : "even"} weekvoorkeur.`
+          detail: `Past binnen Saskia ${variant === "A" ? "oneven" : "even"} weekvoorkeur.`
         }
-      : saturdayOutsidePreferredWeek
-        ? {
-            score: 60,
-            label: "Afwijking voorkeur",
-            detail: "Saskia normaal alleen op zaterdag in haar even week."
-          }
-      : isPreferredDay
-        ? {
+      };
+    }
+
+    if (saturdayOutsidePreferredWeek) {
+      return {
+        scoreBonus: 0,
+        scorePenalty: 650,
+        saturdayPriorityAdjustment: 24,
+        avoidAutoAssign: true,
+        avoidReason: "Buiten Saskia patroon",
+        patternMatch: {
+          score: 60,
+          label: "Afwijking voorkeur",
+          detail: "Saskia normaal alleen op zaterdag in haar even week."
+        }
+      };
+    }
+
+    return isPreferredDay
+      ? {
+          scoreBonus: 120,
+          scorePenalty: 140,
+          saturdayPriorityAdjustment: variant === "B" ? -18 : 24,
+          avoidAutoAssign: true,
+          avoidReason: "Buiten Saskia dagdeel",
+          patternMatch: {
             score: 14,
             label: "Afwijking voorkeur",
             detail: "Goede voorkeursdag voor Saskia, maar niet het voorkeursdagdeel."
           }
-        : {
+        }
+      : {
+          scoreBonus: 0,
+          scorePenalty: 360,
+          saturdayPriorityAdjustment: variant === "B" ? -18 : 24,
+          avoidAutoAssign: true,
+          avoidReason: "Buiten Saskia patroon",
+          patternMatch: {
             score: 28,
             label: "Afwijking voorkeur",
             detail: "Valt buiten Saskia haar voorkeursdagen voor deze week."
-          };
+          }
+        };
   }
 
   if (normalizedName === "wendy") {
-    const isMonthSwitchWeek = isLastRosterWeekOfMonth(weekValue);
+    const isMonthSwitchWeek = isLastSaturdayRosterWeek(weekValue);
     const preferredRoster = isMonthSwitchWeek
       ? { 2: "full", 3: "morning", 4: "morning", 5: "morning" }
       : { 2: "full", 3: "morning", 5: "morning", 6: "full" };
@@ -13227,32 +13275,58 @@ function getEmployeeStrongPreferenceMatch(employeeName, shift, day, weekValue, s
 
     if (saturdayOutsidePreferredWeek) {
       return {
-        score: 58,
-        label: "Afwijking voorkeur",
-        detail: "Wendy haar maandvoorkeur houdt deze zaterdag liever vrij."
+        scoreBonus: 0,
+        scorePenalty: 700,
+        saturdayPriorityAdjustment: 22,
+        avoidAutoAssign: true,
+        avoidReason: "Wendy vrije zaterdag",
+        patternMatch: {
+          score: 58,
+          label: "Afwijking voorkeur",
+          detail: "Wendy haar maandvoorkeur houdt deze zaterdag liever vrij."
+        }
       };
     }
 
     if (!preferredDaypart) {
       return {
-        score: 26,
-        label: "Afwijking voorkeur",
-        detail: "Valt buiten Wendy haar maandvoorkeur."
+        scoreBonus: 0,
+        scorePenalty: 300,
+        saturdayPriorityAdjustment: isMonthSwitchWeek ? 22 : -16,
+        avoidAutoAssign: true,
+        avoidReason: "Buiten Wendy maandvoorkeur",
+        patternMatch: {
+          score: 26,
+          label: "Afwijking voorkeur",
+          detail: "Valt buiten Wendy haar maandvoorkeur."
+        }
       };
     }
 
     if (preferredDaypart === shiftDaypart) {
       return {
-        score: 4,
-        label: "Voorkeursrooster",
-        detail: "Past binnen Wendy haar maandvoorkeur."
+        scoreBonus: 760,
+        scorePenalty: 0,
+        saturdayPriorityAdjustment: isMonthSwitchWeek ? 22 : -16,
+        patternMatch: {
+          score: 4,
+          label: "Voorkeursrooster",
+          detail: "Past binnen Wendy haar maandvoorkeur."
+        }
       };
     }
 
     return {
-      score: 16,
-      label: "Afwijking voorkeur",
-      detail: "Juiste voorkeursdag voor Wendy, maar niet het voorkeurdagdeel."
+      scoreBonus: 110,
+      scorePenalty: 120,
+      saturdayPriorityAdjustment: isMonthSwitchWeek ? 22 : -16,
+      avoidAutoAssign: true,
+      avoidReason: "Buiten Wendy dagdeel",
+      patternMatch: {
+        score: 16,
+        label: "Afwijking voorkeur",
+        detail: "Juiste voorkeursdag voor Wendy, maar niet het voorkeurdagdeel."
+      }
     };
   }
 
@@ -13266,44 +13340,75 @@ function getEmployeeStrongPreferenceMatch(employeeName, shift, day, weekValue, s
 
     if (saturdayCount >= saturdayLimit) {
       return {
-        score: 57,
-        label: "Afwijking voorkeur",
-        detail: `${employeeName} liever 1 zaterdag per maand vrijhouden.`
+        scoreBonus: 0,
+        scorePenalty: 520,
+        saturdayPriorityAdjustment: 35,
+        patternMatch: {
+          score: 57,
+          label: "Afwijking voorkeur",
+          detail: `${employeeName} liever 1 zaterdag per maand vrijhouden.`
+        }
       };
     }
 
     return {
-      score: 9,
-      label: "Voorkeursrooster",
-      detail: `${employeeName} blijft inzetbaar, maar houdt bij voorkeur 1 zaterdag per maand vrij.`
+      scoreBonus: 80,
+      scorePenalty: 0,
+      saturdayPriorityAdjustment: 8,
+      patternMatch: {
+        score: 9,
+        label: "Voorkeursrooster",
+        detail: `${employeeName} blijft inzetbaar, maar houdt bij voorkeur 1 zaterdag per maand vrij.`
+      }
     };
   }
 
   if (normalizedName === "gerry") {
     if (weekday === 2) {
       return {
-        score: 34,
-        label: "Afwijking voorkeur",
-        detail: "Gerry liever niet op dinsdag inzetten."
+        scoreBonus: 0,
+        scorePenalty: 1200,
+        avoidAutoAssign: true,
+        avoidReason: "Gerry niet op dinsdag plannen",
+        patternMatch: {
+          score: 34,
+          label: "Afwijking voorkeur",
+          detail: "Gerry liever niet op dinsdag inzetten."
+        }
       };
     }
 
     if (weekday === 6) {
       return {
-        score: 58,
-        label: "Afwijking voorkeur",
-        detail: "Gerry zaterdag alleen inzetten als het echt nodig is."
+        scoreBonus: 0,
+        scorePenalty: 760,
+        saturdayPriorityAdjustment: 60,
+        avoidAutoAssign: true,
+        avoidReason: "Gerry zaterdag alleen handmatig als noodoptie",
+        patternMatch: {
+          score: 58,
+          label: "Afwijking voorkeur",
+          detail: "Gerry zaterdag alleen inzetten als het echt nodig is."
+        }
       };
     }
 
     return {
-      score: 5,
-      label: "Voorkeursrooster",
-      detail: "Past binnen Gerry zijn vaste winkelvoorkeur."
+      scoreBonus: 80,
+      scorePenalty: 0,
+      patternMatch: {
+        score: 5,
+        label: "Voorkeursrooster",
+        detail: "Past binnen Gerry zijn vaste winkelvoorkeur."
+      }
     };
   }
 
   return null;
+}
+
+function getEmployeeStrongPreferenceMatch(employeeName, shift, day, weekValue, sourceEntries = entries) {
+  return getEmployeeShopPlanningRule(employeeName, day, shift, weekValue, sourceEntries)?.patternMatch || null;
 }
 
 function getEmployeeSaturdayPlanningPriority(employeeName, shift, day, weekValue, sourceEntries = entries) {
@@ -13314,35 +13419,17 @@ function getEmployeeSaturdayPlanningPriority(employeeName, shift, day, weekValue
     return 0;
   }
 
-  const normalizedName = String(employeeName || "").trim().toLowerCase();
   const monthlySaturdayCount = getEmployeeMonthlyWorkedWeekdayCount(employeeName, 6, day, sourceEntries);
   const recentSaturdayCategoryCount = getEmployeeRecentWeekdayCategoryCount(employeeName, categoryKey, day, weekValue, sourceEntries, 8);
   const recentSaturdayShiftCount = getEmployeeRecentShiftWeekCount(employeeName, shift.name, weekValue, sourceEntries, 8);
   let priority = (monthlySaturdayCount * 12) + (recentSaturdayCategoryCount * 5) + (recentSaturdayShiftCount * 3);
+  const shopRule = getEmployeeShopPlanningRule(employeeName, day, shift, weekValue, sourceEntries);
 
-  if (normalizedName === "gerry") {
-    return priority + 60;
+  if (Number.isFinite(shopRule?.saturdayPriorityAdjustment)) {
+    priority += shopRule.saturdayPriorityAdjustment;
   }
 
-  if (normalizedName === "luna" || normalizedName === "monique") {
-    const saturdayLimit = Math.max(0, getMonthlyWeekdayOccurrenceCount(day, 6) - 1);
-
-    if (monthlySaturdayCount >= saturdayLimit) {
-      return priority + 35;
-    }
-
-    return priority + 8;
-  }
-
-  if (normalizedName === "saskia") {
-    return getWeekPatternVariant(weekValue) === "B" ? Math.max(0, priority - 18) : priority + 24;
-  }
-
-  if (normalizedName === "wendy") {
-    return isLastRosterWeekOfMonth(weekValue) ? priority + 22 : Math.max(0, priority - 16);
-  }
-
-  return priority;
+  return Math.max(0, priority);
 }
 
 function isAfternoonShift(shift) {
@@ -23729,6 +23816,14 @@ function getSmartPlanningAutoFillCandidateDecision(candidate, item) {
     ? getSmartPlanningCandidateEntry(item, lookup)
     : null;
 
+  if (scoreDetails.employeeShopRuleAvoidAutoAssign) {
+    return {
+      accepted: false,
+      reason: scoreDetails.employeeShopRuleAvoidReason || "Buiten winkelregel",
+      scoreDetails
+    };
+  }
+
   if (
     findSmartPlanningConflictInLookup(lookup, candidate.employeeName, item, candidateEntry) ||
     hasBlockingSmartPlanningAssignment(candidate.employeeName, item, lookup)
@@ -23807,6 +23902,14 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
   const patternId = getEmployeeBasePatternId(candidate.employeeName);
   const isFixedSaturdayCandidate = isSmartPlanningFixedSaturdayEmployee(candidate.employeeName, item);
   const isFlexibleShopCandidate = isSmartPlanningFlexibleShopEmployee(candidate.employeeName, item);
+  const lookup = getSmartPlanningLookupCache(entries);
+  const employeeShopRule = getEmployeeShopPlanningRule(
+    candidate.employeeName,
+    item?.day || "",
+    shift,
+    weekValue,
+    lookup.effectiveEntries || entries
+  );
   const extraAvailabilityMatch = getEmployeeExtraAvailabilityMatch(
     candidate.employeeName,
     item?.day || "",
@@ -23868,6 +23971,8 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
   const saturdayFixedScore = categoryKey === "shop" && isFixedSaturdayCandidate ? 260 : 0;
   const flexibleShopScore = isFlexibleShopCandidate ? 75 : 0;
   const roleScore = getEmployeeAppRole(candidate.employeeName) === "planner" ? 5 : 0;
+  const employeeShopRuleScore = Number(employeeShopRule?.scoreBonus) || 0;
+  const employeeShopRulePenalty = Number(employeeShopRule?.scorePenalty) || 0;
   const historicalPracticeScore = sameShiftWeekdayScore + sameShiftScore + sameCategoryWeekdayScore + sameCategoryScore;
   const sameWeekdayPracticeScore = sameShiftWeekdayScore + sameCategoryWeekdayScore;
   let practicePatternScore = 0;
@@ -23897,7 +24002,9 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
     saturdayFixedScore +
     flexibleShopScore +
     departmentScore +
-    roleScore -
+    roleScore +
+    employeeShopRuleScore -
+    employeeShopRulePenalty -
     contractPenalty -
     loadPenalty;
 
@@ -23916,6 +24023,10 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
     saturdayFixedScore,
     flexibleShopScore,
     departmentScore,
+    employeeShopRuleScore,
+    employeeShopRulePenalty,
+    employeeShopRuleAvoidAutoAssign: employeeShopRule?.avoidAutoAssign === true,
+    employeeShopRuleAvoidReason: employeeShopRule?.avoidReason || "",
     minScore: smartPlanningAutoFillMinScore,
     patternId,
     patternScore: patternMatch.score
