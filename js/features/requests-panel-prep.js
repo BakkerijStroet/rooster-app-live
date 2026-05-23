@@ -182,6 +182,51 @@
       ["examens", "studiedag", "school", "weekend_weg", "tijdelijk_niet_beschikbaar", "extra_beschikbaar", "extra_vakantiewerk", "extra_zaterdag_beschikbaar"].includes(normalizedType);
   }
 
+  function getAvailabilityWeekdayListLabel(request = {}) {
+    const weekdays = [...new Set((Array.isArray(request.availabilityWeekdays || request.weekdays) ? (request.availabilityWeekdays || request.weekdays) : [])
+      .map((weekday) => Number(weekday))
+      .filter((weekday) => Number.isInteger(weekday) && weekday >= 1 && weekday <= 6))]
+      .sort((a, b) => a - b);
+
+    return weekdays
+      .map((weekday) => ({
+        1: "maandag",
+        2: "dinsdag",
+        3: "woensdag",
+        4: "donderdag",
+        5: "vrijdag",
+        6: "zaterdag"
+      })[weekday])
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  function getAvailabilityRequestHelperText(request = {}) {
+    if (!isAvailabilityRequest(request)) {
+      return "";
+    }
+
+    return isExtraAvailabilityRequest(request)
+      ? "Deze medewerker heeft aangegeven extra beschikbaar te zijn in deze periode. Dit is een scoreboost, geen afwezigheid."
+      : "Deze medewerker heeft aangegeven niet beschikbaar te zijn in deze periode.";
+  }
+
+  function getAvailabilityRequestDetailText(request = {}, helpers = {}) {
+    if (!isAvailabilityRequest(request)) {
+      return "";
+    }
+
+    const weekdayText = isExtraAvailabilityRequest(request) ? getAvailabilityWeekdayListLabel(request) : "";
+    const parts = [
+      helpers.getAbsenceTypeLabel ? helpers.getAbsenceTypeLabel(request.type) : request.type,
+      helpers.getTimeOffDisplayRange ? helpers.getTimeOffDisplayRange(request) : "",
+      weekdayText ? `Dagen: ${weekdayText}` : "",
+      request.reason ? `Opmerking: ${request.reason}` : ""
+    ].filter(Boolean);
+
+    return parts.join(" · ");
+  }
+
   function isDeletedRequest(request) {
     return Boolean(request?.deletedAt || request?.deleted_at);
   }
@@ -221,11 +266,15 @@
           ? helpers.renderRequestMailStatus(request, helpers.getTimeOffMailStatusText)
           : (mailStatusText ? `Mail: ${mailStatusText}` : "");
 
+        const availabilityDetail = getAvailabilityRequestDetailText(request, helpers);
+        const availabilityHelper = getAvailabilityRequestHelperText(request);
+
         return {
-          type: helpers.getAbsenceTypeLabel(request.type),
-          meta: `${helpers.getAbsenceTypeLabel(request.type)} · ${helpers.getTimeOffDisplayRange(request)}`,
+          type: isExtraAvailabilityRequest(request) ? "Extra beschikbaar" : helpers.getAbsenceTypeLabel(request.type),
+          meta: availabilityDetail || `${helpers.getAbsenceTypeLabel(request.type)} · ${helpers.getTimeOffDisplayRange(request)}`,
           details: [
-            request.reason ? `Reden: ${request.reason}` : "",
+            availabilityHelper,
+            request.reason && !availabilityDetail ? `Reden: ${request.reason}` : "",
             request.managerNote ? `Opmerking: ${request.managerNote}` : "",
             mailStatusHtml,
             createdText
@@ -289,7 +338,7 @@
       : helpers.getTimeOffDisplayRange(request);
     const detailText = requestType === "swap"
       ? `${request.shiftName} - ${request.startTime} - ${request.endTime}`
-      : `${helpers.getAbsenceTypeLabel(request.type)}${request.reason ? ` - ${request.reason}` : ""}`;
+      : (getAvailabilityRequestDetailText(request, helpers) || `${helpers.getAbsenceTypeLabel(request.type)}${request.reason ? ` - ${request.reason}` : ""}`);
     const attentionText = request.status === "open" ? helpers.getRequestAttentionText(request) : "";
     const plannerNoteText = request.managerNote || "";
     const swapExtraText = requestType === "swap" && request.targetEmployeeName

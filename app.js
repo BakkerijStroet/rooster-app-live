@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260523-availability-requests";
+const APP_VERSION = "20260523-availability-visibility";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -17767,6 +17767,10 @@ function getPlannerRequestTypeLabel(request, requestType) {
     return "Ruilverzoek";
   }
 
+  if (isExtraAvailabilityRequest(request)) {
+    return "Extra beschikbaar";
+  }
+
   return getAbsenceTypeLabel(request?.type);
 }
 
@@ -17786,12 +17790,13 @@ function getPlannerRequestDescription(request, requestType) {
     return `${request.shiftName || "Dienst"} ${request.startTime || ""} - ${request.endTime || ""} (${targetText})`;
   }
 
-  const weekdayText = isExtraAvailabilityRequest(request)
-    ? getAvailabilityWeekdayListLabel(getAvailabilityRequestWeekdays(request))
-    : "";
+  if (isAvailabilityRequest(request)) {
+    return getAvailabilityRequestDetailText(request);
+  }
+
   const baseText = request.reason || getAbsenceTypeLabel(request.type);
 
-  return weekdayText ? `${baseText} (${weekdayText})` : baseText;
+  return baseText;
 }
 
 function getPlannerRequestInboxItems() {
@@ -18163,6 +18168,8 @@ function renderPlannerRequestInboxItem(item) {
   const typeLabel = getPlannerRequestTypeLabel(request, requestType);
   const dateText = getPlannerRequestDateText(request, requestType);
   const description = getPlannerRequestDescription(request, requestType);
+  const availabilityBadge = requestType === "timeoff" ? renderAvailabilityRequestBadge(request) : "";
+  const availabilityHelperText = requestType === "timeoff" ? getAvailabilityRequestHelperText(request) : "";
   const isOpen = request.status === "open";
   const isOverdue = displayStatus === "overdue";
   const replacementField = requestType === "swap" && isOpen && !request.targetEmployeeName
@@ -18202,11 +18209,11 @@ function renderPlannerRequestInboxItem(item) {
       : "");
 
   return `
-    <article class="request-card planner-request-card planner-request-inbox-item is-${displayStatus}${requestType === "timeoff" ? ` absence-${getAbsenceCardClass(request.type)}` : ""}">
+    <article class="request-card planner-request-card planner-request-inbox-item is-${displayStatus}${requestType === "timeoff" ? ` absence-${getAbsenceCardClass(request.type)}` : ""}${isExtraAvailabilityRequest(request) ? " is-extra-availability" : ""}">
       <div class="planner-request-inbox-grid">
         <div class="planner-request-date" title="${dateText}">${dateText}</div>
         <strong class="planner-request-name">${request.employeeName}</strong>
-        <div class="planner-request-type">${typeLabel}</div>
+        <div class="planner-request-type">${availabilityBadge}${typeLabel}</div>
         <div class="planner-request-description" title="${description}">${description}</div>
         <div class="planner-request-status-stack">
           <span class="status-pill status-${displayStatus}">${statusLabel}</span>
@@ -18220,7 +18227,8 @@ function renderPlannerRequestInboxItem(item) {
       </div>
       ${renderRequestMailStatus(request, requestType === "swap" ? getSwapMailStatusText : getTimeOffMailStatusText)}
       ${renderPlannerRequestCoverageContext(request, requestType)}
-      ${getRequestRosterEffectText(request, requestType) ? `<div class="request-impact">${getRequestRosterEffectText(request, requestType)}</div>` : ""}
+      ${availabilityHelperText ? `<div class="request-impact availability-helper${isExtraAvailabilityRequest(request) ? " is-extra" : ""}">${availabilityHelperText}</div>` : ""}
+      ${getRequestRosterEffectText(request, requestType) ? `<div class="request-impact${isExtraAvailabilityRequest(request) ? " availability-scoreboost-note" : ""}">${getRequestRosterEffectText(request, requestType)}</div>` : ""}
       ${isOpen && getRequestAttentionText(request) ? `<div class="request-impact request-attention-note">${getRequestAttentionText(request)}</div>` : ""}
     </article>
   `;
@@ -18294,7 +18302,7 @@ function renderPlannerRequestCards(target, requests, emptyText, requestType) {
       : "";
 
     return `
-      <article class="request-card planner-request-card is-${viewModel.requestStatus}${requestType === "timeoff" ? ` absence-${getAbsenceCardClass(request.type)}` : ""}">
+      <article class="request-card planner-request-card is-${viewModel.requestStatus}${requestType === "timeoff" ? ` absence-${getAbsenceCardClass(request.type)}` : ""}${isExtraAvailabilityRequest(request) ? " is-extra-availability" : ""}">
         <div class="planner-request-row">
           <strong class="planner-request-name">${request.employeeName}</strong>
           <div class="planner-request-period" title="${viewModel.periodText}">${viewModel.periodText}</div>
@@ -18302,13 +18310,14 @@ function renderPlannerRequestCards(target, requests, emptyText, requestType) {
           ${plannerActions}
         </div>
         <div class="planner-request-detail-row">
-          <div class="planner-request-detail" title="${viewModel.detailText}">${viewModel.detailText}</div>
+          <div class="planner-request-detail" title="${viewModel.detailText}">${requestType === "timeoff" ? renderAvailabilityRequestBadge(request) : ""}${viewModel.detailText}</div>
           ${replacementField}
           ${plannerNoteField}
         </div>
         ${swapExtra}
         ${renderPlannerRequestCoverageContext(request, requestType)}
-        ${viewModel.rosterEffectText ? `<div class="request-impact">${viewModel.rosterEffectText}</div>` : ""}
+        ${requestType === "timeoff" && getAvailabilityRequestHelperText(request) ? `<div class="request-impact availability-helper${isExtraAvailabilityRequest(request) ? " is-extra" : ""}">${getAvailabilityRequestHelperText(request)}</div>` : ""}
+        ${viewModel.rosterEffectText ? `<div class="request-impact${isExtraAvailabilityRequest(request) ? " availability-scoreboost-note" : ""}">${viewModel.rosterEffectText}</div>` : ""}
         ${sickOverlapNotice ? `<div class="request-impact request-attention-note">${sickOverlapNotice}</div>` : ""}
         ${viewModel.attentionText ? `<div class="request-impact request-attention-note">${viewModel.attentionText}</div>` : ""}
         ${plannerNote}
@@ -18461,6 +18470,52 @@ function getAvailabilityWeekdayListLabel(weekdays = []) {
     })[weekday])
     .filter(Boolean)
     .join(", ");
+}
+
+function getAvailabilityRequestBadgeText(request = {}) {
+  if (!isAvailabilityRequest(request)) {
+    return "";
+  }
+
+  return isExtraAvailabilityRequest(request) ? "EXTRA BESCHIKBAAR" : "NIET BESCHIKBAAR";
+}
+
+function renderAvailabilityRequestBadge(request = {}) {
+  const badgeText = getAvailabilityRequestBadgeText(request);
+
+  if (!badgeText) {
+    return "";
+  }
+
+  return `<span class="availability-request-badge ${isExtraAvailabilityRequest(request) ? "is-extra" : "is-unavailable"}">${badgeText}</span>`;
+}
+
+function getAvailabilityRequestHelperText(request = {}) {
+  if (!isAvailabilityRequest(request)) {
+    return "";
+  }
+
+  return isExtraAvailabilityRequest(request)
+    ? "Deze medewerker heeft aangegeven extra beschikbaar te zijn in deze periode. Dit is een scoreboost, geen afwezigheid."
+    : "Deze medewerker heeft aangegeven niet beschikbaar te zijn in deze periode.";
+}
+
+function getAvailabilityRequestDetailText(request = {}) {
+  if (!isAvailabilityRequest(request)) {
+    return "";
+  }
+
+  const weekdayText = isExtraAvailabilityRequest(request)
+    ? getAvailabilityWeekdayListLabel(getAvailabilityRequestWeekdays(request))
+    : "";
+  const parts = [
+    getAvailabilityRequestLabel(request) || getAbsenceTypeLabel(request.type),
+    getTimeOffDisplayRange(request),
+    weekdayText ? `Dagen: ${weekdayText}` : "",
+    request.reason ? `Opmerking: ${request.reason}` : ""
+  ].filter(Boolean);
+
+  return parts.join(" · ");
 }
 
 function getApprovedExtraAvailabilityRequestMatch(employeeName, day, startTime = "", endTime = "") {
@@ -19051,7 +19106,7 @@ function renderRequestsOpenCards() {
     ${ownCards.map((card) => `
     <article class="request-card compact-request-card employee-request-overview-card is-${card.statusClass || card.status} ${card.typeClass}">
       <div class="request-top">
-        <strong>${card.type}</strong>
+        <strong>${card.typeClass === "absence-availability-extra" ? '<span class="availability-request-badge is-extra">EXTRA BESCHIKBAAR</span>' : card.type}</strong>
         <span class="status-pill status-${card.statusClass || card.status}">${card.label}</span>
       </div>
       <div class="request-meta">${card.meta}</div>
@@ -22232,14 +22287,16 @@ function renderTimeOffRequests() {
 
     setClassName(target, "request-list");
     target.innerHTML = requests.map((request) => `
-      <article class="request-card is-${getRequestDisplayStatus(request)} absence-${getAbsenceCardClass(request.type)}">
+      <article class="request-card is-${getRequestDisplayStatus(request)} absence-${getAbsenceCardClass(request.type)}${isExtraAvailabilityRequest(request) ? " is-extra-availability" : ""}">
         <div class="request-top">
           <strong>${isPlannerRole() ? request.employeeName : getAbsenceTypeLabel(request.type)}</strong>
           <span class="status-pill status-${getRequestDisplayStatus(request)}">${getRequestDisplayLabel(request)}</span>
         </div>
-        ${isPlannerRole() ? `<div class="request-meta">${getAbsenceTypeLabel(request.type)}</div>` : ""}
-        <div class="request-meta">${getTimeOffDisplayRange(request)}${isExtraAvailabilityRequest(request) && getAvailabilityRequestWeekdays(request).length ? ` - ${getAvailabilityWeekdayListLabel(getAvailabilityRequestWeekdays(request))}` : ""}${request.reason ? ` - ${request.reason}` : ""}</div>
-        <div class="request-impact">${getRequestRosterEffectText(request, "timeoff")}</div>
+        ${isAvailabilityRequest(request) ? `<div>${renderAvailabilityRequestBadge(request)}</div>` : ""}
+        ${isPlannerRole() && !isAvailabilityRequest(request) ? `<div class="request-meta">${getAbsenceTypeLabel(request.type)}</div>` : ""}
+        <div class="request-meta">${isAvailabilityRequest(request) ? getAvailabilityRequestDetailText(request) : `${getTimeOffDisplayRange(request)}${request.reason ? ` - ${request.reason}` : ""}`}</div>
+        ${getAvailabilityRequestHelperText(request) ? `<div class="request-impact availability-helper${isExtraAvailabilityRequest(request) ? " is-extra" : ""}">${getAvailabilityRequestHelperText(request)}</div>` : ""}
+        <div class="request-impact${isExtraAvailabilityRequest(request) ? " availability-scoreboost-note" : ""}">${getRequestRosterEffectText(request, "timeoff")}</div>
         ${getSickLeaveOverlapNotice(request) ? `<div class="request-impact request-attention-note">${getSickLeaveOverlapNotice(request)}</div>` : ""}
         ${request.status === "open" && getRequestAttentionText(request) ? `<div class="request-impact request-attention-note">${getRequestAttentionText(request)}</div>` : ""}
         ${renderRequestMailStatus(request, getTimeOffMailStatusText)}
@@ -27752,7 +27809,7 @@ function renderRequestsOpenSummary() {
         <span>Open vakantieaanvragen</span>
         <strong>${summaryCounts.vacation}</strong>
       </button>
-      <button type="button" class="planner-summary-chip planner-summary-filter${activeTypeFilter === "availability" ? " active" : ""}" data-planner-request-filter="availability">
+      <button type="button" class="planner-summary-chip planner-summary-filter is-availability${activeTypeFilter === "availability" ? " active" : ""}" data-planner-request-filter="availability">
         <span>Open beschikbaarheid</span>
         <strong>${summaryCounts.availability || 0}</strong>
       </button>

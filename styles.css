@@ -8614,6 +8614,23 @@ button.hours-reminder-banner {
   background: var(--color-surface-soft-hover);
 }
 
+.planner-summary-chip.is-availability {
+  border-color: var(--color-success-border);
+  background: linear-gradient(180deg, rgba(var(--color-success-rgb), 0.12), var(--color-surface));
+  box-shadow: 0 4px 14px rgba(var(--color-success-rgb), 0.08);
+}
+
+.planner-summary-chip.is-availability.active,
+.planner-summary-chip.is-availability:hover {
+  border-color: var(--color-success);
+  background: rgba(var(--color-success-rgb), 0.14);
+}
+
+.planner-summary-chip.is-availability span,
+.planner-summary-chip.is-availability strong {
+  color: var(--color-success);
+}
+
 .planner-summary-chip span {
   color: var(--color-text-muted);
   font-size: 12px;
@@ -8865,6 +8882,55 @@ button.hours-reminder-banner {
 .mobile-free-item.absence-availability-extra {
   box-shadow: inset 4px 0 0 var(--color-success);
   color: var(--color-success);
+}
+
+.request-card.is-extra-availability,
+.planner-request-card.is-extra-availability {
+  border-color: var(--color-success-border);
+  background: rgba(var(--color-success-rgb), 0.08);
+}
+
+.availability-request-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.availability-request-badge.is-extra {
+  border: 1px solid var(--color-success-border);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.availability-request-badge.is-unavailable {
+  border: 1px solid var(--color-warning-border);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.planner-request-type .availability-request-badge,
+.planner-request-detail .availability-request-badge {
+  margin-right: 6px;
+}
+
+.availability-helper.is-extra,
+.availability-scoreboost-note {
+  color: var(--color-success);
+}
+
+.availability-helper.is-extra {
+  border: 1px solid var(--color-success-border);
+  border-radius: 8px;
+  background: var(--color-success-soft);
+  padding: 7px 9px;
 }
 
 .availability-weekdays {
