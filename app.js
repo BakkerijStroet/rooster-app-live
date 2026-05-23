@@ -23594,6 +23594,34 @@ function getSmartPlanningFixedBakeryEmployeeForShift(shiftName = "") {
   return "";
 }
 
+function getSmartPlanningFixedDeliveryEmployeeForShift(shiftName = "", day = "") {
+  const normalizedShiftName = String(shiftName || "").toLowerCase();
+  if (!normalizedShiftName.includes("bezorg")) {
+    return "";
+  }
+
+  switch (getWeekdayNumberFromDate(day)) {
+    case 2:
+    case 5:
+    case 6:
+      return "Kevin";
+    case 3:
+      return "Jos";
+    case 4:
+      return "Dennis";
+    default:
+      return "";
+  }
+}
+
+function getSmartPlanningFixedDeliveryEmployeeForItem(item = {}) {
+  const shift = getSmartPlanningShiftFromProposalItem(item);
+  return getSmartPlanningFixedDeliveryEmployeeForShift(
+    shift?.name || item?.shiftName || "",
+    item?.day || ""
+  );
+}
+
 function getSmartPlanningPatternMatchForItem(employeeName, item) {
   const shift = getSmartPlanningShiftFromProposalItem(item);
   const weekValue = item?.weekValue || (item?.day ? getWeekValueFromDate(item.day) : getCurrentWeekValue());
@@ -23725,6 +23753,10 @@ function applySmartPlanningFixedBakeryStaffing() {
 function getSmartPlanningAutoFillReason(candidate, item) {
   const scoreDetails = getSmartPlanningAutoFillScoreDetails(candidate, item);
 
+  if (scoreDetails.fixedDeliveryScore > 0) {
+    return "Vaste bezorging";
+  }
+
   if (scoreDetails.extraAvailabilityScore > 0) {
     return "Extra beschikbaar";
   }
@@ -23819,6 +23851,14 @@ function getSmartPlanningAutoFillCandidateDecision(candidate, item) {
     ? getSmartPlanningCandidateEntry(item, lookup)
     : null;
 
+  if (scoreDetails.fixedDeliveryEmployeeName && candidate.employeeName !== scoreDetails.fixedDeliveryEmployeeName) {
+    return {
+      accepted: false,
+      reason: "Vaste bezorger",
+      scoreDetails
+    };
+  }
+
   if (scoreDetails.employeeShopRuleAvoidAutoAssign) {
     return {
       accepted: false,
@@ -23846,7 +23886,7 @@ function getSmartPlanningAutoFillCandidateDecision(candidate, item) {
     };
   }
 
-  if (!extraAvailabilityMatch && patternId && !isStrictPlanningPatternMatch(patternMatch) && (!hasPracticePatternFallback || isWeekendEmployeeOutsideWeekend)) {
+  if (!scoreDetails.fixedDeliveryScore && !extraAvailabilityMatch && patternId && !isStrictPlanningPatternMatch(patternMatch) && (!hasPracticePatternFallback || isWeekendEmployeeOutsideWeekend)) {
     return {
       accepted: false,
       reason: isWeekendEmployee(candidate.employeeName) && weekday >= 2 && weekday <= 5
@@ -23921,6 +23961,7 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
   );
   const standardEmployeeName = getPrimaryStandardEmployeeForShift(item?.shiftName || "") ||
     getSmartPlanningFixedBakeryEmployeeForShift(item?.shiftName || "");
+  const fixedDeliveryEmployeeName = getSmartPlanningFixedDeliveryEmployeeForItem(item);
   const history = getHistoricalAssignments(candidate.employeeName, weekValue, getPlanningEntries(), 10);
   let sameShiftWeekdayScore = 0;
   let sameShiftScore = 0;
@@ -23964,9 +24005,10 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
   });
 
   const standardEmployeeScore = standardEmployeeName === candidate.employeeName ? 1000 : 0;
+  const fixedDeliveryScore = fixedDeliveryEmployeeName === candidate.employeeName ? 1100 : 0;
   const patternFitScore = patternId && isStrictPlanningPatternMatch(patternMatch) ? 900 : 0;
   const extraAvailabilityScore = extraAvailabilityMatch ? 950 : 0;
-  const fixedScore = standardEmployeeScore || patternFitScore;
+  const fixedScore = fixedDeliveryScore || standardEmployeeScore || patternFitScore;
   const departmentSummary = getEmployeeDepartmentSummary(candidate.employeeName).toLowerCase();
   const departmentScore = categoryKey === "shop"
     ? (departmentSummary.includes("winkel") ? 90 : 0)
@@ -24014,6 +24056,8 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
   return {
     score,
     fixedScore,
+    fixedDeliveryEmployeeName,
+    fixedDeliveryScore,
     standardEmployeeScore,
     patternFitScore,
     practicePatternScore,
