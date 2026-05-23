@@ -11356,10 +11356,12 @@ function getSmartPlanningItemStableSlotKey(item = {}) {
   return getRosterDuplicateSlotKey({
     day: item.day || "",
     department: item.department || "",
+    shiftId: item.shiftId || "",
     shiftName: item.shiftName || "",
     startTime: item.startTime || "",
     endTime: item.endTime || "",
-    isShopShift: item.department === "shop"
+    isShopShift: item.isShopShift === true || item.department === "shop",
+    isAllroundShift: item.isAllroundShift === true || isAllroundShiftName(item.shiftName || "")
   });
 }
 
