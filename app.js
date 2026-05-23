@@ -8131,7 +8131,6 @@ function getDateSpecificShifts(dateValue) {
   }
 
   return [
-    ...getAllroundSlotsForDate(dateValue),
     ...getShopSlotsForDate(dateValue)
   ];
 }
