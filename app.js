@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260523-contract-balance-fix";
+const APP_VERSION = "20260523-open-shift-resolution";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -24996,6 +24996,122 @@ function renderSmartPlanningOpenReasonSummary(items = []) {
   `;
 }
 
+function getSmartPlanningOpenResolutionItems(weekItems = []) {
+  return (Array.isArray(weekItems) ? weekItems : [])
+    .filter((item) => item && !item.chosenEmployeeName && !isSmartPlanningProposalItemKeptOpen(item))
+    .sort(compareSmartPlanningItemsByRosterOrder);
+}
+
+function getSmartPlanningOpenResolutionCandidates(item, limit = 3) {
+  const advice = getSmartPlanningAuthorizedEmployeeAdvice(item);
+
+  return [...advice.available]
+    .filter((candidate) => !isSmartPlanningPlaceholderEmployeeName(candidate.employeeName))
+    .sort((itemA, itemB) =>
+      itemA.patternPriority - itemB.patternPriority ||
+      (itemA.contractWarningPriority || 0) - (itemB.contractWarningPriority || 0) ||
+      itemA.plannedHours - itemB.plannedHours ||
+      itemA.employeeName.localeCompare(itemB.employeeName, "nl")
+    )
+    .slice(0, limit);
+}
+
+function renderSmartPlanningOpenResolutionCandidates(item) {
+  const candidates = getSmartPlanningOpenResolutionCandidates(item, 3);
+
+  if (!candidates.length) {
+    return `<span class="smart-planning-open-resolution-empty">Suggestie: geen</span>`;
+  }
+
+  return candidates.map((candidate) => {
+    const reason = candidate.displayReason || candidate.statusLabel || candidate.reasons?.[0] || "Beschikbaar";
+    return `
+      <button
+        type="button"
+        class="smart-planning-open-resolution-candidate ${candidate.isExtraAvailable ? "is-extra-available" : ""}"
+        data-smart-planning-employee-choice="${escapeHtmlAttribute(item.id)}"
+        data-employee-name="${escapeHtmlAttribute(candidate.employeeName)}"
+        data-employee-available="true"
+        data-employee-reason="${escapeHtmlAttribute(reason)}"
+        title="${escapeHtmlAttribute(`${candidate.employeeName} · ${reason}`)}"
+      >
+        <strong>${escapeHtmlAttribute(candidate.employeeName)}</strong>
+        <small>${escapeHtmlAttribute(getSmartPlanningContractSummary(candidate))}</small>
+      </button>
+    `;
+  }).join("");
+}
+
+function renderSmartPlanningOpenShiftResolutionPanel(weekValue, weekItems = []) {
+  if (!weekItems.length) {
+    return "";
+  }
+
+  const openItems = getSmartPlanningOpenResolutionItems(weekItems);
+
+  if (!openItems.length) {
+    return `
+      <section class="smart-planning-open-resolution-panel is-empty" aria-label="Open diensten oplossen">
+        <header>
+          <div>
+            <strong>Open diensten oplossen</strong>
+            <span>${formatSmartPlanningWeekCompactLabel(weekValue)}</span>
+          </div>
+          <em>0 open</em>
+        </header>
+        <p>Geen open diensten in deze week.</p>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="smart-planning-open-resolution-panel" aria-label="Open diensten oplossen">
+      <header>
+        <div>
+          <strong>Open diensten oplossen</strong>
+          <span>${formatSmartPlanningWeekCompactLabel(weekValue)}</span>
+        </div>
+        <em>${openItems.length} open</em>
+      </header>
+      <div class="smart-planning-open-resolution-list">
+        ${openItems.map((item) => {
+          const reason = getPlanningOpenReason(item);
+          const departmentLabel = getSmartPlanningDepartmentLabel(item.department);
+          const shiftLabel = getCompactRosterShiftLabel(item.shiftName || "Dienst");
+          const shiftTime = `${item.startTime || "?"}-${item.endTime || "?"}`;
+          const reasonLabel = reason?.label || "Nog niet ingevuld";
+          const reasonDetail = reason?.secondaryLabel || "";
+          return `
+            <article class="smart-planning-open-resolution-card">
+              <div class="smart-planning-open-resolution-main">
+                <strong>${formatWeekday(item.day)} · ${departmentLabel} · ${shiftLabel}</strong>
+                <span>${shiftTime}</span>
+              </div>
+              <div class="smart-planning-open-resolution-reason is-${reason?.tone || "info"}">
+                <b>${escapeHtmlAttribute(reasonLabel)}</b>
+                ${reasonDetail ? `<small>${escapeHtmlAttribute(reasonDetail)}</small>` : ""}
+              </div>
+              <div class="smart-planning-open-resolution-candidates">
+                ${renderSmartPlanningOpenResolutionCandidates(item)}
+              </div>
+              <div class="smart-planning-open-resolution-actions">
+                <button type="button" class="secondary" data-smart-planning-open-shift="${escapeHtmlAttribute(item.id)}">Persoon kiezen</button>
+                <button
+                  type="button"
+                  class="secondary"
+                  data-smart-planning-keep-open="${escapeHtmlAttribute(item.id)}"
+                  data-keep-open="true"
+                >Open laten</button>
+                <button type="button" class="secondary" data-smart-planning-add-service-day-button="${escapeHtmlAttribute(item.day)}">Extra dienst toevoegen</button>
+              </div>
+            </article>
+          `;
+        }).join("")}
+      </div>
+    </section>
+  `;
+}
+
 function getSmartPlanningSafetyDepartmentKey(item = {}) {
   const shiftName = String(item?.shiftName || "").toLowerCase();
 
@@ -27422,6 +27538,7 @@ function renderSmartPlanningSelectedWeekEditor(data, weekCards, focusedWeek) {
       ${renderSmartPlanningWeekSafetyCheck(weekValue, weekItems, selectedCard)}
       ${renderSmartPlanningContractBalance(weekValue, weekItems)}
       ${renderSmartPlanningOpenReasonSummary(weekItems)}
+      ${renderSmartPlanningOpenShiftResolutionPanel(weekValue, weekItems)}
       ${weekProposal?.cleared ? `
         <div class="smart-planning-week-empty-state">
           <strong>Deze week heeft nog geen voorstel.</strong>
