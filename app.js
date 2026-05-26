@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260526-save-confirmation";
+const APP_VERSION = "20260526-save-confirmation-copy";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -23210,8 +23210,9 @@ function renderSmartPlanningApplyConfirm(data = getSmartPlanningMonthData()) {
   return `
     <section class="smart-planning-apply-confirm" role="dialog" aria-modal="false" aria-labelledby="smartPlanningSaveConfirmTitle">
       <div>
-        <strong id="smartPlanningSaveConfirmTitle">Rooster opslaan?</strong>
-        <p>Laatste controle voordat de gekozen wijzigingen in het echte rooster komen.</p>
+        <strong id="smartPlanningSaveConfirmTitle">Controle voor opslaan van voorstel</strong>
+        <p>Totaal van huidige voorstelreeks · ${summary.weekCount || 0} week${summary.weekCount === 1 ? "" : "en"} geselecteerd.</p>
+        <p>Deze controle geldt voor alle gegenereerde voorstelweken.</p>
         ${isAdjustingRoster ? `<p class="smart-planning-apply-warning">Let op: je wijzigt een bestaand rooster.</p>` : ""}
         ${summary.blocksSave ? `<p class="smart-planning-apply-danger">Er zijn conflicten. Los deze eerst op voordat je opslaat.</p>` : ""}
         ${smartPlanningIsSavingRoster ? `<p class="panel-note">Rooster wordt opgeslagen...</p>` : ""}
