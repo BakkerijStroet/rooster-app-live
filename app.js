@@ -7189,6 +7189,34 @@ function getAllroundTemplatesByWeekday() {
   };
 }
 
+const smartPlanningNiekSupportEmployeeName = "Niek";
+
+function getNiekSupportTemplateForDate(dateValue) {
+  if (isClosedPlannerDay(dateValue)) {
+    return null;
+  }
+
+  const weekday = getWeekdayNumberFromDate(dateValue);
+  const templateByWeekday = {
+    4: { id: "niek-support-thursday", startTime: "14:00", endTime: "17:00" },
+    5: { id: "niek-support-friday", startTime: "14:00", endTime: "17:00" },
+    6: { id: "niek-support-saturday", startTime: "08:00", endTime: "17:00" }
+  };
+  const template = templateByWeekday[weekday];
+
+  if (!template) {
+    return null;
+  }
+
+  return {
+    ...template,
+    name: genericAllroundShiftName,
+    color: "shift-tone-productie",
+    isAllroundShift: true,
+    isNiekSupportShift: true
+  };
+}
+
 function loadPlanningSettings() {
   const defaultTemplates = getDefaultShopTemplatesByWeekday();
   const defaultCounts = Object.fromEntries(
@@ -24193,6 +24221,29 @@ function getSmartPlanningFixedDeliveryEmployeeForItem(item = {}) {
   );
 }
 
+function isSmartPlanningNiekSupportItem(item = {}) {
+  return Boolean(item?.isNiekSupportShift) ||
+    String(item?.shiftId || "").startsWith("niek-support-");
+}
+
+function getSmartPlanningFixedNiekSupportEmployeeForItem(item = {}) {
+  return isSmartPlanningNiekSupportItem(item) ? smartPlanningNiekSupportEmployeeName : "";
+}
+
+function isSmartPlanningNiekForbiddenShopItem(employeeName = "", item = {}, shift = null) {
+  if (String(employeeName || "").trim().toLowerCase() !== smartPlanningNiekSupportEmployeeName.toLowerCase()) {
+    return false;
+  }
+
+  const itemShift = shift || getSmartPlanningShiftFromProposalItem(item);
+  const categoryKey = getShiftCategoryKey(itemShift || {
+    name: item?.shiftName || "",
+    isShopShift: item?.department === "shop"
+  });
+
+  return categoryKey === "shop";
+}
+
 function getSmartPlanningPatternMatchForItem(employeeName, item) {
   const shift = getSmartPlanningShiftFromProposalItem(item);
   const weekValue = item?.weekValue || (item?.day ? getWeekValueFromDate(item.day) : getCurrentWeekValue());
@@ -24366,6 +24417,10 @@ function applySmartPlanningFixedBakeryStaffing() {
 function getSmartPlanningAutoFillReason(candidate, item) {
   const scoreDetails = getSmartPlanningAutoFillScoreDetails(candidate, item);
 
+  if (scoreDetails.fixedNiekSupportScore > 0) {
+    return "Vaste Niek-dienst";
+  }
+
   if (scoreDetails.fixedDeliveryScore > 0) {
     return "Vaste bezorging";
   }
@@ -24464,6 +24519,22 @@ function getSmartPlanningAutoFillCandidateDecision(candidate, item) {
     ? getSmartPlanningCandidateEntry(item, lookup)
     : null;
 
+  if (scoreDetails.fixedNiekSupportEmployeeName && candidate.employeeName !== scoreDetails.fixedNiekSupportEmployeeName) {
+    return {
+      accepted: false,
+      reason: "Niek-dienst",
+      scoreDetails
+    };
+  }
+
+  if (isSmartPlanningNiekForbiddenShopItem(candidate.employeeName, item, shift)) {
+    return {
+      accepted: false,
+      reason: "Niek doet geen Winkeldienst",
+      scoreDetails
+    };
+  }
+
   if (scoreDetails.fixedDeliveryEmployeeName && candidate.employeeName !== scoreDetails.fixedDeliveryEmployeeName) {
     return {
       accepted: false,
@@ -24499,7 +24570,7 @@ function getSmartPlanningAutoFillCandidateDecision(candidate, item) {
     };
   }
 
-  if (!scoreDetails.fixedDeliveryScore && !extraAvailabilityMatch && patternId && !isStrictPlanningPatternMatch(patternMatch) && (!hasPracticePatternFallback || isWeekendEmployeeOutsideWeekend)) {
+  if (!scoreDetails.fixedDeliveryScore && !scoreDetails.fixedNiekSupportScore && !extraAvailabilityMatch && patternId && !isStrictPlanningPatternMatch(patternMatch) && (!hasPracticePatternFallback || isWeekendEmployeeOutsideWeekend)) {
     return {
       accepted: false,
       reason: isWeekendEmployee(candidate.employeeName) && weekday >= 2 && weekday <= 5
@@ -24575,6 +24646,7 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
   const standardEmployeeName = getPrimaryStandardEmployeeForShift(item?.shiftName || "") ||
     getSmartPlanningFixedBakeryEmployeeForShift(item?.shiftName || "");
   const fixedDeliveryEmployeeName = getSmartPlanningFixedDeliveryEmployeeForItem(item);
+  const fixedNiekSupportEmployeeName = getSmartPlanningFixedNiekSupportEmployeeForItem(item);
   const history = getHistoricalAssignments(candidate.employeeName, weekValue, getPlanningEntries(), 10);
   let sameShiftWeekdayScore = 0;
   let sameShiftScore = 0;
@@ -24619,9 +24691,10 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
 
   const standardEmployeeScore = standardEmployeeName === candidate.employeeName ? 1000 : 0;
   const fixedDeliveryScore = fixedDeliveryEmployeeName === candidate.employeeName ? 1100 : 0;
+  const fixedNiekSupportScore = fixedNiekSupportEmployeeName === candidate.employeeName ? 1150 : 0;
   const patternFitScore = patternId && isStrictPlanningPatternMatch(patternMatch) ? 900 : 0;
   const extraAvailabilityScore = extraAvailabilityMatch ? 950 : 0;
-  const fixedScore = fixedDeliveryScore || standardEmployeeScore || patternFitScore;
+  const fixedScore = fixedNiekSupportScore || fixedDeliveryScore || standardEmployeeScore || patternFitScore;
   const departmentSummary = getEmployeeDepartmentSummary(candidate.employeeName).toLowerCase();
   const departmentScore = categoryKey === "shop"
     ? (departmentSummary.includes("winkel") ? 90 : 0)
@@ -24669,6 +24742,8 @@ function getSmartPlanningAutoFillScoreDetails(candidate, item) {
   return {
     score,
     fixedScore,
+    fixedNiekSupportEmployeeName,
+    fixedNiekSupportScore,
     fixedDeliveryEmployeeName,
     fixedDeliveryScore,
     standardEmployeeScore,
@@ -24708,12 +24783,15 @@ function getBestSmartPlanningAutoFillCandidate(item, options = {}) {
   const { isCandidateBlocked = null } = options;
   const advice = getSmartPlanningAuthorizedEmployeeAdvice(item);
   const availableCandidates = [...advice.available];
+  const fixedNiekSupportEmployeeName = getSmartPlanningFixedNiekSupportEmployeeForItem(item);
 
   if (!availableCandidates.length) {
     return null;
   }
 
-  const candidatePool = needsSmartPlanningExperiencedSaturdayShopCandidate(item)
+  const candidatePool = fixedNiekSupportEmployeeName
+    ? availableCandidates.filter((candidate) => candidate.employeeName === fixedNiekSupportEmployeeName)
+    : needsSmartPlanningExperiencedSaturdayShopCandidate(item)
     ? availableCandidates.filter((candidate) => isSmartPlanningExperiencedSaturdayShopEmployee(candidate.employeeName))
     : availableCandidates;
 
@@ -24743,6 +24821,21 @@ function getSmartPlanningAutoFillBlockReason(item) {
   const authorizedAdvice = activeAdvice.filter((candidate) => candidate.isAuthorized && !candidate.reasons.includes("Niet bevoegd"));
   const decisionReasonCounts = new Map();
   const reasonCounts = new Map();
+
+  if (getSmartPlanningFixedNiekSupportEmployeeForItem(item)) {
+    const fixedCandidate = availableCandidates.find((candidate) =>
+      candidate.employeeName === smartPlanningNiekSupportEmployeeName
+    );
+
+    if (!fixedCandidate) {
+      return "Niek niet beschikbaar";
+    }
+
+    const fixedDecision = getSmartPlanningAutoFillCandidateDecision(fixedCandidate, item);
+    if (!fixedDecision.accepted) {
+      return fixedDecision.reason || "Niek niet beschikbaar";
+    }
+  }
 
   if (needsSmartPlanningExperiencedSaturdayShopCandidate(item)) {
     const experiencedAvailableCount = availableCandidates
@@ -24812,6 +24905,16 @@ function getPlanningOpenReasonFromText(reasonText = "", item = {}) {
   const normalizedReason = rawReason.toLowerCase();
   const shiftName = String(item?.shiftName || "").toLowerCase();
   const isDelivery = shiftName.includes("bezorg");
+
+  if (normalizedReason.includes("niek")) {
+    return {
+      code: "fixed-niek-support",
+      label: "Niek niet beschikbaar",
+      detail: rawReason || "Deze vaste Niek-dienst blijft open.",
+      summaryLabel: "Niek niet beschikbaar",
+      tone: "info"
+    };
+  }
 
   if (normalizedReason.includes("vaste dames") || normalizedReason.includes("zaterdag beschermd")) {
     return {
@@ -25125,9 +25228,11 @@ function getSmartPlanningOpenResolutionItems(weekItems = []) {
 
 function getSmartPlanningOpenResolutionCandidates(item, limit = 3) {
   const advice = getSmartPlanningAuthorizedEmployeeAdvice(item);
+  const fixedNiekSupportEmployeeName = getSmartPlanningFixedNiekSupportEmployeeForItem(item);
 
   return [...advice.available]
     .filter((candidate) => !isSmartPlanningPlaceholderEmployeeName(candidate.employeeName))
+    .filter((candidate) => !fixedNiekSupportEmployeeName || candidate.employeeName === fixedNiekSupportEmployeeName)
     .sort((itemA, itemB) =>
       itemA.patternPriority - itemB.patternPriority ||
       (itemA.contractWarningPriority || 0) - (itemB.contractWarningPriority || 0) ||
@@ -25894,6 +25999,9 @@ function getSmartPlanningEmployeeAdvice(item) {
     } else if (!isAuthorized) {
       group = "unsuitable";
       reasons.push("Niet bevoegd");
+    } else if (isSmartPlanningNiekForbiddenShopItem(employeeName, item, shift)) {
+      group = "unsuitable";
+      reasons.push("Niek doet geen Winkeldienst");
     } else if (absence) {
       group = "unsuitable";
       reasons.push(normalizeTimeOffRequestType(absence.type) === "ziek" ? "Ziek/herstel" : getAbsenceTypeLabel(absence.type));
@@ -27129,7 +27237,13 @@ function getSmartPlanningAuthorizedEmployeeAdvice(item) {
       itemA.employeeName.localeCompare(itemB.employeeName, "nl")
     );
 
-  const authorizedAdvice = { available, unavailable };
+  const fixedNiekSupportEmployeeName = getSmartPlanningFixedNiekSupportEmployeeForItem(item);
+  const authorizedAdvice = fixedNiekSupportEmployeeName
+    ? {
+      available: available.filter((employeeAdvice) => employeeAdvice.employeeName === fixedNiekSupportEmployeeName),
+      unavailable: unavailable.filter((employeeAdvice) => employeeAdvice.employeeName === fixedNiekSupportEmployeeName)
+    }
+    : { available, unavailable };
   if (item?.id) {
     smartPlanningEmployeeAdviceCache.revision = smartPlanningProposalRevision;
     smartPlanningEmployeeAdviceCache.requestRevision = requestDataRevision;
@@ -27869,6 +27983,44 @@ function createSmartPlanningProposalItemFromOpenItem(weekValue, item, index) {
   };
 }
 
+function createSmartPlanningNiekSupportProposalItem(weekValue, day, shift) {
+  return {
+    id: `${weekValue}|${day}|${shift.id}|${shift.startTime || ""}-${shift.endTime || ""}|niek-support`,
+    weekValue,
+    day,
+    department: getSmartPlanningDepartmentForShift(shift),
+    shiftId: shift.id || "",
+    shiftName: shift.name,
+    startTime: shift.startTime,
+    endTime: shift.endTime,
+    standardStartTime: shift.startTime || "",
+    standardEndTime: shift.endTime || "",
+    originalStartTime: shift.startTime || "",
+    originalEndTime: shift.endTime || "",
+    originalEmployeeName: "",
+    keepOpen: false,
+    lockedOpen: false,
+    originalKeepOpen: false,
+    originalLockedOpen: false,
+    autoFillBlockReason: "",
+    openReasonCode: "",
+    openReasonLabel: "",
+    openReasonDetail: "",
+    isAllroundShift: true,
+    isNiekSupportShift: true,
+    fixedEmployeeName: smartPlanningNiekSupportEmployeeName
+  };
+}
+
+function getSmartPlanningNiekSupportProposalItemsForWeek(weekValue) {
+  return getWeekDates(weekValue)
+    .map((day) => {
+      const shift = getNiekSupportTemplateForDate(day);
+      return shift ? createSmartPlanningNiekSupportProposalItem(weekValue, day, shift) : null;
+    })
+    .filter(Boolean);
+}
+
 function createSmartPlanningProposalItemFromExistingEntry(weekValue, entry, index) {
   const shift = getShiftForEntry(entry) || {
     id: entry.shiftId || "",
@@ -27922,8 +28074,17 @@ function buildSmartPlanningProposalItemsForWeek(weekValue, weekData = getSmartPl
       const slotKey = getSmartPlanningItemStableSlotKey(item);
       return !slotKey || !existingSlotKeys.has(slotKey);
     });
+  const plannedSlotKeys = new Set([
+    ...existingItems,
+    ...openItems
+  ].map(getSmartPlanningItemStableSlotKey).filter(Boolean));
+  const niekSupportItems = getSmartPlanningNiekSupportProposalItemsForWeek(weekValue)
+    .filter((item) => {
+      const slotKey = getSmartPlanningItemStableSlotKey(item);
+      return !slotKey || !plannedSlotKeys.has(slotKey);
+    });
 
-  return [...existingItems, ...openItems].sort(compareSmartPlanningItemsByRosterOrder);
+  return [...existingItems, ...openItems, ...niekSupportItems].sort(compareSmartPlanningItemsByRosterOrder);
 }
 
 function getSmartPlanningProposalItemPreservePriority(item) {
