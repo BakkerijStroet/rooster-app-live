@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260523-open-shift-resolution";
+const APP_VERSION = "20260526-save-confirmation";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -23074,6 +23074,108 @@ function getSmartPlanningApplySummary(data = getSmartPlanningMonthData(), option
   };
 }
 
+function getSmartPlanningSaveConfirmationSummary(data = getSmartPlanningMonthData()) {
+  const hasProposal = isSmartPlanningProposalCurrent(data);
+  const proposalWeeks = hasProposal ? smartPlanningProposalState?.weeks || [] : [];
+  const weekCards = getSmartPlanningDashboardWeekCards(data, proposalWeeks, hasProposal);
+  const proposalItems = proposalWeeks.flatMap((weekProposal) => getSmartPlanningProposalWeekItems(weekProposal));
+  const applySummary = getSmartPlanningApplySummary(data, { includeWarnings: true });
+  const openItems = proposalItems.filter((item) =>
+    !item.chosenEmployeeName &&
+    !isSmartPlanningProposalItemKeptOpen(item)
+  );
+  const keptOpenItems = proposalItems.filter((item) =>
+    !item.chosenEmployeeName &&
+    isSmartPlanningProposalItemKeptOpen(item)
+  );
+  const openByDepartment = {
+    shop: 0,
+    bakery: 0,
+    delivery: 0
+  };
+  const safetyChecks = proposalWeeks.map((weekProposal) => {
+    const weekCard = weekCards.find((card) => card.weekValue === weekProposal.weekValue) || null;
+    return getSmartPlanningWeekSafetyCheck(
+      weekProposal.weekValue,
+      getSmartPlanningProposalWeekItems(weekProposal),
+      weekCard
+    );
+  });
+
+  openItems.forEach((item) => {
+    const departmentKey = getSmartPlanningSafetyDepartmentKey(item);
+    openByDepartment[departmentKey] = (openByDepartment[departmentKey] || 0) + 1;
+  });
+
+  const conflictCount = Math.max(
+    applySummary.conflictCount,
+    safetyChecks.reduce((total, check) => total + (Number(check.conflictCount) || 0), 0)
+  );
+  const saturdayShopProblems = safetyChecks.filter((check) => !check.saturdayShopOk);
+  const deliveryProblems = safetyChecks.flatMap((check) => check.deliveryProblems || []);
+  const overContractRows = safetyChecks.flatMap((check) => check.overContractRows || []);
+  const underContractRows = safetyChecks.flatMap((check) => check.underContractRows || []);
+  const warnings = [];
+
+  if (openItems.length) {
+    warnings.push("Er staan nog open diensten.");
+  }
+  if (saturdayShopProblems.length) {
+    warnings.push("Zaterdag mist vaste winkelbezetting.");
+  }
+  if (deliveryProblems.length) {
+    warnings.push("Bezorgdienst mist vaste bezorger.");
+  }
+  if (conflictCount) {
+    warnings.push("Er zijn conflicten. Opslaan is geblokkeerd tot deze zijn opgelost.");
+  }
+  if (overContractRows.length || underContractRows.length) {
+    warnings.push("Medewerkers wijken sterk af van contracturen.");
+  }
+
+  return {
+    ...applySummary,
+    filledCount: proposalItems.filter((item) => item.chosenEmployeeName).length,
+    openCount: openItems.length,
+    keptOpenCount: keptOpenItems.length,
+    openByDepartment,
+    conflictCount,
+    saturdayShopOk: safetyChecks.length ? safetyChecks.every((check) => check.saturdayShopOk) : true,
+    deliveryOk: safetyChecks.length ? safetyChecks.every((check) => check.deliveryOk) : true,
+    overContractRows,
+    underContractRows,
+    warningMessages: warnings,
+    hasRisk: warnings.length > 0,
+    blocksSave: conflictCount > 0,
+    weekCount: proposalWeeks.length
+  };
+}
+
+function formatSmartPlanningSaveConfirmationContractDetail(summary) {
+  const rows = [...summary.overContractRows, ...summary.underContractRows];
+
+  if (!rows.length) {
+    return "Geen opvallende afwijkingen";
+  }
+
+  const preview = rows
+    .slice(0, 3)
+    .map((row) => `${row.employeeName} ${formatSmartPlanningContractBalanceDifference(row.difference)}`)
+    .join(" · ");
+
+  return rows.length > 3 ? `${preview} · +${rows.length - 3} meer` : preview;
+}
+
+function renderSmartPlanningSaveConfirmationChip(label, value, detail, tone = "neutral") {
+  return `
+    <span class="smart-planning-save-check-chip is-${tone}">
+      <b>${label}</b>
+      <em>${value}</em>
+      <small>${detail}</small>
+    </span>
+  `;
+}
+
 function updateSmartPlanningApplyButton(data = getSmartPlanningMonthData()) {
   if (!smartPlanningApplyProposalButton) {
     return;
@@ -23095,30 +23197,48 @@ function renderSmartPlanningApplyConfirm(data = getSmartPlanningMonthData()) {
     return "";
   }
 
-  const summary = getSmartPlanningApplySummary(data, { includeWarnings: true });
+  const summary = getSmartPlanningSaveConfirmationSummary(data);
   const isAdjustingRoster = smartPlanningProposalState?.mode === "adjust";
-  const hasSaveWarning = summary.openCount > 0 || summary.conflictCount > 0;
+  const openDepartmentText = [
+    `winkel ${summary.openByDepartment.shop || 0}`,
+    `bakkerij ${summary.openByDepartment.bakery || 0}`,
+    `bezorging ${summary.openByDepartment.delivery || 0}`
+  ].join(" · ");
+  const contractWarningCount = summary.overContractRows.length + summary.underContractRows.length;
+  const canConfirmSave = summary.pendingCount && !smartPlanningIsSavingRoster && !summary.blocksSave;
 
   return `
-    <section class="smart-planning-apply-confirm">
+    <section class="smart-planning-apply-confirm" role="dialog" aria-modal="false" aria-labelledby="smartPlanningSaveConfirmTitle">
       <div>
-        <strong>Rooster opslaan?</strong>
-        <p>De gekozen wijzigingen worden in het echte rooster gezet.</p>
+        <strong id="smartPlanningSaveConfirmTitle">Rooster opslaan?</strong>
+        <p>Laatste controle voordat de gekozen wijzigingen in het echte rooster komen.</p>
         ${isAdjustingRoster ? `<p class="smart-planning-apply-warning">Let op: je wijzigt een bestaand rooster.</p>` : ""}
-        ${hasSaveWarning ? `<p class="smart-planning-apply-warning">Let op: er staan nog open diensten of conflicten in dit rooster. Je kunt alsnog opslaan.</p>` : ""}
+        ${summary.blocksSave ? `<p class="smart-planning-apply-danger">Er zijn conflicten. Los deze eerst op voordat je opslaat.</p>` : ""}
         ${smartPlanningIsSavingRoster ? `<p class="panel-note">Rooster wordt opgeslagen...</p>` : ""}
       </div>
-      <div class="smart-planning-apply-summary">
-        <span class="is-filled">${summary.filledCount} ingevuld</span>
-        <span class="is-open">${summary.openCount} open</span>
-        <span>${summary.assignedCount} diensten worden aangepast/leeggemaakt/ingevuld</span>
-        <span class="is-kept-open">${summary.keptOpenCount} diensten blijven bewust open</span>
-        <span class="is-conflict">${summary.conflictCount} conflicten</span>
-        <span>${summary.warningCount} controles</span>
+      <div class="smart-planning-save-check-grid">
+        ${renderSmartPlanningSaveConfirmationChip("Ingevuld", String(summary.filledCount), `${summary.assignedCount} wijziging${summary.assignedCount === 1 ? "" : "en"}`, "ok")}
+        ${renderSmartPlanningSaveConfirmationChip("Open", String(summary.openCount), openDepartmentText, summary.openCount ? "warning" : "ok")}
+        ${renderSmartPlanningSaveConfirmationChip("Bewust open", String(summary.keptOpenCount), "Toegestaan na bevestiging", summary.keptOpenCount ? "info" : "neutral")}
+        ${renderSmartPlanningSaveConfirmationChip("Conflicten", summary.conflictCount ? "ja" : "nee", summary.conflictCount ? "Opslaan geblokkeerd" : "Geen conflicten", summary.conflictCount ? "danger" : "ok")}
+        ${renderSmartPlanningSaveConfirmationChip("Zaterdag winkel", summary.saturdayShopOk ? "ja" : "nee", summary.saturdayShopOk ? "Vaste bezetting klopt" : "Controle nodig", summary.saturdayShopOk ? "ok" : "danger")}
+        ${renderSmartPlanningSaveConfirmationChip("Bezorging", summary.deliveryOk ? "ja" : "nee", summary.deliveryOk ? "Vaste bezorgers ingevuld" : "Controle nodig", summary.deliveryOk ? "ok" : "danger")}
+        ${renderSmartPlanningSaveConfirmationChip("Uren", String(contractWarningCount), formatSmartPlanningSaveConfirmationContractDetail(summary), contractWarningCount ? "warning" : "ok")}
       </div>
+      ${summary.warningMessages.length ? `
+        <div class="smart-planning-save-warnings">
+          ${summary.warningMessages.map((warning) => `<span>${warning}</span>`).join("")}
+        </div>
+      ` : `<p class="panel-note">Geen grote risico's gevonden.</p>`}
       <div class="smart-planning-apply-actions">
         <button type="button" class="secondary" data-smart-planning-apply-cancel ${smartPlanningIsSavingRoster ? "disabled" : ""}>Annuleren</button>
-        <button type="button" data-smart-planning-apply-confirm ${summary.pendingCount && !smartPlanningIsSavingRoster ? "" : "disabled"}>${smartPlanningIsSavingRoster ? "Opslaan..." : "Rooster opslaan"}</button>
+        <button type="button" class="secondary" data-smart-planning-apply-return-open ${smartPlanningIsSavingRoster ? "disabled" : ""}>Terug naar open diensten</button>
+        <button
+          type="button"
+          data-smart-planning-apply-confirm
+          ${canConfirmSave ? "" : "disabled"}
+          title="${summary.blocksSave ? "Los conflicten eerst op." : "Bewust opslaan."}"
+        >${smartPlanningIsSavingRoster ? "Opslaan..." : "Toch opslaan"}</button>
       </div>
     </section>
   `;
@@ -35343,6 +35463,24 @@ smartPlanningProposalList?.addEventListener("click", (event) => {
     }
     smartPlanningApplyConfirmVisible = false;
     renderSmartPlanningPanel();
+    return;
+  }
+
+  const applyReturnOpenButton = event.target.closest("[data-smart-planning-apply-return-open]");
+
+  if (applyReturnOpenButton) {
+    if (smartPlanningIsSavingRoster) {
+      return;
+    }
+    smartPlanningApplyConfirmVisible = false;
+    activeSmartPlanningTab = "proposal";
+    renderSmartPlanningPanel();
+    requestAnimationFrame(() => {
+      const openResolutionPanel = document.querySelector(".smart-planning-open-resolution-panel");
+      if (openResolutionPanel) {
+        safeScrollIntoView(openResolutionPanel, { behavior: "smooth", block: "start", inline: "nearest" });
+      }
+    });
     return;
   }
 

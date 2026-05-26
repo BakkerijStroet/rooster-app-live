@@ -4041,10 +4041,11 @@ textarea.input-error {
 .smart-planning-apply-confirm {
   display: grid;
   gap: 10px;
-  padding: 12px;
+  padding: 14px;
   border: 1px solid var(--color-primary-border);
-  border-radius: 14px;
-  background: var(--color-primary-soft);
+  border-radius: 12px;
+  background: rgba(var(--color-surface-rgb), 0.96);
+  box-shadow: 0 14px 30px rgba(var(--color-primary-rgb), 0.1);
 }
 
 .smart-planning-clear-week-confirm {
@@ -4086,6 +4087,10 @@ textarea.input-error {
   color: var(--color-primary) !important;
 }
 
+.smart-planning-apply-danger {
+  color: var(--color-danger) !important;
+}
+
 .smart-planning-apply-summary {
   display: flex;
   flex-wrap: wrap;
@@ -4118,6 +4123,93 @@ textarea.input-error {
   background: var(--color-success-soft);
   border: 1px solid var(--color-success-border);
   color: var(--color-text);
+}
+
+.smart-planning-save-check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 6px;
+}
+
+.smart-planning-save-check-chip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 2px 7px;
+  align-items: center;
+  min-width: 0;
+  padding: 6px 7px;
+  border: 1px solid var(--color-neutral-border);
+  border-radius: 8px;
+  background: var(--color-neutral-soft);
+  color: var(--color-text);
+}
+
+.smart-planning-save-check-chip b {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.smart-planning-save-check-chip em {
+  color: var(--color-text);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 950;
+  line-height: 1.1;
+  text-align: right;
+}
+
+.smart-planning-save-check-chip small {
+  grid-column: 1 / -1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.smart-planning-save-check-chip.is-ok {
+  border-color: var(--color-success-border);
+  background: var(--color-success-soft);
+}
+
+.smart-planning-save-check-chip.is-warning {
+  border-color: var(--color-warning-border);
+  background: var(--color-warning-soft);
+}
+
+.smart-planning-save-check-chip.is-danger {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-soft);
+}
+
+.smart-planning-save-check-chip.is-info {
+  border-color: rgba(59, 130, 246, 0.28);
+  background: #eff6ff;
+}
+
+.smart-planning-save-warnings {
+  display: grid;
+  gap: 5px;
+}
+
+.smart-planning-save-warnings span {
+  padding: 6px 8px;
+  border: 1px solid var(--color-warning-border);
+  border-radius: 8px;
+  background: var(--color-warning-soft);
+  color: var(--color-text);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.25;
 }
 
 .smart-planning-apply-actions {
