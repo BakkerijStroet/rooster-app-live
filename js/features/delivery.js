@@ -60,7 +60,9 @@
     "Overig"
   ];
   const CUTTING_PATTERN = /\b(gesneden|snijden|snij|gesn\.?)\b/i;
-  const NOT_CUTTING_PATTERN = /\b(ongesneden|niet\s+gesneden|niet\s+snijden)\b/i;
+  const NOT_CUTTING_PATTERN = /\b(ongesneden|niet\s+gesneden|niet\s+snijden|\d+\s*plakken?|plakken?)\b/i;
+  const NON_CUTTING_BREAD_PATTERN = /\b(broodjes?|bolletjes?|bol\b|punt(?:en)?|pistolet|stokbrood|mini\s+bol|witte\s+punt|rozijnenbol)\b/i;
+  const CUTTING_BREAD_PATTERN = /\b(bus|mandje|vloer|volkoren|tarwe|waldkorn|spelt|meergr|hollands\s+grof|grof\s+volkoren|prokorn|poesta|duutse\s+kneud|achterhoek\s+duuster|ruwe\s+bolster|oeoerenwit|admiraal|krentenbrood|rozijnenbrood|krentewegge|zomergranen|zesgranen)\b/i;
   const WARM_PREPARATION_PATTERN = /\b(warm|saucijs|saucijzen|saucijzenbroodje|appelflap|frikandel|worstenbrood|ham[-\s]?kaas|kaassouffle|kroket|snack|pizza)\b/i;
   let latestRouteStops = [];
   let latestParseWarnings = [];
@@ -809,24 +811,10 @@
   }
 
   function getReferenceProductCategories(line) {
-    const normalizedLine = normalizeReferenceValue(line);
-
-    if (!normalizedLine || !deliveryReferenceData.products.length) {
-      return [];
-    }
-
+    const matches = getReferenceProductMatches(line);
     const categories = new Set();
 
-    deliveryReferenceData.products.forEach((product) => {
-      const words = Array.isArray(product.matchwoorden) ? product.matchwoorden : [];
-      const matches = words.length && words.every((word) =>
-        normalizedLine.includes(normalizeReferenceValue(word))
-      );
-
-      if (!matches) {
-        return;
-      }
-
+    matches.forEach((product) => {
       const category = normalizeReferenceCategory(product.categorie);
 
       if (category && category !== "overig") {
@@ -839,6 +827,38 @@
     });
 
     return PRODUCT_CATEGORY_ORDER.filter((category) => categories.has(category));
+  }
+
+  function referenceLineHasWord(normalizedLine, normalizedWord) {
+    if (!normalizedLine || !normalizedWord) {
+      return false;
+    }
+
+    if (normalizedWord.includes(" ")) {
+      return normalizedLine.includes(normalizedWord);
+    }
+
+    const tokens = normalizedLine.split(" ").filter(Boolean);
+
+    return tokens.some((token) =>
+      token === normalizedWord ||
+      (normalizedWord.length >= 5 && token.startsWith(normalizedWord))
+    );
+  }
+
+  function getReferenceProductMatches(line) {
+    const normalizedLine = normalizeReferenceValue(line);
+
+    if (!normalizedLine || !deliveryReferenceData.products.length) {
+      return [];
+    }
+
+    return deliveryReferenceData.products.filter((product) => {
+      const words = Array.isArray(product.matchwoorden) ? product.matchwoorden : [];
+      return words.length && words.every((word) =>
+        referenceLineHasWord(normalizedLine, normalizeReferenceValue(word))
+      );
+    });
   }
 
   function getProductCategory(line) {
@@ -2677,13 +2697,20 @@
         stats.unknownLines.push(product.rawLine || "Productregel onbekend");
       }
 
+      if (isCuttingUncertainProduct(product)) {
+        stats.cuttingUncertain += 1;
+        stats.cuttingUncertainLines.push(product.rawLine || "Snijden onzeker");
+      }
+
       return stats;
     }, {
       bread: 0,
       pastry: 0,
       warm: 0,
       unknown: 0,
-      unknownLines: []
+      unknownLines: [],
+      cuttingUncertain: 0,
+      cuttingUncertainLines: []
     });
 
     return {
@@ -2694,7 +2721,8 @@
       products: {
         total: products.length,
         ...productStats,
-        unknownLines: [...new Set(productStats.unknownLines)].slice(0, 8)
+        unknownLines: [...new Set(productStats.unknownLines)].slice(0, 8),
+        cuttingUncertainLines: [...new Set(productStats.cuttingUncertainLines)].slice(0, 8)
       },
       validation: {
         blocked: isRoutePrintBlocked(),
@@ -2762,6 +2790,7 @@
             ${renderRecognitionMetric("Banket", report.products.pastry)}
             ${renderRecognitionMetric("Warm", report.products.warm)}
             ${renderRecognitionMetric("Onbekend", report.products.unknown, report.products.unknown ? "warning" : "")}
+            ${renderRecognitionMetric("Snijden onzeker", report.products.cuttingUncertain, report.products.cuttingUncertain ? "warning" : "")}
           </div>
         </section>
         <section>
@@ -2788,6 +2817,14 @@
           </div>
         </section>
       </div>
+      ${report.products.cuttingUncertainLines.length ? `
+        <div class="delivery-recognition-suspicious">
+          <strong>Snijden onzeker</strong>
+          <ul>
+            ${report.products.cuttingUncertainLines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
+          </ul>
+        </div>
+      ` : ""}
       ${suspiciousLines.length ? `
         <div class="delivery-recognition-suspicious">
           <strong>Verdachte/onbekende regels</strong>
@@ -4272,6 +4309,32 @@
     return Number.isFinite(count) && count > 0 ? count : 0;
   }
 
+  function getReferenceCuttingState(line) {
+    const matches = getReferenceProductMatches(line);
+
+    if (!matches.length) {
+      return null;
+    }
+
+    if (matches.some((product) => product.snijden === false && normalizeReferenceCategory(product.categorie) !== "overig")) {
+      return false;
+    }
+
+    if (matches.some((product) => product.snijden === true)) {
+      return true;
+    }
+
+    return null;
+  }
+
+  function isNonCuttingProductLine(line) {
+    const rawLine = String(line || "");
+
+    return NOT_CUTTING_PATTERN.test(rawLine) ||
+      NON_CUTTING_BREAD_PATTERN.test(rawLine) ||
+      /\b(gebak|taart|vlaai|cake|koek|banket|bavar|bavarois|appelrondje|appelcake|vruchtenschelp|vierkantje|bonbons?|aardbei|saucijs|appelflap|frikandel|worstenbrood)\b/i.test(rawLine);
+  }
+
   function isCuttingProduct(product) {
     const rawLine = String(product?.rawLine || "");
 
@@ -4279,7 +4342,31 @@
       return false;
     }
 
-    return CUTTING_PATTERN.test(rawLine);
+    const referenceCuttingState = getReferenceCuttingState(rawLine);
+
+    if (referenceCuttingState !== null) {
+      return referenceCuttingState;
+    }
+
+    if (isNonCuttingProductLine(rawLine)) {
+      return false;
+    }
+
+    if (CUTTING_PATTERN.test(rawLine)) {
+      return true;
+    }
+
+    return getProductCategories(rawLine).includes("brood") && CUTTING_BREAD_PATTERN.test(rawLine);
+  }
+
+  function isCuttingUncertainProduct(product) {
+    const rawLine = String(product?.rawLine || "");
+
+    if (!rawLine || isCuttingProduct(product) || isNonCuttingProductLine(rawLine)) {
+      return false;
+    }
+
+    return getProductCategories(rawLine).includes("brood") && getReferenceCuttingState(rawLine) === null;
   }
 
   function isWarmPreparationProduct(product) {
