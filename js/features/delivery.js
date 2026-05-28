@@ -4416,7 +4416,6 @@
                         <strong>${escapeHtml(getPrintRouteStopNumber(routeIndex, stopIndex))} ${escapeHtml(stop.customerName || "Klant onbekend")}</strong>
                         <span>${escapeHtml(getRouteStopTimeLabel(stop))}</span>
                       </div>
-                      <small>${escapeHtml(stop.address || "Adres onbekend")}</small>
                       <div class="delivery-print-product-list">
                         ${stop.products.length
                           ? stop.products.map((product) => {
