@@ -90,6 +90,12 @@
   let latestParserVersionWarning = "";
   let selectedDeliveryStopIndex = -1;
   let draggedDeliveryStopIndex = -1;
+  let deliveryReferenceData = {
+    customers: [],
+    products: [],
+    loaded: false,
+    loadError: ""
+  };
 
   function escapeHtml(value) {
     return String(value || "")
@@ -729,6 +735,107 @@
     return lines.filter((line, index, source) => source.indexOf(line) === index);
   }
 
+  function normalizeReferenceValue(value) {
+    return String(value || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/&[a-z]+;/g, " ")
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function normalizeReferencePostcode(value) {
+    return String(value || "").toUpperCase().replace(/\s+/g, "");
+  }
+
+  function normalizeReferenceCategory(category) {
+    const value = normalizeReferenceValue(category);
+
+    if (value === "banket") {
+      return "gebak";
+    }
+
+    if (value === "brood" || value === "broodjes" || value === "warm" || value === "overig") {
+      return value;
+    }
+
+    return "";
+  }
+
+  async function loadDeliveryReferenceData() {
+    if (deliveryReferenceData.loaded || deliveryReferenceData.loadError) {
+      return deliveryReferenceData;
+    }
+
+    try {
+      const [customersResponse, productsResponse] = await Promise.all([
+        fetch("data/delivery-customers.json", { cache: "no-store" }),
+        fetch("data/delivery-products.json", { cache: "no-store" })
+      ]);
+
+      if (!customersResponse.ok || !productsResponse.ok) {
+        throw new Error("Lokale bezorgreferentie kon niet worden geladen.");
+      }
+
+      const [customers, products] = await Promise.all([
+        customersResponse.json(),
+        productsResponse.json()
+      ]);
+
+      deliveryReferenceData = {
+        customers: Array.isArray(customers) ? customers : [],
+        products: Array.isArray(products) ? products : [],
+        loaded: true,
+        loadError: ""
+      };
+    } catch (error) {
+      deliveryReferenceData = {
+        customers: [],
+        products: [],
+        loaded: false,
+        loadError: error?.message || "Lokale bezorgreferentie kon niet worden geladen."
+      };
+      console.warn("[delivery] lokale bezorgreferentie laden mislukt", error);
+    }
+
+    return deliveryReferenceData;
+  }
+
+  function getReferenceProductCategories(line) {
+    const normalizedLine = normalizeReferenceValue(line);
+
+    if (!normalizedLine || !deliveryReferenceData.products.length) {
+      return [];
+    }
+
+    const categories = new Set();
+
+    deliveryReferenceData.products.forEach((product) => {
+      const words = Array.isArray(product.matchwoorden) ? product.matchwoorden : [];
+      const matches = words.length && words.every((word) =>
+        normalizedLine.includes(normalizeReferenceValue(word))
+      );
+
+      if (!matches) {
+        return;
+      }
+
+      const category = normalizeReferenceCategory(product.categorie);
+
+      if (category && category !== "overig") {
+        categories.add(category);
+      }
+
+      if (product.warm) {
+        categories.add("warm");
+      }
+    });
+
+    return PRODUCT_CATEGORY_ORDER.filter((category) => categories.has(category));
+  }
+
   function getProductCategory(line) {
     const categories = getProductCategories(line);
     return categories.includes("warm") ? "warm" : categories[0] || "";
@@ -736,7 +843,7 @@
 
   function getProductCategories(line) {
     const normalizedLine = String(line || "").toLowerCase();
-    const categories = [];
+    const categories = [...getReferenceProductCategories(line)];
 
     if (WARM_PREPARATION_PATTERN.test(normalizedLine) || /\b(hete|ovenwarm|oven\s*warm|warmhouden)\b/.test(normalizedLine)) {
       categories.push("warm");
@@ -1075,6 +1182,108 @@
     };
   }
 
+  function addressMatchesKnownCustomer(stop, customer) {
+    const stopAddress = normalizeReferenceValue(stop?.address);
+    const stopPostcode = normalizeReferencePostcode(stop?.address);
+    const customerStreet = normalizeReferenceValue(customer?.straat);
+    const customerPostcode = normalizeReferencePostcode(customer?.postcode);
+
+    return Boolean(
+      stopAddress &&
+      customerStreet &&
+      customerPostcode &&
+      stopAddress.includes(customerStreet) &&
+      stopPostcode.includes(customerPostcode)
+    );
+  }
+
+  function nameMatchesKnownCustomer(stop, customer) {
+    const stopName = normalizeReferenceValue(stop?.customerName);
+    const names = [
+      customer?.naam,
+      ...(Array.isArray(customer?.aliassen) ? customer.aliassen : [])
+    ].map(normalizeReferenceValue).filter(Boolean);
+
+    return Boolean(stopName && names.some((name) => stopName.includes(name) || name.includes(stopName)));
+  }
+
+  function findKnownCustomerForStop(stop) {
+    const activeCustomers = deliveryReferenceData.customers.filter((customer) => customer?.actieveKlant !== false);
+    const strongMatches = activeCustomers.filter((customer) => addressMatchesKnownCustomer(stop, customer));
+
+    if (strongMatches.length === 1) {
+      return {
+        customer: strongMatches[0],
+        strength: nameMatchesKnownCustomer(stop, strongMatches[0]) ? "sterk" : "adres"
+      };
+    }
+
+    const nameMatches = activeCustomers.filter((customer) => nameMatchesKnownCustomer(stop, customer));
+
+    if (nameMatches.length === 1) {
+      return {
+        customer: nameMatches[0],
+        strength: "naam"
+      };
+    }
+
+    return null;
+  }
+
+  function enrichStopWithKnownCustomer(stop) {
+    const match = findKnownCustomerForStop(stop);
+
+    if (!match?.customer) {
+      return stop;
+    }
+
+    const customer = match.customer;
+    const nextStop = stop;
+    nextStop.knownCustomerId = customer.id || "";
+    nextStop.knownCustomerMatch = match.strength;
+
+    if (match.strength !== "naam") {
+      nextStop.customerName = customer.naam || nextStop.customerName;
+    } else {
+      nextStop.needsReview = true;
+      nextStop.notes = [...new Set([
+        ...(Array.isArray(nextStop.notes) ? nextStop.notes : []),
+        "controle nodig: klantmatch alleen via naam/alias"
+      ])];
+    }
+
+    if (customer.bekendeBetaalstatus === "Niet betaald") {
+      nextStop.paymentStatus = "Niet betaald";
+    } else if (!nextStop.paymentStatus && PAYMENT_STATUS_VALUES.includes(customer.bekendeBetaalstatus)) {
+      nextStop.paymentStatus = customer.bekendeBetaalstatus;
+    }
+
+    if (!nextStop.remark && customer.bekendeOpmerking) {
+      nextStop.remark = customer.bekendeOpmerking;
+    }
+
+    if (!nextStop.categories.length && nextStop.products.length && Array.isArray(customer.bekendeCategorieen)) {
+      customer.bekendeCategorieen
+        .map(normalizeReferenceCategory)
+        .filter((category) => category && category !== "overig")
+        .forEach((category) => {
+          if (!nextStop.categories.includes(category)) {
+            nextStop.categories.push(category);
+          }
+        });
+    }
+
+    nextStop.notes = (Array.isArray(nextStop.notes) ? nextStop.notes : [])
+      .filter((note) => !/klantnaam niet herkend/i.test(note));
+    nextStop.needsReview = Boolean(nextStop.notes.length);
+
+    return nextStop;
+  }
+
+  function enrichStopsWithKnownCustomers(stops) {
+    return (Array.isArray(stops) ? stops : []).map(enrichStopWithKnownCustomer);
+  }
+
   function buildReconstructedColumnStops(lines) {
     const stops = [];
     const seenKeys = new Set();
@@ -1210,14 +1419,6 @@
 
   function applyPaymentSequenceFallbacks(stops, lines) {
     if (!Array.isArray(stops) || stops.some((stop) => stop.paymentStatus === "Niet betaald")) {
-      return;
-    }
-
-    const explicitUnpaidCandidate = stops.find((stop) => /\beggink\b/i.test(stop?.customerName || ""));
-
-    if (explicitUnpaidCandidate) {
-      applyPaymentStatusToStop(explicitUnpaidCandidate, "Niet betaald");
-      applyRemarkToStop(explicitUnpaidCandidate, "Niet betaald");
       return;
     }
 
@@ -1589,6 +1790,7 @@
 
     if (serverColumnStops.length) {
       applyPaymentSequenceFallbacks(serverColumnStops, lines);
+      enrichStopsWithKnownCustomers(serverColumnStops);
 
       return serverColumnStops.map((stop) => ({
         ...stop,
@@ -1703,6 +1905,7 @@
     }
 
     applyPaymentSequenceFallbacks(stops, lines);
+    enrichStopsWithKnownCustomers(stops);
 
     return stops.map((stop) => ({
       ...stop,
@@ -1919,7 +2122,7 @@
       }
     }
 
-    const routeStops = applySuggestedRouteOrder(buildRouteStops(lines));
+    const routeStops = applySuggestedRouteOrder(enrichStopsWithKnownCustomers(buildRouteStops(lines)));
     latestRouteCompleteness = getRouteCompletenessInfo(lines, routeStops);
     const visibleWarnings = routeStops.length
       ? [
@@ -4182,7 +4385,9 @@
   }
 
   function getImportantPaymentLabel(stop) {
-    if (/\beggink\b/i.test(stop?.customerName || "")) {
+    const knownCustomerMatch = findKnownCustomerForStop(stop);
+
+    if (knownCustomerMatch?.customer?.bekendeBetaalstatus === "Niet betaald") {
       return "Niet betaald";
     }
 
@@ -4899,6 +5104,7 @@
     setDeliveryWorkVisible(true);
 
     try {
+      await loadDeliveryReferenceData();
       const result = await parsePdfFile(file);
       latestSourceFilename = file.name || "";
       latestSourceHash = result.sourceHash || "";
