@@ -12065,6 +12065,95 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   gap: 0.8rem;
 }
 
+.delivery-recognition-card {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.delivery-recognition-report {
+  display: grid;
+  gap: 0.6rem;
+  color: var(--color-text);
+}
+
+.delivery-recognition-report.empty {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.delivery-recognition-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.55rem;
+}
+
+.delivery-recognition-grid section {
+  display: grid;
+  gap: 0.42rem;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  padding: 0.55rem;
+  background: var(--color-surface-soft);
+}
+
+.delivery-recognition-grid h4 {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--color-text);
+}
+
+.delivery-recognition-metrics {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.delivery-recognition-metric {
+  display: flex;
+  gap: 0.45rem;
+  align-items: baseline;
+  justify-content: space-between;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+
+.delivery-recognition-metric strong {
+  color: var(--color-text);
+  font-size: 0.82rem;
+  text-align: right;
+}
+
+.delivery-recognition-metric.is-ok strong {
+  color: #277044;
+}
+
+.delivery-recognition-metric.is-warning strong {
+  color: #a35b00;
+}
+
+.delivery-recognition-metric.is-blocked strong {
+  color: #b3261e;
+}
+
+.delivery-recognition-list,
+.delivery-recognition-suspicious ul {
+  display: grid;
+  gap: 0.22rem;
+  margin: 0;
+  padding-left: 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+
+.delivery-recognition-suspicious {
+  display: grid;
+  gap: 0.3rem;
+  border-left: 3px solid #c97918;
+  padding: 0.45rem 0.55rem;
+  background: #fff8ed;
+  color: var(--color-text);
+  font-size: 0.8rem;
+}
+
 .delivery-print-header {
   display: flex;
   gap: 0.75rem;

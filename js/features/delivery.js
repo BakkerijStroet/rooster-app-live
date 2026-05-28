@@ -23,6 +23,7 @@
   const driverPreviewModeElement = document.querySelector(".delivery-driver-preview-mode");
   const stopDetailElement = document.getElementById("deliveryStopDetail");
   const productOverviewElement = document.getElementById("deliveryProductOverview");
+  const recognitionReportElement = document.getElementById("deliveryRecognitionReport");
   const printPreviewButton = document.getElementById("deliveryPrintPreviewButton");
   const printPreviewElement = document.getElementById("deliveryPrintPreview");
   const plannerStatusElement = document.querySelector("[data-delivery-planner-status]");
@@ -67,6 +68,7 @@
   let latestSourceFilename = "";
   let latestSourceHash = "";
   let latestParserSource = "";
+  let latestTextLineCount = 0;
   let latestUploadDate = "";
   let latestRunSource = "empty";
   let latestRunId = "";
@@ -370,6 +372,8 @@
       productOverviewElement.textContent = "Nog geen productregels beschikbaar.";
     }
 
+    renderRecognitionReport([]);
+
     if (printPreviewElement) {
       printPreviewElement.classList.add("empty");
       printPreviewElement.textContent = "Nog geen printvoorbeeld gemaakt.";
@@ -381,6 +385,7 @@
     latestSourceFilename = "";
     latestSourceHash = "";
     latestParserSource = "";
+    latestTextLineCount = 0;
     latestUploadDate = "";
     latestRunSource = "empty";
     latestRunId = "";
@@ -2035,6 +2040,7 @@
       reasons: []
     };
     latestParserQualityBlocked = true;
+    latestTextLineCount = Array.isArray(lines) ? lines.length : 0;
     selectedDeliveryStopIndex = -1;
 
     if (lineCountElement) {
@@ -2084,6 +2090,7 @@
       productOverviewElement.textContent = `${message} Productregels worden niet als betrouwbaar productoverzicht getoond.`;
     }
 
+    renderRecognitionReport([]);
     clearPrintPreview();
   }
 
@@ -2091,6 +2098,7 @@
     setDeliveryWorkVisible(true);
     closeDeliveryLowerSections();
     latestParserQualityBlocked = false;
+    latestTextLineCount = Array.isArray(lines) ? lines.length : 0;
 
     if (extractionQuality?.unreliable) {
       renderUnreliableExtraction(lines, warnings, extractionQuality, parserSource);
@@ -2168,6 +2176,7 @@
     renderQuickEdit(routeStops);
     renderStopDetail(routeStops);
     renderProductOverview(routeStops);
+    renderRecognitionReport(routeStops);
     clearPrintPreview();
   }
 
@@ -2548,6 +2557,7 @@
     renderQuickEdit(latestRouteStops);
     renderStopDetail(latestRouteStops);
     renderProductOverview(latestRouteStops);
+    renderRecognitionReport(latestRouteStops);
 
     if (refreshPrint && latestRouteStops.length) {
       renderPrintPreview();
@@ -2603,6 +2613,190 @@
       warmCount: preparation.warmCount,
       warmMissingTimeCount
     };
+  }
+
+  function getRecognitionCustomerMatch(stop) {
+    const existingMatch = String(stop?.knownCustomerMatch || "").trim();
+
+    if (existingMatch) {
+      return existingMatch;
+    }
+
+    return findKnownCustomerForStop(stop)?.strength || "";
+  }
+
+  function getRecognitionProductCategories(product) {
+    const categories = normalizeCategories([
+      product?.category,
+      ...getProductCategories(product?.rawLine || "")
+    ]);
+
+    return categories;
+  }
+
+  function getRecognitionReport(stops) {
+    const normalizedStops = Array.isArray(stops) ? stops : [];
+    const products = getAllProducts(normalizedStops);
+    const customerStats = normalizedStops.reduce((stats, stop) => {
+      const match = getRecognitionCustomerMatch(stop);
+      const hasUnknownName = !String(stop?.customerName || "").trim() || /klant onbekend/i.test(String(stop?.customerName || ""));
+
+      if (match === "sterk" || match === "adres") {
+        stats.address += 1;
+      } else if (match === "naam") {
+        stats.alias += 1;
+        stats.weak += 1;
+      } else if (hasUnknownName || !match) {
+        stats.unknown += 1;
+      }
+
+      return stats;
+    }, {
+      address: 0,
+      alias: 0,
+      weak: 0,
+      unknown: 0
+    });
+    const productStats = products.reduce((stats, product) => {
+      const categories = getRecognitionProductCategories(product);
+
+      if (categories.includes("brood") || categories.includes("broodjes")) {
+        stats.bread += 1;
+      }
+
+      if (categories.includes("gebak")) {
+        stats.pastry += 1;
+      }
+
+      if (categories.includes("warm")) {
+        stats.warm += 1;
+      }
+
+      if (!categories.length) {
+        stats.unknown += 1;
+        stats.unknownLines.push(product.rawLine || "Productregel onbekend");
+      }
+
+      return stats;
+    }, {
+      bread: 0,
+      pastry: 0,
+      warm: 0,
+      unknown: 0,
+      unknownLines: []
+    });
+
+    return {
+      customers: {
+        total: normalizedStops.length,
+        ...customerStats
+      },
+      products: {
+        total: products.length,
+        ...productStats,
+        unknownLines: [...new Set(productStats.unknownLines)].slice(0, 8)
+      },
+      validation: {
+        blocked: isRoutePrintBlocked(),
+        suspectedCount: latestRouteCompleteness.suspectedCount || 0,
+        builtCount: latestRouteCompleteness.builtCount || normalizedStops.length,
+        reasons: Array.isArray(latestRouteCompleteness.reasons) ? latestRouteCompleteness.reasons : [],
+        missingLines: Array.isArray(latestRouteCompleteness.missingLines) ? latestRouteCompleteness.missingLines : []
+      },
+      parser: {
+        version: CURRENT_DELIVERY_PARSER_VERSION,
+        source: latestParserSource || "-",
+        textLineCount: latestTextLineCount || 0,
+        referenceStatus: deliveryReferenceData.loaded
+          ? `${deliveryReferenceData.customers.length} klanten, ${deliveryReferenceData.products.length} productpatronen`
+          : deliveryReferenceData.loadError || "nog niet geladen"
+      }
+    };
+  }
+
+  function renderRecognitionMetric(label, value, tone = "") {
+    const displayValue = value === 0 ? "0" : value;
+
+    return `
+      <div class="delivery-recognition-metric${tone ? ` is-${escapeHtml(tone)}` : ""}">
+        <span>${escapeHtml(label)}</span>
+        <strong>${escapeHtml(displayValue)}</strong>
+      </div>
+    `;
+  }
+
+  function renderRecognitionReport(stops = latestRouteStops) {
+    if (!recognitionReportElement) {
+      return;
+    }
+
+    const normalizedStops = Array.isArray(stops) ? stops : [];
+
+    if (!normalizedStops.length && !latestTextLineCount && !latestParserQualityBlocked) {
+      recognitionReportElement.classList.add("empty");
+      recognitionReportElement.textContent = "Nog geen herkenningsrapport beschikbaar.";
+      return;
+    }
+
+    const report = getRecognitionReport(normalizedStops);
+    const suspiciousLines = [...report.validation.missingLines, ...report.products.unknownLines].slice(0, 10);
+
+    recognitionReportElement.classList.remove("empty");
+    recognitionReportElement.innerHTML = `
+      <div class="delivery-recognition-grid">
+        <section>
+          <h4>Klantmatches</h4>
+          <div class="delivery-recognition-metrics">
+            ${renderRecognitionMetric("Stops", report.customers.total)}
+            ${renderRecognitionMetric("Exact/adresmatch", report.customers.address)}
+            ${renderRecognitionMetric("Aliasmatch", report.customers.alias, report.customers.alias ? "warning" : "")}
+            ${renderRecognitionMetric("Zwak/onzeker", report.customers.weak, report.customers.weak ? "warning" : "")}
+            ${renderRecognitionMetric("Onbekende klanten", report.customers.unknown, report.customers.unknown ? "blocked" : "")}
+          </div>
+        </section>
+        <section>
+          <h4>Productherkenning</h4>
+          <div class="delivery-recognition-metrics">
+            ${renderRecognitionMetric("Productregels", report.products.total)}
+            ${renderRecognitionMetric("Brood", report.products.bread)}
+            ${renderRecognitionMetric("Banket", report.products.pastry)}
+            ${renderRecognitionMetric("Warm", report.products.warm)}
+            ${renderRecognitionMetric("Onbekend", report.products.unknown, report.products.unknown ? "warning" : "")}
+          </div>
+        </section>
+        <section>
+          <h4>Routevalidatie</h4>
+          <div class="delivery-recognition-metrics">
+            ${renderRecognitionMetric("Status", report.validation.blocked ? "Geblokkeerd" : "OK", report.validation.blocked ? "blocked" : "ok")}
+            ${renderRecognitionMetric("Vermoedelijke stops", report.validation.suspectedCount)}
+            ${renderRecognitionMetric("Gebouwde stops", report.validation.builtCount)}
+            ${renderRecognitionMetric("Verdachte regels", report.validation.missingLines.length, report.validation.missingLines.length ? "blocked" : "")}
+          </div>
+          ${report.validation.reasons.length ? `
+            <ul class="delivery-recognition-list">
+              ${report.validation.reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}
+            </ul>
+          ` : ""}
+        </section>
+        <section>
+          <h4>Parserinformatie</h4>
+          <div class="delivery-recognition-metrics">
+            ${renderRecognitionMetric("Parserversie", report.parser.version)}
+            ${renderRecognitionMetric("Bron", report.parser.source)}
+            ${renderRecognitionMetric("Tekstregels", report.parser.textLineCount)}
+            ${renderRecognitionMetric("Woordenboeken", report.parser.referenceStatus)}
+          </div>
+        </section>
+      </div>
+      ${suspiciousLines.length ? `
+        <div class="delivery-recognition-suspicious">
+          <strong>Verdachte/onbekende regels</strong>
+          <ul>
+            ${suspiciousLines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
+          </ul>
+        </div>
+      ` : ""}
+    `;
   }
 
   function getStopReviewReasons(stop) {
@@ -3102,6 +3296,7 @@
     latestSourceFilename = run?.sourceFilename || payload?.source?.filename || "";
     latestSourceHash = run?.sourceHash || payload?.source?.hash || "";
     latestParserSource = payload?.source?.parser || "";
+    latestTextLineCount = Number(payload?.source?.textLineCount) || 0;
     latestUploadDate = payload?.source?.uploadedAt || run?.createdAt || "";
     latestRunSource = "saved";
     latestRunId = run?.id || "";
@@ -3180,6 +3375,7 @@
     renderStopDetail(routeStops);
     renderProductOverview(routeStops);
     renderDriverPreview(routeStops, latestDeliveryDate);
+    renderRecognitionReport(routeStops);
     renderPrintPreview();
   }
 
