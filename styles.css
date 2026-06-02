@@ -12188,7 +12188,7 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 
 .delivery-saved-run {
   display: grid;
-  grid-template-columns: minmax(180px, 1.4fr) minmax(120px, 0.7fr) minmax(70px, 0.45fr) minmax(150px, 0.8fr) max-content;
+  grid-template-columns: minmax(220px, 1fr) minmax(72px, max-content) minmax(155px, max-content) max-content;
   gap: 0.55rem;
   align-items: center;
   border: 1px solid var(--color-border);
@@ -12204,6 +12204,13 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 
 .delivery-saved-run button {
   justify-self: end;
+}
+
+.delivery-saved-run-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: flex-end;
 }
 
 .delivery-ingest-details {
@@ -13807,6 +13814,10 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 
   .delivery-saved-run button {
     justify-self: start;
+  }
+
+  .delivery-saved-run-actions {
+    justify-content: flex-start;
   }
 
   .delivery-preview-grid {
@@ -17909,6 +17920,10 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 }
 
 .delivery-panel.has-delivery-run .delivery-technical-section {
+  order: 6;
+}
+
+.delivery-panel.has-delivery-run .delivery-saved-section {
   order: 5;
 }
 

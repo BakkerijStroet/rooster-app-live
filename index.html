@@ -1127,12 +1127,14 @@
             <strong>Sleep PDF hierheen</strong>
             <span>Alleen PDF-bestanden worden ondersteund.</span>
             <button type="button" id="deliveryStartChooseButton" class="secondary">PDF kiezen</button>
+            <button type="button" class="secondary" data-delivery-show-saved-routes>Opgeslagen routes</button>
           </div>
         </article>
         <article class="capacity-card delivery-route-card delivery-work-card">
           <div class="delivery-route-planner-header">
             <div class="delivery-route-planner-actions">
               <button type="button" class="secondary" data-delivery-route-new-pdf>Nieuwe PDF</button>
+              <button type="button" class="secondary" data-delivery-show-saved-routes>Opgeslagen routes</button>
               <button type="button" class="secondary" data-delivery-route-save disabled>Route opslaan</button>
               <button type="button" class="delivery-route-print-button" data-delivery-route-print disabled>Print routes</button>
               <span class="delivery-planner-status" data-delivery-planner-status hidden></span>
@@ -1178,6 +1180,16 @@
               <div id="deliveryPreparation" class="delivery-preparation empty">Nog geen voorbereiding beschikbaar.</div>
             </article>
           </details>
+          <details class="capacity-card delivery-lower-section delivery-saved-section">
+            <summary>Opgeslagen routes</summary>
+            <article class="delivery-saved-card">
+              <div class="delivery-saved-header">
+                <h3>Opgeslagen routes</h3>
+                <button type="button" id="deliverySavedRefreshButton" class="secondary">Vernieuwen</button>
+              </div>
+              <div id="deliverySavedRuns" class="delivery-saved-runs empty">Opgeslagen routes worden geladen.</div>
+            </article>
+          </details>
           <details class="capacity-card delivery-lower-section delivery-technical-section">
             <summary>Technisch</summary>
             <article class="delivery-recognition-card">
@@ -1221,13 +1233,6 @@
                 </div>
                 <div id="deliveryParseWarnings" class="delivery-warning-list empty">Geen meldingen.</div>
               </details>
-            </article>
-            <article class="delivery-saved-card">
-              <div class="delivery-saved-header">
-                <h3>Opgeslagen runs</h3>
-                <button type="button" id="deliverySavedRefreshButton" class="secondary">Vernieuwen</button>
-              </div>
-              <div id="deliverySavedRuns" class="delivery-saved-runs empty">Opgeslagen runs worden geladen.</div>
             </article>
           </details>
         </div>

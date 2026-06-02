@@ -29,6 +29,7 @@
   const plannerStatusElement = document.querySelector("[data-delivery-planner-status]");
   const plannerApprovePrintButton = document.querySelector("[data-delivery-route-print]");
   const plannerSaveButton = document.querySelector("[data-delivery-route-save]");
+  const savedRoutesSectionElement = document.querySelector(".delivery-saved-section");
   const routeResetButton = document.querySelector("[data-delivery-route-reset]");
 
   const POSTCODE_PATTERN = /\b[1-9][0-9]{3}\s?[A-Z]{2}\b/i;
@@ -3081,10 +3082,10 @@
 
   function getSaveStatusText() {
     if (latestSaveState.status === "saving") return "Opslaan bezig";
-    if (latestSaveState.status === "updating") return "Correcties opslaan";
-    if (latestSaveState.status === "updated") return "Correcties opgeslagen";
+    if (latestSaveState.status === "updating") return "Route opslaan";
+    if (latestSaveState.status === "updated") return "Route opgeslagen";
     if (latestSaveState.status === "saved") return "Opgeslagen";
-    if (latestSaveState.status === "opened") return "Opgeslagen run geopend";
+    if (latestSaveState.status === "opened") return "Opgeslagen route geopend";
     if (latestSaveState.status === "update-conflict") return "Conflict";
     if (latestSaveState.status === "conflict") return "Bestaat al";
     if (latestSaveState.status === "blocked") return "Niet opgeslagen";
@@ -3094,7 +3095,7 @@
 
   function getRunSourceText() {
     if (latestRunSource === "local") return "Lokale PDF-preview";
-    if (latestRunSource === "saved") return "Opgeslagen run";
+    if (latestRunSource === "saved") return "Opgeslagen route";
     return "Geen run geladen";
   }
 
@@ -3214,25 +3215,24 @@
 
     if (state === "loading") {
       savedRunsElement.classList.add("empty");
-      savedRunsElement.textContent = "Opgeslagen runs worden geladen.";
+      savedRunsElement.textContent = "Opgeslagen routes worden geladen.";
       return;
     }
 
     if (state === "error") {
       savedRunsElement.classList.add("empty");
-      savedRunsElement.textContent = "Opgeslagen runs konden niet worden geladen.";
+      savedRunsElement.textContent = "Opgeslagen routes konden niet worden geladen.";
       return;
     }
 
     if (!Array.isArray(runs) || !runs.length) {
       savedRunsElement.classList.add("empty");
-      savedRunsElement.textContent = "Nog geen opgeslagen bezorgruns in testmodus.";
+      savedRunsElement.textContent = "Nog geen opgeslagen routes in testmodus.";
       return;
     }
 
     savedRunsElement.classList.remove("empty");
     savedRunsElement.innerHTML = runs.map((run) => {
-      const deliveryDate = run?.payload?.deliveryDate || "Datum onbekend";
       const displayTitle = getDeliveryRunDisplayTitle({
         deliveryDate: run?.payload?.deliveryDate || "",
         sourceFilename: run?.sourceFilename || run?.payload?.source?.filename || "",
@@ -3244,14 +3244,28 @@
       return `
         <article class="delivery-saved-run">
           <strong>${escapeHtml(displayTitle)}</strong>
-          <span>${escapeHtml(deliveryDate)}</span>
-          <span>${escapeHtml(run?.sourceFilename || "Bestand onbekend")}</span>
           <span>${stopCount} stop${stopCount === 1 ? "" : "s"}</span>
           <small>Bijgewerkt: ${escapeHtml(formatSavedRunDateTime(updatedAt))}</small>
-          <button type="button" class="secondary" data-delivery-open-run="${escapeHtml(run?.id || "")}">Openen</button>
+          <div class="delivery-saved-run-actions">
+            <button type="button" class="secondary" data-delivery-open-run="${escapeHtml(run?.id || "")}">Openen</button>
+            <button type="button" class="secondary" data-delivery-print-run="${escapeHtml(run?.id || "")}" ${stopCount ? "" : "disabled"}>Opnieuw printen</button>
+          </div>
         </article>
       `;
     }).join("");
+  }
+
+  function openSavedRoutesSection({ scroll = true } = {}) {
+    setDeliveryWorkVisible(true);
+
+    if (savedRoutesSectionElement) {
+      savedRoutesSectionElement.open = true;
+      if (scroll) {
+        savedRoutesSectionElement.scrollIntoView({ block: "start", behavior: "smooth" });
+      }
+    }
+
+    void fetchSavedRuns();
   }
 
   async function fetchSavedRuns() {
@@ -3341,7 +3355,7 @@
     latestRunBaseUpdatedAt = run?.updatedAt || "";
     latestSaveState = {
       status: "opened",
-      message: "Opgeslagen run geopend"
+      message: "Opgeslagen route geopend"
     };
     latestHasLocalCorrections = false;
     latestPlannerStatus = "draft";
@@ -3363,18 +3377,18 @@
     }
 
     if (lineCountElement) {
-      lineCountElement.textContent = `Opgeslagen run: ${routeStops.length} stop${routeStops.length === 1 ? "" : "s"}`;
+      lineCountElement.textContent = `Opgeslagen route: ${routeStops.length} stop${routeStops.length === 1 ? "" : "s"}`;
     }
 
     if (rawPreviewElement) {
-      rawPreviewElement.textContent = "Opgeslagen run geopend. De PDF-parser is niet opnieuw uitgevoerd.";
+      rawPreviewElement.textContent = "Opgeslagen route geopend. De PDF-parser is niet opnieuw uitgevoerd.";
     }
 
     if (recognizedListElement) {
       recognizedListElement.classList.remove("empty");
       recognizedListElement.innerHTML = `
         <div class="delivery-recognized-item">
-          <strong>Opgeslagen run</strong>
+          <strong>Opgeslagen route</strong>
           <span>${escapeHtml(getDeliveryRunDisplayTitle({
             deliveryDate: latestDeliveryDate,
             sourceFilename: latestSourceFilename,
@@ -3402,7 +3416,7 @@
       }
     }
 
-    setStatus("Opgeslagen run geopend.", "ready");
+    setStatus("Opgeslagen route geopend.", "ready");
     renderDashboard(routeStops, latestDeliveryDate);
     renderControlSummary(routeStops);
     renderActionsOverview(routeStops);
@@ -3416,14 +3430,14 @@
     renderPrintPreview();
   }
 
-  async function openSavedRun(runId) {
+  async function openSavedRun(runId, { printAfterOpen = false } = {}) {
     const normalizedRunId = String(runId || "").trim();
 
     if (!normalizedRunId) {
       return;
     }
 
-    setStatus("Opgeslagen run wordt geopend...", "ready");
+    setStatus("Opgeslagen route wordt geopend...", "ready");
 
     try {
       const response = await fetch(`/api/delivery-runs?mode=test&id=${encodeURIComponent(normalizedRunId)}`, {
@@ -3434,13 +3448,18 @@
       const run = Array.isArray(result?.runs) ? result.runs[0] : null;
 
       if (!response.ok || !run) {
-        setStatus(result?.message || "Opgeslagen run kon niet worden geopend.", "error");
+        setStatus(result?.message || "Opgeslagen route kon niet worden geopend.", "error");
         return;
       }
 
       renderSavedRunPayload(run);
+      if (printAfterOpen) {
+        window.setTimeout(() => {
+          approvePlanningAndOpenPrint();
+        }, 0);
+      }
     } catch (error) {
-      setStatus(error?.message || "Opgeslagen run kon niet worden geopend.", "error");
+      setStatus(error?.message || "Opgeslagen route kon niet worden geopend.", "error");
     }
   }
 
@@ -5120,12 +5139,17 @@
           message: result?.message || "Opslaan is mislukt."
         };
       } else {
+        const savedRun = result?.run || {};
         latestSaveState = {
           status: "saved",
-          message: "Run opgeslagen in Supabase testmodus."
+          message: "Route opgeslagen in Supabase testmodus."
         };
+        latestRunSource = "saved";
+        latestRunId = savedRun.id || latestRunId;
+        latestRunUpdatedAt = savedRun.updatedAt || savedRun.createdAt || latestRunUpdatedAt;
+        latestRunBaseUpdatedAt = savedRun.updatedAt || latestRunBaseUpdatedAt;
         latestHasLocalCorrections = false;
-        latestRunUpdatedAt = result?.run?.updatedAt || "";
+        setStatus("Route opgeslagen.", "ready");
         void fetchSavedRuns();
       }
     } catch (error) {
@@ -5136,6 +5160,8 @@
     }
 
     renderDashboard(latestRouteStops, latestDeliveryDate);
+    renderPlannerStatus();
+    renderRunStatusBar();
   }
 
   async function saveDeliveryCorrections() {
@@ -5152,7 +5178,7 @@
 
     latestSaveState = {
       status: "updating",
-      message: "Correcties opslaan..."
+      message: "Route opslaan..."
     };
     renderDashboard(latestRouteStops, latestDeliveryDate);
 
@@ -5188,9 +5214,9 @@
         latestHasLocalCorrections = false;
         latestSaveState = {
           status: "updated",
-          message: "Correcties opgeslagen"
+          message: "Route opgeslagen"
         };
-        setStatus("Correcties opgeslagen.", "ready");
+        setStatus("Route opgeslagen.", "ready");
         void fetchSavedRuns();
       }
     } catch (error) {
@@ -5511,21 +5537,31 @@
   });
   savedRunsElement?.addEventListener("click", (event) => {
     const openButton = event.target.closest("[data-delivery-open-run]");
+    const printButton = event.target.closest("[data-delivery-print-run]");
 
-    if (!openButton) {
+    if (printButton && !printButton.disabled) {
+      void openSavedRun(printButton.dataset.deliveryPrintRun, { printAfterOpen: true });
       return;
     }
 
-    void openSavedRun(openButton.dataset.deliveryOpenRun);
+    if (openButton) {
+      void openSavedRun(openButton.dataset.deliveryOpenRun);
+    }
   });
   deliveryPanelElement?.addEventListener("click", (event) => {
     const newPdfButton = event.target.closest("[data-delivery-route-new-pdf]");
+    const showSavedButton = event.target.closest("[data-delivery-show-saved-routes]");
     const routeSaveButton = event.target.closest("[data-delivery-route-save]");
     const routePrintButton = event.target.closest("[data-delivery-route-print]");
     const routeResetButton = event.target.closest("[data-delivery-route-reset]");
 
     if (newPdfButton) {
       pdfInput?.click();
+      return;
+    }
+
+    if (showSavedButton) {
+      openSavedRoutesSection();
       return;
     }
 
