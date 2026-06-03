@@ -18116,6 +18116,24 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   background: #1f8a4c;
 }
 
+.delivery-driver-mode-toolbar {
+  display: flex;
+  justify-content: stretch;
+}
+
+.delivery-driver-mode-toolbar button {
+  width: 100%;
+  min-height: 46px;
+  border-radius: 10px;
+  font-weight: 950;
+}
+
+.delivery-driver-mode-toolbar button.is-active {
+  border-color: #8a4a12;
+  background: #fff0d8;
+  color: #6f390c;
+}
+
 .delivery-driver-mode-stop {
   display: grid;
   gap: 0.65rem;
@@ -18429,6 +18447,161 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   padding: 0.75rem;
   color: var(--color-text-muted);
   font-weight: 800;
+}
+
+.delivery-driver-route-edit {
+  display: grid;
+  gap: 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 0.75rem;
+  background: #fffaf4;
+  box-shadow: 0 10px 26px rgba(117, 82, 35, 0.08);
+}
+
+.delivery-driver-route-edit-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.delivery-driver-route-edit-head strong {
+  display: block;
+  color: var(--color-text);
+  font-size: 1.15rem;
+  line-height: 1.1;
+}
+
+.delivery-driver-route-edit-head span {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.delivery-driver-route-edit-head button {
+  min-height: 44px;
+  border-radius: 10px;
+  font-weight: 950;
+}
+
+.delivery-driver-route-edit-group {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.delivery-driver-route-edit-group h4 {
+  margin: 0.2rem 0 0;
+  color: #6f390c;
+  font-size: 0.94rem;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.delivery-driver-route-edit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 0.5rem;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  min-height: 58px;
+  padding: 0.48rem;
+  background: var(--color-surface);
+}
+
+.delivery-driver-route-edit-row.is-handled {
+  background: #f6efe5;
+  color: var(--color-text-muted);
+}
+
+.delivery-driver-route-edit-main {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  gap: 0.45rem;
+  align-items: center;
+  min-width: 0;
+}
+
+.delivery-driver-route-edit-main strong {
+  min-width: 0;
+  color: var(--color-text);
+  font-size: 1rem;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.delivery-driver-route-edit-main small {
+  color: #6f390c;
+  font-size: 0.88rem;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.delivery-driver-route-edit-main .delivery-driver-mode-icons {
+  grid-column: 1 / -1;
+  gap: 0.28rem;
+}
+
+.delivery-driver-route-edit-main .delivery-driver-mode-icons span {
+  width: 1.9rem;
+  height: 1.9rem;
+  font-size: 1rem;
+}
+
+.delivery-driver-route-edit-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0.22rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-neutral-soft);
+  color: var(--color-text-muted);
+  font-size: 0.76rem;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.delivery-driver-route-edit-status[data-delivery-driver-stop-status="delivered"] {
+  border-color: #8ed6a8;
+  background: #e7f7ec;
+  color: #1f6b3d;
+}
+
+.delivery-driver-route-edit-status[data-delivery-driver-stop-status="skipped"] {
+  border-color: #efb56d;
+  background: #fff1d6;
+  color: #8a4b0f;
+}
+
+.delivery-driver-route-edit-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.32rem;
+}
+
+.delivery-driver-route-edit-actions button {
+  min-height: 44px;
+  border-radius: 9px;
+  padding-inline: 0.55rem;
+  font-size: 0.9rem;
+  font-weight: 950;
+}
+
+.delivery-driver-route-edit-locked {
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.35rem 0.55rem;
+  background: #f3eadf;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  font-weight: 900;
 }
 
 .delivery-driver-mode-nav {

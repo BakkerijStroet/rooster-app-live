@@ -126,6 +126,7 @@
   let driverModeRouteNumber = 1;
   let driverModeStopIndex = 0;
   let driverModeActionMessage = "";
+  let isDriverModeRouteEditOpen = false;
   let latestDriverModeStorageKey = "";
   let latestDriverModeState = {
     stops: {}
@@ -148,7 +149,8 @@
 
   function getEmptyDriverModeState() {
     return {
-      stops: {}
+      stops: {},
+      routeOrders: {}
     };
   }
 
@@ -175,7 +177,8 @@
       const parsedValue = rawValue ? JSON.parse(rawValue) : null;
       latestDriverModeState = parsedValue && typeof parsedValue === "object" && parsedValue.stops
         ? {
-            stops: parsedValue.stops && typeof parsedValue.stops === "object" ? parsedValue.stops : {}
+            stops: parsedValue.stops && typeof parsedValue.stops === "object" ? parsedValue.stops : {},
+            routeOrders: parsedValue.routeOrders && typeof parsedValue.routeOrders === "object" ? parsedValue.routeOrders : {}
           }
         : getEmptyDriverModeState();
     } catch (error) {
@@ -191,7 +194,8 @@
 
     try {
       window.localStorage?.setItem(latestDriverModeStorageKey, JSON.stringify({
-        stops: latestDriverModeState.stops || {}
+        stops: latestDriverModeState.stops || {},
+        routeOrders: latestDriverModeState.routeOrders || {}
       }));
     } catch (error) {
       console.warn("[delivery] chauffeurmodus status opslaan mislukt", error);
@@ -522,6 +526,7 @@
     isDriverModeOpen = false;
     driverModeRouteNumber = 1;
     driverModeStopIndex = 0;
+    isDriverModeRouteEditOpen = false;
     latestDriverModeStorageKey = "";
     latestDriverModeState = getEmptyDriverModeState();
     renderDriverMode();
@@ -601,6 +606,7 @@
     isDriverModeOpen = false;
     driverModeRouteNumber = 1;
     driverModeStopIndex = 0;
+    isDriverModeRouteEditOpen = false;
     latestDriverModeStorageKey = "";
     latestDriverModeState = getEmptyDriverModeState();
     renderDashboard([], "");
@@ -4533,13 +4539,54 @@
 
   function getDriverModeRouteItems(routeNumber = driverModeRouteNumber) {
     const normalizedRouteNumber = Number(routeNumber) === 2 ? 2 : 1;
-
-    return latestRouteStops
+    const baseItems = latestRouteStops
       .map((stop, index) => ({
         stop,
-        index
+        index,
+        orderKey: getDriverModeRouteItemKey(stop, index)
       }))
       .filter((item) => getStopRouteNumber(item.stop) === normalizedRouteNumber);
+    const routeOrder = getDriverModeRouteOrder(normalizedRouteNumber);
+
+    if (!routeOrder.length) {
+      return baseItems;
+    }
+
+    const itemsByKey = new Map(baseItems.map((item) => [item.orderKey, item]));
+    const orderedItems = routeOrder
+      .map((orderKey) => itemsByKey.get(orderKey))
+      .filter(Boolean);
+    const orderedKeys = new Set(orderedItems.map((item) => item.orderKey));
+    const missingItems = baseItems.filter((item) => !orderedKeys.has(item.orderKey));
+
+    return [...orderedItems, ...missingItems];
+  }
+
+  function getDriverModeRouteItemKey(stop, fallbackIndex = 0) {
+    const routeNumber = getStopRouteNumber(stop);
+    const position = Number(stop?.position);
+    const positionKey = Number.isFinite(position) && position > 0 ? position : fallbackIndex + 1;
+
+    return `${getDriverModeStopKey(stop)}|route:${routeNumber}|position:${positionKey}`;
+  }
+
+  function getDriverModeRouteOrder(routeNumber = driverModeRouteNumber) {
+    const normalizedRouteNumber = Number(routeNumber) === 2 ? "2" : "1";
+    const routeOrder = latestDriverModeState.routeOrders?.[normalizedRouteNumber];
+
+    return Array.isArray(routeOrder)
+      ? routeOrder.filter((item) => typeof item === "string" && item)
+      : [];
+  }
+
+  function setDriverModeRouteOrder(routeNumber, orderKeys) {
+    const normalizedRouteNumber = Number(routeNumber) === 2 ? "2" : "1";
+
+    latestDriverModeState.routeOrders = latestDriverModeState.routeOrders || {};
+    latestDriverModeState.routeOrders[normalizedRouteNumber] = Array.isArray(orderKeys)
+      ? orderKeys.filter((item) => typeof item === "string" && item)
+      : [];
+    persistDriverModeState();
   }
 
   function normalizeDriverModeState() {
@@ -4674,6 +4721,59 @@
     `;
   }
 
+  function renderDriverModeRouteEditRow(item, openItems, handled = false) {
+    const stop = item.stop;
+    const state = getDriverModeStopState(stop);
+    const openIndex = handled ? -1 : openItems.findIndex((candidate) => candidate.orderKey === item.orderKey);
+    const statusLabel = state.delivered ? "Geleverd" : state.skipped ? "Overgeslagen" : "Open";
+
+    return `
+      <div class="delivery-driver-route-edit-row${handled ? " is-handled" : ""}">
+        <div class="delivery-driver-route-edit-main">
+          <span class="delivery-driver-route-edit-status" data-delivery-driver-stop-status="${escapeHtml(state.delivered ? "delivered" : state.skipped ? "skipped" : "open")}">${escapeHtml(statusLabel)}</span>
+          <strong>${escapeHtml(stop.customerName || "Klant onbekend")}</strong>
+          <small>${escapeHtml(getRouteStopTimeLabel(stop))}</small>
+          ${renderDriverModeIcons(stop)}
+        </div>
+        ${handled
+          ? "<div class=\"delivery-driver-route-edit-locked\">Vast</div>"
+          : `<div class="delivery-driver-route-edit-actions">
+              <button type="button" class="secondary" data-delivery-driver-mode-reorder="${escapeHtml(item.orderKey)}" data-delivery-driver-mode-reorder-delta="-1" ${openIndex <= 0 ? "disabled" : ""}>Omhoog</button>
+              <button type="button" class="secondary" data-delivery-driver-mode-reorder="${escapeHtml(item.orderKey)}" data-delivery-driver-mode-reorder-delta="1" ${openIndex >= openItems.length - 1 ? "disabled" : ""}>Omlaag</button>
+            </div>`}
+      </div>
+    `;
+  }
+
+  function renderDriverModeRouteEdit(routeItems) {
+    const handledItems = routeItems.filter((item) => isDriverModeStopHandled(item.stop));
+    const openItems = routeItems.filter((item) => !isDriverModeStopHandled(item.stop));
+
+    return `
+      <section class="delivery-driver-route-edit">
+        <div class="delivery-driver-route-edit-head">
+          <div>
+            <strong>Route aanpassen</strong>
+            <span>Alleen open stops worden lokaal verplaatst.</span>
+          </div>
+          <button type="button" class="secondary" data-delivery-driver-mode-edit-done>Klaar</button>
+        </div>
+        <div class="delivery-driver-route-edit-group">
+          <h4>Afgehandeld</h4>
+          ${handledItems.length
+            ? handledItems.map((item) => renderDriverModeRouteEditRow(item, openItems, true)).join("")
+            : "<div class=\"delivery-driver-mode-empty\">Nog geen stops afgehandeld.</div>"}
+        </div>
+        <div class="delivery-driver-route-edit-group">
+          <h4>Nog te doen</h4>
+          ${openItems.length
+            ? openItems.map((item) => renderDriverModeRouteEditRow(item, openItems, false)).join("")
+            : "<div class=\"delivery-driver-mode-empty\">Geen open stops meer.</div>"}
+        </div>
+      </section>
+    `;
+  }
+
   function getDriverModeTargets() {
     return [
       {
@@ -4766,6 +4866,12 @@
             </div>
           </div>
         </header>
+        <div class="delivery-driver-mode-toolbar">
+          <button type="button" class="secondary${isDriverModeRouteEditOpen ? " is-active" : ""}" data-delivery-driver-mode-edit-route>
+            Route aanpassen
+          </button>
+        </div>
+        ${isDriverModeRouteEditOpen ? renderDriverModeRouteEdit(routeItems) : `
         <article class="delivery-driver-mode-stop${isWarmStop(stop) ? " has-warm" : ""}">
           ${driverModeActionMessage ? `<div class="delivery-driver-mode-alert">${escapeHtml(driverModeActionMessage)}</div>` : ""}
           <div class="delivery-driver-mode-stop-head">
@@ -4798,6 +4904,7 @@
           <button type="button" class="secondary" data-delivery-driver-mode-next-open ${canMoveToNextOpen ? "" : "disabled"}>Volgende open</button>
           <button type="button" class="secondary" data-delivery-driver-mode-next ${driverModeStopIndex >= routeItems.length - 1 ? "disabled" : ""}>Volgende</button>
         </div>
+        `}
       </section>
     `);
   }
@@ -4810,6 +4917,7 @@
     driverModeRouteNumber = Number(routeNumber) === 2 ? 2 : 1;
     driverModeStopIndex = 0;
     driverModeActionMessage = "";
+    isDriverModeRouteEditOpen = false;
     isDriverModeOpen = true;
     renderDriverMode();
     getActiveDriverModeElement()?.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -4817,6 +4925,7 @@
 
   function closeDriverMode() {
     isDriverModeOpen = false;
+    isDriverModeRouteEditOpen = false;
     renderDriverMode();
   }
 
@@ -4829,6 +4938,49 @@
 
     driverModeRouteNumber = normalizedRouteNumber;
     driverModeStopIndex = 0;
+    driverModeActionMessage = "";
+    isDriverModeRouteEditOpen = false;
+    renderDriverMode();
+  }
+
+  function setDriverModeRouteEditOpen(open) {
+    isDriverModeRouteEditOpen = Boolean(open);
+    driverModeActionMessage = "";
+    renderDriverMode();
+    getActiveDriverModeElement()?.scrollIntoView({ block: "start", behavior: "auto" });
+  }
+
+  function moveDriverModeRouteOpenStop(orderKey, delta) {
+    const routeItems = normalizeDriverModeState();
+    const normalizedDelta = Number(delta) < 0 ? -1 : 1;
+    const currentItem = routeItems[driverModeStopIndex] || null;
+    const currentKey = currentItem?.orderKey || "";
+    const fullOrder = routeItems.map((item) => item.orderKey);
+    const openItems = routeItems.filter((item) => !isDriverModeStopHandled(item.stop));
+    const sourceOpenIndex = openItems.findIndex((item) => item.orderKey === orderKey);
+    const targetOpenIndex = sourceOpenIndex + normalizedDelta;
+
+    if (sourceOpenIndex < 0 || targetOpenIndex < 0 || targetOpenIndex >= openItems.length) {
+      return;
+    }
+
+    const sourceFullIndex = fullOrder.indexOf(openItems[sourceOpenIndex].orderKey);
+    const targetFullIndex = fullOrder.indexOf(openItems[targetOpenIndex].orderKey);
+
+    if (sourceFullIndex < 0 || targetFullIndex < 0) {
+      return;
+    }
+
+    [fullOrder[sourceFullIndex], fullOrder[targetFullIndex]] = [fullOrder[targetFullIndex], fullOrder[sourceFullIndex]];
+    setDriverModeRouteOrder(driverModeRouteNumber, fullOrder);
+
+    const updatedItems = getDriverModeRouteItems(driverModeRouteNumber);
+    const currentIndex = updatedItems.findIndex((item) => item.orderKey === currentKey);
+
+    if (currentIndex >= 0) {
+      driverModeStopIndex = currentIndex;
+    }
+
     driverModeActionMessage = "";
     renderDriverMode();
   }
@@ -6875,6 +7027,9 @@
     const driverModeDeliverNextButton = event.target.closest("[data-delivery-driver-mode-deliver-next]");
     const driverModeSkipButton = event.target.closest("[data-delivery-driver-mode-skip]");
     const driverModePayButton = event.target.closest("[data-delivery-driver-mode-pay]");
+    const driverModeEditRouteButton = event.target.closest("[data-delivery-driver-mode-edit-route]");
+    const driverModeEditDoneButton = event.target.closest("[data-delivery-driver-mode-edit-done]");
+    const driverModeReorderButton = event.target.closest("[data-delivery-driver-mode-reorder]");
 
     if (newPdfButton) {
       pdfInput?.click();
@@ -6938,6 +7093,24 @@
 
     if (driverModePayButton && !driverModePayButton.disabled) {
       markCurrentDriverModeStopPaid();
+      return;
+    }
+
+    if (driverModeEditRouteButton && !driverModeEditRouteButton.disabled) {
+      setDriverModeRouteEditOpen(!isDriverModeRouteEditOpen);
+      return;
+    }
+
+    if (driverModeEditDoneButton && !driverModeEditDoneButton.disabled) {
+      setDriverModeRouteEditOpen(false);
+      return;
+    }
+
+    if (driverModeReorderButton && !driverModeReorderButton.disabled) {
+      moveDriverModeRouteOpenStop(
+        driverModeReorderButton.dataset.deliveryDriverModeReorder,
+        driverModeReorderButton.dataset.deliveryDriverModeReorderDelta
+      );
       return;
     }
 
