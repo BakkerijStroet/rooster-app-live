@@ -48,6 +48,7 @@
   const PRODUCT_COUNT_PATTERN = /^(?:(\d+[,.]?\d*)|(\d+)\s*x|x\s*(\d+))\s+\S+/i;
   const PRODUCT_CATEGORY_ORDER = ["brood", "gebak", "broodjes", "warm"];
   const PAYMENT_STATUS_VALUES = ["OK", "Op rekening", "Niet betaald", "Betaald via Ideal", "Contant", "Pin", "Tikkie"];
+  const DELIVERY_TIME_ZONE = "Europe/Amsterdam";
   const CURRENT_DELIVERY_PARSER_VERSION = "delivery-local-v5";
   const OLD_PARSER_WARNING = "Deze run is gemaakt met een oudere parser. Upload de PDF opnieuw voor de nieuwste herkenning.";
   const DRIVER_MODE_STORAGE_PREFIX = "delivery-driver-status-v1:";
@@ -277,6 +278,28 @@
     return `${year}-${month}-${day}`;
   }
 
+  function formatDateIsoInTimeZone(value, timeZone = DELIVERY_TIME_ZONE) {
+    const date = value instanceof Date ? value : new Date(value || "");
+
+    if (Number.isNaN(date.getTime())) {
+      return "";
+    }
+
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).formatToParts(date);
+    const partMap = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+    if (!partMap.year || !partMap.month || !partMap.day) {
+      return "";
+    }
+
+    return `${partMap.year}-${partMap.month}-${partMap.day}`;
+  }
+
   function parseDeliveryDateIso(value) {
     const text = String(value || "").trim().toLowerCase();
 
@@ -335,6 +358,23 @@
   function getDeliveryRunDisplayTitle({ deliveryDate = "", sourceFilename = "", fallbackDate = "" } = {}) {
     const dateLabel = parseDeliveryDateIso(deliveryDate) || formatDateIso(fallbackDate) || formatDateIso(new Date());
     return `${dateLabel} - ${getDeliveryDisplayBaseName(sourceFilename)}`;
+  }
+
+  function getEmployeeRunDateIso(run) {
+    const deliveryDate = parseDeliveryDateIso(run?.payload?.deliveryDate || "");
+
+    if (deliveryDate) {
+      return deliveryDate;
+    }
+
+    return formatDateIsoInTimeZone(
+      run?.createdAt || run?.created_at || run?.payload?.source?.uploadedAt || ""
+    );
+  }
+
+  function isEmployeeRunForToday(run) {
+    const todayIso = formatDateIsoInTimeZone(new Date());
+    return Boolean(todayIso && getEmployeeRunDateIso(run) === todayIso);
   }
 
   function formatHex(buffer) {
@@ -3792,14 +3832,16 @@
       return;
     }
 
-    if (!Array.isArray(runs) || !runs.length) {
+    const todayRuns = Array.isArray(runs) ? runs.filter(isEmployeeRunForToday) : [];
+
+    if (!todayRuns.length) {
       employeeDeliverySavedRunsElement.classList.add("empty");
-      employeeDeliverySavedRunsElement.textContent = "Nog geen opgeslagen routes beschikbaar.";
+      employeeDeliverySavedRunsElement.textContent = "Er staat nog geen bezorgroute voor vandaag klaar.";
       return;
     }
 
     employeeDeliverySavedRunsElement.classList.remove("empty");
-    employeeDeliverySavedRunsElement.innerHTML = runs.map((run) => {
+    employeeDeliverySavedRunsElement.innerHTML = todayRuns.map((run) => {
       const displayTitle = getDeliveryRunDisplayTitle({
         deliveryDate: run?.payload?.deliveryDate || "",
         sourceFilename: run?.sourceFilename || run?.payload?.source?.filename || "",
@@ -4160,6 +4202,11 @@
 
       if (!response.ok || !run) {
         renderEmployeeSavedRuns([], "error");
+        return;
+      }
+
+      if (!isEmployeeRunForToday(run)) {
+        renderEmployeeSavedRuns([]);
         return;
       }
 
