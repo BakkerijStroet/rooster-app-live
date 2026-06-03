@@ -95,6 +95,11 @@
   let latestPlannerStatus = "draft";
   let latestRouteProposalState = "none";
   let latestRouteAdviceReport = getEmptyRouteAdviceReport();
+  let latestRouteHistoryState = {
+    status: "idle",
+    runs: [],
+    error: ""
+  };
   let latestRouteCompleteness = {
     isIncomplete: false,
     reasons: [],
@@ -413,6 +418,11 @@
     latestPlannerStatus = "draft";
     latestRouteProposalState = "none";
     latestRouteAdviceReport = getEmptyRouteAdviceReport();
+    latestRouteHistoryState = {
+      status: "idle",
+      runs: [],
+      error: ""
+    };
     latestRouteCompleteness = {
       isIncomplete: false,
       suspectedCount: 0,
@@ -2067,6 +2077,11 @@
     latestPlannerStatus = "draft";
     latestRouteProposalState = "none";
     latestRouteAdviceReport = getEmptyRouteAdviceReport();
+    latestRouteHistoryState = {
+      status: "idle",
+      runs: [],
+      error: ""
+    };
     latestRouteCompleteness = {
       isIncomplete: false,
       suspectedCount: 0,
@@ -2390,6 +2405,129 @@
     return {
       postcode: `${postcodeMatch[1]} ${postcodeMatch[2].toUpperCase()}`,
       plaats: String(postcodeMatch[3] || "").replace(/[,\s]+$/g, "").trim()
+    };
+  }
+
+  function getStopHistoryIdentity(stop) {
+    const customerId = String(stop?.knownCustomerId || stop?.customerId || "").trim();
+    const customerName = normalizeReferenceValue(stop?.customerName);
+    const postcodePlace = getStopPostcodePlace(stop);
+    const postcode = normalizeReferencePostcode(stop?.postcode || postcodePlace.postcode);
+
+    return {
+      customerId,
+      fallbackKey: customerName && postcode ? `${customerName}|${postcode}` : ""
+    };
+  }
+
+  function getRouteHistoryStopsFromRun(run) {
+    const routeBlocks = Array.isArray(run?.payload?.routeBlocks) ? run.payload.routeBlocks : [];
+    const seenAt = run?.updatedAt || run?.createdAt || "";
+
+    return routeBlocks.flatMap((routeBlock, routeIndex) => {
+      const blockRouteNumber = getStopRouteNumber({
+        routeNumber: routeBlock?.routeNumber || routeIndex + 1,
+        routeName: routeBlock?.name || routeBlock?.routeName || ""
+      });
+
+      return (Array.isArray(routeBlock?.stops) ? routeBlock.stops : []).map((stop, stopIndex) => ({
+        ...normalizeLoadedStop({
+          ...stop,
+          routeNumber: stop?.routeNumber || blockRouteNumber,
+          routeName: stop?.routeName || `Route ${blockRouteNumber}`,
+          routeBlockName: stop?.routeBlockName || `Route ${blockRouteNumber}`,
+          position: stop?.position || stopIndex + 1
+        }),
+        seenAt
+      }));
+    });
+  }
+
+  function getLatestHistoryItem(items) {
+    return items.slice().sort((itemA, itemB) => {
+      const timeA = Date.parse(itemA.seenAt || "") || 0;
+      const timeB = Date.parse(itemB.seenAt || "") || 0;
+      return timeB - timeA;
+    })[0] || null;
+  }
+
+  function formatHistoryDate(value) {
+    const date = new Date(value || "");
+
+    if (Number.isNaN(date.getTime())) {
+      return "onbekend";
+    }
+
+    return new Intl.DateTimeFormat("nl-NL", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric"
+    }).format(date);
+  }
+
+  function buildRouteHistoryReport(stops = latestRouteStops) {
+    const normalizedStops = Array.isArray(stops) ? stops : [];
+    const runs = latestRouteHistoryState.runs.filter((run) => run?.payload);
+    const historyItems = runs.flatMap(getRouteHistoryStopsFromRun);
+    const rows = normalizedStops.map((stop) => {
+      const identity = getStopHistoryIdentity(stop);
+      const matches = historyItems.filter((item) => {
+        const itemIdentity = getStopHistoryIdentity(item);
+
+        return Boolean(
+          identity.customerId && itemIdentity.customerId && identity.customerId === itemIdentity.customerId
+          || identity.fallbackKey && itemIdentity.fallbackKey && identity.fallbackKey === itemIdentity.fallbackKey
+        );
+      });
+      const routeCounts = matches.reduce((counts, item) => {
+        const routeNumber = getStopRouteNumber(item);
+        counts[routeNumber] = (counts[routeNumber] || 0) + 1;
+        return counts;
+      }, { 1: 0, 2: 0 });
+      const latestItem = getLatestHistoryItem(matches);
+      const positionValues = matches
+        .map((item) => Number(item.position))
+        .filter((position) => Number.isFinite(position) && position > 0);
+      const routeTwoPositionValues = matches
+        .filter((item) => getStopRouteNumber(item) === 2)
+        .map((item) => Number(item.position))
+        .filter((position) => Number.isFinite(position) && position > 0);
+      const averagePosition = positionValues.length
+        ? positionValues.reduce((total, position) => total + position, 0) / positionValues.length
+        : 0;
+      const averageRouteTwoPosition = routeTwoPositionValues.length
+        ? routeTwoPositionValues.reduce((total, position) => total + position, 0) / routeTwoPositionValues.length
+        : 0;
+      const mostUsedRoute = routeCounts[2] > routeCounts[1] ? 2 : 1;
+      const advice = matches.length
+        ? (mostUsedRoute === 2
+          ? `Vaak Route 2 rond positie ${Math.round(averagePosition || 1)}`
+          : `Meestal Route 1 rond positie ${Math.round(averagePosition || 1)}`)
+        : "Nog geen historie";
+
+      return {
+        customerName: stop.customerName || "Klant onbekend",
+        seenCount: matches.length,
+        mostUsedRoute: matches.length ? `Route ${mostUsedRoute}` : "-",
+        routeUsage: matches.length ? `R1 ${routeCounts[1] || 0}x / R2 ${routeCounts[2] || 0}x` : "-",
+        averagePosition: matches.length ? Math.round(averagePosition || 0) : 0,
+        routeTwoPosition: routeTwoPositionValues.length ? Math.round(averageRouteTwoPosition || 0) : 0,
+        latestRoute: latestItem ? `Route ${getStopRouteNumber(latestItem)}` : "-",
+        latestPosition: latestItem?.position || "",
+        lastSeen: latestItem ? formatHistoryDate(latestItem.seenAt) : "-",
+        lastTimeWindow: latestItem?.timeWindow || "-",
+        lastCategories: normalizeCategories(latestItem?.categories || []).join(", ") || "-",
+        advice
+      };
+    });
+
+    return {
+      status: latestRouteHistoryState.status,
+      error: latestRouteHistoryState.error,
+      runCount: runs.length,
+      historyStopCount: historyItems.length,
+      matchedCount: rows.filter((row) => row.seenCount > 0).length,
+      rows
     };
   }
 
@@ -2927,6 +3065,61 @@
     `;
   }
 
+  function renderRouteHistoryReport(stops) {
+    const report = buildRouteHistoryReport(stops);
+
+    if (report.status === "idle" || report.status === "loading") {
+      return `
+        <section>
+          <h4>Routegeschiedenis</h4>
+          <p class="panel-note">Routegeschiedenis wordt geladen.</p>
+        </section>
+      `;
+    }
+
+    if (report.status === "error") {
+      return `
+        <section>
+          <h4>Routegeschiedenis</h4>
+          <p class="panel-note">Routegeschiedenis kon niet worden gelezen: ${escapeHtml(report.error)}</p>
+        </section>
+      `;
+    }
+
+    const rows = report.rows.slice(0, 20);
+
+    return `
+      <section>
+        <h4>Routegeschiedenis</h4>
+        <div class="delivery-recognition-metrics">
+          ${renderRecognitionMetric("Runs gelezen", report.runCount)}
+          ${renderRecognitionMetric("Historie-stops", report.historyStopCount)}
+          ${renderRecognitionMetric("Matches", report.matchedCount, report.matchedCount ? "ok" : "warning")}
+        </div>
+        ${report.runCount < 2 ? `<p class="panel-note">Nog weinig historie. Sla geplande routes op om later betere adviezen te kunnen tonen.</p>` : ""}
+        <ul class="delivery-recognition-list">
+          ${rows.map((row) => `
+            <li>
+              <strong>${escapeHtml(row.customerName)}</strong>:
+              ${escapeHtml(row.advice)}
+              <small>
+                gezien ${escapeHtml(String(row.seenCount))}x,
+                meest ${escapeHtml(row.mostUsedRoute)},
+                gebruik ${escapeHtml(row.routeUsage)},
+                gem. positie ${escapeHtml(row.averagePosition ? String(row.averagePosition) : "-")},
+                laatst ${escapeHtml(row.latestRoute)}${row.latestPosition ? ` positie ${escapeHtml(String(row.latestPosition))}` : ""},
+                ${row.routeTwoPosition ? `Route 2 gem. positie ${escapeHtml(String(row.routeTwoPosition))},` : ""}
+                laatst ${escapeHtml(row.lastSeen)},
+                tijd ${escapeHtml(row.lastTimeWindow)},
+                categorieën ${escapeHtml(row.lastCategories)}
+              </small>
+            </li>
+          `).join("")}
+        </ul>
+      </section>
+    `;
+  }
+
   function renderRecognitionReport(stops = latestRouteStops) {
     if (!recognitionReportElement) {
       return;
@@ -3002,6 +3195,7 @@
             </ul>
           ` : ""}
         </section>
+        ${renderRouteHistoryReport(normalizedStops)}
         <section>
           <h4>Parserinformatie</h4>
           <div class="delivery-recognition-metrics">
@@ -3029,6 +3223,10 @@
         </div>
       ` : ""}
     `;
+
+    if (normalizedStops.length && latestRouteHistoryState.status === "idle") {
+      void fetchRouteHistoryRuns();
+    }
   }
 
   function getStopReviewReasons(stop) {
@@ -3485,6 +3683,58 @@
     } catch {
       renderSavedRuns([], "error");
     }
+  }
+
+  async function fetchRouteHistoryRuns({ force = false } = {}) {
+    if (!force && (latestRouteHistoryState.status === "loading" || latestRouteHistoryState.status === "ready")) {
+      return;
+    }
+
+    latestRouteHistoryState = {
+      status: "loading",
+      runs: latestRouteHistoryState.runs,
+      error: ""
+    };
+    renderRecognitionReport(latestRouteStops);
+
+    try {
+      const response = await fetch("/api/delivery-runs?mode=test", {
+        method: "GET",
+        headers: {
+          Accept: "application/json"
+        },
+        cache: "no-store"
+      });
+      const result = await response.json().catch(() => ({}));
+
+      latestRouteHistoryState = response.ok
+        ? {
+          status: "ready",
+          runs: Array.isArray(result?.runs) ? result.runs : [],
+          error: ""
+        }
+        : {
+          status: "error",
+          runs: [],
+          error: result?.message || "Routegeschiedenis kon niet worden geladen."
+        };
+    } catch (error) {
+      latestRouteHistoryState = {
+        status: "error",
+        runs: [],
+        error: error?.message || "Routegeschiedenis kon niet worden geladen."
+      };
+    }
+
+    renderRecognitionReport(latestRouteStops);
+  }
+
+  function invalidateRouteHistoryReport() {
+    latestRouteHistoryState = {
+      status: "idle",
+      runs: [],
+      error: ""
+    };
   }
 
   function normalizeLoadedProduct(product) {
@@ -5448,6 +5698,7 @@
         latestRunUpdatedAt = savedRun.updatedAt || savedRun.createdAt || latestRunUpdatedAt;
         latestRunBaseUpdatedAt = savedRun.updatedAt || latestRunBaseUpdatedAt;
         latestHasLocalCorrections = false;
+        invalidateRouteHistoryReport();
         setStatus("Route opgeslagen.", "ready");
         void fetchSavedRuns();
       }
@@ -5515,6 +5766,7 @@
           status: "updated",
           message: "Route opgeslagen"
         };
+        invalidateRouteHistoryReport();
         setStatus("Route opgeslagen.", "ready");
         void fetchSavedRuns();
       }
