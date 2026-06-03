@@ -703,6 +703,7 @@ function getConfiguredBakeryEmployeeNames() {
     "Bernard",
     "Bjorn",
     "Chantal",
+    "Dennis",
     "Duuk",
     "Emille",
     "Gerry",
