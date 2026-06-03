@@ -125,6 +125,7 @@
   let isDriverModeOpen = false;
   let driverModeRouteNumber = 1;
   let driverModeStopIndex = 0;
+  let driverModeActionMessage = "";
   let latestDriverModeStorageKey = "";
   let latestDriverModeState = {
     stops: {}
@@ -214,6 +215,7 @@
     return {
       delivered: Boolean(state.delivered),
       paid: Boolean(state.paid),
+      skipped: Boolean(state.skipped),
       note: typeof state.note === "string" ? state.note : "",
       updatedAt: typeof state.updatedAt === "string" ? state.updatedAt : ""
     };
@@ -4613,14 +4615,15 @@
 
   function getDriverModeRouteSummary(routeItems) {
     const total = Array.isArray(routeItems) ? routeItems.length : 0;
-    const delivered = (Array.isArray(routeItems) ? routeItems : [])
-      .filter((item) => getDriverModeStopState(item.stop).delivered)
-      .length;
+    const stateItems = (Array.isArray(routeItems) ? routeItems : []).map((item) => getDriverModeStopState(item.stop));
+    const delivered = stateItems.filter((state) => state.delivered).length;
+    const skipped = stateItems.filter((state) => !state.delivered && state.skipped).length;
 
     return {
       total,
       delivered,
-      open: Math.max(total - delivered, 0)
+      skipped,
+      open: Math.max(total - delivered - skipped, 0)
     };
   }
 
@@ -4641,6 +4644,9 @@
         <button type="button" class="delivery-driver-mode-primary-action" data-delivery-driver-mode-deliver-next>
           ${state.delivered ? "Geleverd - volgende open stop" : "Geleverd + volgende stop"}
         </button>
+        <button type="button" class="delivery-driver-mode-skip-action${state.skipped && !state.delivered ? " is-done" : ""}" data-delivery-driver-mode-skip>
+          ${state.skipped && !state.delivered ? "Overgeslagen - volgende open stop" : "Overslaan"}
+        </button>
         ${showPaymentAction
           ? `<button type="button" class="delivery-driver-mode-pay-action${state.paid ? " is-done" : ""}" data-delivery-driver-mode-pay>
               ${state.paid ? "Betaald gemarkeerd" : "Betaald"}
@@ -4649,6 +4655,21 @@
         <label class="delivery-driver-mode-note">
           <textarea data-delivery-driver-note rows="2" maxlength="180" placeholder="Notitie voor deze stop">${escapeHtml(state.note)}</textarea>
         </label>
+      </div>
+    `;
+  }
+
+  function renderDriverModeStopStatus(stop) {
+    const state = getDriverModeStopState(stop);
+    const status = state.delivered
+      ? { label: "Geleverd", value: "delivered" }
+      : state.skipped
+        ? { label: "Overgeslagen", value: "skipped" }
+        : { label: "Open", value: "open" };
+
+    return `
+      <div class="delivery-driver-mode-stop-status" data-delivery-driver-stop-status="${escapeHtml(status.value)}">
+        ${escapeHtml(status.label)}
       </div>
     `;
   }
@@ -4725,7 +4746,7 @@
     const remark = String(stop.remark || "").trim();
     const paymentStatus = stop.paymentStatus || "betaling controle";
     const canMoveToNextOpen = routeItems.some((item, itemIndex) =>
-      itemIndex > driverModeStopIndex && !getDriverModeStopState(item.stop).delivered
+      itemIndex > driverModeStopIndex && !isDriverModeStopHandled(item.stop)
     );
 
     setDriverModeTargetsHtml(`
@@ -4738,7 +4759,7 @@
           <div class="delivery-driver-mode-progress">
             <div>
               <strong>${escapeHtml(deliveredProgressLabel)}</strong>
-              <span>${escapeHtml(stopLabel)} - ${escapeHtml(String(routeSummary.open))} open</span>
+              <span>${escapeHtml(String(routeSummary.skipped))} overgeslagen - ${escapeHtml(String(routeSummary.open))} open</span>
             </div>
             <div class="delivery-driver-mode-progress-track" aria-label="${escapeHtml(deliveredProgressLabel)}">
               <span style="width:${escapeHtml(String(progressPercentage))}%"></span>
@@ -4746,7 +4767,9 @@
           </div>
         </header>
         <article class="delivery-driver-mode-stop${isWarmStop(stop) ? " has-warm" : ""}">
+          ${driverModeActionMessage ? `<div class="delivery-driver-mode-alert">${escapeHtml(driverModeActionMessage)}</div>` : ""}
           <div class="delivery-driver-mode-stop-head">
+            ${renderDriverModeStopStatus(stop)}
             <strong>${escapeHtml(getRouteStopTimeLabel(stop))}</strong>
           </div>
           <h3>${escapeHtml(stop.customerName || "Klant onbekend")}</h3>
@@ -4786,6 +4809,7 @@
 
     driverModeRouteNumber = Number(routeNumber) === 2 ? 2 : 1;
     driverModeStopIndex = 0;
+    driverModeActionMessage = "";
     isDriverModeOpen = true;
     renderDriverMode();
     getActiveDriverModeElement()?.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -4805,7 +4829,30 @@
 
     driverModeRouteNumber = normalizedRouteNumber;
     driverModeStopIndex = 0;
+    driverModeActionMessage = "";
     renderDriverMode();
+  }
+
+  function getDriverModeUnhandledMessage() {
+    return "Deze stop is nog niet afgehandeld.\nKies eerst:\n- Geleverd\n- Overslaan";
+  }
+
+  function isDriverModeStopHandled(stop) {
+    const state = getDriverModeStopState(stop);
+    return Boolean(state.delivered || state.skipped);
+  }
+
+  function canLeaveCurrentDriverModeStop() {
+    const stop = getCurrentDriverModeStop();
+
+    if (!stop || isDriverModeStopHandled(stop)) {
+      driverModeActionMessage = "";
+      return true;
+    }
+
+    driverModeActionMessage = getDriverModeUnhandledMessage();
+    renderDriverMode();
+    return false;
   }
 
   function moveDriverModeStop(delta) {
@@ -4816,6 +4863,11 @@
       return;
     }
 
+    if (delta > 0 && !canLeaveCurrentDriverModeStop()) {
+      return;
+    }
+
+    driverModeActionMessage = "";
     driverModeStopIndex = Math.min(Math.max(driverModeStopIndex + delta, 0), routeItems.length - 1);
     renderDriverMode();
     getActiveDriverModeElement()?.scrollIntoView({ block: "start", behavior: "auto" });
@@ -4829,8 +4881,12 @@
       return;
     }
 
+    if (!canLeaveCurrentDriverModeStop()) {
+      return;
+    }
+
     const nextOpenIndex = routeItems.findIndex((item, itemIndex) =>
-      itemIndex > driverModeStopIndex && !getDriverModeStopState(item.stop).delivered
+      itemIndex > driverModeStopIndex && !isDriverModeStopHandled(item.stop)
     );
 
     if (nextOpenIndex < 0) {
@@ -4838,6 +4894,7 @@
       return;
     }
 
+    driverModeActionMessage = "";
     driverModeStopIndex = nextOpenIndex;
     renderDriverMode();
     getActiveDriverModeElement()?.scrollIntoView({ block: "start", behavior: "auto" });
@@ -4852,8 +4909,26 @@
     }
 
     updateDriverModeStopState(stop, {
-      delivered: true
+      delivered: true,
+      skipped: false
     });
+    driverModeActionMessage = "";
+    moveDriverModeToNextOpenStop();
+  }
+
+  function skipCurrentDriverModeStopAndMoveNext() {
+    const stop = getCurrentDriverModeStop();
+
+    if (!stop) {
+      renderDriverMode();
+      return;
+    }
+
+    updateDriverModeStopState(stop, {
+      delivered: false,
+      skipped: true
+    });
+    driverModeActionMessage = "";
     moveDriverModeToNextOpenStop();
   }
 
@@ -4868,6 +4943,7 @@
     updateDriverModeStopState(stop, {
       paid: true
     });
+    driverModeActionMessage = "";
     renderDriverMode();
   }
 
@@ -4884,8 +4960,10 @@
     }
 
     updateDriverModeStopState(stop, {
-      [field]: Boolean(checked)
+      [field]: Boolean(checked),
+      ...(field === "delivered" && checked ? { skipped: false } : {})
     });
+    driverModeActionMessage = "";
     renderDriverMode();
   }
 
@@ -6795,6 +6873,7 @@
     const driverModeNextOpenButton = event.target.closest("[data-delivery-driver-mode-next-open]");
     const driverModeNextButton = event.target.closest("[data-delivery-driver-mode-next]");
     const driverModeDeliverNextButton = event.target.closest("[data-delivery-driver-mode-deliver-next]");
+    const driverModeSkipButton = event.target.closest("[data-delivery-driver-mode-skip]");
     const driverModePayButton = event.target.closest("[data-delivery-driver-mode-pay]");
 
     if (newPdfButton) {
@@ -6849,6 +6928,11 @@
 
     if (driverModeDeliverNextButton && !driverModeDeliverNextButton.disabled) {
       completeCurrentDriverModeStopAndMoveNext();
+      return;
+    }
+
+    if (driverModeSkipButton && !driverModeSkipButton.disabled) {
+      skipCurrentDriverModeStopAndMoveNext();
       return;
     }
 

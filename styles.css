@@ -18099,6 +18099,7 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   color: var(--color-text-muted);
   font-size: 0.95rem;
   line-height: 1.1;
+  white-space: pre-line;
 }
 
 .delivery-driver-mode-progress-track {
@@ -18133,7 +18134,8 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 .delivery-driver-mode-stop-head {
   display: flex;
   align-items: flex-start;
-  justify-content: flex-end;
+  justify-content: space-between;
+  gap: 0.6rem;
 }
 
 .delivery-driver-mode-stop-head span {
@@ -18147,6 +18149,43 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   font-size: clamp(1.45rem, 7vw, 2rem);
   line-height: 1.1;
   white-space: nowrap;
+}
+
+.delivery-driver-mode-alert {
+  white-space: pre-line;
+  border: 1px solid #ef9a4a;
+  border-radius: 10px;
+  padding: 0.72rem 0.85rem;
+  background: #fff1d6;
+  color: #6f390c;
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1.28;
+}
+
+.delivery-driver-mode-stop-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.32rem 0.62rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-neutral-soft);
+  color: var(--color-text-muted);
+  font-size: 0.84rem;
+  font-weight: 950;
+}
+
+.delivery-driver-mode-stop-status[data-delivery-driver-stop-status="delivered"] {
+  border-color: #8ed6a8;
+  background: #e7f7ec;
+  color: #1f6b3d;
+}
+
+.delivery-driver-mode-stop-status[data-delivery-driver-stop-status="skipped"] {
+  border-color: #efb56d;
+  background: #fff1d6;
+  color: #8a4b0f;
 }
 
 .delivery-driver-mode-stop h3 {
@@ -18254,6 +18293,7 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 }
 
 .delivery-driver-mode-primary-action,
+.delivery-driver-mode-skip-action,
 .delivery-driver-mode-pay-action {
   width: 100%;
   min-height: 62px;
@@ -18264,6 +18304,18 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   font-size: 1.16rem;
   font-weight: 950;
   line-height: 1.12;
+}
+
+.delivery-driver-mode-skip-action {
+  border-color: #bf7519;
+  background: #fff1d6;
+  color: #6f390c;
+}
+
+.delivery-driver-mode-skip-action.is-done {
+  border-color: #bf7519;
+  background: #ffe4b8;
+  color: #6f390c;
 }
 
 .delivery-driver-mode-pay-action {
