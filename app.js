@@ -376,12 +376,40 @@ function isSafeStartupMode() {
 
 const safeStartupMode = true;
 
+function isEmployeeSessionActive() {
+  return Boolean(sessionState?.isAuthenticated) && !isPlannerRole();
+}
+
+function setTechnicalStatusElementVisibility(element, shouldShow) {
+  if (!element) {
+    return;
+  }
+
+  element.hidden = !shouldShow;
+  element.setAttribute("aria-hidden", shouldShow ? "false" : "true");
+  element.style.display = shouldShow ? "block" : "none";
+}
+
+function syncTechnicalStatusVisibility() {
+  const shouldShow = !isEmployeeSessionActive();
+  document.body?.classList.toggle("employee-clean-mode", !shouldShow);
+  setTechnicalStatusElementVisibility(safeModeStatus, shouldShow);
+  setTechnicalStatusElementVisibility(document.getElementById("appStartupDiagnostics"), shouldShow);
+}
+
 function updateSafeModeStatus(message = "Laden...") {
   if (!safeModeStatus) {
     return;
   }
 
+  if (isEmployeeSessionActive()) {
+    syncTechnicalStatusVisibility();
+    return;
+  }
+
   safeModeStatus.style.display = "block";
+  safeModeStatus.hidden = false;
+  safeModeStatus.setAttribute("aria-hidden", "false");
   safeModeStatus.textContent = `Veilige startup actief · ${message}`;
 }
 
@@ -398,6 +426,7 @@ function setStartupStep(step) {
   if (typeof window.StroetSetStartupStep === "function") {
     window.StroetSetStartupStep(step);
   }
+  syncTechnicalStatusVisibility();
 }
 
 function showStartupRecoveryError(error, context = "") {
@@ -1065,6 +1094,8 @@ function applySessionSnapshot(nextSessionState, { persist = false, dataMode = ""
   if (persist) {
     savePreferences();
   }
+
+  syncTechnicalStatusVisibility();
 }
 
 function getAvailableLoginEmployees() {

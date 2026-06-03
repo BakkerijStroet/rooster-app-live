@@ -18742,3 +18742,7 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 
 
 
+body.employee-clean-mode #safeModeStatus,
+body.employee-clean-mode #appStartupDiagnostics {
+  display: none !important;
+}
