@@ -29,6 +29,9 @@
   const plannerStatusElement = document.querySelector("[data-delivery-planner-status]");
   const plannerApprovePrintButton = document.querySelector("[data-delivery-route-print]");
   const plannerSaveButton = document.querySelector("[data-delivery-route-save]");
+  const driverModeOpenButton = document.querySelector("[data-delivery-driver-mode-open]");
+  const driverModeElement = document.getElementById("deliveryDriverMode");
+  const driverModeContentElement = document.getElementById("deliveryDriverModeContent");
   const savedRoutesSectionElement = document.querySelector(".delivery-saved-section");
   const routeResetButton = document.querySelector("[data-delivery-route-reset]");
 
@@ -112,6 +115,9 @@
   let latestParserVersionWarning = "";
   let selectedDeliveryStopIndex = -1;
   let draggedDeliveryStopIndex = -1;
+  let isDriverModeOpen = false;
+  let driverModeRouteNumber = 1;
+  let driverModeStopIndex = 0;
   let deliveryReferenceData = {
     customers: [],
     products: [],
@@ -284,6 +290,14 @@
       plannerSaveButton.title = saveState.title;
     }
 
+    if (driverModeOpenButton) {
+      const canOpenDriverMode = latestRunSource === "saved" && latestRouteStops.length > 0 && !isRoutePrintBlocked();
+      driverModeOpenButton.disabled = !canOpenDriverMode;
+      driverModeOpenButton.title = canOpenDriverMode
+        ? "Open read-only chauffeurmodus"
+        : "Open eerst een betrouwbare opgeslagen route";
+    }
+
     if (routeResetButton) {
       const canReset = latestRouteStops.length > 0 && latestRouteProposalState !== "none";
       routeResetButton.hidden = !canReset;
@@ -363,6 +377,11 @@
       routeBlocksElement.textContent = "Nog geen routeblokken beschikbaar.";
     }
 
+    isDriverModeOpen = false;
+    driverModeRouteNumber = 1;
+    driverModeStopIndex = 0;
+    renderDriverMode();
+
     renderQuickEdit([]);
 
     if (stopDetailElement) {
@@ -435,9 +454,13 @@
     latestParserVersionWarning = "";
     selectedDeliveryStopIndex = -1;
     draggedDeliveryStopIndex = -1;
+    isDriverModeOpen = false;
+    driverModeRouteNumber = 1;
+    driverModeStopIndex = 0;
     renderDashboard([], "");
     renderControlSummary([]);
     renderPlannerStatus();
+    renderDriverMode();
   }
 
   function isPdfFile(file) {
@@ -2883,6 +2906,7 @@
     renderRouteBlocks(latestRouteStops);
     renderQuickEdit(latestRouteStops);
     renderStopDetail(latestRouteStops);
+    renderDriverMode();
     renderProductOverview(latestRouteStops);
     renderRecognitionReport(latestRouteStops);
 
@@ -4243,6 +4267,208 @@
         ${icons.map((item) => `<span title="${escapeHtml(item.label)}" aria-label="${escapeHtml(item.label)}">${item.icon}</span>`).join("")}
       </div>
     `;
+  }
+
+  function getDriverModeRouteItems(routeNumber = driverModeRouteNumber) {
+    const normalizedRouteNumber = Number(routeNumber) === 2 ? 2 : 1;
+
+    return latestRouteStops
+      .map((stop, index) => ({
+        stop,
+        index
+      }))
+      .filter((item) => getStopRouteNumber(item.stop) === normalizedRouteNumber);
+  }
+
+  function normalizeDriverModeState() {
+    if (!latestRouteStops.length) {
+      isDriverModeOpen = false;
+      driverModeRouteNumber = 1;
+      driverModeStopIndex = 0;
+      return [];
+    }
+
+    let routeItems = getDriverModeRouteItems(driverModeRouteNumber);
+
+    if (!routeItems.length) {
+      driverModeRouteNumber = driverModeRouteNumber === 2 ? 1 : 2;
+      routeItems = getDriverModeRouteItems(driverModeRouteNumber);
+    }
+
+    if (!routeItems.length) {
+      driverModeStopIndex = 0;
+      return [];
+    }
+
+    driverModeStopIndex = Math.min(Math.max(driverModeStopIndex, 0), routeItems.length - 1);
+    return routeItems;
+  }
+
+  function getDriverModeRouteCount(routeNumber) {
+    return getDriverModeRouteItems(routeNumber).length;
+  }
+
+  function renderDriverModeIcons(stop) {
+    const categories = normalizeCategories(stop?.categories || []);
+    const icons = [];
+
+    if (categories.includes("brood") || categories.includes("broodjes")) {
+      icons.push({ icon: "ðŸž", label: "brood" });
+    }
+
+    if (categories.includes("gebak")) {
+      icons.push({ icon: "ðŸŽ‚", label: "banket/gebak" });
+    }
+
+    if (isWarmStop(stop)) {
+      icons.push({ icon: "ðŸ”¥", label: "warm/snacks" });
+    }
+
+    return icons.length
+      ? `<div class="delivery-driver-mode-icons">${icons.map((item) => `<span title="${escapeHtml(item.label)}">${item.icon}</span>`).join("")}</div>`
+      : "";
+  }
+
+  function renderDriverModeProducts(stop) {
+    const products = getSortedProductsForStop(stop);
+
+    if (!products.length) {
+      return "<div class=\"delivery-driver-mode-empty\">Geen productregels gekoppeld.</div>";
+    }
+
+    return `
+      <div class="delivery-driver-mode-products">
+        ${products.map((product) => {
+          const isWarmProduct = product.category === "warm" || isWarmPreparationProduct(product);
+          return `
+            <div class="delivery-driver-mode-product${isWarmProduct ? " has-warm" : ""}">
+              <strong>${escapeHtml(product.count || "?")}</strong>
+              <span>${escapeHtml(product.rawLine)}</span>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  function renderDriverMode() {
+    if (!driverModeElement || !driverModeContentElement) {
+      return;
+    }
+
+    renderPlannerStatus();
+    deliveryPanelElement?.classList.toggle("is-driver-mode-open", Boolean(isDriverModeOpen));
+
+    if (!isDriverModeOpen) {
+      driverModeElement.hidden = true;
+      driverModeContentElement.classList.add("empty");
+      driverModeContentElement.textContent = "Open een opgeslagen route om chauffeurmodus te bekijken.";
+      return;
+    }
+
+    const routeItems = normalizeDriverModeState();
+
+    if (!routeItems.length) {
+      driverModeElement.hidden = true;
+      driverModeContentElement.classList.add("empty");
+      driverModeContentElement.textContent = "Geen stops beschikbaar voor chauffeurmodus.";
+      return;
+    }
+
+    const currentItem = routeItems[driverModeStopIndex];
+    const stop = currentItem.stop;
+    const routeOneCount = getDriverModeRouteCount(1);
+    const routeTwoCount = getDriverModeRouteCount(2);
+    const stopLabel = `Stop ${driverModeStopIndex + 1} van ${routeItems.length}`;
+    const navigationUrl = stop.address
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.address)}`
+      : "";
+    const remark = String(stop.remark || "").trim();
+    const paymentStatus = stop.paymentStatus || "betaling controle";
+
+    driverModeElement.hidden = false;
+    driverModeContentElement.classList.remove("empty");
+    driverModeContentElement.innerHTML = `
+      <section class="delivery-driver-mode-shell">
+        <header class="delivery-driver-mode-top">
+          <button type="button" class="secondary" data-delivery-driver-mode-close>Terug</button>
+          <div>
+            <strong>${escapeHtml(latestDeliveryDate || "Datum onbekend")}</strong>
+            <span>Route ${escapeHtml(driverModeRouteNumber)} | ${escapeHtml(routeItems.length)} stops | ${escapeHtml(stopLabel)}</span>
+          </div>
+        </header>
+        <div class="delivery-driver-mode-route-tabs">
+          <button type="button" class="secondary${driverModeRouteNumber === 1 ? " is-active" : ""}" data-delivery-driver-route="1" ${routeOneCount ? "" : "disabled"}>Route 1 <span>${routeOneCount}</span></button>
+          <button type="button" class="secondary${driverModeRouteNumber === 2 ? " is-active" : ""}" data-delivery-driver-route="2" ${routeTwoCount ? "" : "disabled"}>Route 2 <span>${routeTwoCount}</span></button>
+        </div>
+        <article class="delivery-driver-mode-stop${isWarmStop(stop) ? " has-warm" : ""}">
+          <div class="delivery-driver-mode-stop-head">
+            <span>${escapeHtml(stopLabel)}</span>
+            <strong>${escapeHtml(getRouteStopTimeLabel(stop))}</strong>
+          </div>
+          <h3>${escapeHtml(stop.customerName || "Klant onbekend")}</h3>
+          ${renderDriverModeIcons(stop)}
+          <div class="delivery-driver-mode-address">
+            ${navigationUrl
+              ? `<a href="${escapeHtml(navigationUrl)}" target="_blank" rel="noopener">${escapeHtml(stop.address || "Adres onbekend")}</a>`
+              : `<span>${escapeHtml(stop.address || "Adres onbekend")}</span>`}
+          </div>
+          ${remark ? `<div class="delivery-driver-mode-remark">${escapeHtml(remark)}</div>` : ""}
+          <div class="delivery-driver-mode-meta">
+            <span>${escapeHtml(paymentStatus)}</span>
+            ${isWarmStop(stop) ? "<span>Warm controleren</span>" : ""}
+          </div>
+          <h4>Producten voor deze stop</h4>
+          ${renderDriverModeProducts(stop)}
+        </article>
+        <div class="delivery-driver-mode-nav">
+          <button type="button" class="secondary" data-delivery-driver-mode-prev ${driverModeStopIndex <= 0 ? "disabled" : ""}>Vorige stop</button>
+          <button type="button" class="secondary" data-delivery-driver-mode-next ${driverModeStopIndex >= routeItems.length - 1 ? "disabled" : ""}>Volgende stop</button>
+        </div>
+      </section>
+    `;
+  }
+
+  function openDriverMode(routeNumber = 1) {
+    if (latestRunSource !== "saved" || !latestRouteStops.length || isRoutePrintBlocked()) {
+      return;
+    }
+
+    driverModeRouteNumber = Number(routeNumber) === 2 ? 2 : 1;
+    driverModeStopIndex = 0;
+    isDriverModeOpen = true;
+    renderDriverMode();
+    driverModeElement?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+
+  function closeDriverMode() {
+    isDriverModeOpen = false;
+    renderDriverMode();
+  }
+
+  function setDriverModeRoute(routeNumber) {
+    const normalizedRouteNumber = Number(routeNumber) === 2 ? 2 : 1;
+
+    if (!getDriverModeRouteCount(normalizedRouteNumber)) {
+      return;
+    }
+
+    driverModeRouteNumber = normalizedRouteNumber;
+    driverModeStopIndex = 0;
+    renderDriverMode();
+  }
+
+  function moveDriverModeStop(delta) {
+    const routeItems = normalizeDriverModeState();
+
+    if (!routeItems.length) {
+      renderDriverMode();
+      return;
+    }
+
+    driverModeStopIndex = Math.min(Math.max(driverModeStopIndex + delta, 0), routeItems.length - 1);
+    renderDriverMode();
+    driverModeElement?.scrollIntoView({ block: "start", behavior: "auto" });
   }
 
   function getRouteStopTimeLabel(stop) {
@@ -6105,6 +6331,11 @@
     const routeSaveButton = event.target.closest("[data-delivery-route-save]");
     const routePrintButton = event.target.closest("[data-delivery-route-print]");
     const routeResetButton = event.target.closest("[data-delivery-route-reset]");
+    const driverModeButton = event.target.closest("[data-delivery-driver-mode-open]");
+    const driverModeCloseButton = event.target.closest("[data-delivery-driver-mode-close]");
+    const driverModeRouteButton = event.target.closest("[data-delivery-driver-route]");
+    const driverModePreviousButton = event.target.closest("[data-delivery-driver-mode-prev]");
+    const driverModeNextButton = event.target.closest("[data-delivery-driver-mode-next]");
 
     if (newPdfButton) {
       pdfInput?.click();
@@ -6123,6 +6354,31 @@
 
     if (routePrintButton && !routePrintButton.disabled) {
       approvePlanningAndOpenPrint();
+      return;
+    }
+
+    if (driverModeButton && !driverModeButton.disabled) {
+      openDriverMode(1);
+      return;
+    }
+
+    if (driverModeCloseButton) {
+      closeDriverMode();
+      return;
+    }
+
+    if (driverModeRouteButton && !driverModeRouteButton.disabled) {
+      setDriverModeRoute(Number(driverModeRouteButton.dataset.deliveryDriverRoute));
+      return;
+    }
+
+    if (driverModePreviousButton && !driverModePreviousButton.disabled) {
+      moveDriverModeStop(-1);
+      return;
+    }
+
+    if (driverModeNextButton && !driverModeNextButton.disabled) {
+      moveDriverModeStop(1);
       return;
     }
 

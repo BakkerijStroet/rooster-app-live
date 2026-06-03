@@ -17944,6 +17944,253 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   font-size: 0.9rem;
 }
 
+.delivery-panel.has-delivery-run.is-driver-mode-open .delivery-route-card,
+.delivery-panel.has-delivery-run.is-driver-mode-open .delivery-lower-sections {
+  display: none;
+}
+
+.delivery-panel.has-delivery-run .delivery-driver-mode {
+  width: min(100%, 760px);
+  margin: 0.35rem auto 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.delivery-driver-mode[hidden] {
+  display: none !important;
+}
+
+.delivery-driver-mode-content.empty {
+  border: 1px dashed var(--color-border);
+  border-radius: 8px;
+  padding: 0.8rem;
+  background: var(--color-surface-soft);
+  color: var(--color-text-muted);
+}
+
+.delivery-driver-mode-shell {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.delivery-driver-mode-top {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.delivery-driver-mode-top > div {
+  display: grid;
+  gap: 0.08rem;
+  min-width: 0;
+}
+
+.delivery-driver-mode-top strong {
+  color: var(--color-text);
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+.delivery-driver-mode-top span {
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.delivery-driver-mode-route-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+}
+
+.delivery-driver-mode-route-tabs button {
+  min-height: 40px;
+  justify-content: center;
+  border-radius: 8px;
+  font-weight: 900;
+}
+
+.delivery-driver-mode-route-tabs button.is-active {
+  border-color: #8a4a12;
+  background: #fff0d8;
+  color: #6f390c;
+}
+
+.delivery-driver-mode-route-tabs span {
+  margin-left: 0.25rem;
+  color: inherit;
+  opacity: 0.75;
+}
+
+.delivery-driver-mode-stop {
+  display: grid;
+  gap: 0.72rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1rem;
+  background: #fffaf4;
+  box-shadow: 0 10px 26px rgba(117, 82, 35, 0.08);
+}
+
+.delivery-driver-mode-stop.has-warm {
+  border-color: #d48b37;
+  background: #fff7ed;
+}
+
+.delivery-driver-mode-stop-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.delivery-driver-mode-stop-head span {
+  color: var(--color-text-muted);
+  font-size: 0.86rem;
+  font-weight: 850;
+}
+
+.delivery-driver-mode-stop-head strong {
+  color: #6f390c;
+  font-size: 1.22rem;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.delivery-driver-mode-stop h3 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: clamp(1.55rem, 8vw, 2.35rem);
+  line-height: 1.02;
+  overflow-wrap: anywhere;
+}
+
+.delivery-driver-mode-icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.delivery-driver-mode-icons span {
+  display: grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  font-size: 1.35rem;
+}
+
+.delivery-driver-mode-address a,
+.delivery-driver-mode-address span {
+  display: block;
+  border: 1px solid #8bb0d8;
+  border-radius: 10px;
+  padding: 0.85rem;
+  background: #f4f9ff;
+  color: #194f7a;
+  font-size: 1.18rem;
+  font-weight: 900;
+  line-height: 1.2;
+  text-decoration: none;
+}
+
+.delivery-driver-mode-remark {
+  border-left: 4px solid #d48b37;
+  border-radius: 8px;
+  padding: 0.65rem 0.75rem;
+  background: #fff0d8;
+  color: #6f390c;
+  font-size: 1rem;
+  font-weight: 850;
+}
+
+.delivery-driver-mode-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.delivery-driver-mode-meta span {
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.9rem;
+  font-weight: 850;
+}
+
+.delivery-driver-mode-stop h4 {
+  margin: 0.15rem 0 -0.2rem;
+  color: var(--color-text);
+  font-size: 1rem;
+}
+
+.delivery-driver-mode-products {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.delivery-driver-mode-product {
+  display: grid;
+  grid-template-columns: minmax(2.7rem, max-content) minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: start;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  padding: 0.55rem 0.65rem;
+  background: var(--color-surface);
+}
+
+.delivery-driver-mode-product.has-warm {
+  border-color: #d48b37;
+  background: #fff0d8;
+}
+
+.delivery-driver-mode-product strong {
+  color: #6f390c;
+  font-size: 1.08rem;
+  line-height: 1.2;
+}
+
+.delivery-driver-mode-product span {
+  color: var(--color-text);
+  font-size: 0.98rem;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.delivery-driver-mode-empty {
+  border: 1px dashed var(--color-border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  color: var(--color-text-muted);
+  font-weight: 800;
+}
+
+.delivery-driver-mode-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  position: sticky;
+  bottom: 0;
+  padding: 0.25rem 0;
+  background: rgba(255, 250, 244, 0.95);
+}
+
+.delivery-driver-mode-nav button {
+  min-height: 54px;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 950;
+}
+
 @media (max-width: 760px) {
   .delivery-panel.has-delivery-run .delivery-route-planner-grid {
     grid-template-columns: 1fr;
@@ -17980,6 +18227,21 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
     min-width: 0.92rem;
     min-height: 0.92rem;
     font-size: 0.56rem;
+  }
+
+  .delivery-panel.has-delivery-run .delivery-driver-mode {
+    width: 100%;
+    margin-top: 0.3rem;
+  }
+
+  .delivery-driver-mode-stop {
+    border-radius: 10px;
+    padding: 0.85rem;
+  }
+
+  .delivery-driver-mode-address a,
+  .delivery-driver-mode-address span {
+    font-size: 1.08rem;
   }
 }
 
