@@ -18025,6 +18025,32 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   opacity: 0.75;
 }
 
+.delivery-driver-mode-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+}
+
+.delivery-driver-mode-summary span {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.45rem 0.35rem;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-align: center;
+}
+
+.delivery-driver-mode-summary strong {
+  display: block;
+  color: var(--color-text);
+  font-size: 1.22rem;
+  line-height: 1.05;
+}
+
 .delivery-driver-mode-stop {
   display: grid;
   gap: 0.72rem;
@@ -18129,6 +18155,50 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   margin: 0.15rem 0 -0.2rem;
   color: var(--color-text);
   font-size: 1rem;
+}
+
+.delivery-driver-mode-actions {
+  display: grid;
+  gap: 0.55rem;
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.65rem;
+}
+
+.delivery-driver-mode-check {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.72rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 1.05rem;
+  font-weight: 950;
+}
+
+.delivery-driver-mode-check input {
+  width: 1.45rem;
+  height: 1.45rem;
+  accent-color: #8a4a12;
+}
+
+.delivery-driver-mode-note {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--color-text);
+  font-weight: 850;
+}
+
+.delivery-driver-mode-note textarea {
+  width: 100%;
+  min-height: 4.7rem;
+  resize: vertical;
+  border-radius: 10px;
+  padding: 0.65rem;
+  font-size: 1rem;
+  line-height: 1.28;
 }
 
 .delivery-driver-mode-products {

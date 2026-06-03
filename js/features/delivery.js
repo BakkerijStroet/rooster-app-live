@@ -45,6 +45,7 @@
   const PAYMENT_STATUS_VALUES = ["OK", "Op rekening", "Niet betaald", "Betaald via Ideal", "Contant", "Pin", "Tikkie"];
   const CURRENT_DELIVERY_PARSER_VERSION = "delivery-local-v5";
   const OLD_PARSER_WARNING = "Deze run is gemaakt met een oudere parser. Upload de PDF opnieuw voor de nieuwste herkenning.";
+  const DRIVER_MODE_STORAGE_PREFIX = "delivery-driver-status-v1:";
   const PAYMENT_CORRECTION_OPTIONS = [
     "OK",
     "Op rekening",
@@ -118,6 +119,10 @@
   let isDriverModeOpen = false;
   let driverModeRouteNumber = 1;
   let driverModeStopIndex = 0;
+  let latestDriverModeStorageKey = "";
+  let latestDriverModeState = {
+    stops: {}
+  };
   let deliveryReferenceData = {
     customers: [],
     products: [],
@@ -132,6 +137,96 @@
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
+  }
+
+  function getEmptyDriverModeState() {
+    return {
+      stops: {}
+    };
+  }
+
+  function getDriverModeStorageKey() {
+    if (latestRunSource !== "saved") {
+      return "";
+    }
+
+    const runKey = latestRunId || latestSourceHash;
+    return runKey ? `${DRIVER_MODE_STORAGE_PREFIX}${runKey}` : "";
+  }
+
+  function loadDriverModeState() {
+    const storageKey = getDriverModeStorageKey();
+    latestDriverModeStorageKey = storageKey;
+
+    if (!storageKey) {
+      latestDriverModeState = getEmptyDriverModeState();
+      return;
+    }
+
+    try {
+      const rawValue = window.localStorage?.getItem(storageKey) || "";
+      const parsedValue = rawValue ? JSON.parse(rawValue) : null;
+      latestDriverModeState = parsedValue && typeof parsedValue === "object" && parsedValue.stops
+        ? {
+            stops: parsedValue.stops && typeof parsedValue.stops === "object" ? parsedValue.stops : {}
+          }
+        : getEmptyDriverModeState();
+    } catch (error) {
+      console.warn("[delivery] chauffeurmodus status laden mislukt", error);
+      latestDriverModeState = getEmptyDriverModeState();
+    }
+  }
+
+  function persistDriverModeState() {
+    if (!latestDriverModeStorageKey) {
+      return;
+    }
+
+    try {
+      window.localStorage?.setItem(latestDriverModeStorageKey, JSON.stringify({
+        stops: latestDriverModeState.stops || {}
+      }));
+    } catch (error) {
+      console.warn("[delivery] chauffeurmodus status opslaan mislukt", error);
+    }
+  }
+
+  function getDriverModeStopKey(stop) {
+    const postcodePlace = getStopPostcodePlace(stop);
+    const customerKey = normalizeReferenceValue(stop?.customerId || stop?.knownCustomerId || stop?.customerName || "");
+    const addressKey = normalizeReferenceValue(stop?.address || "");
+    const postcodeKey = normalizeReferencePostcode(stop?.postcode || postcodePlace.postcode || stop?.address || "");
+    const timeKey = normalizeReferenceValue(stop?.timeWindow || "");
+
+    return [customerKey, postcodeKey, addressKey, timeKey].filter(Boolean).join("|") || "stop-onbekend";
+  }
+
+  function getDriverModeStopState(stop) {
+    const stopKey = getDriverModeStopKey(stop);
+    const state = latestDriverModeState.stops?.[stopKey] || {};
+
+    return {
+      delivered: Boolean(state.delivered),
+      paid: Boolean(state.paid),
+      note: typeof state.note === "string" ? state.note : "",
+      updatedAt: typeof state.updatedAt === "string" ? state.updatedAt : ""
+    };
+  }
+
+  function updateDriverModeStopState(stop, patch) {
+    const stopKey = getDriverModeStopKey(stop);
+
+    if (!stopKey) {
+      return;
+    }
+
+    latestDriverModeState.stops = latestDriverModeState.stops || {};
+    latestDriverModeState.stops[stopKey] = {
+      ...getDriverModeStopState(stop),
+      ...patch,
+      updatedAt: new Date().toISOString()
+    };
+    persistDriverModeState();
   }
 
   function formatFileSize(size) {
@@ -380,6 +475,8 @@
     isDriverModeOpen = false;
     driverModeRouteNumber = 1;
     driverModeStopIndex = 0;
+    latestDriverModeStorageKey = "";
+    latestDriverModeState = getEmptyDriverModeState();
     renderDriverMode();
 
     renderQuickEdit([]);
@@ -457,6 +554,8 @@
     isDriverModeOpen = false;
     driverModeRouteNumber = 1;
     driverModeStopIndex = 0;
+    latestDriverModeStorageKey = "";
+    latestDriverModeState = getEmptyDriverModeState();
     renderDashboard([], "");
     renderControlSummary([]);
     renderPlannerStatus();
@@ -3846,6 +3945,7 @@
       status: "opened",
       message: "Opgeslagen route geopend"
     };
+    loadDriverModeState();
     latestHasLocalCorrections = false;
     latestPlannerStatus = "draft";
     latestRouteProposalState = "none";
@@ -4351,6 +4451,40 @@
     `;
   }
 
+  function getDriverModeRouteSummary(routeItems) {
+    const total = Array.isArray(routeItems) ? routeItems.length : 0;
+    const delivered = (Array.isArray(routeItems) ? routeItems : [])
+      .filter((item) => getDriverModeStopState(item.stop).delivered)
+      .length;
+
+    return {
+      total,
+      delivered,
+      open: Math.max(total - delivered, 0)
+    };
+  }
+
+  function renderDriverModeActions(stop) {
+    const state = getDriverModeStopState(stop);
+
+    return `
+      <div class="delivery-driver-mode-actions">
+        <label class="delivery-driver-mode-check">
+          <input type="checkbox" data-delivery-driver-status-field="delivered" ${state.delivered ? "checked" : ""}>
+          <span>Geleverd</span>
+        </label>
+        <label class="delivery-driver-mode-check">
+          <input type="checkbox" data-delivery-driver-status-field="paid" ${state.paid ? "checked" : ""}>
+          <span>Betaald</span>
+        </label>
+        <label class="delivery-driver-mode-note">
+          <span>Notitie</span>
+          <textarea data-delivery-driver-note rows="2" maxlength="180" placeholder="Bijv. achterdeur, niemand aanwezig, pin storing">${escapeHtml(state.note)}</textarea>
+        </label>
+      </div>
+    `;
+  }
+
   function renderDriverMode() {
     if (!driverModeElement || !driverModeContentElement) {
       return;
@@ -4379,6 +4513,7 @@
     const stop = currentItem.stop;
     const routeOneCount = getDriverModeRouteCount(1);
     const routeTwoCount = getDriverModeRouteCount(2);
+    const routeSummary = getDriverModeRouteSummary(routeItems);
     const stopLabel = `Stop ${driverModeStopIndex + 1} van ${routeItems.length}`;
     const navigationUrl = stop.address
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.address)}`
@@ -4401,6 +4536,11 @@
           <button type="button" class="secondary${driverModeRouteNumber === 1 ? " is-active" : ""}" data-delivery-driver-route="1" ${routeOneCount ? "" : "disabled"}>Route 1 <span>${routeOneCount}</span></button>
           <button type="button" class="secondary${driverModeRouteNumber === 2 ? " is-active" : ""}" data-delivery-driver-route="2" ${routeTwoCount ? "" : "disabled"}>Route 2 <span>${routeTwoCount}</span></button>
         </div>
+        <div class="delivery-driver-mode-summary">
+          <span><strong>${escapeHtml(String(routeSummary.total))}</strong> stops</span>
+          <span><strong>${escapeHtml(String(routeSummary.delivered))}</strong> geleverd</span>
+          <span><strong>${escapeHtml(String(routeSummary.open))}</strong> open</span>
+        </div>
         <article class="delivery-driver-mode-stop${isWarmStop(stop) ? " has-warm" : ""}">
           <div class="delivery-driver-mode-stop-head">
             <span>${escapeHtml(stopLabel)}</span>
@@ -4418,6 +4558,7 @@
             <span>${escapeHtml(paymentStatus)}</span>
             ${isWarmStop(stop) ? "<span>Warm controleren</span>" : ""}
           </div>
+          ${renderDriverModeActions(stop)}
           <h4>Producten voor deze stop</h4>
           ${renderDriverModeProducts(stop)}
         </article>
@@ -4469,6 +4610,36 @@
     driverModeStopIndex = Math.min(Math.max(driverModeStopIndex + delta, 0), routeItems.length - 1);
     renderDriverMode();
     driverModeElement?.scrollIntoView({ block: "start", behavior: "auto" });
+  }
+
+  function getCurrentDriverModeStop() {
+    const routeItems = normalizeDriverModeState();
+    return routeItems[driverModeStopIndex]?.stop || null;
+  }
+
+  function updateCurrentDriverModeCheckbox(field, checked) {
+    const stop = getCurrentDriverModeStop();
+
+    if (!stop || !["delivered", "paid"].includes(field)) {
+      return;
+    }
+
+    updateDriverModeStopState(stop, {
+      [field]: Boolean(checked)
+    });
+    renderDriverMode();
+  }
+
+  function updateCurrentDriverModeNote(note) {
+    const stop = getCurrentDriverModeStop();
+
+    if (!stop) {
+      return;
+    }
+
+    updateDriverModeStopState(stop, {
+      note: String(note || "").trim()
+    });
   }
 
   function getRouteStopTimeLabel(stop) {
@@ -5923,6 +6094,7 @@
         latestRunId = savedRun.id || latestRunId;
         latestRunUpdatedAt = savedRun.updatedAt || savedRun.createdAt || latestRunUpdatedAt;
         latestRunBaseUpdatedAt = savedRun.updatedAt || latestRunBaseUpdatedAt;
+        loadDriverModeState();
         latestHasLocalCorrections = false;
         invalidateRouteHistoryReport();
         setStatus("Route opgeslagen.", "ready");
@@ -6385,6 +6557,24 @@
     if (routeResetButton && !routeResetButton.disabled) {
       resetRouteToPdfOrder();
     }
+  });
+  deliveryPanelElement?.addEventListener("change", (event) => {
+    const statusField = event.target.closest("[data-delivery-driver-status-field]");
+
+    if (!statusField) {
+      return;
+    }
+
+    updateCurrentDriverModeCheckbox(statusField.dataset.deliveryDriverStatusField, statusField.checked);
+  });
+  deliveryPanelElement?.addEventListener("input", (event) => {
+    const noteField = event.target.closest("[data-delivery-driver-note]");
+
+    if (!noteField) {
+      return;
+    }
+
+    updateCurrentDriverModeNote(noteField.value);
   });
   routeBlocksElement?.addEventListener("click", (event) => {
     const editButton = event.target.closest("[data-delivery-edit-stop]");
