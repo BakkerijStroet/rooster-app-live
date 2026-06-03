@@ -4624,19 +4624,28 @@
     };
   }
 
+  function isDriverModePaymentActionRelevant(stop) {
+    const status = normalizePaymentStatusLabel(stop?.paymentStatus);
+
+    return !status ||
+      ["niet betaald", "contant", "contant betaald", "pin", "pin betaald", "tikkie", "tikkie gestuurd", "controle nodig", "betaling controle"].includes(status);
+  }
+
   function renderDriverModeActions(stop) {
     const state = getDriverModeStopState(stop);
+    const paymentStatus = stop?.paymentStatus || "betaling controle";
+    const showPaymentAction = isDriverModePaymentActionRelevant(stop);
 
     return `
       <div class="delivery-driver-mode-actions">
-        <label class="delivery-driver-mode-check">
-          <input type="checkbox" data-delivery-driver-status-field="delivered" ${state.delivered ? "checked" : ""}>
-          <span>Geleverd</span>
-        </label>
-        <label class="delivery-driver-mode-check">
-          <input type="checkbox" data-delivery-driver-status-field="paid" ${state.paid ? "checked" : ""}>
-          <span>Betaald</span>
-        </label>
+        <button type="button" class="delivery-driver-mode-primary-action" data-delivery-driver-mode-deliver-next>
+          ${state.delivered ? "Geleverd - volgende open stop" : "Geleverd + volgende stop"}
+        </button>
+        ${showPaymentAction
+          ? `<button type="button" class="delivery-driver-mode-pay-action${state.paid ? " is-done" : ""}" data-delivery-driver-mode-pay>
+              ${state.paid ? "Betaald gemarkeerd" : "Betaald"}
+            </button>`
+          : `<div class="delivery-driver-mode-payment-note">Betaling: ${escapeHtml(paymentStatus)}</div>`}
         <label class="delivery-driver-mode-note">
           <textarea data-delivery-driver-note rows="2" maxlength="180" placeholder="Notitie voor deze stop">${escapeHtml(state.note)}</textarea>
         </label>
@@ -4706,6 +4715,10 @@
     const routeTwoCount = getDriverModeRouteCount(2);
     const routeSummary = getDriverModeRouteSummary(routeItems);
     const stopLabel = `Stop ${driverModeStopIndex + 1} van ${routeItems.length}`;
+    const deliveredProgressLabel = `${routeSummary.delivered} van ${routeSummary.total} geleverd`;
+    const progressPercentage = routeSummary.total
+      ? Math.round((routeSummary.delivered / routeSummary.total) * 100)
+      : 0;
     const navigationUrl = stop.address
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.address)}`
       : "";
@@ -4723,8 +4736,13 @@
             <button type="button" class="secondary${driverModeRouteNumber === 2 ? " is-active" : ""}" data-delivery-driver-route="2" ${routeTwoCount ? "" : "disabled"}>Route 2 <span>${routeTwoCount}</span></button>
           </div>
           <div class="delivery-driver-mode-progress">
-            <strong>${escapeHtml(stopLabel)}</strong>
-            <span>${escapeHtml(String(routeSummary.delivered))} geleverd / ${escapeHtml(String(routeSummary.open))} open</span>
+            <div>
+              <strong>${escapeHtml(deliveredProgressLabel)}</strong>
+              <span>${escapeHtml(stopLabel)} - ${escapeHtml(String(routeSummary.open))} open</span>
+            </div>
+            <div class="delivery-driver-mode-progress-track" aria-label="${escapeHtml(deliveredProgressLabel)}">
+              <span style="width:${escapeHtml(String(progressPercentage))}%"></span>
+            </div>
           </div>
         </header>
         <article class="delivery-driver-mode-stop${isWarmStop(stop) ? " has-warm" : ""}">
@@ -4733,9 +4751,12 @@
           </div>
           <h3>${escapeHtml(stop.customerName || "Klant onbekend")}</h3>
           ${renderDriverModeIcons(stop)}
+          ${navigationUrl
+            ? `<a class="delivery-driver-mode-navigate" href="${escapeHtml(navigationUrl)}" target="_blank" rel="noopener">Navigeer</a>`
+            : "<button type=\"button\" class=\"delivery-driver-mode-navigate\" disabled>Navigeer</button>"}
           <div class="delivery-driver-mode-address">
             ${navigationUrl
-              ? `<span>${escapeHtml(stop.address || "Adres onbekend")}</span><a href="${escapeHtml(navigationUrl)}" target="_blank" rel="noopener">Navigeer</a>`
+              ? `<span>${escapeHtml(stop.address || "Adres onbekend")}</span>`
               : `<span>${escapeHtml(stop.address || "Adres onbekend")}</span>`}
           </div>
           ${remark ? `<div class="delivery-driver-mode-remark">${escapeHtml(remark)}</div>` : ""}
@@ -4820,6 +4841,34 @@
     driverModeStopIndex = nextOpenIndex;
     renderDriverMode();
     getActiveDriverModeElement()?.scrollIntoView({ block: "start", behavior: "auto" });
+  }
+
+  function completeCurrentDriverModeStopAndMoveNext() {
+    const stop = getCurrentDriverModeStop();
+
+    if (!stop) {
+      renderDriverMode();
+      return;
+    }
+
+    updateDriverModeStopState(stop, {
+      delivered: true
+    });
+    moveDriverModeToNextOpenStop();
+  }
+
+  function markCurrentDriverModeStopPaid() {
+    const stop = getCurrentDriverModeStop();
+
+    if (!stop) {
+      renderDriverMode();
+      return;
+    }
+
+    updateDriverModeStopState(stop, {
+      paid: true
+    });
+    renderDriverMode();
   }
 
   function getCurrentDriverModeStop() {
@@ -6733,7 +6782,7 @@
       void openSavedRun(openButton.dataset.deliveryOpenRun);
     }
   });
-  deliveryPanelElement?.addEventListener("click", (event) => {
+  function handleDeliveryPanelClick(event) {
     const newPdfButton = event.target.closest("[data-delivery-route-new-pdf]");
     const showSavedButton = event.target.closest("[data-delivery-show-saved-routes]");
     const routeSaveButton = event.target.closest("[data-delivery-route-save]");
@@ -6745,6 +6794,8 @@
     const driverModePreviousButton = event.target.closest("[data-delivery-driver-mode-prev]");
     const driverModeNextOpenButton = event.target.closest("[data-delivery-driver-mode-next-open]");
     const driverModeNextButton = event.target.closest("[data-delivery-driver-mode-next]");
+    const driverModeDeliverNextButton = event.target.closest("[data-delivery-driver-mode-deliver-next]");
+    const driverModePayButton = event.target.closest("[data-delivery-driver-mode-pay]");
 
     if (newPdfButton) {
       pdfInput?.click();
@@ -6796,10 +6847,23 @@
       return;
     }
 
+    if (driverModeDeliverNextButton && !driverModeDeliverNextButton.disabled) {
+      completeCurrentDriverModeStopAndMoveNext();
+      return;
+    }
+
+    if (driverModePayButton && !driverModePayButton.disabled) {
+      markCurrentDriverModeStopPaid();
+      return;
+    }
+
     if (routeResetButton && !routeResetButton.disabled) {
       resetRouteToPdfOrder();
     }
-  });
+  }
+
+  deliveryPanelElement?.addEventListener("click", handleDeliveryPanelClick);
+  employeeDeliveryPanelElement?.addEventListener("click", handleDeliveryPanelClick);
   function handleDriverModeStatusChange(event) {
     const statusField = event.target.closest("[data-delivery-driver-status-field]");
 
