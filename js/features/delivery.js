@@ -160,7 +160,9 @@
     }
 
     const runKey = latestRunId || latestSourceHash;
-    return runKey ? `${DRIVER_MODE_STORAGE_PREFIX}${runKey}` : "";
+    const routeKey = Number(driverModeRouteNumber) === 2 ? "2" : "1";
+
+    return runKey ? `${DRIVER_MODE_STORAGE_PREFIX}${runKey}:route-${routeKey}` : "";
   }
 
   function loadDriverModeState() {
@@ -3873,8 +3875,8 @@
           <span>${stopCount} stop${stopCount === 1 ? "" : "s"}</span>
           <small>Bijgewerkt: ${escapeHtml(formatSavedRunDateTime(updatedAt))}</small>
           <div class="delivery-saved-run-actions">
-            <button type="button" class="secondary" data-employee-delivery-open-run="${escapeHtml(run?.id || "")}" data-employee-delivery-route="1" ${routeOneCount ? "" : "disabled"}>Route 1 (${routeOneCount})</button>
-            <button type="button" class="secondary" data-employee-delivery-open-run="${escapeHtml(run?.id || "")}" data-employee-delivery-route="2" ${routeTwoCount ? "" : "disabled"}>Route 2 (${routeTwoCount})</button>
+            <button type="button" class="secondary" data-employee-delivery-open-run="${escapeHtml(run?.id || "")}" data-employee-delivery-route="1" ${routeOneCount ? "" : "disabled"}>${routeOneCount ? `Route 1 starten (${routeOneCount})` : "Route 1 leeg"}</button>
+            <button type="button" class="secondary" data-employee-delivery-open-run="${escapeHtml(run?.id || "")}" data-employee-delivery-route="2" ${routeTwoCount ? "" : "disabled"}>${routeTwoCount ? `Route 2 starten (${routeTwoCount})` : "Route 2 leeg"}</button>
           </div>
         </article>
       `;
@@ -4600,6 +4602,11 @@
     let routeItems = getDriverModeRouteItems(driverModeRouteNumber);
 
     if (!routeItems.length) {
+      if (isEmployeeDriverModeActive()) {
+        driverModeStopIndex = 0;
+        return [];
+      }
+
       driverModeRouteNumber = driverModeRouteNumber === 2 ? 1 : 2;
       routeItems = getDriverModeRouteItems(driverModeRouteNumber);
     }
@@ -4721,25 +4728,48 @@
     `;
   }
 
+  function renderDriverModeRouteEditIcons(stop) {
+    const categories = normalizeCategories(stop?.categories || []);
+    const icons = [];
+
+    if (categories.includes("brood") || categories.includes("broodjes")) {
+      icons.push({ icon: "&#x1F35E;", label: "brood" });
+    }
+
+    if (categories.includes("gebak")) {
+      icons.push({ icon: "&#x1F382;", label: "banket/gebak" });
+    }
+
+    if (isWarmStop(stop)) {
+      icons.push({ icon: "&#x1F525;", label: "warm/snacks" });
+    }
+
+    return icons.length
+      ? `<div class="delivery-driver-route-edit-icons">${icons.map((item) => `<span title="${escapeHtml(item.label)}" aria-label="${escapeHtml(item.label)}">${item.icon}</span>`).join("")}</div>`
+      : "";
+  }
+
   function renderDriverModeRouteEditRow(item, openItems, handled = false) {
     const stop = item.stop;
     const state = getDriverModeStopState(stop);
     const openIndex = handled ? -1 : openItems.findIndex((candidate) => candidate.orderKey === item.orderKey);
     const statusLabel = state.delivered ? "Geleverd" : state.skipped ? "Overgeslagen" : "Open";
+    const customerName = String(stop?.customerName || "").trim() || "Onbekende stop";
+    const timeLabel = getRouteStopTimeLabel(stop);
 
     return `
       <div class="delivery-driver-route-edit-row${handled ? " is-handled" : ""}">
         <div class="delivery-driver-route-edit-main">
           <span class="delivery-driver-route-edit-status" data-delivery-driver-stop-status="${escapeHtml(state.delivered ? "delivered" : state.skipped ? "skipped" : "open")}">${escapeHtml(statusLabel)}</span>
-          <strong>${escapeHtml(stop.customerName || "Klant onbekend")}</strong>
-          <small>${escapeHtml(getRouteStopTimeLabel(stop))}</small>
-          ${renderDriverModeIcons(stop)}
+          <strong>${escapeHtml(customerName)}</strong>
+          <small>${escapeHtml(timeLabel)}</small>
+          ${handled ? "" : renderDriverModeRouteEditIcons(stop)}
         </div>
         ${handled
-          ? "<div class=\"delivery-driver-route-edit-locked\">Vast</div>"
+          ? ""
           : `<div class="delivery-driver-route-edit-actions">
-              <button type="button" class="secondary" data-delivery-driver-mode-reorder="${escapeHtml(item.orderKey)}" data-delivery-driver-mode-reorder-delta="-1" ${openIndex <= 0 ? "disabled" : ""}>Omhoog</button>
-              <button type="button" class="secondary" data-delivery-driver-mode-reorder="${escapeHtml(item.orderKey)}" data-delivery-driver-mode-reorder-delta="1" ${openIndex >= openItems.length - 1 ? "disabled" : ""}>Omlaag</button>
+              <button type="button" class="secondary" aria-label="${escapeHtml(`${customerName} omhoog`)}" data-delivery-driver-mode-reorder="${escapeHtml(item.orderKey)}" data-delivery-driver-mode-reorder-delta="-1" ${openIndex <= 0 ? "disabled" : ""}>&uarr;</button>
+              <button type="button" class="secondary" aria-label="${escapeHtml(`${customerName} omlaag`)}" data-delivery-driver-mode-reorder="${escapeHtml(item.orderKey)}" data-delivery-driver-mode-reorder-delta="1" ${openIndex >= openItems.length - 1 ? "disabled" : ""}>&darr;</button>
             </div>`}
       </div>
     `;
@@ -4754,7 +4784,7 @@
         <div class="delivery-driver-route-edit-head">
           <div>
             <strong>Route aanpassen</strong>
-            <span>Alleen open stops worden lokaal verplaatst.</span>
+            <span>Sleep of verplaats alleen open stops</span>
           </div>
           <button type="button" class="secondary" data-delivery-driver-mode-edit-done>Klaar</button>
         </div>
@@ -4791,6 +4821,10 @@
     return document.body?.dataset?.activeTab === "employee-delivery"
       ? employeeDriverModeElement || driverModeElement
       : driverModeElement || employeeDriverModeElement;
+  }
+
+  function isEmployeeDriverModeActive() {
+    return document.body?.dataset?.activeTab === "employee-delivery";
   }
 
   function setDriverModeTargetsHidden(message) {
@@ -4834,6 +4868,8 @@
     const stop = currentItem.stop;
     const routeOneCount = getDriverModeRouteCount(1);
     const routeTwoCount = getDriverModeRouteCount(2);
+    const routeName = `Route ${driverModeRouteNumber}`;
+    const isEmployeeMode = isEmployeeDriverModeActive();
     const routeSummary = getDriverModeRouteSummary(routeItems);
     const stopLabel = `Stop ${driverModeStopIndex + 1} van ${routeItems.length}`;
     const deliveredProgressLabel = `${routeSummary.delivered} van ${routeSummary.total} geleverd`;
@@ -4852,10 +4888,15 @@
     setDriverModeTargetsHtml(`
       <section class="delivery-driver-mode-shell">
         <header class="delivery-driver-mode-top">
-          <div class="delivery-driver-mode-route-tabs">
-            <button type="button" class="secondary${driverModeRouteNumber === 1 ? " is-active" : ""}" data-delivery-driver-route="1" ${routeOneCount ? "" : "disabled"}>Route 1 <span>${routeOneCount}</span></button>
-            <button type="button" class="secondary${driverModeRouteNumber === 2 ? " is-active" : ""}" data-delivery-driver-route="2" ${routeTwoCount ? "" : "disabled"}>Route 2 <span>${routeTwoCount}</span></button>
-          </div>
+          ${isEmployeeMode
+            ? `<div class="delivery-driver-mode-route-title">
+                <strong>${escapeHtml(routeName)}</strong>
+                <span>${escapeHtml(stopLabel)}</span>
+              </div>`
+            : `<div class="delivery-driver-mode-route-tabs">
+                <button type="button" class="secondary${driverModeRouteNumber === 1 ? " is-active" : ""}" data-delivery-driver-route="1" ${routeOneCount ? "" : "disabled"}>Route 1 <span>${routeOneCount}</span></button>
+                <button type="button" class="secondary${driverModeRouteNumber === 2 ? " is-active" : ""}" data-delivery-driver-route="2" ${routeTwoCount ? "" : "disabled"}>Route 2 <span>${routeTwoCount}</span></button>
+              </div>`}
           <div class="delivery-driver-mode-progress">
             <div>
               <strong>${escapeHtml(deliveredProgressLabel)}</strong>
@@ -4919,6 +4960,7 @@
     driverModeActionMessage = "";
     isDriverModeRouteEditOpen = false;
     isDriverModeOpen = true;
+    loadDriverModeState();
     renderDriverMode();
     getActiveDriverModeElement()?.scrollIntoView({ block: "start", behavior: "smooth" });
   }
@@ -4940,6 +4982,7 @@
     driverModeStopIndex = 0;
     driverModeActionMessage = "";
     isDriverModeRouteEditOpen = false;
+    loadDriverModeState();
     renderDriverMode();
   }
 
