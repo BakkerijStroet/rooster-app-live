@@ -576,6 +576,25 @@
         <div id="homeWeekOverview" class="schedule-board empty">Nog geen weekoverzicht beschikbaar.</div>
       </section>
 
+      <section class="staff-panel app-panel aligned-view-panel director-screen-panel employee-start-panel" data-panel="employee-home">
+        <div class="view-header director-screen-header">
+          <div>
+            <h2>Waar wil je heen?</h2>
+            <p class="panel-note">Kies je werkmodus.</p>
+          </div>
+        </div>
+        <div class="employee-mode-tiles">
+          <button type="button" class="employee-mode-tile quick-link" data-go-tab="week-current">
+            <strong>Rooster</strong>
+            <span>Bekijk je rooster, uren en aanvragen.</span>
+          </button>
+          <button type="button" class="employee-mode-tile quick-link" data-go-tab="employee-delivery">
+            <strong>Bezorgen</strong>
+            <span>Open een opgeslagen route voor onderweg.</span>
+          </button>
+        </div>
+      </section>
+
       <section class="staff-panel role-planner app-panel employee-management-panel" data-panel="employees">
         <div class="view-header director-screen-header">
           <div>
@@ -1240,6 +1259,25 @@
             </article>
           </details>
         </div>
+      </section>
+
+      <section class="staff-panel app-panel aligned-view-panel director-screen-panel employee-delivery-panel" data-panel="employee-delivery">
+        <div class="view-header director-screen-header">
+          <div>
+            <h2>Bezorgen</h2>
+            <p class="panel-note">Kies een opgeslagen route. Dit is de eenvoudige chauffeurmodus.</p>
+          </div>
+        </div>
+        <article class="capacity-card employee-delivery-routes-card">
+          <div class="delivery-saved-header">
+            <h3>Opgeslagen routes</h3>
+            <button type="button" id="employeeDeliveryRefreshButton" class="secondary">Vernieuwen</button>
+          </div>
+          <div id="employeeDeliverySavedRuns" class="delivery-saved-runs empty">Opgeslagen routes worden geladen.</div>
+        </article>
+        <article id="employeeDeliveryDriverMode" class="capacity-card delivery-driver-mode employee-delivery-driver-mode" hidden>
+          <div id="employeeDeliveryDriverModeContent" class="delivery-driver-mode-content empty">Kies een opgeslagen route om chauffeurmodus te openen.</div>
+        </article>
       </section>
 
       <form id="schedule-form" class="form role-planner app-panel week-form-card" data-panel="week-current" data-week-panel data-slot="left">

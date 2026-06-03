@@ -32,6 +32,11 @@
   const driverModeOpenButton = document.querySelector("[data-delivery-driver-mode-open]");
   const driverModeElement = document.getElementById("deliveryDriverMode");
   const driverModeContentElement = document.getElementById("deliveryDriverModeContent");
+  const employeeDeliveryPanelElement = document.querySelector("[data-panel=\"employee-delivery\"]");
+  const employeeDeliverySavedRunsElement = document.getElementById("employeeDeliverySavedRuns");
+  const employeeDeliveryRefreshButton = document.getElementById("employeeDeliveryRefreshButton");
+  const employeeDriverModeElement = document.getElementById("employeeDeliveryDriverMode");
+  const employeeDriverModeContentElement = document.getElementById("employeeDeliveryDriverModeContent");
   const savedRoutesSectionElement = document.querySelector(".delivery-saved-section");
   const routeResetButton = document.querySelector("[data-delivery-route-reset]");
 
@@ -3770,6 +3775,62 @@
     }).join("");
   }
 
+  function renderEmployeeSavedRuns(runs, state = "ready") {
+    if (!employeeDeliverySavedRunsElement) {
+      return;
+    }
+
+    if (state === "loading") {
+      employeeDeliverySavedRunsElement.classList.add("empty");
+      employeeDeliverySavedRunsElement.textContent = "Opgeslagen routes worden geladen.";
+      return;
+    }
+
+    if (state === "error") {
+      employeeDeliverySavedRunsElement.classList.add("empty");
+      employeeDeliverySavedRunsElement.textContent = "Opgeslagen routes konden niet worden geladen.";
+      return;
+    }
+
+    if (!Array.isArray(runs) || !runs.length) {
+      employeeDeliverySavedRunsElement.classList.add("empty");
+      employeeDeliverySavedRunsElement.textContent = "Nog geen opgeslagen routes beschikbaar.";
+      return;
+    }
+
+    employeeDeliverySavedRunsElement.classList.remove("empty");
+    employeeDeliverySavedRunsElement.innerHTML = runs.map((run) => {
+      const displayTitle = getDeliveryRunDisplayTitle({
+        deliveryDate: run?.payload?.deliveryDate || "",
+        sourceFilename: run?.sourceFilename || run?.payload?.source?.filename || "",
+        fallbackDate: run?.payload?.source?.uploadedAt || run?.createdAt || run?.updatedAt || ""
+      });
+      const routeBlocks = Array.isArray(run?.payload?.routeBlocks) ? run.payload.routeBlocks : [];
+      const routeOneCount = routeBlocks.find((routeBlock, routeIndex) => getStopRouteNumber({
+        routeNumber: routeBlock?.routeNumber || routeIndex + 1,
+        routeName: routeBlock?.name || routeBlock?.routeName || ""
+      }) === 1)?.stops?.length || 0;
+      const routeTwoCount = routeBlocks.find((routeBlock, routeIndex) => getStopRouteNumber({
+        routeNumber: routeBlock?.routeNumber || routeIndex + 1,
+        routeName: routeBlock?.name || routeBlock?.routeName || ""
+      }) === 2)?.stops?.length || 0;
+      const stopCount = routeOneCount + routeTwoCount;
+      const updatedAt = run?.updatedAt || run?.createdAt || "";
+
+      return `
+        <article class="delivery-saved-run employee-delivery-run">
+          <strong>${escapeHtml(displayTitle)}</strong>
+          <span>${stopCount} stop${stopCount === 1 ? "" : "s"}</span>
+          <small>Bijgewerkt: ${escapeHtml(formatSavedRunDateTime(updatedAt))}</small>
+          <div class="delivery-saved-run-actions">
+            <button type="button" class="secondary" data-employee-delivery-open-run="${escapeHtml(run?.id || "")}" data-employee-delivery-route="1" ${routeOneCount ? "" : "disabled"}>Route 1 (${routeOneCount})</button>
+            <button type="button" class="secondary" data-employee-delivery-open-run="${escapeHtml(run?.id || "")}" data-employee-delivery-route="2" ${routeTwoCount ? "" : "disabled"}>Route 2 (${routeTwoCount})</button>
+          </div>
+        </article>
+      `;
+    }).join("");
+  }
+
   function openSavedRoutesSection({ scroll = true } = {}) {
     setDeliveryWorkVisible(true);
 
@@ -3781,6 +3842,31 @@
     }
 
     void fetchSavedRuns();
+  }
+
+  async function fetchEmployeeSavedRuns() {
+    if (!employeeDeliverySavedRunsElement) {
+      return;
+    }
+
+    renderEmployeeSavedRuns([], "loading");
+
+    try {
+      const response = await fetch("/api/delivery-runs?mode=test", {
+        method: "GET",
+        cache: "no-store"
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        renderEmployeeSavedRuns([], "error");
+        return;
+      }
+
+      renderEmployeeSavedRuns(Array.isArray(result?.runs) ? result.runs : []);
+    } catch {
+      renderEmployeeSavedRuns([], "error");
+    }
   }
 
   async function fetchSavedRuns() {
@@ -4054,6 +4140,33 @@
       }
     } catch (error) {
       setStatus(error?.message || "Opgeslagen route kon niet worden geopend.", "error");
+    }
+  }
+
+  async function openEmployeeDeliveryRun(runId, routeNumber = 1) {
+    const normalizedRunId = String(runId || "").trim();
+
+    if (!normalizedRunId) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/delivery-runs?mode=test&id=${encodeURIComponent(normalizedRunId)}`, {
+        method: "GET",
+        cache: "no-store"
+      });
+      const result = await response.json().catch(() => ({}));
+      const run = Array.isArray(result?.runs) ? result.runs[0] : null;
+
+      if (!response.ok || !run) {
+        renderEmployeeSavedRuns([], "error");
+        return;
+      }
+
+      renderSavedRunPayload(run);
+      openDriverMode(routeNumber);
+    } catch {
+      renderEmployeeSavedRuns([], "error");
     }
   }
 
@@ -4485,27 +4598,59 @@
     `;
   }
 
+  function getDriverModeTargets() {
+    return [
+      {
+        element: driverModeElement,
+        content: driverModeContentElement
+      },
+      {
+        element: employeeDriverModeElement,
+        content: employeeDriverModeContentElement
+      }
+    ].filter((target) => target.element && target.content);
+  }
+
+  function getActiveDriverModeElement() {
+    return document.body?.dataset?.activeTab === "employee-delivery"
+      ? employeeDriverModeElement || driverModeElement
+      : driverModeElement || employeeDriverModeElement;
+  }
+
+  function setDriverModeTargetsHidden(message) {
+    getDriverModeTargets().forEach((target) => {
+      target.element.hidden = true;
+      target.content.classList.add("empty");
+      target.content.textContent = message;
+    });
+  }
+
+  function setDriverModeTargetsHtml(html) {
+    getDriverModeTargets().forEach((target) => {
+      target.element.hidden = false;
+      target.content.classList.remove("empty");
+      target.content.innerHTML = html;
+    });
+  }
+
   function renderDriverMode() {
-    if (!driverModeElement || !driverModeContentElement) {
+    if (!getDriverModeTargets().length) {
       return;
     }
 
     renderPlannerStatus();
     deliveryPanelElement?.classList.toggle("is-driver-mode-open", Boolean(isDriverModeOpen));
+    employeeDeliveryPanelElement?.classList.toggle("is-driver-mode-open", Boolean(isDriverModeOpen));
 
     if (!isDriverModeOpen) {
-      driverModeElement.hidden = true;
-      driverModeContentElement.classList.add("empty");
-      driverModeContentElement.textContent = "Open een opgeslagen route om chauffeurmodus te bekijken.";
+      setDriverModeTargetsHidden("Open een opgeslagen route om chauffeurmodus te bekijken.");
       return;
     }
 
     const routeItems = normalizeDriverModeState();
 
     if (!routeItems.length) {
-      driverModeElement.hidden = true;
-      driverModeContentElement.classList.add("empty");
-      driverModeContentElement.textContent = "Geen stops beschikbaar voor chauffeurmodus.";
+      setDriverModeTargetsHidden("Geen stops beschikbaar voor chauffeurmodus.");
       return;
     }
 
@@ -4521,9 +4666,7 @@
     const remark = String(stop.remark || "").trim();
     const paymentStatus = stop.paymentStatus || "betaling controle";
 
-    driverModeElement.hidden = false;
-    driverModeContentElement.classList.remove("empty");
-    driverModeContentElement.innerHTML = `
+    setDriverModeTargetsHtml(`
       <section class="delivery-driver-mode-shell">
         <header class="delivery-driver-mode-top">
           <button type="button" class="secondary" data-delivery-driver-mode-close>Terug</button>
@@ -4567,7 +4710,7 @@
           <button type="button" class="secondary" data-delivery-driver-mode-next ${driverModeStopIndex >= routeItems.length - 1 ? "disabled" : ""}>Volgende stop</button>
         </div>
       </section>
-    `;
+    `);
   }
 
   function openDriverMode(routeNumber = 1) {
@@ -4579,7 +4722,7 @@
     driverModeStopIndex = 0;
     isDriverModeOpen = true;
     renderDriverMode();
-    driverModeElement?.scrollIntoView({ block: "start", behavior: "smooth" });
+    getActiveDriverModeElement()?.scrollIntoView({ block: "start", behavior: "smooth" });
   }
 
   function closeDriverMode() {
@@ -4609,7 +4752,7 @@
 
     driverModeStopIndex = Math.min(Math.max(driverModeStopIndex + delta, 0), routeItems.length - 1);
     renderDriverMode();
-    driverModeElement?.scrollIntoView({ block: "start", behavior: "auto" });
+    getActiveDriverModeElement()?.scrollIntoView({ block: "start", behavior: "auto" });
   }
 
   function getCurrentDriverModeStop() {
@@ -6484,6 +6627,32 @@
   savedRefreshButton?.addEventListener("click", () => {
     void fetchSavedRuns();
   });
+  employeeDeliveryRefreshButton?.addEventListener("click", () => {
+    void fetchEmployeeSavedRuns();
+  });
+  document.addEventListener("click", (event) => {
+    const employeeDeliveryLink = event.target.closest("[data-go-tab=\"employee-delivery\"]");
+
+    if (!employeeDeliveryLink) {
+      return;
+    }
+
+    window.setTimeout(() => {
+      void fetchEmployeeSavedRuns();
+    }, 0);
+  });
+  employeeDeliverySavedRunsElement?.addEventListener("click", (event) => {
+    const openButton = event.target.closest("[data-employee-delivery-open-run]");
+
+    if (!openButton || openButton.disabled) {
+      return;
+    }
+
+    void openEmployeeDeliveryRun(
+      openButton.dataset.employeeDeliveryOpenRun,
+      Number(openButton.dataset.employeeDeliveryRoute)
+    );
+  });
   savedRunsElement?.addEventListener("click", (event) => {
     const openButton = event.target.closest("[data-delivery-open-run]");
     const printButton = event.target.closest("[data-delivery-print-run]");
@@ -6558,7 +6727,7 @@
       resetRouteToPdfOrder();
     }
   });
-  deliveryPanelElement?.addEventListener("change", (event) => {
+  function handleDriverModeStatusChange(event) {
     const statusField = event.target.closest("[data-delivery-driver-status-field]");
 
     if (!statusField) {
@@ -6566,8 +6735,9 @@
     }
 
     updateCurrentDriverModeCheckbox(statusField.dataset.deliveryDriverStatusField, statusField.checked);
-  });
-  deliveryPanelElement?.addEventListener("input", (event) => {
+  }
+
+  function handleDriverModeNoteInput(event) {
     const noteField = event.target.closest("[data-delivery-driver-note]");
 
     if (!noteField) {
@@ -6575,7 +6745,12 @@
     }
 
     updateCurrentDriverModeNote(noteField.value);
-  });
+  }
+
+  deliveryPanelElement?.addEventListener("change", handleDriverModeStatusChange);
+  employeeDeliveryPanelElement?.addEventListener("change", handleDriverModeStatusChange);
+  deliveryPanelElement?.addEventListener("input", handleDriverModeNoteInput);
+  employeeDeliveryPanelElement?.addEventListener("input", handleDriverModeNoteInput);
   routeBlocksElement?.addEventListener("click", (event) => {
     const editButton = event.target.closest("[data-delivery-edit-stop]");
     const cancelButton = event.target.closest("[data-delivery-cancel-correction]");

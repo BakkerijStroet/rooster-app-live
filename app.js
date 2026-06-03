@@ -162,6 +162,7 @@ const EMPLOYEE_MAIL_TEST_MODE_ENABLED = true;
 const EMPLOYEE_MAIL_TEST_EMPLOYEE = "Twan";
 const PLANNER_LOGIN_PIN = "1234";
 const DEFAULT_EMPLOYEE_LOGIN_PIN = "1234";
+const DELIVERY_EMPLOYEE_NAMES = ["Dennis", "Kevin", "Jos"];
 const employeeListCard = document.getElementById("employeeListCard");
 const employeeStandardShiftList = document.getElementById("employeeStandardShiftList");
 const employeeExtraAvailabilityPanel = document.getElementById("employeeExtraAvailabilityPanel");
@@ -1171,7 +1172,11 @@ function closeSessionLogin() {
 }
 
 function getSafeModeDefaultTabForCurrentRole() {
-  return isPlannerRole() ? "employees" : "my-account";
+  if (isPlannerRole()) {
+    return "employees";
+  }
+
+  return canCurrentEmployeeUseDelivery() ? "employee-home" : "week-current";
 }
 
 async function runSafeModeStep(label, callback) {
@@ -10570,6 +10575,21 @@ function isPlannerRole() {
   return isPlannerRoleHelper(activeRole);
 }
 
+function normalizeDeliveryEmployeeName(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function canEmployeeUseDelivery(employeeName) {
+  const normalizedName = normalizeDeliveryEmployeeName(employeeName);
+  return DELIVERY_EMPLOYEE_NAMES.some((allowedName) =>
+    normalizeDeliveryEmployeeName(allowedName) === normalizedName
+  );
+}
+
 function getEmployeeIdentity() {
   return getEmployeeIdentityHelper(
     {
@@ -10587,6 +10607,10 @@ function getRoleScopedEmployeeName(fallbackName = "") {
     getCurrentEmployeeName(),
     fallbackName
   );
+}
+
+function canCurrentEmployeeUseDelivery() {
+  return canEmployeeUseDelivery(getRoleScopedEmployeeName());
 }
 
 function syncScopedEmployeeSelectors(employeeName = getRoleScopedEmployeeName()) {
@@ -10887,6 +10911,10 @@ function getApprovedTimeOffVisibleForCurrentRole(sourceRequests = timeOffRequest
 }
 
 function isTabAllowedForCurrentRole(tabName) {
+  if (tabName === "employee-home" || tabName === "employee-delivery") {
+    return !isPlannerRole() && canCurrentEmployeeUseDelivery();
+  }
+
   return isTabAllowedForRoleHelper(activeRole, tabName, {
     plannerAllowedTabs,
     employeeAllowedTabs
@@ -10894,6 +10922,10 @@ function isTabAllowedForCurrentRole(tabName) {
 }
 
 function getDefaultTabForCurrentRole() {
+  if (!isPlannerRole() && canCurrentEmployeeUseDelivery()) {
+    return "employee-home";
+  }
+
   return getDefaultTabForRoleHelper(activeRole);
 }
 

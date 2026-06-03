@@ -17563,6 +17563,57 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   color: #fffaf4 !important;
 }
 
+.employee-mode-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.75rem;
+}
+
+.employee-mode-tile {
+  display: grid;
+  gap: 0.3rem;
+  min-height: 110px;
+  align-content: center;
+  justify-items: start;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 1rem;
+  background: #fffaf4;
+  color: var(--color-text);
+  text-align: left;
+  box-shadow: 0 8px 22px rgba(117, 82, 35, 0.08);
+}
+
+.employee-mode-tile strong {
+  font-size: 1.25rem;
+  line-height: 1.1;
+}
+
+.employee-mode-tile span {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.employee-delivery-panel {
+  gap: 0.65rem;
+}
+
+.employee-delivery-routes-card,
+.employee-delivery-driver-mode {
+  width: min(100%, 760px);
+  justify-self: center;
+}
+
+.employee-delivery-panel.is-driver-mode-open .employee-delivery-routes-card {
+  display: none;
+}
+
+.employee-delivery-run .delivery-saved-run-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
 /* Compact dispatch board: keep the route as the work surface after upload. */
 .delivery-panel.has-delivery-run {
   gap: 0.2rem;
