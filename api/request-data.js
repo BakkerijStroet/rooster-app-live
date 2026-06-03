@@ -49,12 +49,63 @@ function normalizeTimeOffRequestType(type) {
     return "vakantie";
   }
 
+  if (["examens", "examen", "exams"].includes(normalizedType)) {
+    return "examens";
+  }
+
+  if (["studiedag", "studiedagen", "study_day", "study-day"].includes(normalizedType)) {
+    return "studiedag";
+  }
+
+  if (["school", "schooldag", "school_day", "school-day"].includes(normalizedType)) {
+    return "school";
+  }
+
+  if (["weekend_weg", "weekend-weg", "weekend weg"].includes(normalizedType)) {
+    return "weekend_weg";
+  }
+
+  if (["tijdelijk_niet_beschikbaar", "tijdelijk-niet-beschikbaar", "tijdelijk niet beschikbaar", "niet_beschikbaar", "not_available"].includes(normalizedType)) {
+    return "tijdelijk_niet_beschikbaar";
+  }
+
+  if (["extra_beschikbaar", "extra-beschikbaar", "extra beschikbaar", "available_extra"].includes(normalizedType)) {
+    return "extra_beschikbaar";
+  }
+
+  if (["extra_vakantiewerk", "extra-vakantiewerk", "extra vakantiewerk"].includes(normalizedType)) {
+    return "extra_vakantiewerk";
+  }
+
+  if (["extra_zaterdag_beschikbaar", "extra-zaterdag-beschikbaar", "extra zaterdag beschikbaar"].includes(normalizedType)) {
+    return "extra_zaterdag_beschikbaar";
+  }
+
+  if (["vrij", "vrije-dag", "vrije_dag", "vrije dag", "vrije dagen", "free", "timeoff", "time_off"].includes(normalizedType)) {
+    return "vrij";
+  }
+
   return "vrij";
 }
 
 function isRangeTimeOffRequestType(type) {
   const normalizedType = normalizeTimeOffRequestType(type);
   return normalizedType === "vakantie" || normalizedType === "ziek";
+}
+
+function isAvailabilityRequest(request, normalizedType = normalizeTimeOffRequestType(request?.type)) {
+  const normalizedAvailabilityType = normalizeTimeOffRequestType(request?.availabilityType || "");
+
+  return request?.requestCategory === "availability" ||
+    request?.availabilityKind === "extra" ||
+    request?.availabilityKind === "unavailable" ||
+    Boolean(request?.availabilityType) ||
+    ["examens", "studiedag", "school", "weekend_weg", "tijdelijk_niet_beschikbaar", "extra_beschikbaar", "extra_vakantiewerk", "extra_zaterdag_beschikbaar"].includes(normalizedType) ||
+    ["examens", "studiedag", "school", "weekend_weg", "tijdelijk_niet_beschikbaar", "extra_beschikbaar", "extra_vakantiewerk", "extra_zaterdag_beschikbaar"].includes(normalizedAvailabilityType);
+}
+
+function isRangeTimeOffRequest(request, normalizedType) {
+  return isRangeTimeOffRequestType(normalizedType) || isAvailabilityRequest(request, normalizedType);
 }
 
 function normalizeMailLog(value) {
@@ -74,7 +125,7 @@ function normalizeTimeOffRequest(request) {
       : (typeof request.day === "string" && request.day
         ? request.day
         : (typeof request.from === "string" ? request.from : "")));
-  const normalizedEndDate = isRangeTimeOffRequestType(normalizedType)
+  const normalizedEndDate = isRangeTimeOffRequest(request, normalizedType)
     ? ((typeof request.endDate === "string" && request.endDate)
       ? request.endDate
       : (typeof request.to === "string" && request.to
