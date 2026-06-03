@@ -4593,7 +4593,7 @@
     const products = getSortedProductsForStop(stop);
 
     if (!products.length) {
-      return "<div class=\"delivery-driver-mode-empty\">Geen productregels gekoppeld.</div>";
+      return "<div class=\"delivery-driver-mode-empty\">Geen producten gekoppeld.</div>";
     }
 
     return `
@@ -4603,7 +4603,7 @@
           return `
             <div class="delivery-driver-mode-product${isWarmProduct ? " has-warm" : ""}">
               <strong>${escapeHtml(product.count || "?")}</strong>
-              <span>${escapeHtml(product.rawLine)}</span>
+              <span>${isWarmProduct ? "🔥 " : ""}${escapeHtml(product.rawLine)}</span>
             </div>
           `;
         }).join("")}
@@ -4638,8 +4638,7 @@
           <span>Betaald</span>
         </label>
         <label class="delivery-driver-mode-note">
-          <span>Notitie</span>
-          <textarea data-delivery-driver-note rows="2" maxlength="180" placeholder="Bijv. achterdeur, niemand aanwezig, pin storing">${escapeHtml(state.note)}</textarea>
+          <textarea data-delivery-driver-note rows="2" maxlength="180" placeholder="Notitie voor deze stop">${escapeHtml(state.note)}</textarea>
         </label>
       </div>
     `;
@@ -4712,35 +4711,31 @@
       : "";
     const remark = String(stop.remark || "").trim();
     const paymentStatus = stop.paymentStatus || "betaling controle";
+    const canMoveToNextOpen = routeItems.some((item, itemIndex) =>
+      itemIndex > driverModeStopIndex && !getDriverModeStopState(item.stop).delivered
+    );
 
     setDriverModeTargetsHtml(`
       <section class="delivery-driver-mode-shell">
         <header class="delivery-driver-mode-top">
-          <button type="button" class="secondary" data-delivery-driver-mode-close>Terug</button>
-          <div>
-            <strong>${escapeHtml(latestDeliveryDate || "Datum onbekend")}</strong>
-            <span>Route ${escapeHtml(driverModeRouteNumber)} | ${escapeHtml(routeItems.length)} stops | ${escapeHtml(stopLabel)}</span>
+          <div class="delivery-driver-mode-route-tabs">
+            <button type="button" class="secondary${driverModeRouteNumber === 1 ? " is-active" : ""}" data-delivery-driver-route="1" ${routeOneCount ? "" : "disabled"}>Route 1 <span>${routeOneCount}</span></button>
+            <button type="button" class="secondary${driverModeRouteNumber === 2 ? " is-active" : ""}" data-delivery-driver-route="2" ${routeTwoCount ? "" : "disabled"}>Route 2 <span>${routeTwoCount}</span></button>
+          </div>
+          <div class="delivery-driver-mode-progress">
+            <strong>${escapeHtml(stopLabel)}</strong>
+            <span>${escapeHtml(String(routeSummary.delivered))} geleverd / ${escapeHtml(String(routeSummary.open))} open</span>
           </div>
         </header>
-        <div class="delivery-driver-mode-route-tabs">
-          <button type="button" class="secondary${driverModeRouteNumber === 1 ? " is-active" : ""}" data-delivery-driver-route="1" ${routeOneCount ? "" : "disabled"}>Route 1 <span>${routeOneCount}</span></button>
-          <button type="button" class="secondary${driverModeRouteNumber === 2 ? " is-active" : ""}" data-delivery-driver-route="2" ${routeTwoCount ? "" : "disabled"}>Route 2 <span>${routeTwoCount}</span></button>
-        </div>
-        <div class="delivery-driver-mode-summary">
-          <span><strong>${escapeHtml(String(routeSummary.total))}</strong> stops</span>
-          <span><strong>${escapeHtml(String(routeSummary.delivered))}</strong> geleverd</span>
-          <span><strong>${escapeHtml(String(routeSummary.open))}</strong> open</span>
-        </div>
         <article class="delivery-driver-mode-stop${isWarmStop(stop) ? " has-warm" : ""}">
           <div class="delivery-driver-mode-stop-head">
-            <span>${escapeHtml(stopLabel)}</span>
             <strong>${escapeHtml(getRouteStopTimeLabel(stop))}</strong>
           </div>
           <h3>${escapeHtml(stop.customerName || "Klant onbekend")}</h3>
           ${renderDriverModeIcons(stop)}
           <div class="delivery-driver-mode-address">
             ${navigationUrl
-              ? `<a href="${escapeHtml(navigationUrl)}" target="_blank" rel="noopener">${escapeHtml(stop.address || "Adres onbekend")}</a>`
+              ? `<span>${escapeHtml(stop.address || "Adres onbekend")}</span><a href="${escapeHtml(navigationUrl)}" target="_blank" rel="noopener">Navigeer</a>`
               : `<span>${escapeHtml(stop.address || "Adres onbekend")}</span>`}
           </div>
           ${remark ? `<div class="delivery-driver-mode-remark">${escapeHtml(remark)}</div>` : ""}
@@ -4749,12 +4744,15 @@
             ${isWarmStop(stop) ? "<span>Warm controleren</span>" : ""}
           </div>
           ${renderDriverModeActions(stop)}
-          <h4>Producten voor deze stop</h4>
-          ${renderDriverModeProducts(stop)}
+          <section class="delivery-driver-mode-products-card">
+            <h4>Mee te nemen</h4>
+            ${renderDriverModeProducts(stop)}
+          </section>
         </article>
         <div class="delivery-driver-mode-nav">
-          <button type="button" class="secondary" data-delivery-driver-mode-prev ${driverModeStopIndex <= 0 ? "disabled" : ""}>Vorige stop</button>
-          <button type="button" class="secondary" data-delivery-driver-mode-next ${driverModeStopIndex >= routeItems.length - 1 ? "disabled" : ""}>Volgende stop</button>
+          <button type="button" class="secondary" data-delivery-driver-mode-prev ${driverModeStopIndex <= 0 ? "disabled" : ""}>Vorige</button>
+          <button type="button" class="secondary" data-delivery-driver-mode-next-open ${canMoveToNextOpen ? "" : "disabled"}>Volgende open</button>
+          <button type="button" class="secondary" data-delivery-driver-mode-next ${driverModeStopIndex >= routeItems.length - 1 ? "disabled" : ""}>Volgende</button>
         </div>
       </section>
     `);
@@ -4798,6 +4796,28 @@
     }
 
     driverModeStopIndex = Math.min(Math.max(driverModeStopIndex + delta, 0), routeItems.length - 1);
+    renderDriverMode();
+    getActiveDriverModeElement()?.scrollIntoView({ block: "start", behavior: "auto" });
+  }
+
+  function moveDriverModeToNextOpenStop() {
+    const routeItems = normalizeDriverModeState();
+
+    if (!routeItems.length) {
+      renderDriverMode();
+      return;
+    }
+
+    const nextOpenIndex = routeItems.findIndex((item, itemIndex) =>
+      itemIndex > driverModeStopIndex && !getDriverModeStopState(item.stop).delivered
+    );
+
+    if (nextOpenIndex < 0) {
+      renderDriverMode();
+      return;
+    }
+
+    driverModeStopIndex = nextOpenIndex;
     renderDriverMode();
     getActiveDriverModeElement()?.scrollIntoView({ block: "start", behavior: "auto" });
   }
@@ -6723,6 +6743,7 @@
     const driverModeCloseButton = event.target.closest("[data-delivery-driver-mode-close]");
     const driverModeRouteButton = event.target.closest("[data-delivery-driver-route]");
     const driverModePreviousButton = event.target.closest("[data-delivery-driver-mode-prev]");
+    const driverModeNextOpenButton = event.target.closest("[data-delivery-driver-mode-next-open]");
     const driverModeNextButton = event.target.closest("[data-delivery-driver-mode-next]");
 
     if (newPdfButton) {
@@ -6762,6 +6783,11 @@
 
     if (driverModePreviousButton && !driverModePreviousButton.disabled) {
       moveDriverModeStop(-1);
+      return;
+    }
+
+    if (driverModeNextOpenButton && !driverModeNextOpenButton.disabled) {
+      moveDriverModeToNextOpenStop();
       return;
     }
 

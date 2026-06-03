@@ -18023,19 +18023,26 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 
 .delivery-driver-mode-shell {
   display: grid;
-  gap: 0.7rem;
+  gap: 0.55rem;
+  padding-bottom: 0.35rem;
 }
 
 .delivery-driver-mode-top {
+  position: sticky;
+  top: 0;
+  z-index: 8;
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: 0.55rem;
-  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: rgba(255, 250, 244, 0.98);
+  box-shadow: 0 8px 20px rgba(117, 82, 35, 0.1);
 }
 
 .delivery-driver-mode-top > div {
   display: grid;
-  gap: 0.08rem;
+  gap: 0.12rem;
   min-width: 0;
 }
 
@@ -18047,8 +18054,8 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 
 .delivery-driver-mode-top span {
   color: var(--color-text-muted);
-  font-size: 0.82rem;
-  font-weight: 750;
+  font-size: 0.88rem;
+  font-weight: 850;
 }
 
 .delivery-driver-mode-route-tabs {
@@ -18058,7 +18065,7 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 }
 
 .delivery-driver-mode-route-tabs button {
-  min-height: 40px;
+  min-height: 44px;
   justify-content: center;
   border-radius: 8px;
   font-weight: 900;
@@ -18076,38 +18083,33 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   opacity: 0.75;
 }
 
-.delivery-driver-mode-summary {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.4rem;
+.delivery-driver-mode-progress {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  min-height: 32px;
 }
 
-.delivery-driver-mode-summary span {
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  padding: 0.45rem 0.35rem;
-  background: var(--color-surface);
-  color: var(--color-text-muted);
-  font-size: 0.78rem;
-  font-weight: 850;
-  text-align: center;
-}
-
-.delivery-driver-mode-summary strong {
-  display: block;
+.delivery-driver-mode-progress strong {
   color: var(--color-text);
-  font-size: 1.22rem;
-  line-height: 1.05;
+  font-size: 1.04rem;
+  line-height: 1.1;
+}
+
+.delivery-driver-mode-progress span {
+  color: #6f390c;
+  font-size: 0.95rem;
+  line-height: 1.1;
+  text-align: right;
 }
 
 .delivery-driver-mode-stop {
   display: grid;
-  gap: 0.72rem;
+  gap: 0.65rem;
   border: 1px solid var(--color-border);
   border-radius: 12px;
-  padding: 1rem;
+  padding: 0.85rem;
   background: #fffaf4;
   box-shadow: 0 10px 26px rgba(117, 82, 35, 0.08);
 }
@@ -18118,10 +18120,9 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 }
 
 .delivery-driver-mode-stop-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content;
-  gap: 0.75rem;
-  align-items: center;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
 }
 
 .delivery-driver-mode-stop-head span {
@@ -18132,7 +18133,7 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 
 .delivery-driver-mode-stop-head strong {
   color: #6f390c;
-  font-size: 1.22rem;
+  font-size: clamp(1.45rem, 7vw, 2rem);
   line-height: 1.1;
   white-space: nowrap;
 }
@@ -18140,7 +18141,7 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 .delivery-driver-mode-stop h3 {
   margin: 0;
   color: var(--color-text);
-  font-size: clamp(1.55rem, 8vw, 2.35rem);
+  font-size: clamp(1.85rem, 9vw, 2.75rem);
   line-height: 1.02;
   overflow-wrap: anywhere;
 }
@@ -18148,41 +18149,57 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 .delivery-driver-mode-icons {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  gap: 0.5rem;
 }
 
 .delivery-driver-mode-icons span {
   display: grid;
   place-items: center;
-  width: 2.35rem;
-  height: 2.35rem;
+  width: 2.55rem;
+  height: 2.55rem;
   border: 1px solid var(--color-border);
   border-radius: 999px;
   background: var(--color-surface);
-  font-size: 1.35rem;
+  font-size: 1.5rem;
+}
+
+.delivery-driver-mode-address {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 0.45rem;
+  align-items: stretch;
 }
 
 .delivery-driver-mode-address a,
 .delivery-driver-mode-address span {
-  display: block;
+  display: flex;
+  align-items: center;
   border: 1px solid #8bb0d8;
   border-radius: 10px;
-  padding: 0.85rem;
+  padding: 0.78rem 0.85rem;
   background: #f4f9ff;
   color: #194f7a;
-  font-size: 1.18rem;
+  font-size: 1.1rem;
   font-weight: 900;
   line-height: 1.2;
   text-decoration: none;
 }
 
+.delivery-driver-mode-address a {
+  justify-content: center;
+  min-width: 6.3rem;
+  background: #1f6ea8;
+  color: #fff;
+  border-color: #1f6ea8;
+}
+
 .delivery-driver-mode-remark {
   border-left: 4px solid #d48b37;
   border-radius: 8px;
-  padding: 0.65rem 0.75rem;
+  padding: 0.55rem 0.7rem;
   background: #fff0d8;
   color: #6f390c;
-  font-size: 1rem;
+  font-size: 0.98rem;
   font-weight: 850;
 }
 
@@ -18210,6 +18227,7 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 
 .delivery-driver-mode-actions {
   display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 0.55rem;
   border-top: 1px solid var(--color-border);
   padding-top: 0.65rem;
@@ -18222,21 +18240,23 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   align-items: center;
   border: 1px solid var(--color-border);
   border-radius: 10px;
-  padding: 0.72rem;
+  min-height: 58px;
+  padding: 0.78rem;
   background: var(--color-surface);
   color: var(--color-text);
-  font-size: 1.05rem;
+  font-size: 1.12rem;
   font-weight: 950;
 }
 
 .delivery-driver-mode-check input {
-  width: 1.45rem;
-  height: 1.45rem;
+  width: 1.75rem;
+  height: 1.75rem;
   accent-color: #8a4a12;
 }
 
 .delivery-driver-mode-note {
   display: grid;
+  grid-column: 1 / -1;
   gap: 0.3rem;
   color: var(--color-text);
   font-weight: 850;
@@ -18244,7 +18264,7 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 
 .delivery-driver-mode-note textarea {
   width: 100%;
-  min-height: 4.7rem;
+  min-height: 3.2rem;
   resize: vertical;
   border-radius: 10px;
   padding: 0.65rem;
@@ -18252,19 +18272,27 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   line-height: 1.28;
 }
 
+.delivery-driver-mode-products-card {
+  display: grid;
+  gap: 0.45rem;
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.65rem;
+}
+
 .delivery-driver-mode-products {
   display: grid;
-  gap: 0.4rem;
+  gap: 0.45rem;
 }
 
 .delivery-driver-mode-product {
   display: grid;
-  grid-template-columns: minmax(2.7rem, max-content) minmax(0, 1fr);
-  gap: 0.6rem;
-  align-items: start;
+  grid-template-columns: minmax(3.05rem, max-content) minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: center;
   border: 1px solid var(--color-border);
   border-radius: 9px;
-  padding: 0.55rem 0.65rem;
+  min-height: 44px;
+  padding: 0.58rem 0.72rem;
   background: var(--color-surface);
 }
 
@@ -18275,13 +18303,14 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 
 .delivery-driver-mode-product strong {
   color: #6f390c;
-  font-size: 1.08rem;
+  font-size: 1.22rem;
   line-height: 1.2;
+  text-align: right;
 }
 
 .delivery-driver-mode-product span {
   color: var(--color-text);
-  font-size: 0.98rem;
+  font-size: 1.06rem;
   font-weight: 800;
   line-height: 1.25;
   overflow-wrap: anywhere;
@@ -18297,18 +18326,20 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 
 .delivery-driver-mode-nav {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.6rem;
+  grid-template-columns: 0.82fr 1.12fr 0.82fr;
+  gap: 0.45rem;
   position: sticky;
   bottom: 0;
-  padding: 0.25rem 0;
+  z-index: 8;
+  padding: 0.45rem 0 0;
   background: rgba(255, 250, 244, 0.95);
+  backdrop-filter: blur(8px);
 }
 
 .delivery-driver-mode-nav button {
-  min-height: 54px;
+  min-height: 58px;
   border-radius: 10px;
-  font-size: 1rem;
+  font-size: 0.98rem;
   font-weight: 950;
 }
 
@@ -18363,6 +18394,25 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   .delivery-driver-mode-address a,
   .delivery-driver-mode-address span {
     font-size: 1.08rem;
+  }
+
+  .delivery-driver-mode-address {
+    grid-template-columns: 1fr;
+  }
+
+  .delivery-driver-mode-address a {
+    min-height: 48px;
+    min-width: 0;
+  }
+
+  .delivery-driver-mode-nav {
+    grid-template-columns: 0.8fr 1.15fr 0.8fr;
+  }
+
+  .delivery-driver-mode-nav button {
+    min-height: 56px;
+    padding-inline: 0.45rem;
+    font-size: 0.9rem;
   }
 }
 
