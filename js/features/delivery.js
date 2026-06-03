@@ -127,6 +127,13 @@
   let driverModeStopIndex = 0;
   let driverModeActionMessage = "";
   let isDriverModeRouteEditOpen = false;
+  let driverModeCompletionDraft = {
+    open: false,
+    delivered: true,
+    paidChoice: "",
+    note: "",
+    error: ""
+  };
   let latestDriverModeStorageKey = "";
   let latestDriverModeState = {
     stops: {}
@@ -4713,6 +4720,89 @@
     `;
   }
 
+  function getEmptyDriverModeCompletionDraft() {
+    return {
+      open: false,
+      delivered: true,
+      paidChoice: "",
+      note: "",
+      error: ""
+    };
+  }
+
+  function openDriverModeCompletionDraft() {
+    const stop = getCurrentDriverModeStop();
+
+    if (!stop) {
+      renderDriverMode();
+      return;
+    }
+
+    const state = getDriverModeStopState(stop);
+    driverModeCompletionDraft = {
+      open: true,
+      delivered: true,
+      paidChoice: state.paid ? "yes" : "",
+      note: state.note || "",
+      error: ""
+    };
+    driverModeActionMessage = "";
+    renderDriverMode();
+  }
+
+  function closeDriverModeCompletionDraft() {
+    driverModeCompletionDraft = getEmptyDriverModeCompletionDraft();
+    renderDriverMode();
+  }
+
+  function updateDriverModeCompletionDraft(patch) {
+    driverModeCompletionDraft = {
+      ...driverModeCompletionDraft,
+      ...patch
+    };
+    renderDriverMode();
+  }
+
+  function renderDriverModeCompletionPanel(stop) {
+    if (!driverModeCompletionDraft.open) {
+      return "";
+    }
+
+    const customerName = String(stop?.customerName || "").trim() || "Onbekende stop";
+    const paymentStatus = stop?.paymentStatus || "betaling controle";
+    const showPaymentQuestion = isDriverModePaymentActionRelevant(stop);
+    const paidChoice = driverModeCompletionDraft.paidChoice;
+
+    return `
+      <section class="delivery-driver-complete-panel" role="dialog" aria-label="Stop afronden">
+        <div class="delivery-driver-complete-head">
+          <strong>Stop afronden</strong>
+          <span>${escapeHtml(customerName)} - ${escapeHtml(getRouteStopTimeLabel(stop))}</span>
+          <small>Betaling: ${escapeHtml(paymentStatus)}</small>
+        </div>
+        ${driverModeCompletionDraft.error ? `<div class="delivery-driver-mode-alert">${escapeHtml(driverModeCompletionDraft.error)}</div>` : ""}
+        <label class="delivery-driver-complete-delivered">
+          <input type="checkbox" data-delivery-driver-complete-delivered ${driverModeCompletionDraft.delivered ? "checked" : ""}>
+          <span>Geleverd</span>
+        </label>
+        ${showPaymentQuestion
+          ? `<div class="delivery-driver-complete-payment">
+              <span>Betaald ontvangen?</span>
+              <div>
+                <button type="button" class="secondary${paidChoice === "yes" ? " is-active" : ""}" data-delivery-driver-complete-paid="yes">Ja</button>
+                <button type="button" class="secondary${paidChoice === "no" ? " is-active" : ""}" data-delivery-driver-complete-paid="no">Nee</button>
+              </div>
+            </div>`
+          : ""}
+        <textarea data-delivery-driver-complete-note rows="2" maxlength="180" placeholder="Notitie optioneel">${escapeHtml(driverModeCompletionDraft.note)}</textarea>
+        <div class="delivery-driver-complete-actions">
+          <button type="button" class="secondary" data-delivery-driver-complete-cancel>Annuleren</button>
+          <button type="button" data-delivery-driver-complete-confirm>Afronden &amp; volgende</button>
+        </div>
+      </section>
+    `;
+  }
+
   function renderDriverModeStopStatus(stop) {
     const state = getDriverModeStopState(stop);
     const status = state.delivered
@@ -4935,6 +5025,7 @@
             ${isWarmStop(stop) ? "<span>Warm controleren</span>" : ""}
           </div>
           ${renderDriverModeActions(stop)}
+          ${renderDriverModeCompletionPanel(stop)}
           <section class="delivery-driver-mode-products-card">
             <h4>Mee te nemen</h4>
             ${renderDriverModeProducts(stop)}
@@ -4959,6 +5050,7 @@
     driverModeStopIndex = 0;
     driverModeActionMessage = "";
     isDriverModeRouteEditOpen = false;
+    driverModeCompletionDraft = getEmptyDriverModeCompletionDraft();
     isDriverModeOpen = true;
     loadDriverModeState();
     renderDriverMode();
@@ -4968,6 +5060,7 @@
   function closeDriverMode() {
     isDriverModeOpen = false;
     isDriverModeRouteEditOpen = false;
+    driverModeCompletionDraft = getEmptyDriverModeCompletionDraft();
     renderDriverMode();
   }
 
@@ -4982,12 +5075,14 @@
     driverModeStopIndex = 0;
     driverModeActionMessage = "";
     isDriverModeRouteEditOpen = false;
+    driverModeCompletionDraft = getEmptyDriverModeCompletionDraft();
     loadDriverModeState();
     renderDriverMode();
   }
 
   function setDriverModeRouteEditOpen(open) {
     isDriverModeRouteEditOpen = Boolean(open);
+    driverModeCompletionDraft = getEmptyDriverModeCompletionDraft();
     driverModeActionMessage = "";
     renderDriverMode();
     getActiveDriverModeElement()?.scrollIntoView({ block: "start", behavior: "auto" });
@@ -5063,6 +5158,7 @@
     }
 
     driverModeActionMessage = "";
+    driverModeCompletionDraft = getEmptyDriverModeCompletionDraft();
     driverModeStopIndex = Math.min(Math.max(driverModeStopIndex + delta, 0), routeItems.length - 1);
     renderDriverMode();
     getActiveDriverModeElement()?.scrollIntoView({ block: "start", behavior: "auto" });
@@ -5090,6 +5186,7 @@
     }
 
     driverModeActionMessage = "";
+    driverModeCompletionDraft = getEmptyDriverModeCompletionDraft();
     driverModeStopIndex = nextOpenIndex;
     renderDriverMode();
     getActiveDriverModeElement()?.scrollIntoView({ block: "start", behavior: "auto" });
@@ -5103,10 +5200,36 @@
       return;
     }
 
+    openDriverModeCompletionDraft();
+  }
+
+  function confirmDriverModeCompletionAndMoveNext() {
+    const stop = getCurrentDriverModeStop();
+
+    if (!stop) {
+      renderDriverMode();
+      return;
+    }
+
+    const paymentRelevant = isDriverModePaymentActionRelevant(stop);
+
+    if (!driverModeCompletionDraft.delivered) {
+      updateDriverModeCompletionDraft({ error: "Markeer deze stop als geleverd of annuleer." });
+      return;
+    }
+
+    if (paymentRelevant && !["yes", "no"].includes(driverModeCompletionDraft.paidChoice)) {
+      updateDriverModeCompletionDraft({ error: "Geef aan of betaling is ontvangen." });
+      return;
+    }
+
     updateDriverModeStopState(stop, {
       delivered: true,
-      skipped: false
+      skipped: false,
+      ...(paymentRelevant ? { paid: driverModeCompletionDraft.paidChoice === "yes" } : {}),
+      note: String(driverModeCompletionDraft.note || "").trim()
     });
+    driverModeCompletionDraft = getEmptyDriverModeCompletionDraft();
     driverModeActionMessage = "";
     moveDriverModeToNextOpenStop();
   }
@@ -5123,6 +5246,7 @@
       delivered: false,
       skipped: true
     });
+    driverModeCompletionDraft = getEmptyDriverModeCompletionDraft();
     driverModeActionMessage = "";
     moveDriverModeToNextOpenStop();
   }
@@ -7073,6 +7197,9 @@
     const driverModeEditRouteButton = event.target.closest("[data-delivery-driver-mode-edit-route]");
     const driverModeEditDoneButton = event.target.closest("[data-delivery-driver-mode-edit-done]");
     const driverModeReorderButton = event.target.closest("[data-delivery-driver-mode-reorder]");
+    const driverModeCompletePaidButton = event.target.closest("[data-delivery-driver-complete-paid]");
+    const driverModeCompleteCancelButton = event.target.closest("[data-delivery-driver-complete-cancel]");
+    const driverModeCompleteConfirmButton = event.target.closest("[data-delivery-driver-complete-confirm]");
 
     if (newPdfButton) {
       pdfInput?.click();
@@ -7139,6 +7266,24 @@
       return;
     }
 
+    if (driverModeCompletePaidButton && !driverModeCompletePaidButton.disabled) {
+      updateDriverModeCompletionDraft({
+        paidChoice: driverModeCompletePaidButton.dataset.deliveryDriverCompletePaid,
+        error: ""
+      });
+      return;
+    }
+
+    if (driverModeCompleteCancelButton && !driverModeCompleteCancelButton.disabled) {
+      closeDriverModeCompletionDraft();
+      return;
+    }
+
+    if (driverModeCompleteConfirmButton && !driverModeCompleteConfirmButton.disabled) {
+      confirmDriverModeCompletionAndMoveNext();
+      return;
+    }
+
     if (driverModeEditRouteButton && !driverModeEditRouteButton.disabled) {
       setDriverModeRouteEditOpen(!isDriverModeRouteEditOpen);
       return;
@@ -7165,6 +7310,16 @@
   deliveryPanelElement?.addEventListener("click", handleDeliveryPanelClick);
   employeeDeliveryPanelElement?.addEventListener("click", handleDeliveryPanelClick);
   function handleDriverModeStatusChange(event) {
+    const completionDeliveredField = event.target.closest("[data-delivery-driver-complete-delivered]");
+
+    if (completionDeliveredField) {
+      updateDriverModeCompletionDraft({
+        delivered: Boolean(completionDeliveredField.checked),
+        error: ""
+      });
+      return;
+    }
+
     const statusField = event.target.closest("[data-delivery-driver-status-field]");
 
     if (!statusField) {
@@ -7175,6 +7330,16 @@
   }
 
   function handleDriverModeNoteInput(event) {
+    const completionNoteField = event.target.closest("[data-delivery-driver-complete-note]");
+
+    if (completionNoteField) {
+      driverModeCompletionDraft = {
+        ...driverModeCompletionDraft,
+        note: completionNoteField.value
+      };
+      return;
+    }
+
     const noteField = event.target.closest("[data-delivery-driver-note]");
 
     if (!noteField) {
