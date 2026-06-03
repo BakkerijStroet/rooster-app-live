@@ -375,6 +375,7 @@ function isSafeStartupMode() {
 }
 
 const safeStartupMode = true;
+const showTechnicalStartupStatus = false;
 
 function isEmployeeSessionActive() {
   return Boolean(sessionState?.isAuthenticated) && !isPlannerRole();
@@ -391,7 +392,8 @@ function setTechnicalStatusElementVisibility(element, shouldShow) {
 }
 
 function syncTechnicalStatusVisibility() {
-  const shouldShow = !isEmployeeSessionActive();
+  const shouldShow = showTechnicalStartupStatus;
+  document.body?.classList.toggle("technical-status-hidden", !shouldShow);
   document.body?.classList.toggle("employee-clean-mode", !shouldShow);
   setTechnicalStatusElementVisibility(safeModeStatus, shouldShow);
   setTechnicalStatusElementVisibility(document.getElementById("appStartupDiagnostics"), shouldShow);
@@ -402,7 +404,7 @@ function updateSafeModeStatus(message = "Laden...") {
     return;
   }
 
-  if (isEmployeeSessionActive()) {
+  if (!showTechnicalStartupStatus || isEmployeeSessionActive()) {
     syncTechnicalStatusVisibility();
     return;
   }
