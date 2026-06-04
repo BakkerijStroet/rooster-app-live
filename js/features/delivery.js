@@ -121,6 +121,7 @@
   let latestHasLocalCorrections = false;
   let latestParserVersionWarning = "";
   let selectedDeliveryStopIndex = -1;
+  let expandedDeliveryRouteStopIndex = -1;
   let draggedDeliveryStopIndex = -1;
   let isDriverModeOpen = false;
   let driverModeRouteNumber = 1;
@@ -611,6 +612,7 @@
     latestHasLocalCorrections = false;
     latestParserVersionWarning = "";
     selectedDeliveryStopIndex = -1;
+    expandedDeliveryRouteStopIndex = -1;
     draggedDeliveryStopIndex = -1;
     isDriverModeOpen = false;
     driverModeRouteNumber = 1;
@@ -2276,6 +2278,7 @@
     latestParserQualityBlocked = true;
     latestTextLineCount = Array.isArray(lines) ? lines.length : 0;
     selectedDeliveryStopIndex = -1;
+    expandedDeliveryRouteStopIndex = -1;
 
     if (lineCountElement) {
       lineCountElement.textContent = `Aantal gevonden tekstregels: ${lines.length} - tekstextractie onbetrouwbaar${parserSource ? ` - parserbron: ${parserSource}` : ""}`;
@@ -2400,6 +2403,7 @@
     latestHasLocalCorrections = false;
     latestPlannerStatus = "draft";
     selectedDeliveryStopIndex = -1;
+    expandedDeliveryRouteStopIndex = -1;
     draggedDeliveryStopIndex = -1;
     renderDashboard(routeStops, latestDeliveryDate);
     renderControlSummary(routeStops);
@@ -3025,6 +3029,7 @@
       setStopRouteNumber(stop, 1);
     });
     selectedDeliveryStopIndex = -1;
+    expandedDeliveryRouteStopIndex = -1;
     draggedDeliveryStopIndex = -1;
     latestRouteProposalState = "pdf-order";
     latestRouteAdviceReport = {
@@ -4109,6 +4114,7 @@
     latestParserQualityBlocked = false;
     latestParserVersionWarning = parserVersionWarning;
     selectedDeliveryStopIndex = -1;
+    expandedDeliveryRouteStopIndex = -1;
     draggedDeliveryStopIndex = -1;
 
     if (pdfInput) {
@@ -4543,6 +4549,38 @@
       <div class="delivery-route-stop-icons${icons.length ? "" : " is-empty"}">
         ${icons.map((item) => `<span title="${escapeHtml(item.label)}" aria-label="${escapeHtml(item.label)}">${item.icon}</span>`).join("")}
       </div>
+    `;
+  }
+
+  function getRouteBoardProductsForStop(stop) {
+    return [...(Array.isArray(stop?.products) ? stop.products : [])].sort((productA, productB) => {
+      const warmA = productA.category === "warm" || isWarmPreparationProduct(productA) ? 1 : 0;
+      const warmB = productB.category === "warm" || isWarmPreparationProduct(productB) ? 1 : 0;
+
+      return warmB - warmA;
+    });
+  }
+
+  function renderRouteStopTakeAlong(stop, index) {
+    const products = getRouteBoardProductsForStop(stop);
+
+    return `
+      <section id="deliveryRouteStopProducts${index}" class="delivery-route-stop-products" aria-label="Mee te nemen">
+        <h5>Mee te nemen</h5>
+        ${products.length
+          ? `<div class="delivery-route-stop-product-list">
+              ${products.map((product) => {
+                const isWarmProduct = product.category === "warm" || isWarmPreparationProduct(product);
+
+                return `
+                  <div class="delivery-route-stop-product${isWarmProduct ? " has-warm" : ""}">
+                    <span>${isWarmProduct ? "🔥 " : ""}${escapeHtml(product.rawLine)}</span>
+                  </div>
+                `;
+              }).join("")}
+            </div>`
+          : "<div class=\"delivery-route-stop-products-empty\">Geen exacte productregels gekoppeld.</div>"}
+      </section>
     `;
   }
 
@@ -5487,20 +5525,24 @@
     );
   }
 
-  function getMovedSelectedStopIndex(fromIndex, toIndex) {
-    if (selectedDeliveryStopIndex === fromIndex) {
+  function getMovedStopIndex(currentIndex, fromIndex, toIndex) {
+    if (currentIndex === fromIndex) {
       return toIndex;
     }
 
-    if (fromIndex < selectedDeliveryStopIndex && selectedDeliveryStopIndex <= toIndex) {
-      return selectedDeliveryStopIndex - 1;
+    if (fromIndex < currentIndex && currentIndex <= toIndex) {
+      return currentIndex - 1;
     }
 
-    if (toIndex <= selectedDeliveryStopIndex && selectedDeliveryStopIndex < fromIndex) {
-      return selectedDeliveryStopIndex + 1;
+    if (toIndex <= currentIndex && currentIndex < fromIndex) {
+      return currentIndex + 1;
     }
 
-    return selectedDeliveryStopIndex;
+    return currentIndex;
+  }
+
+  function getMovedSelectedStopIndex(fromIndex, toIndex) {
+    return getMovedStopIndex(selectedDeliveryStopIndex, fromIndex, toIndex);
   }
 
   function reorderDeliveryStop(fromIndex, toIndex, { scrollRoute = false, targetRouteNumber = 0 } = {}) {
@@ -5520,12 +5562,16 @@
     }
 
     const nextSelectedIndex = getMovedSelectedStopIndex(sourceIndex, targetIndex);
+    const nextExpandedIndex = expandedDeliveryRouteStopIndex >= 0
+      ? getMovedStopIndex(expandedDeliveryRouteStopIndex, sourceIndex, targetIndex)
+      : -1;
     const [movedStop] = latestRouteStops.splice(sourceIndex, 1);
     if (targetRouteNumber) {
       setStopRouteNumber(movedStop, targetRouteNumber);
     }
     latestRouteStops.splice(targetIndex, 0, movedStop);
     selectedDeliveryStopIndex = nextSelectedIndex;
+    expandedDeliveryRouteStopIndex = nextExpandedIndex;
     draggedDeliveryStopIndex = -1;
     resetDeliveryPlanningApproval();
 
@@ -5668,6 +5714,7 @@
       const hasReview = stopHasReview(stop);
       const hasOpenProblem = hasStopProblem(stop);
       const hasResolvedProblem = hasResolvedStopProblem(stop);
+      const isProductsExpanded = expandedDeliveryRouteStopIndex === index;
       const rowClasses = [
         "delivery-route-stop",
         isWarmStop(stop) ? "has-warm" : "",
@@ -5676,11 +5723,12 @@
         hasReview ? "needs-review" : "",
         hasOpenProblem ? "has-problem" : "",
         hasResolvedProblem ? "has-resolved-problem" : "",
+        isProductsExpanded ? "is-expanded" : "",
         selectedDeliveryStopIndex === index ? "is-selected" : ""
       ].filter(Boolean).join(" ");
 
       return `
-        <article id="deliveryRouteStop${index}" class="${rowClasses}" data-delivery-route-stop="${index}" draggable="true">
+        <article id="deliveryRouteStop${index}" class="${rowClasses}" data-delivery-route-stop="${index}" draggable="true" tabindex="0" aria-expanded="${isProductsExpanded ? "true" : "false"}" aria-controls="deliveryRouteStopProducts${index}">
           <div class="delivery-stop-number" aria-label="Stop ${routeStopIndex + 1}">${routeStopIndex + 1}</div>
           ${renderRouteStopIcons(stop, categories)}
           <div class="delivery-stop-main">
@@ -5688,6 +5736,7 @@
           </div>
           <div class="delivery-stop-time">${escapeHtml(getRouteStopTimeLabel(stop))}</div>
           ${renderRouteOrderControls(index, latestRouteStops.length)}
+          ${isProductsExpanded ? renderRouteStopTakeAlong(stop, index) : ""}
         </article>
       `;
     }).join("");
@@ -7398,9 +7447,35 @@
       return;
     }
 
-    if (routeStop) {
-      selectDeliveryStop(Number(routeStop.dataset.deliveryRouteStop));
+    if (event.target.closest(".delivery-route-order-controls")) {
+      return;
     }
+
+    if (routeStop) {
+      const stopIndex = Number(routeStop.dataset.deliveryRouteStop);
+      expandedDeliveryRouteStopIndex = expandedDeliveryRouteStopIndex === stopIndex ? -1 : stopIndex;
+      selectDeliveryStop(stopIndex);
+    }
+  });
+  routeBlocksElement?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    if (event.target.closest(".delivery-route-order-controls")) {
+      return;
+    }
+
+    const routeStop = event.target.closest("[data-delivery-route-stop]");
+
+    if (!routeStop) {
+      return;
+    }
+
+    event.preventDefault();
+    const stopIndex = Number(routeStop.dataset.deliveryRouteStop);
+    expandedDeliveryRouteStopIndex = expandedDeliveryRouteStopIndex === stopIndex ? -1 : stopIndex;
+    selectDeliveryStop(stopIndex);
   });
   routeBlocksElement?.addEventListener("submit", (event) => {
     const form = event.target.closest("[data-delivery-stop-correction]");

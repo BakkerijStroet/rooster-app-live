@@ -12945,6 +12945,47 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   min-width: 0;
 }
 
+.delivery-route-stop-products {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.32rem;
+  margin-top: 0.16rem;
+  padding: 0.48rem 0.56rem 0.5rem 2.1rem;
+  border: 1px solid #ead7bd;
+  border-radius: 6px;
+  background: #fffaf3;
+  cursor: default;
+}
+
+.delivery-route-stop-products h5 {
+  margin: 0;
+  color: #7a4a19;
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.delivery-route-stop-product-list {
+  display: grid;
+  gap: 0.16rem;
+}
+
+.delivery-route-stop-product {
+  color: var(--color-text);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.delivery-route-stop-product.has-warm {
+  color: #8a4a12;
+}
+
+.delivery-route-stop-products-empty {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+
 .delivery-route-stop.has-warm {
   border-color: #d48b37;
 }
@@ -13880,6 +13921,7 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   .delivery-route-stop-icons,
   .delivery-route-warning-label,
   .delivery-stop-note,
+  .delivery-route-stop-products,
   .delivery-route-order-controls,
   .delivery-stop-correct-button,
   .delivery-stop-correction {
@@ -17973,6 +18015,29 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   transition: background-color var(--transition-soft), border-color var(--transition-soft), box-shadow var(--transition-soft), transform var(--transition-soft);
 }
 
+.delivery-panel.has-delivery-run .delivery-route-stop.is-expanded {
+  align-items: start;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-stop-products {
+  gap: 0.24rem;
+  margin-top: 0.04rem;
+  padding: 0.36rem 0.44rem 0.38rem 2.24rem;
+  background: #fff9f0;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-stop-products h5 {
+  font-size: 0.68rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-stop-product-list {
+  gap: 0.12rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-stop-product {
+  font-size: 0.74rem;
+}
+
 .delivery-panel.has-delivery-run .delivery-route-stop.needs-review {
   box-shadow: inset 3px 0 0 #d48b37;
 }
@@ -18949,6 +19014,10 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 
   .delivery-panel.has-delivery-run .delivery-route-order-controls {
     justify-content: end;
+  }
+
+  .delivery-panel.has-delivery-run .delivery-route-stop-products {
+    padding-left: 0.58rem;
   }
 
   .delivery-panel.has-delivery-run .delivery-route-drag-handle,
