@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260604-hours-reporting";
+const APP_VERSION = "20260604-planner-pin-security";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -161,6 +161,7 @@ const APP_MAIL_TEST_MODE_ENABLED = true;
 const EMPLOYEE_MAIL_TEST_MODE_ENABLED = true;
 const EMPLOYEE_MAIL_TEST_EMPLOYEE = "Twan";
 const PLANNER_LOGIN_PIN = "1990";
+const PLANNER_SESSION_AUTH_VERSION = "planner-pin-1990";
 const DEFAULT_EMPLOYEE_LOGIN_PIN = "1234";
 const DELIVERY_EMPLOYEE_NAMES = ["Dennis", "Kevin", "Jos"];
 const employeeListCard = document.getElementById("employeeListCard");
@@ -852,8 +853,10 @@ function buildSessionSnapshot(sourcePreferences = preferences) {
     isEmployeeLoginActive
   );
   const rememberedUserSession = hasRememberedUserSessionHelper(sourcePreferences);
+  const rememberedSessionMatchesCurrentPin = requestedRole !== "planner" ||
+    sourcePreferences?.sessionAuthVersion === PLANNER_SESSION_AUTH_VERSION;
   const isAuthenticated = !needsLoginSelectionHelper(
-    rememberedUserSession,
+    rememberedUserSession && rememberedSessionMatchesCurrentPin,
     requestedRole,
     validEmployeeIdentity
   );
@@ -1106,6 +1109,9 @@ function applySessionSnapshot(nextSessionState, { persist = false, dataMode = ""
   preferences.lastRole = normalizedRole;
   preferences.employeeIdentity = sessionState.employeeIdentity;
   preferences.hasUserSession = isAuthenticated;
+  preferences.sessionAuthVersion = isAuthenticated && normalizedRole === "planner"
+    ? PLANNER_SESSION_AUTH_VERSION
+    : "";
 
   if (persist) {
     savePreferences();
@@ -1130,7 +1136,19 @@ function clearPlannerPinInput() {
   }
 }
 
+function isPlannerDirectorLoginEmployee(employeeName) {
+  const normalizedName = String(employeeName || "").trim().toLowerCase();
+  return normalizedName === "bakkerij stroet / directie" ||
+    normalizedName === "directie" ||
+    normalizedName.includes("directie") ||
+    getEmployeeAppRole(employeeName) === "planner";
+}
+
 function getEmployeeLoginPin(employeeName) {
+  if (isPlannerDirectorLoginEmployee(employeeName)) {
+    return PLANNER_LOGIN_PIN;
+  }
+
   const configuredPin = normalizeEmployeeLoginPin(employeeMeta?.[employeeName]?.loginPin);
   return configuredPin || DEFAULT_EMPLOYEE_LOGIN_PIN;
 }
@@ -7562,6 +7580,7 @@ function loadPreferences() {
       lastRole: "planner",
       lastDataMode: "live",
       hasUserSession: false,
+      sessionAuthVersion: "",
         plannerFocusMode: false,
         plannerControlMode: false,
         plannerDeviationOnly: false,
@@ -7587,6 +7606,7 @@ function loadPreferences() {
       lastRole: parsedPreferences.lastRole === "employee" ? "employee" : "planner",
       lastDataMode: parsedPreferences.lastDataMode === "test" ? "test" : "live",
       hasUserSession: Boolean(parsedPreferences.hasUserSession),
+      sessionAuthVersion: typeof parsedPreferences.sessionAuthVersion === "string" ? parsedPreferences.sessionAuthVersion : "",
         plannerFocusMode: Boolean(parsedPreferences.plannerFocusMode),
         plannerControlMode: Boolean(parsedPreferences.plannerControlMode),
         plannerDeviationOnly: Boolean(parsedPreferences.plannerDeviationOnly),
@@ -7630,6 +7650,7 @@ function loadPreferences() {
       lastRole: "planner",
       lastDataMode: "live",
       hasUserSession: false,
+      sessionAuthVersion: "",
         plannerFocusMode: false,
         plannerControlMode: false,
         plannerDeviationOnly: false,
