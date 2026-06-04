@@ -6638,6 +6638,101 @@ body[data-role="employee"][data-employee-locked="true"] .director-screen-toolbar
   min-height: 36px;
 }
 
+.hours-report-panel,
+.hours-report-mail-concept {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+}
+
+.hours-report-head,
+.hours-report-mail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.hours-report-head > div:first-child,
+.hours-report-mail-head {
+  min-width: 0;
+}
+
+.hours-report-head strong,
+.hours-report-mail-head strong {
+  display: block;
+}
+
+.hours-report-head span,
+.hours-report-note,
+.hours-report-empty {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.hours-report-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.hours-report-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hours-report-totals span {
+  padding: 5px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-primary-soft);
+  font-size: 13px;
+}
+
+.hours-report-table {
+  display: grid;
+  gap: 4px;
+  overflow-x: auto;
+}
+
+.hours-report-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) minmax(90px, 0.8fr) minmax(120px, 1fr) minmax(95px, 0.8fr) minmax(95px, 0.8fr) minmax(60px, 0.55fr) minmax(75px, 0.7fr) minmax(88px, 0.75fr) minmax(150px, 1.1fr);
+  gap: 8px;
+  min-width: 920px;
+  padding: 7px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  font-size: 13px;
+}
+
+.hours-report-row--head {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  background: var(--color-primary-soft);
+}
+
+.hours-report-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.hours-report-mail-concept textarea {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  font: inherit;
+}
+
 .hours-control-week-actions {
   align-items: end;
 }
@@ -19150,4 +19245,63 @@ body.employee-clean-mode #appStartupDiagnostics,
 body.technical-status-hidden #safeModeStatus,
 body.technical-status-hidden #appStartupDiagnostics {
   display: none !important;
+}
+
+@media print {
+  body[data-print-mode="hours-report"] {
+    background: #ffffff;
+  }
+
+  body[data-print-mode="hours-report"] .app-shell > :not(.hours-approval-panel),
+  body[data-print-mode="hours-report"] .hours-approval-panel .view-header,
+  body[data-print-mode="hours-report"] #hoursApprovalQueue,
+  body[data-print-mode="hours-report"] #hoursReportMailConcept,
+  body[data-print-mode="hours-report"] #message,
+  body[data-print-mode="hours-report"] .mobile-bottom-nav,
+  body[data-print-mode="hours-report"] .app-sidebar {
+    display: none !important;
+  }
+
+  body[data-print-mode="hours-report"] .app-shell,
+  body[data-print-mode="hours-report"] .hours-approval-panel,
+  body[data-print-mode="hours-report"] #hoursReportPanel {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #111111 !important;
+  }
+
+  body[data-print-mode="hours-report"] .hours-report-head {
+    padding-bottom: 10px;
+    border-bottom: 2px solid #111111;
+  }
+
+  body[data-print-mode="hours-report"] .hours-report-totals span {
+    border-color: #cccccc;
+    background: #ffffff;
+  }
+
+  body[data-print-mode="hours-report"] .hours-report-table {
+    overflow: visible;
+  }
+
+  body[data-print-mode="hours-report"] .hours-report-row {
+    min-width: 0;
+    grid-template-columns: 1.05fr 0.75fr 1fr 0.75fr 0.75fr 0.48fr 0.6fr 0.72fr 1.15fr;
+    break-inside: avoid;
+    border-color: #dddddd;
+    border-radius: 0;
+    background: #ffffff;
+    font-size: 10px;
+  }
+
+  body[data-print-mode="hours-report"] .hours-report-row--head {
+    background: #eeeeee;
+    color: #111111;
+  }
 }

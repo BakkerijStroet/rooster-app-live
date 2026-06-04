@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#fffaf3">
   <meta name="color-scheme" content="light">
   <link rel="icon" type="image/jpeg" href="Logo%202020.jpg">
-  <link rel="stylesheet" href="styles.css?v=20260526-save-confirmation-copy">
+  <link rel="stylesheet" href="styles.css?v=20260604-hours-reporting">
   <script>
     (function () {
       var fallbackMessage = "De app kon niet laden.";
@@ -1522,6 +1522,7 @@
                 <select id="hoursExportPeriod">
                   <option value="week">Per week</option>
                   <option value="month">Per maand</option>
+                  <option value="custom">Eigen periode</option>
                 </select>
               </label>
               <label class="week-select" id="hoursExportWeekLabel">
@@ -1532,12 +1533,30 @@
                 <span>Exportmaand</span>
                 <input type="month" id="hoursExportMonth">
               </label>
+              <label class="week-select hidden" id="hoursExportStartLabel">
+                <span>Vanaf</span>
+                <input type="date" id="hoursExportStartDate">
+              </label>
+              <label class="week-select hidden" id="hoursExportEndLabel">
+                <span>Tot en met</span>
+                <input type="date" id="hoursExportEndDate">
+              </label>
+              <label class="week-select">
+                <span>Medewerker</span>
+                <select id="hoursExportEmployee">
+                  <option value="">Alle medewerkers</option>
+                </select>
+              </label>
             </div>
             <div class="hours-control-toolbar-group compact-actions">
               <button type="button" id="hoursExportButton" class="secondary">Exporteer uren CSV</button>
+              <button type="button" id="hoursReportPrintButton" class="secondary">Print urenoverzicht</button>
+              <button type="button" id="hoursReportMailButton" class="secondary">Mailconcept maken</button>
             </div>
           </div>
         </div>
+        <section id="hoursReportPanel" class="hours-report-panel hidden" aria-live="polite"></section>
+        <section id="hoursReportMailConcept" class="hours-report-mail-concept hidden" aria-live="polite"></section>
         <div id="hoursApprovalQueue" class="request-list empty">Nog geen uren ter controle.</div>
       </section>
 
@@ -2041,6 +2060,6 @@
   <script src="js/features/requests-panel-prep.js?v=20260526-save-confirmation-copy"></script>
   <script src="js/features/hours-panel-prep.js?v=20260508-smart-planning-dashboard"></script>
   <script src="js/features/delivery.js?v=20260513-delivery-parser-fetch"></script>
-  <script src="app.js?v=20260526-save-confirmation-copy"></script>
+  <script src="app.js?v=20260604-hours-reporting"></script>
 </body>
 </html>

@@ -24,7 +24,7 @@ const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
-const APP_VERSION = "20260526-save-confirmation-copy";
+const APP_VERSION = "20260604-hours-reporting";
 window.StroetAppVersion = APP_VERSION;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
@@ -279,7 +279,16 @@ const hoursExportWeekLabel = document.getElementById("hoursExportWeekLabel");
 const hoursExportWeekInput = document.getElementById("hoursExportWeek");
 const hoursExportMonthLabel = document.getElementById("hoursExportMonthLabel");
 const hoursExportMonthInput = document.getElementById("hoursExportMonth");
+const hoursExportStartLabel = document.getElementById("hoursExportStartLabel");
+const hoursExportStartDateInput = document.getElementById("hoursExportStartDate");
+const hoursExportEndLabel = document.getElementById("hoursExportEndLabel");
+const hoursExportEndDateInput = document.getElementById("hoursExportEndDate");
+const hoursExportEmployeeSelect = document.getElementById("hoursExportEmployee");
 const hoursExportButton = document.getElementById("hoursExportButton");
+const hoursReportPrintButton = document.getElementById("hoursReportPrintButton");
+const hoursReportMailButton = document.getElementById("hoursReportMailButton");
+const hoursReportPanel = document.getElementById("hoursReportPanel");
+const hoursReportMailConcept = document.getElementById("hoursReportMailConcept");
 const myHoursSectionSwitch = document.getElementById("myHoursSectionSwitch");
 const myHoursFillButton = document.getElementById("myHoursFillButton");
 const myHoursTodayButton = document.getElementById("myHoursTodayButton");
@@ -881,6 +890,11 @@ function resetCentralSyncStateForModeSwitch() {
   employeeDataCentralSyncPending = false;
   planningEntriesCentralSyncPending = false;
   requestDataCentralSyncPending = false;
+  hoursApprovalWorkLogCentralLoadRequested = false;
+  hoursReportCentralWorkLogsLoaded = false;
+  hoursReportCentralWorkLogsLoading = false;
+  hoursReportCentralWorkLogsError = "";
+  hoursReportCentralWorkLogs = [];
   workLogCentralSyncLoaded = false;
   workLogCentralSnapshotSignature = "";
   employeeDataCentralSyncLoaded = false;
@@ -1681,6 +1695,11 @@ let workLogCentralSyncTimer = null;
 let workLogCentralSyncInFlight = false;
 let workLogCentralSyncPending = false;
 let workLogCentralSyncLoaded = false;
+let hoursApprovalWorkLogCentralLoadRequested = false;
+let hoursReportCentralWorkLogsLoaded = false;
+let hoursReportCentralWorkLogsLoading = false;
+let hoursReportCentralWorkLogsError = "";
+let hoursReportCentralWorkLogs = [];
 let workLogCentralSnapshotSignature = "";
 let lastWorkLogCentralSyncError = null;
 
@@ -1931,6 +1950,36 @@ function clearLocalWorkLogCache() {
     renderHoursApproval();
     renderDashboard();
   }
+}
+
+function requestHoursApprovalWorkLogsFromCentral() {
+  if (
+    !isPlannerRole() ||
+    currentDataMode !== "live" ||
+    !sessionState.isAuthenticated ||
+    hoursApprovalWorkLogCentralLoadRequested
+  ) {
+    return;
+  }
+
+  hoursApprovalWorkLogCentralLoadRequested = true;
+  hoursReportCentralWorkLogsLoading = true;
+  hoursReportCentralWorkLogsError = "";
+
+  fetchCentralWorkLogs()
+    .then((centralLogs) => {
+      hoursReportCentralWorkLogs = sanitizeWorkLogsForStorage(centralLogs);
+      hoursReportCentralWorkLogsLoaded = true;
+    })
+    .catch((error) => {
+      hoursReportCentralWorkLogsError = error instanceof Error ? error.message : String(error);
+      reportWorkLogCentralSyncError("load", error);
+    })
+    .finally(() => {
+      hoursReportCentralWorkLogsLoading = false;
+      renderHoursApproval();
+      renderDashboard();
+    });
 }
 
 window.clearLocalWorkLogCache = clearLocalWorkLogCache;
@@ -8388,24 +8437,294 @@ function exportFilteredEntriesToCsv() {
   showMessage("Export gestart.", "success");
 }
 
-function getHoursExportSelection() {
-  const periodType = hoursExportPeriodSelect?.value === "month" ? "month" : "week";
+function getMonthBounds(monthValue) {
+  const normalizedMonth = String(monthValue || "").trim();
+
+  if (!/^\d{4}-\d{2}$/.test(normalizedMonth)) {
+    return { startDate: "", endDate: "" };
+  }
+
+  const [yearPart, monthPart] = normalizedMonth.split("-").map(Number);
+  const lastDay = new Date(yearPart, monthPart, 0).getDate();
+
+  return {
+    startDate: `${normalizedMonth}-01`,
+    endDate: `${normalizedMonth}-${String(lastDay).padStart(2, "0")}`
+  };
+}
+
+function getHoursReportSelection() {
+  const periodType = hoursExportPeriodSelect?.value === "month"
+    ? "month"
+    : hoursExportPeriodSelect?.value === "custom"
+      ? "custom"
+      : "week";
   const weekValue = String(hoursExportWeekInput?.value || approvalWeekInput?.value || hoursWeekInput?.value || getCurrentWeekValue()).trim();
   const monthValue = String(hoursExportMonthInput?.value || getMonthValueFromDate(getTodayLocalDateValue()) || getCurrentMonthValue()).trim();
+  const customStartDate = String(hoursExportStartDateInput?.value || "").trim();
+  const customEndDate = String(hoursExportEndDateInput?.value || customStartDate || "").trim();
+  const employeeName = String(hoursExportEmployeeSelect?.value || "").trim();
 
-  return periodType === "month"
-    ? {
+  if (periodType === "month") {
+    const { startDate, endDate } = getMonthBounds(monthValue);
+
+    return {
       periodType,
       periodValue: monthValue,
       periodLabel: formatMonthLabel(monthValue),
-      fileLabel: monthValue
-    }
-    : {
-      periodType,
-      periodValue: weekValue,
-      periodLabel: `Week ${weekValue.replace("-W", "-")}`,
-      fileLabel: weekValue.replace("-W", "-week-")
+      fileLabel: monthValue,
+      startDate,
+      endDate,
+      employeeName
     };
+  }
+
+  if (periodType === "custom") {
+    const safeStartDate = customStartDate && customEndDate && customEndDate < customStartDate ? customEndDate : customStartDate;
+    const safeEndDate = customStartDate && customEndDate && customEndDate < customStartDate ? customStartDate : customEndDate;
+
+    return {
+      periodType,
+      periodValue: safeStartDate && safeEndDate ? `${safeStartDate}_${safeEndDate}` : "",
+      periodLabel: safeStartDate && safeEndDate ? `${formatDate(safeStartDate)} - ${formatDate(safeEndDate)}` : "Eigen periode",
+      fileLabel: safeStartDate && safeEndDate ? `${safeStartDate}-tot-${safeEndDate}` : "eigen-periode",
+      startDate: safeStartDate,
+      endDate: safeEndDate,
+      employeeName
+    };
+  }
+
+  const weekDates = getWeekDates(weekValue);
+
+  return {
+    periodType,
+    periodValue: weekValue,
+    periodLabel: `Week ${weekValue.replace("-W", "-")}`,
+    fileLabel: weekValue.replace("-W", "-week-"),
+    startDate: weekDates[0] || "",
+    endDate: weekDates[weekDates.length - 1] || "",
+    employeeName
+  };
+}
+
+function getHoursExportSelection() {
+  return getHoursReportSelection();
+}
+
+function getHoursReportSourceLogs() {
+  if (isPlannerRole() && currentDataMode === "live" && hoursReportCentralWorkLogsLoaded) {
+    return hoursReportCentralWorkLogs;
+  }
+
+  return workLogs;
+}
+
+function getHoursReportRows(selection = getHoursReportSelection()) {
+  if (!selection.startDate || !selection.endDate) {
+    return [];
+  }
+
+  return getHoursReportSourceLogs()
+    .filter((log) => log.employeeName && log.day)
+    .filter((log) => log.day >= selection.startDate && log.day <= selection.endDate)
+    .filter((log) => !selection.employeeName || log.employeeName === selection.employeeName)
+    .map((log) => ({
+      ...log,
+      workedHours: getWorkedHoursFromLog(log)
+    }))
+    .sort((logA, logB) =>
+      logA.employeeName.localeCompare(logB.employeeName, "nl") ||
+      logA.day.localeCompare(logB.day) ||
+      String(logA.actualStart || logA.plannedStart || "").localeCompare(String(logB.actualStart || logB.plannedStart || "")) ||
+      String(logA.shiftName || "").localeCompare(String(logB.shiftName || ""), "nl")
+    );
+}
+
+function getHoursReportTotals(rows = []) {
+  const totalsByEmployee = rows.reduce((accumulator, log) => {
+    if (!Number.isFinite(log.workedHours)) {
+      return accumulator;
+    }
+
+    accumulator[log.employeeName] = (accumulator[log.employeeName] || 0) + log.workedHours;
+    return accumulator;
+  }, {});
+
+  const totalHours = Object.values(totalsByEmployee).reduce((sum, hours) => sum + hours, 0);
+
+  return {
+    totalsByEmployee,
+    totalHours
+  };
+}
+
+function formatHoursReportHours(hours) {
+  return Number.isFinite(hours) ? formatHours(hours) : "-";
+}
+
+function getHoursReportEmployeeOptions() {
+  return [
+    ...new Set([
+      ...employees,
+      ...getHoursReportSourceLogs().map((log) => log.employeeName)
+    ])
+  ]
+    .filter((employeeName) => employeeName && employeeName !== "Open")
+    .sort((nameA, nameB) => nameA.localeCompare(nameB, "nl"));
+}
+
+function renderHoursReportPreview() {
+  if (!hoursReportPanel) {
+    return;
+  }
+
+  if (!isPlannerRole()) {
+    setClassName(hoursReportPanel, "hours-report-panel hidden");
+    hoursReportPanel.innerHTML = "";
+    return;
+  }
+
+  const selection = getHoursReportSelection();
+  const rows = getHoursReportRows(selection);
+  const { totalsByEmployee, totalHours } = getHoursReportTotals(rows);
+  const employeeLabel = selection.employeeName || "Alle medewerkers";
+  const invalidRowCount = rows.filter((row) => !Number.isFinite(row.workedHours)).length;
+  const reportStatusNote = hoursReportCentralWorkLogsLoading
+    ? "Uren laden..."
+    : hoursReportCentralWorkLogsError
+      ? `Uren laden mislukt: ${hoursReportCentralWorkLogsError}`
+      : "";
+
+  setClassName(hoursReportPanel, "hours-report-panel");
+  hoursReportPanel.innerHTML = `
+    <div class="hours-report-head">
+      <div>
+        <strong>Urenoverzicht</strong>
+        <span>${escapeHtmlAttribute(selection.periodLabel)} · ${escapeHtmlAttribute(employeeLabel)}</span>
+      </div>
+      <div class="hours-report-summary">
+        <span>${rows.length} regels</span>
+        <strong>${formatHours(totalHours)}</strong>
+      </div>
+    </div>
+    ${invalidRowCount ? `<div class="hours-report-note">Let op: ${invalidRowCount} regel(s) hebben geen geldig totaal en tellen niet mee.</div>` : ""}
+    ${reportStatusNote ? `<div class="hours-report-note">${escapeHtmlAttribute(reportStatusNote)}</div>` : ""}
+    ${rows.length ? `
+      <div class="hours-report-totals">
+        ${Object.entries(totalsByEmployee)
+          .sort(([nameA], [nameB]) => nameA.localeCompare(nameB, "nl"))
+          .map(([employeeName, hours]) => `
+            <span><strong>${escapeHtmlAttribute(employeeName)}</strong> ${formatHours(hours)}</span>
+          `).join("")}
+      </div>
+      <div class="hours-report-table" role="table" aria-label="Urenoverzicht">
+        <div class="hours-report-row hours-report-row--head" role="row">
+          <span>Medewerker</span>
+          <span>Datum</span>
+          <span>Dienst</span>
+          <span>Gepland</span>
+          <span>Werkelijk</span>
+          <span>Pauze</span>
+          <span>Totaal</span>
+          <span>Status</span>
+          <span>Opmerkingen</span>
+        </div>
+        ${rows.map((log) => `
+          <div class="hours-report-row" role="row">
+            <span>${escapeHtmlAttribute(log.employeeName)}</span>
+            <span>${formatDate(log.day)}</span>
+            <span>${escapeHtmlAttribute(log.shiftName || "Urenregistratie")}</span>
+            <span>${log.plannedStart && log.plannedEnd ? `${escapeHtmlAttribute(log.plannedStart)} - ${escapeHtmlAttribute(log.plannedEnd)}` : "-"}</span>
+            <span>${log.actualStart && log.actualEnd ? `${escapeHtmlAttribute(log.actualStart)} - ${escapeHtmlAttribute(log.actualEnd)}` : "-"}</span>
+            <span>${Number(log.breakMinutes) || 0} min</span>
+            <span>${formatHoursReportHours(log.workedHours)}</span>
+            <span>${escapeHtmlAttribute(getWorkLogStatusLabel(log))}</span>
+            <span>${escapeHtmlAttribute([log.notes, log.managerNote, log.employeeReply].filter(Boolean).join(" · ") || "-")}</span>
+          </div>
+        `).join("")}
+      </div>
+    ` : `
+      <div class="hours-report-empty">Geen urenregistraties gevonden voor deze selectie.</div>
+    `}
+  `;
+}
+
+function buildHoursReportMailText(selection = getHoursReportSelection(), rows = getHoursReportRows(selection)) {
+  const { totalsByEmployee, totalHours } = getHoursReportTotals(rows);
+  const lines = [
+    `Urenoverzicht ${selection.periodLabel}`,
+    `Medewerker: ${selection.employeeName || "Alle medewerkers"}`,
+    "",
+    "Totalen:",
+    ...Object.entries(totalsByEmployee)
+      .sort(([nameA], [nameB]) => nameA.localeCompare(nameB, "nl"))
+      .map(([employeeName, hours]) => `- ${employeeName}: ${formatHours(hours)}`),
+    `- Totaal: ${formatHours(totalHours)}`,
+    "",
+    "Regels:",
+    ...rows.map((log) => [
+      log.employeeName,
+      log.day,
+      log.shiftName || "Urenregistratie",
+      `gepland ${log.plannedStart || "-"}-${log.plannedEnd || "-"}`,
+      `werkelijk ${log.actualStart || "-"}-${log.actualEnd || "-"}`,
+      `pauze ${Number(log.breakMinutes) || 0} min`,
+      `totaal ${formatHoursReportHours(log.workedHours)}`,
+      getWorkLogStatusLabel(log),
+      [log.notes, log.managerNote, log.employeeReply].filter(Boolean).join(" / ")
+    ].filter(Boolean).join(" | "))
+  ];
+
+  return lines.join("\n");
+}
+
+function renderHoursReportMailConcept() {
+  if (!hoursReportMailConcept) {
+    return;
+  }
+
+  const selection = getHoursReportSelection();
+  const rows = getHoursReportRows(selection);
+
+  if (!rows.length) {
+    setClassName(hoursReportMailConcept, "hours-report-mail-concept hidden");
+    hoursReportMailConcept.innerHTML = "";
+    showMessage("Geen urenregistraties gevonden voor dit mailconcept.", "warning");
+    return;
+  }
+
+  const subject = `Urenoverzicht ${selection.periodLabel}`;
+  const body = buildHoursReportMailText(selection, rows);
+  const mailtoHref = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+  setClassName(hoursReportMailConcept, "hours-report-mail-concept");
+  hoursReportMailConcept.innerHTML = `
+    <div class="hours-report-mail-head">
+      <strong>Mailconcept</strong>
+      <a class="button secondary" href="${escapeHtmlAttribute(mailtoHref)}">Open mailprogramma</a>
+    </div>
+    <textarea readonly>${escapeHtmlAttribute(body)}</textarea>
+  `;
+  showMessage("Mailconcept gemaakt. Er is geen automatische mail verzonden.", "success");
+}
+
+function printHoursReport() {
+  const rows = getHoursReportRows();
+
+  renderHoursReportPreview();
+
+  if (!rows.length) {
+    showMessage("Geen urenregistraties gevonden om te printen.", "warning");
+    return;
+  }
+
+  document.body.dataset.printMode = "hours-report";
+  window.print();
+  window.setTimeout(() => {
+    if (document.body.dataset.printMode === "hours-report") {
+      delete document.body.dataset.printMode;
+    }
+  }, 500);
 }
 
 function exportHoursForAdministration() {
@@ -8417,19 +8736,15 @@ function exportHoursForAdministration() {
   const { periodType, periodValue, periodLabel, fileLabel } = getHoursExportSelection();
 
   if (!periodValue) {
-    showMessage(periodType === "month" ? "Kies eerst een geldige exportmaand." : "Kies eerst een geldige exportweek.", "error");
+    showMessage(periodType === "month"
+      ? "Kies eerst een geldige exportmaand."
+      : periodType === "custom"
+        ? "Kies eerst een geldige periode."
+        : "Kies eerst een geldige exportweek.", "error");
     return;
   }
 
-  const relevantLogs = workLogs
-    .filter((log) => log.employeeName && log.day)
-    .filter((log) => periodType === "month"
-      ? getMonthValueFromDate(log.day) === periodValue
-      : getWeekValueFromDate(log.day) === periodValue)
-    .map((log) => ({
-      ...log,
-      workedHours: getWorkedHoursFromLog(log)
-    }))
+  const relevantLogs = getHoursReportRows(getHoursExportSelection())
     .filter((log) => Number.isFinite(log.workedHours) && log.workedHours > 0);
 
   if (!relevantLogs.length) {
@@ -30851,7 +31166,11 @@ function renderHoursExportControls() {
     return;
   }
 
-  const periodType = hoursExportPeriodSelect.value === "month" ? "month" : "week";
+  const periodType = hoursExportPeriodSelect.value === "month"
+    ? "month"
+    : hoursExportPeriodSelect.value === "custom"
+      ? "custom"
+      : "week";
 
   if (!hoursExportWeekInput?.value) {
     hoursExportWeekInput.value = approvalWeekInput?.value || hoursWeekInput?.value || getCurrentWeekValue();
@@ -30861,9 +31180,31 @@ function renderHoursExportControls() {
     hoursExportMonthInput.value = getMonthValueFromDate(getTodayLocalDateValue()) || getCurrentMonthValue();
   }
 
+  if (hoursExportStartDateInput && !hoursExportStartDateInput.value) {
+    const currentWeekDates = getWeekDates(hoursExportWeekInput?.value || getCurrentWeekValue());
+    hoursExportStartDateInput.value = currentWeekDates[0] || getTodayLocalDateValue();
+  }
+
+  if (hoursExportEndDateInput && !hoursExportEndDateInput.value) {
+    const currentWeekDates = getWeekDates(hoursExportWeekInput?.value || getCurrentWeekValue());
+    hoursExportEndDateInput.value = currentWeekDates[currentWeekDates.length - 1] || getTodayLocalDateValue();
+  }
+
+  if (hoursExportEmployeeSelect) {
+    const selectedEmployee = hoursExportEmployeeSelect.value || "";
+    const options = getHoursReportEmployeeOptions();
+    hoursExportEmployeeSelect.innerHTML = `<option value="">Alle medewerkers</option>${buildEmployeeOptions(options)}`;
+    hoursExportEmployeeSelect.value = options.includes(selectedEmployee) ? selectedEmployee : "";
+  }
+
   hoursExportWeekLabel.classList.toggle("hidden", periodType !== "week");
   hoursExportMonthLabel.classList.toggle("hidden", periodType !== "month");
+  hoursExportStartLabel?.classList.toggle("hidden", periodType !== "custom");
+  hoursExportEndLabel?.classList.toggle("hidden", periodType !== "custom");
   hoursExportButton.classList.toggle("hidden", !isPlannerRole());
+  hoursReportPrintButton?.classList.toggle("hidden", !isPlannerRole());
+  hoursReportMailButton?.classList.toggle("hidden", !isPlannerRole());
+  renderHoursReportPreview();
 }
 
 function getHoursControlStatusClass(log) {
@@ -31088,6 +31429,7 @@ function renderHoursApproval() {
     return;
   }
 
+  requestHoursApprovalWorkLogsFromCentral();
   renderHoursExportControls();
 
   const selectedWeek = approvalWeekInput?.value || hoursWeekInput.value || getCurrentWeekValue();
@@ -36670,6 +37012,18 @@ hoursExportMonthInput?.addEventListener("change", () => {
   renderHoursExportControls();
 });
 
+hoursExportStartDateInput?.addEventListener("change", () => {
+  renderHoursExportControls();
+});
+
+hoursExportEndDateInput?.addEventListener("change", () => {
+  renderHoursExportControls();
+});
+
+hoursExportEmployeeSelect?.addEventListener("change", () => {
+  renderHoursExportControls();
+});
+
 mySchedulePreviousWeekButton?.addEventListener("click", () => {
   myScheduleWeekInput.value = getPreviousWeekValue(myScheduleWeekInput.value || getCurrentWeekValue());
   preferences.lastPortalWeek = myScheduleWeekInput.value || "";
@@ -36726,6 +37080,15 @@ submitWeekHoursButton?.addEventListener("click", () => {
 
 hoursExportButton?.addEventListener("click", () => {
   exportHoursForAdministration();
+});
+
+hoursReportPrintButton?.addEventListener("click", () => {
+  printHoursReport();
+});
+
+hoursReportMailButton?.addEventListener("click", () => {
+  renderHoursReportPreview();
+  renderHoursReportMailConcept();
 });
 
 roleSelect.addEventListener("change", () => {
