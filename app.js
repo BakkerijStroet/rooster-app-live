@@ -18247,6 +18247,159 @@ function sortPlannerRequestInboxItems(itemA, itemB) {
     .localeCompare(getPlannerRequestSortDate(itemB.request, itemB.requestType));
 }
 
+function getPlannerRequestWeekdayText(request, requestType) {
+  if (requestType !== "timeoff" || !isExtraAvailabilityRequest(request)) {
+    return "";
+  }
+
+  return getAvailabilityWeekdayListLabel(getAvailabilityRequestWeekdays(request))
+    .split(", ")
+    .filter(Boolean)
+    .map((weekday) => weekday.charAt(0).toUpperCase() + weekday.slice(1))
+    .join(" • ");
+}
+
+function getPlannerRequestCommentText(request, requestType, fallbackDescription = "") {
+  if (requestType === "swap") {
+    return fallbackDescription || "Geen toelichting ingevuld.";
+  }
+
+  return request?.reason || fallbackDescription || "Geen toelichting ingevuld.";
+}
+
+function renderPlannerRequestAttentionBlock({
+  request,
+  requestType,
+  displayStatus,
+  statusLabel,
+  isOverdue,
+  availabilityHelperText = "",
+  rosterEffectText = "",
+  attentionText = "",
+  swapExtraText = "",
+  sickOverlapNotice = ""
+}) {
+  const mailStatus = renderRequestMailStatus(request, requestType === "swap" ? getSwapMailStatusText : getTimeOffMailStatusText);
+  const coverageContext = renderPlannerRequestCoverageContext(request, requestType);
+  const attentionItems = [
+    `<div class="planner-request-attention-row"><span class="status-pill status-${displayStatus}">${escapeHtmlAttribute(statusLabel)}</span>${isOverdue ? `<span class="planner-request-overdue-badge">48+ uur open</span>` : ""}</div>`,
+    mailStatus,
+    coverageContext,
+    availabilityHelperText ? `<div class="request-impact availability-helper${isExtraAvailabilityRequest(request) ? " is-extra" : ""}">${escapeHtmlAttribute(availabilityHelperText)}</div>` : "",
+    rosterEffectText ? `<div class="request-impact${isExtraAvailabilityRequest(request) ? " availability-scoreboost-note" : ""}">${escapeHtmlAttribute(rosterEffectText)}</div>` : "",
+    swapExtraText ? `<div class="request-impact${request.targetEmployeeName ? "" : " request-attention-note"}">${escapeHtmlAttribute(swapExtraText)}</div>` : "",
+    sickOverlapNotice ? `<div class="request-impact request-attention-note">${escapeHtmlAttribute(sickOverlapNotice)}</div>` : "",
+    attentionText ? `<div class="request-impact request-attention-note">${escapeHtmlAttribute(attentionText)}</div>` : ""
+  ].filter(Boolean);
+
+  return `
+    <section class="planner-request-block planner-request-attention-block">
+      <h4>Aandacht</h4>
+      <div class="planner-request-block-content">
+        ${attentionItems.length ? attentionItems.join("") : `<div class="planner-request-muted">Geen bijzonderheden.</div>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderPlannerRequestReviewCard({
+  request,
+  requestType,
+  viewModel = null,
+  className = ""
+}) {
+  const displayStatus = viewModel?.requestStatus || getRequestDisplayStatus(request);
+  const statusLabel = viewModel?.statusLabel || getRequestDisplayLabel(request);
+  const typeLabel = getPlannerRequestTypeLabel(request, requestType);
+  const dateText = viewModel?.periodText || getPlannerRequestDateText(request, requestType);
+  const description = viewModel?.detailText || getPlannerRequestDescription(request, requestType);
+  const weekdayText = getPlannerRequestWeekdayText(request, requestType);
+  const availabilityBadge = requestType === "timeoff" ? renderAvailabilityRequestBadge(request) : "";
+  const availabilityHelperText = requestType === "timeoff" ? getAvailabilityRequestHelperText(request) : "";
+  const rosterEffectText = viewModel?.rosterEffectText || getRequestRosterEffectText(request, requestType);
+  const attentionText = viewModel?.attentionText || (request.status === "open" ? getRequestAttentionText(request) : "");
+  const swapExtraText = viewModel?.swapExtraText || "";
+  const sickOverlapNotice = requestType === "timeoff" ? getSickLeaveOverlapNotice(request) : "";
+  const isOpen = request.status === "open";
+  const isOverdue = displayStatus === "overdue";
+  const replacementField = requestType === "swap" && isOpen && !request.targetEmployeeName
+    ? `
+      <label class="planner-request-inline-field planner-request-replacement">
+        <span>Vervanger</span>
+        <select data-request-replacement-select="${escapeHtmlAttribute(request.id)}">
+          <option value="">Kies bevoegde medewerker</option>
+          ${buildEmployeeOptions(getSwapReplacementCandidates(request))}
+        </select>
+      </label>
+    `
+    : "";
+  const noteField = isOpen
+    ? `
+      <label class="planner-request-inline-field planner-request-note-field">
+        <span>Opmerking planner</span>
+        <input type="text" maxlength="200" value="${escapeHtmlAttribute(request.managerNote || "")}" data-request-note-input placeholder="Korte toelichting">
+      </label>
+    `
+    : (request.managerNote ? `<div class="planner-request-existing-note"><strong>Opmerking planner:</strong> ${escapeHtmlAttribute(request.managerNote)}</div>` : "");
+  const actions = isOpen
+    ? `
+      <div class="actions planner-request-actions planner-request-inbox-actions">
+        <button type="button" class="small" data-request-type="${escapeHtmlAttribute(requestType)}" data-request-action="approve" data-request-id="${escapeHtmlAttribute(request.id)}">Goedkeuren</button>
+        <button type="button" class="small warning" data-request-type="${escapeHtmlAttribute(requestType)}" data-request-action="reject" data-request-id="${escapeHtmlAttribute(request.id)}">Afwijzen</button>
+        <button type="button" class="small secondary" data-request-type="${escapeHtmlAttribute(requestType)}" data-request-action="note" data-request-id="${escapeHtmlAttribute(request.id)}">Opmerking</button>
+        ${requestType === "swap" && !request.targetEmployeeName ? `<button type="button" class="small secondary" data-request-type="swap" data-request-action="assign-replacement" data-request-id="${escapeHtmlAttribute(request.id)}">Vervanger kiezen</button>` : ""}
+      </div>
+    `
+    : (requestType === "timeoff" && request.status === "approved"
+      ? `
+        <div class="actions planner-request-actions planner-request-inbox-actions">
+          <button type="button" class="small secondary" data-request-type="timeoff" data-request-action="edit" data-request-id="${escapeHtmlAttribute(request.id)}">Wijzigen</button>
+        </div>
+      `
+      : "");
+
+  return `
+    <article class="request-card planner-request-card planner-request-review-card ${className} is-${displayStatus}${requestType === "timeoff" ? ` absence-${getAbsenceCardClass(request.type)}` : ""}${isExtraAvailabilityRequest(request) ? " is-extra-availability" : ""}">
+      <header class="planner-request-card-head">
+        <div class="planner-request-title-group">
+          <strong class="planner-request-name">${escapeHtmlAttribute(request.employeeName || "Onbekende medewerker")}</strong>
+          <div class="planner-request-type">${availabilityBadge}<span>${escapeHtmlAttribute(typeLabel)}</span></div>
+        </div>
+      </header>
+
+      <div class="planner-request-date-block">
+        <span class="planner-request-block-label">Datum/periode</span>
+        <strong>${escapeHtmlAttribute(dateText || "-")}</strong>
+        ${weekdayText ? `<span class="planner-request-weekdays">${escapeHtmlAttribute(weekdayText)}</span>` : ""}
+      </div>
+
+      ${renderPlannerRequestAttentionBlock({
+        request,
+        requestType,
+        displayStatus,
+        statusLabel,
+        isOverdue,
+        availabilityHelperText,
+        rosterEffectText,
+        attentionText,
+        swapExtraText,
+        sickOverlapNotice
+      })}
+
+      <section class="planner-request-block planner-request-comment-block">
+        <h4>Toelichting</h4>
+        <div class="planner-request-block-content">
+          <div class="planner-request-comment-text">${escapeHtmlAttribute(getPlannerRequestCommentText(request, requestType, description))}</div>
+          ${replacementField}
+          ${noteField}
+        </div>
+      </section>
+
+      ${actions ? `<footer class="planner-request-card-actions">${actions}</footer>` : ""}
+    </article>
+  `;
+}
+
 function getVacationDateRange(startDate, endDate = startDate) {
   if (!startDate) {
     return [];
@@ -18556,91 +18709,15 @@ function renderPlannerRequestInbox() {
   }
 
   setClassName(plannerRequestsInbox, "planner-request-inbox request-list");
-  plannerRequestsInbox.innerHTML = `
-    <div class="planner-request-inbox-head" aria-hidden="true">
-      <span>Datum</span>
-      <span>Medewerker</span>
-      <span>Type</span>
-      <span>Omschrijving</span>
-      <span>Status</span>
-      <span>Toelichting</span>
-      <span>Acties</span>
-    </div>
-    ${items.map(renderPlannerRequestInboxItem).join("")}
-  `;
+  plannerRequestsInbox.innerHTML = items.map(renderPlannerRequestInboxItem).join("");
 }
 
 function renderPlannerRequestInboxItem(item) {
-  const { request, requestType } = item;
-  const displayStatus = getRequestDisplayStatus(request);
-  const statusLabel = getRequestDisplayLabel(request);
-  const typeLabel = getPlannerRequestTypeLabel(request, requestType);
-  const dateText = getPlannerRequestDateText(request, requestType);
-  const description = getPlannerRequestDescription(request, requestType);
-  const availabilityBadge = requestType === "timeoff" ? renderAvailabilityRequestBadge(request) : "";
-  const availabilityHelperText = requestType === "timeoff" ? getAvailabilityRequestHelperText(request) : "";
-  const isOpen = request.status === "open";
-  const isOverdue = displayStatus === "overdue";
-  const replacementField = requestType === "swap" && isOpen && !request.targetEmployeeName
-    ? `
-      <label class="planner-request-inline-field planner-request-replacement">
-        <span>Vervanger</span>
-        <select data-request-replacement-select="${request.id}">
-          <option value="">Kies bevoegde medewerker</option>
-          ${buildEmployeeOptions(getSwapReplacementCandidates(request))}
-        </select>
-      </label>
-    `
-    : "";
-  const noteField = isOpen
-    ? `
-      <label class="planner-request-inline-field planner-request-note-field">
-        <span>Korte toelichting</span>
-        <input type="text" maxlength="200" value="${request.managerNote || ""}" data-request-note-input placeholder="Korte toelichting">
-      </label>
-    `
-    : (request.managerNote ? `<div class="planner-request-existing-note"><strong>Opmerking:</strong> ${request.managerNote}</div>` : "");
-  const actions = isOpen
-    ? `
-      <div class="actions planner-request-actions planner-request-inbox-actions">
-        <button type="button" class="small" data-request-type="${requestType}" data-request-action="approve" data-request-id="${request.id}">Goedkeuren</button>
-        <button type="button" class="small warning" data-request-type="${requestType}" data-request-action="reject" data-request-id="${request.id}">Afwijzen</button>
-        <button type="button" class="small secondary" data-request-type="${requestType}" data-request-action="note" data-request-id="${request.id}">Opmerking</button>
-        ${requestType === "swap" && !request.targetEmployeeName ? `<button type="button" class="small secondary" data-request-type="swap" data-request-action="assign-replacement" data-request-id="${request.id}">Vervanger kiezen</button>` : ""}
-      </div>
-    `
-    : (requestType === "timeoff" && request.status === "approved"
-      ? `
-        <div class="actions planner-request-actions planner-request-inbox-actions">
-          <button type="button" class="small secondary" data-request-type="timeoff" data-request-action="edit" data-request-id="${request.id}">Wijzigen</button>
-        </div>
-      `
-      : "");
-
-  return `
-    <article class="request-card planner-request-card planner-request-inbox-item is-${displayStatus}${requestType === "timeoff" ? ` absence-${getAbsenceCardClass(request.type)}` : ""}${isExtraAvailabilityRequest(request) ? " is-extra-availability" : ""}">
-      <div class="planner-request-inbox-grid">
-        <div class="planner-request-date" title="${dateText}">${dateText}</div>
-        <strong class="planner-request-name">${request.employeeName}</strong>
-        <div class="planner-request-type">${availabilityBadge}${typeLabel}</div>
-        <div class="planner-request-description" title="${description}">${description}</div>
-        <div class="planner-request-status-stack">
-          <span class="status-pill status-${displayStatus}">${statusLabel}</span>
-          ${isOverdue ? `<span class="planner-request-overdue-badge">48+ uur open</span>` : ""}
-        </div>
-        <div class="planner-request-note-area">
-          ${replacementField}
-          ${noteField}
-        </div>
-        ${actions}
-      </div>
-      ${renderRequestMailStatus(request, requestType === "swap" ? getSwapMailStatusText : getTimeOffMailStatusText)}
-      ${renderPlannerRequestCoverageContext(request, requestType)}
-      ${availabilityHelperText ? `<div class="request-impact availability-helper${isExtraAvailabilityRequest(request) ? " is-extra" : ""}">${availabilityHelperText}</div>` : ""}
-      ${getRequestRosterEffectText(request, requestType) ? `<div class="request-impact${isExtraAvailabilityRequest(request) ? " availability-scoreboost-note" : ""}">${getRequestRosterEffectText(request, requestType)}</div>` : ""}
-      ${isOpen && getRequestAttentionText(request) ? `<div class="request-impact request-attention-note">${getRequestAttentionText(request)}</div>` : ""}
-    </article>
-  `;
+  return renderPlannerRequestReviewCard({
+    request: item.request,
+    requestType: item.requestType,
+    className: "planner-request-inbox-item"
+  });
 }
 
 function renderPlannerRequestCards(target, requests, emptyText, requestType) {
@@ -18669,69 +18746,7 @@ function renderPlannerRequestCards(target, requests, emptyText, requestType) {
         getRequestRosterEffectText
       }
     });
-    const plannerNote = viewModel.plannerNoteText ? `<div class="request-impact"><strong>Opmerking:</strong> ${viewModel.plannerNoteText}</div>` : "";
-    const plannerNoteField = request.status === "open"
-      ? `
-        <label class="request-note-field">
-          <span>Opmerking planner</span>
-          <input type="text" maxlength="200" value="${request.managerNote || ""}" data-request-note-input placeholder="Korte toelichting">
-        </label>
-      `
-      : "";
-    const plannerActions = request.status === "open"
-      ? `
-        <div class="actions planner-request-actions">
-          <button type="button" class="small" data-request-type="${requestType}" data-request-action="approve" data-request-id="${request.id}">Goedkeuren</button>
-          <button type="button" class="small warning" data-request-type="${requestType}" data-request-action="reject" data-request-id="${request.id}">Afwijzen</button>
-          <button type="button" class="small secondary" data-request-type="${requestType}" data-request-action="note" data-request-id="${request.id}">Opmerking</button>
-          ${requestType === "swap" && !request.targetEmployeeName ? `<button type="button" class="small secondary" data-request-type="swap" data-request-action="assign-replacement" data-request-id="${request.id}">Vervanger kiezen</button>` : ""}
-        </div>
-      `
-      : (requestType === "timeoff" && request.status === "approved"
-        ? `
-          <div class="actions planner-request-actions">
-            <button type="button" class="small secondary" data-request-type="timeoff" data-request-action="edit" data-request-id="${request.id}">Wijzigen</button>
-          </div>
-        `
-        : "");
-    const swapExtra = viewModel.swapExtraText
-      ? `<div class="request-impact${request.targetEmployeeName ? "" : " request-attention-note"}">${viewModel.swapExtraText}</div>`
-      : "";
-    const sickOverlapNotice = requestType === "timeoff" ? getSickLeaveOverlapNotice(request) : "";
-    const replacementField = requestType === "swap" && request.status === "open" && !request.targetEmployeeName
-      ? `
-        <label class="request-note-field">
-          <span>Vervanger kiezen</span>
-          <select data-request-replacement-select="${request.id}">
-            <option value="">Kies bevoegde medewerker</option>
-            ${buildEmployeeOptions(getSwapReplacementCandidates(request))}
-          </select>
-        </label>
-      `
-      : "";
-
-    return `
-      <article class="request-card planner-request-card is-${viewModel.requestStatus}${requestType === "timeoff" ? ` absence-${getAbsenceCardClass(request.type)}` : ""}${isExtraAvailabilityRequest(request) ? " is-extra-availability" : ""}">
-        <div class="planner-request-row">
-          <strong class="planner-request-name">${request.employeeName}</strong>
-          <div class="planner-request-period" title="${viewModel.periodText}">${viewModel.periodText}</div>
-          <span class="status-pill status-${viewModel.requestStatus}">${viewModel.statusLabel}</span>
-          ${plannerActions}
-        </div>
-        <div class="planner-request-detail-row">
-          <div class="planner-request-detail" title="${viewModel.detailText}">${requestType === "timeoff" ? renderAvailabilityRequestBadge(request) : ""}${viewModel.detailText}</div>
-          ${replacementField}
-          ${plannerNoteField}
-        </div>
-        ${swapExtra}
-        ${renderPlannerRequestCoverageContext(request, requestType)}
-        ${requestType === "timeoff" && getAvailabilityRequestHelperText(request) ? `<div class="request-impact availability-helper${isExtraAvailabilityRequest(request) ? " is-extra" : ""}">${getAvailabilityRequestHelperText(request)}</div>` : ""}
-        ${viewModel.rosterEffectText ? `<div class="request-impact${isExtraAvailabilityRequest(request) ? " availability-scoreboost-note" : ""}">${viewModel.rosterEffectText}</div>` : ""}
-        ${sickOverlapNotice ? `<div class="request-impact request-attention-note">${sickOverlapNotice}</div>` : ""}
-        ${viewModel.attentionText ? `<div class="request-impact request-attention-note">${viewModel.attentionText}</div>` : ""}
-        ${plannerNote}
-      </article>
-    `;
+    return renderPlannerRequestReviewCard({ request, requestType, viewModel });
   }).join("");
 }
 
