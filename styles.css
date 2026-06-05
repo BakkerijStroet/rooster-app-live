@@ -18251,7 +18251,7 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 }
 
 .delivery-panel.has-delivery-run .delivery-route-stop {
-  grid-template-columns: 1.34rem max-content minmax(0, 1fr) max-content;
+  grid-template-columns: 1.34rem minmax(6.9rem, max-content) max-content minmax(0, 1fr);
   gap: 0.3rem;
   min-height: 34px;
   padding: 0.2rem 0.34rem;
@@ -18361,9 +18361,9 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   font-size: 0.84rem;
   font-weight: 900;
   line-height: 1.15;
-  justify-self: end;
+  justify-self: start;
   overflow: visible;
-  text-align: right;
+  text-align: left;
   text-overflow: clip;
   white-space: nowrap;
 }
@@ -19264,7 +19264,7 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   }
 
   .delivery-panel.has-delivery-run .delivery-route-stop {
-    grid-template-columns: 1.24rem max-content minmax(0, 1fr) max-content;
+    grid-template-columns: 1.24rem minmax(5.65rem, max-content) max-content minmax(0, 1fr);
     gap: 0.18rem;
     min-height: 36px;
     padding: 0.22rem 0.24rem;

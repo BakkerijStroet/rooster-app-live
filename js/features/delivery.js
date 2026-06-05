@@ -6236,11 +6236,11 @@
       return `
         <article id="deliveryRouteStop${index}" class="${rowClasses}" data-delivery-route-stop="${index}" draggable="true" tabindex="0" aria-expanded="${isProductsExpanded ? "true" : "false"}" aria-controls="deliveryRouteStopProducts${index}">
           <div class="delivery-stop-number" aria-label="Stop ${routeStopIndex + 1}">${routeStopIndex + 1}</div>
+          <div class="delivery-stop-time">${escapeHtml(getRouteStopTimeLabel(stop))}</div>
           ${renderRouteStopIcons(stop, categories)}
           <div class="delivery-stop-main">
             <div class="delivery-stop-title">${escapeHtml(stop.customerName || "Klant onbekend")}</div>
           </div>
-          <div class="delivery-stop-time">${escapeHtml(getRouteStopTimeLabel(stop))}</div>
           ${isSelected ? renderRouteOrderControls(index, latestRouteStops.length, { productsExpanded: isProductsExpanded }) : ""}
           ${isProductsExpanded ? renderRouteStopTakeAlong(stop, index) : ""}
         </article>
