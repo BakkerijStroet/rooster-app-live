@@ -2,6 +2,7 @@
 
 const MAX_PDF_BYTES = 3 * 1024 * 1024;
 const MAX_JSON_BYTES = 4.25 * 1024 * 1024;
+const SERVER_PARSER_VERSION = "pdfjs-server-v2";
 
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
@@ -127,7 +128,7 @@ function isCountText(value) {
 }
 
 function hasDeliveryProductKeyword(value) {
-  return /\b(?:ongesneden|gesneden|brood|bus|mandje|warm|saucijs|saucijzen|breudje|broodje|bol|gebak|stokbrood|volkoren|tarwe|wit|witte|vlaai|koek|desem|prokorn|oeoerenwit|waldkorn|spelt|meergr|appelrondje|appelcake|bavar|vruchtenschelp|vierkantje|krentewegge|rozijnenbrood|rozijnenbol|poesta|duutse|kneud|hollands|grof|ruwe|bolster)\b/i.test(String(value || ""));
+  return /\b(?:ongesneden|gesneden|brood|bus|mandje|warm|saucijs|saucijzen|breudje|broodje|bol|bollen|gebak|stokbrood|volkoren|tarwe|wit|witte|vlaai|koek|desem|prokorn|oeoerenwit|waldkorn|spelt|meergr|appelrondje|appelcake|bavar|vruchtenschelp|vierkantje|krentewegge|rozijnenbrood|rozijnenbol|poesta|duutse|kneud|hollands|grof|ruwe|bolster|gesort|gesorteerd|croissant|pistolet)\b/i.test(String(value || ""));
 }
 
 function isTrailingCountProductText(value) {
@@ -174,7 +175,7 @@ function isProductCandidateText(value) {
     return false;
   }
 
-  if (/\b(?:straat|weg|laan|plein|hof|postcode|neede|borculo|eibergen|haarlo|gaanderen)\b/i.test(text) && !/\b(?:brood|bus|mandje|warm|saucijs|bol|gebak|stokbrood|volkoren|tarwe|wit|vlaai|koek|desem)\b/i.test(text)) {
+  if (/\b(?:straat|weg|laan|plein|hof|postcode|neede|borculo|eibergen|haarlo|gaanderen)\b/i.test(text) && !hasDeliveryProductKeyword(text)) {
     return false;
   }
 
@@ -291,19 +292,19 @@ function isColumnAddressText(value) {
 }
 
 function isColumnTimeText(value) {
-  return /^\d{1,2}:\d{2}(?:\s*(?:\/|\u2013|-|tot)\s*\d{1,2}:\d{2})?$/i.test(String(value || "").trim());
+  return /^(?:(?:voor|vanaf)\s*)?\d{1,2}:\d{2}(?:\s*(?:\/|\u2013|-|tot)\s*\d{1,2}:\d{2})?$/i.test(String(value || "").trim());
 }
 
 function normalizeTimeWindowText(value) {
-  const match = String(value || "")
-    .trim()
-    .match(/^(\d{1,2}:\d{2})(?:\s*(?:\/|\u2013|-|tot)\s*(\d{1,2}:\d{2}))?$/i);
+  const text = String(value || "").trim();
+  const match = text.match(/^(?:(voor|vanaf)\s*)?(\d{1,2}:\d{2})(?:\s*(?:\/|\u2013|-|tot)\s*(\d{1,2}:\d{2}))?$/i);
 
   if (!match) {
     return "";
   }
 
-  return match[2] ? `${match[1]} / ${match[2]}` : match[1];
+  const prefix = match[1] ? `${match[1].toLowerCase()} ` : "";
+  return match[3] ? `${prefix}${match[2]} / ${match[3]}` : `${prefix}${match[2]}`;
 }
 
 function isColumnHeaderLabel(value) {
@@ -408,6 +409,33 @@ function getColumnProductLinesForAnchor(rows, anchors, columnIndex, customerName
   return [...new Set(productLines)];
 }
 
+function getColumnLayout(rows) {
+  const nameRow = findColumnStopNameRow(rows);
+  const postcodeRow = findColumnPostcodeRow(rows);
+  const addressRow = findColumnAddressRow(rows);
+  const timeRow = findColumnTimeRow(rows);
+
+  if (!nameRow || !postcodeRow || !addressRow) {
+    return {
+      nameRow,
+      postcodeRow,
+      addressRow,
+      timeRow,
+      anchors: []
+    };
+  }
+
+  return {
+    nameRow,
+    postcodeRow,
+    addressRow,
+    timeRow,
+    anchors: postcodeRow.items
+      .filter((item) => isColumnPostcodeText(item.text))
+      .sort((itemA, itemB) => itemA.x - itemB.x || itemA.index - itemB.index)
+  };
+}
+
 function findColumnStopNameRow(rows) {
   return rows
     .filter((row) => row.y >= 60 && row.y <= 82)
@@ -459,18 +487,11 @@ function findColumnTimeRow(rows) {
 }
 
 function getColumnStopHeaderLines(rows) {
-  const nameRow = findColumnStopNameRow(rows);
-  const postcodeRow = findColumnPostcodeRow(rows);
-  const addressRow = findColumnAddressRow(rows);
-  const timeRow = findColumnTimeRow(rows);
+  const { nameRow, addressRow, timeRow, anchors } = getColumnLayout(rows);
 
-  if (!nameRow || !postcodeRow || !addressRow) {
+  if (!nameRow || !addressRow) {
     return [];
   }
-
-  const anchors = postcodeRow.items
-    .filter((item) => isColumnPostcodeText(item.text))
-    .sort((itemA, itemB) => itemA.x - itemB.x || itemA.index - itemB.index);
 
   if (!anchors.length) {
     return [];
@@ -503,6 +524,81 @@ function getColumnStopHeaderLines(rows) {
   return [...new Set(headerLines)];
 }
 
+function getTimeConfidenceFromHeaderLine(line) {
+  const parts = String(line || "").split("|").map((part) => normalizePdfText(part));
+  const timePart = parts[4] || "";
+
+  if (!timePart) {
+    return "ontbreekt";
+  }
+
+  return /^(?:voor|vanaf)\s+\d{1,2}:\d{2}$/i.test(timePart) ? "onzeker" : "zeker";
+}
+
+function getProductLineFromStopProductLine(line) {
+  return normalizePdfText(String(line || "").split("|").slice(2).join("|"));
+}
+
+function isParserProductReportCandidate(line) {
+  const text = normalizePdfText(line);
+
+  if (
+    !text ||
+    /^STOP(?:HEADER|PRODUCT)\b/i.test(text) ||
+    isColumnHeaderLabel(text) ||
+    isColumnTimeText(text) ||
+    isColumnPostcodeText(text) ||
+    isColumnStopCodeText(text) ||
+    (isColumnAddressText(text) && !hasDeliveryProductKeyword(text))
+  ) {
+    return false;
+  }
+
+  return isTrailingCountProductText(text) ||
+    (/^\d+[,.]?\d*\s+\S+/.test(text) && hasDeliveryProductKeyword(text));
+}
+
+function getServerParserReport({ pageReports = [], lines = [] } = {}) {
+  const normalizedLines = Array.isArray(lines) ? lines : [];
+  const stopHeaderLines = normalizedLines.filter((line) => /^STOPHEADER\b/i.test(line));
+  const stopProductLines = normalizedLines.filter((line) => /^STOPPRODUCT\b/i.test(line));
+  const linkedProductLines = new Set(stopProductLines.map(getProductLineFromStopProductLine).filter(Boolean));
+  const trailingCountProductLines = stopProductLines.filter((line) => {
+    const productLine = getProductLineFromStopProductLine(line);
+    return /^(?!\d+[,.]?\d*\s)(?=.*[A-Za-z]).+\s+\d+[,.]?\d*$/.test(productLine);
+  });
+  const unlinkedProductCandidates = [...new Set(normalizedLines
+    .filter((line) => isParserProductReportCandidate(line) && !linkedProductLines.has(normalizePdfText(line)))
+    .map(normalizePdfText))];
+  const timeStats = stopHeaderLines.reduce((stats, line) => {
+    const confidence = getTimeConfidenceFromHeaderLine(line);
+    stats[confidence] += 1;
+    return stats;
+  }, {
+    zeker: 0,
+    onzeker: 0,
+    ontbreekt: 0
+  });
+
+  return {
+    version: SERVER_PARSER_VERSION,
+    readMode: "hybride kolomreconstructie",
+    pages: pageReports,
+    stops: stopHeaderLines.length,
+    strongColumnPages: pageReports.filter((page) => page.columnCount > 0 && page.stopCount > 0).length,
+    productRulesLinked: stopProductLines.length,
+    productRulesUnlinked: unlinkedProductCandidates.length,
+    unlinkedProductLines: unlinkedProductCandidates.slice(0, 10),
+    trailingCountProductRules: trailingCountProductLines.length,
+    timeConfidence: timeStats,
+    pdfOrder: stopHeaderLines.map((line, index) => ({
+      index: index + 1,
+      label: normalizePdfText(line.replace(/^STOPHEADER\s+[^|]*\|\s*/i, "").split("|")[0] || line)
+    })).slice(0, 40),
+    quality: stopHeaderLines.length ? "OK" : "geblokkeerd"
+  };
+}
+
 function extractPageLines(textContent, pageNumber) {
   const items = (Array.isArray(textContent?.items) ? textContent.items : [])
     .map((item, index) => ({
@@ -515,18 +611,43 @@ function extractPageLines(textContent, pageNumber) {
     .filter((item) => item.text);
 
   if (!items.length) {
-    return [];
+    return {
+      lines: [],
+      report: {
+        page: pageNumber,
+        itemCount: 0,
+        rowCount: 0,
+        columnCount: 0,
+        stopCount: 0,
+        productRuleCount: 0,
+        trailingCountProductRuleCount: 0,
+        time: { zeker: 0, onzeker: 0, ontbreekt: 0 }
+      }
+    };
   }
 
   const hasUsefulPositions = items.some((item) => item.x || item.y);
 
   if (!hasUsefulPositions) {
-    return items
+    const lines = items
       .map((item) => item.text)
       .join(" ")
       .split(/\s{2,}/)
       .map(normalizePdfText)
       .filter(Boolean);
+    return {
+      lines,
+      report: {
+        page: pageNumber,
+        itemCount: items.length,
+        rowCount: 0,
+        columnCount: 0,
+        stopCount: 0,
+        productRuleCount: 0,
+        trailingCountProductRuleCount: 0,
+        time: { zeker: 0, onzeker: 0, ontbreekt: 0 }
+      }
+    };
   }
 
   const rows = getPageRows(items);
@@ -535,8 +656,40 @@ function extractPageLines(textContent, pageNumber) {
   const columnProductLines = getColumnProductLines(items)
     .map((item) => item.text)
     .filter(Boolean);
+  const layout = getColumnLayout(rows);
+  const pageLines = [...columnStopHeaderLines, ...rowLines, ...columnProductLines];
+  const stopLines = columnStopHeaderLines.filter((line) => /^STOPHEADER\b/i.test(line));
+  const productLines = columnStopHeaderLines.filter((line) => /^STOPPRODUCT\b/i.test(line));
+  const timeStats = stopLines.reduce((stats, line) => {
+    const confidence = getTimeConfidenceFromHeaderLine(line);
+    stats[confidence] += 1;
+    return stats;
+  }, {
+    zeker: 0,
+    onzeker: 0,
+    ontbreekt: 0
+  });
 
-  return [...columnStopHeaderLines, ...rowLines, ...columnProductLines];
+  return {
+    lines: pageLines,
+    report: {
+      page: pageNumber,
+      itemCount: items.length,
+      rowCount: rows.length,
+      columnCount: layout.anchors.length,
+      stopCount: stopLines.length,
+      productRuleCount: productLines.length,
+      trailingCountProductRuleCount: productLines.filter((line) => {
+        const productLine = getProductLineFromStopProductLine(line);
+        return /^(?!\d+[,.]?\d*\s)(?=.*[A-Za-z]).+\s+\d+[,.]?\d*$/.test(productLine);
+      }).length,
+      time: timeStats,
+      pdfOrder: stopLines.map((line, index) => ({
+        index: index + 1,
+        label: normalizePdfText(line.replace(/^STOPHEADER\s+[^|]*\|\s*/i, "").split("|")[0] || line)
+      }))
+    }
+  };
 }
 
 function ensurePdfjsDomStubs() {
@@ -639,6 +792,7 @@ async function parsePdfLines(buffer) {
   const pdf = await getPdfjsDocument(buffer);
   const warnings = [];
   const lines = [];
+  const pageReports = [];
 
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber);
@@ -647,7 +801,9 @@ async function parsePdfLines(buffer) {
       includeMarkedContent: false
     });
 
-    lines.push(...extractPageLines(textContent, pageNumber));
+    const pageResult = extractPageLines(textContent, pageNumber);
+    lines.push(...pageResult.lines);
+    pageReports.push(pageResult.report);
     page.cleanup?.();
   }
 
@@ -659,7 +815,8 @@ async function parsePdfLines(buffer) {
 
   return {
     lines,
-    warnings
+    warnings,
+    report: getServerParserReport({ pageReports, lines })
   };
 }
 
@@ -713,9 +870,10 @@ module.exports = async function handler(req, res) {
 
     sendJson(res, 200, {
       success: true,
-      parser: "pdfjs-server-v1",
+      parser: SERVER_PARSER_VERSION,
       lines: parsed.lines,
-      warnings: parsed.warnings
+      warnings: parsed.warnings,
+      report: parsed.report
     });
   } catch (error) {
     const statusCode = Number.isInteger(error?.statusCode) ? error.statusCode : 500;
@@ -728,7 +886,7 @@ module.exports = async function handler(req, res) {
 
     sendJson(res, statusCode, {
       success: false,
-      parser: "pdfjs-server-v1",
+      parser: SERVER_PARSER_VERSION,
       lines: [],
       warnings: [message],
       message

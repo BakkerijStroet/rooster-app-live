@@ -117,6 +117,7 @@
     builtCount: 0,
     missingLines: []
   };
+  let latestServerParserReport = null;
   let latestParserQualityBlocked = false;
   let latestHasLocalCorrections = false;
   let latestParserVersionWarning = "";
@@ -608,6 +609,7 @@
       missingLines: [],
       reasons: []
     };
+    latestServerParserReport = null;
     latestParserQualityBlocked = false;
     latestHasLocalCorrections = false;
     latestParserVersionWarning = "";
@@ -2331,11 +2333,14 @@
     clearPrintPreview();
   }
 
-  function renderParseResult(lines, recognized, warnings, extractionQuality = null, parserSource = "") {
+  function renderParseResult(lines, recognized, warnings, extractionQuality = null, parserSource = "", serverParserReport = null) {
     setDeliveryWorkVisible(true);
     closeDeliveryLowerSections();
     latestParserQualityBlocked = false;
     latestTextLineCount = Array.isArray(lines) ? lines.length : 0;
+    latestServerParserReport = serverParserReport && typeof serverParserReport === "object"
+      ? serverParserReport
+      : null;
 
     if (extractionQuality?.unreliable) {
       renderUnreliableExtraction(lines, warnings, extractionQuality, parserSource);
@@ -3237,6 +3242,7 @@
         version: CURRENT_DELIVERY_PARSER_VERSION,
         source: latestParserSource || "-",
         textLineCount: latestTextLineCount || 0,
+        serverReport: latestServerParserReport,
         referenceStatus: deliveryReferenceData.loaded
           ? `${deliveryReferenceData.customers.length} klanten, ${deliveryReferenceData.products.length} productpatronen`
           : deliveryReferenceData.loadError || "nog niet geladen"
@@ -3306,6 +3312,56 @@
             </li>
           `).join("")}
         </ul>
+      </section>
+    `;
+  }
+
+  function renderServerParserReport(report) {
+    if (!report || typeof report !== "object") {
+      return "";
+    }
+
+    const timeConfidence = report.timeConfidence && typeof report.timeConfidence === "object"
+      ? report.timeConfidence
+      : {};
+    const pages = Array.isArray(report.pages) ? report.pages : [];
+    const pdfOrder = Array.isArray(report.pdfOrder) ? report.pdfOrder : [];
+
+    return `
+      <section>
+        <h4>Serverparser controle</h4>
+        <div class="delivery-recognition-metrics">
+          ${renderRecognitionMetric("Leeswijze", report.readMode || "hybride")}
+          ${renderRecognitionMetric("Parserkwaliteit", report.quality || "-")}
+          ${renderRecognitionMetric("Kolompagina's", report.strongColumnPages ?? 0)}
+          ${renderRecognitionMetric("Stops", report.stops ?? 0)}
+          ${renderRecognitionMetric("Productregels gekoppeld", report.productRulesLinked ?? 0)}
+          ${renderRecognitionMetric("Productregels ongekoppeld", report.productRulesUnlinked ?? 0, report.productRulesUnlinked ? "warning" : "")}
+          ${renderRecognitionMetric("Trailing-count", report.trailingCountProductRules ?? 0)}
+          ${renderRecognitionMetric("Tijden zeker", timeConfidence.zeker ?? 0)}
+          ${renderRecognitionMetric("Tijden onzeker", timeConfidence.onzeker ?? 0, timeConfidence.onzeker ? "warning" : "")}
+          ${renderRecognitionMetric("Tijden ontbrekend", timeConfidence.ontbreekt ?? 0, timeConfidence.ontbreekt ? "warning" : "")}
+        </div>
+        ${pages.length ? `
+          <ul class="delivery-recognition-list">
+            ${pages.slice(0, 6).map((page) => `
+              <li>
+                Pagina ${escapeHtml(page.page)}:
+                ${escapeHtml(page.stopCount ?? 0)} stops,
+                ${escapeHtml(page.productRuleCount ?? 0)} productregels,
+                ${escapeHtml(page.columnCount ?? 0)} kolommen
+              </li>
+            `).join("")}
+          </ul>
+        ` : ""}
+        ${pdfOrder.length ? `
+          <small>PDF-volgorde: ${pdfOrder.slice(0, 12).map((item) => `${escapeHtml(item.index)}. ${escapeHtml(item.label)}`).join(" | ")}</small>
+        ` : ""}
+        ${Array.isArray(report.unlinkedProductLines) && report.unlinkedProductLines.length ? `
+          <ul class="delivery-recognition-list">
+            ${report.unlinkedProductLines.slice(0, 6).map((line) => `<li>Ongekoppeld: ${escapeHtml(line)}</li>`).join("")}
+          </ul>
+        ` : ""}
       </section>
     `;
   }
@@ -3395,6 +3451,7 @@
             ${renderRecognitionMetric("Woordenboeken", report.parser.referenceStatus)}
           </div>
         </section>
+        ${renderServerParserReport(report.parser.serverReport)}
       </div>
       ${report.products.cuttingUncertainLines.length ? `
         <div class="delivery-recognition-suspicious">
@@ -7004,7 +7061,8 @@
       lines,
       ...analysis,
       extractionQuality,
-      parser
+      parser,
+      serverParserReport: result.report && typeof result.report === "object" ? result.report : null
     };
   }
 
@@ -7093,7 +7151,7 @@
             status: "ready",
             message: "Nog niet opgeslagen"
           };
-          renderParseResult(serverResult.lines, serverResult.recognized, serverResult.warnings, serverResult.extractionQuality, latestParserSource);
+          renderParseResult(serverResult.lines, serverResult.recognized, serverResult.warnings, serverResult.extractionQuality, latestParserSource, serverResult.serverParserReport);
 
           if (serverResult.extractionQuality?.unreliable || !serverResult.lines.length) {
             latestSaveState = {
@@ -7124,7 +7182,7 @@
 
             if (!serverResult.extractionQuality?.unreliable && hasBetterPaymentDetails(serverResult, result)) {
               latestParserSource = `${serverResult.parser || "pdfjs-server-v1"} + betaalcontrole`;
-              renderParseResult(serverResult.lines, serverResult.recognized, serverResult.warnings, serverResult.extractionQuality, latestParserSource);
+              renderParseResult(serverResult.lines, serverResult.recognized, serverResult.warnings, serverResult.extractionQuality, latestParserSource, serverResult.serverParserReport);
               setStatus(`${file.name}${sizeLabel ? ` (${sizeLabel})` : ""} gelezen met extra betaalcontrole.`, "ready");
               return;
             }
