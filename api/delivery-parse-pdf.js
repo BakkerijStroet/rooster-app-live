@@ -128,7 +128,7 @@ function isCountText(value) {
 }
 
 function hasDeliveryProductKeyword(value) {
-  return /\b(?:ongesneden|gesneden|brood|bus|mandje|warm|saucijs|saucijzen|breudje|broodje|bol|bollen|gebak|stokbrood|volkoren|tarwe|wit|witte|vlaai|koek|desem|prokorn|oeoerenwit|waldkorn|spelt|meergr|appelrondje|appelcake|bavar|vruchtenschelp|vierkantje|krentewegge|rozijnenbrood|rozijnenbol|poesta|duutse|kneud|hollands|grof|ruwe|bolster|gesort|gesorteerd|croissant|pistolet)\b/i.test(String(value || ""));
+  return /\b(?:ongesneden|gesneden|brood|bus|mandje|warm|saucijs|saucijzen|breudje|broodje|bol|bollen|gebak|stokbrood|volkoren|tarwe|wit|witte|vlaai|koek|desem|prokorn|oeoerenwit|waldkorn|spelt|meergr|appelrondje|appelcake|bavar|vruchtenschelp|vierkantje|krentewegge|rozijnenbrood|rozijnenbol|poesta|duutse|kneud|hollands|grof|ruwe|bolster|gesort|gesorteerd|croissant|pistolet|bezorgen)\b/i.test(String(value || ""));
 }
 
 function isTrailingCountProductText(value) {
@@ -348,12 +348,43 @@ function getColumnBounds(anchors, columnIndex) {
   };
 }
 
-function getColumnProductLinesForAnchor(rows, anchors, columnIndex, customerName = "") {
+function getColumnHeaderStartX({ nameRow, addressRow, timeRow, anchors }, columnIndex) {
+  const headerItems = [
+    ...getItemsForColumn(nameRow, anchors, columnIndex),
+    ...getItemsForColumn(addressRow, anchors, columnIndex),
+    ...getItemsForColumn(timeRow, anchors, columnIndex),
+    anchors[columnIndex]
+  ].filter((item) => item && Number.isFinite(item.x));
+  const xValues = headerItems.map((item) => item.x);
+
+  return xValues.length ? Math.min(...xValues) : null;
+}
+
+function getProductColumnBounds(layout, columnIndex) {
+  const { anchors } = layout;
+  const baseBounds = getColumnBounds(anchors, columnIndex);
+  const headerMargin = 8;
+  const currentHeaderStartX = getColumnHeaderStartX(layout, columnIndex);
+  const nextHeaderStartX = getColumnHeaderStartX(layout, columnIndex + 1);
+
+  return {
+    left: Number.isFinite(currentHeaderStartX)
+      ? Math.max(baseBounds.left, currentHeaderStartX - headerMargin)
+      : baseBounds.left,
+    right: Number.isFinite(nextHeaderStartX)
+      ? Math.max(baseBounds.right, nextHeaderStartX - headerMargin)
+      : baseBounds.right
+  };
+}
+
+function getColumnProductLinesForAnchor(rows, layout, columnIndex, customerName = "") {
+  const { anchors } = layout;
+
   if (!Array.isArray(rows) || !anchors[columnIndex]) {
     return [];
   }
 
-  const { left, right } = getColumnBounds(anchors, columnIndex);
+  const { left, right } = getProductColumnBounds(layout, columnIndex);
   const columnTolerance = 4;
   const items = rows.flatMap((row) => Array.isArray(row.items) ? row.items : []);
   const normalizedCustomerName = normalizePdfText(customerName).toLowerCase();
@@ -516,7 +547,7 @@ function getColumnStopHeaderLines(rows) {
     }
 
     headerLines.push(normalizePdfText(`STOPHEADER ${stopCode} | ${customerName} | ${address} | ${postcode}${timeWindow ? ` | ${timeWindow}` : ""}`));
-    getColumnProductLinesForAnchor(rows, anchors, columnIndex, customerName).forEach((productLine) => {
+    getColumnProductLinesForAnchor(rows, { nameRow, addressRow, timeRow, anchors }, columnIndex, customerName).forEach((productLine) => {
       headerLines.push(normalizePdfText(`STOPPRODUCT ${stopCode} | ${customerName} | ${productLine}`));
     });
   });
