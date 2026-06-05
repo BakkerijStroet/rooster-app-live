@@ -12024,6 +12024,12 @@ button,
   gap: 0.8rem;
 }
 
+.delivery-route-cost-card {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 0.85rem;
+}
+
 .delivery-quick-edit-card {
   display: grid;
   gap: 0.8rem;
@@ -12525,6 +12531,7 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 .delivery-control-card h3,
 .delivery-dashboard-card h3,
 .delivery-actions-card h3,
+.delivery-route-cost-card h3,
 .delivery-quick-edit-card h3,
 .delivery-saved-card h3,
 .delivery-preparation-card h3,
@@ -12744,6 +12751,109 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 .delivery-product-list {
   display: grid;
   gap: 0.45rem;
+}
+
+.delivery-route-cost-panel {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.delivery-route-cost-intro,
+.delivery-route-cost-source-note,
+.delivery-route-cost-warnings {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.58rem 0.7rem;
+  background: var(--color-surface-soft);
+}
+
+.delivery-route-cost-intro {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.delivery-route-cost-intro span,
+.delivery-route-cost-source-note,
+.delivery-route-cost-warnings {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.delivery-route-cost-summary,
+.delivery-route-cost-form,
+.delivery-route-cost-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.5rem;
+}
+
+.delivery-route-cost-summary span,
+.delivery-route-cost-results span {
+  display: grid;
+  gap: 0.12rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  background: var(--color-surface-soft);
+  color: var(--color-text);
+}
+
+.delivery-route-cost-summary strong,
+.delivery-route-cost-results strong,
+.delivery-route-cost-field span {
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.delivery-route-cost-results b {
+  font-size: 1.02rem;
+}
+
+.delivery-route-cost-results .delivery-route-cost-total {
+  border-color: #8dbb83;
+}
+
+.delivery-route-cost-source-note,
+.delivery-route-cost-warnings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.delivery-route-cost-source-note span,
+.delivery-route-cost-warnings span {
+  border-radius: 999px;
+  padding: 0.18rem 0.45rem;
+  background: var(--color-surface);
+}
+
+.delivery-route-cost-field {
+  display: grid;
+  gap: 0.22rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  background: var(--color-surface-soft);
+}
+
+.delivery-route-cost-field div {
+  display: grid;
+  gap: 0.16rem;
+}
+
+.delivery-route-cost-field input {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.45rem 0.5rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.delivery-route-cost-field small {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
 }
 
 .delivery-recognized-item,

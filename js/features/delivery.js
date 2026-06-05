@@ -8,6 +8,7 @@
   const controlSummaryElement = document.getElementById("deliveryControlSummary");
   const dashboardElement = document.getElementById("deliveryDashboard");
   const actionsOverviewElement = document.getElementById("deliveryActionsOverview");
+  const routeCostPanelElement = document.getElementById("deliveryRouteCostPanel");
   const quickEditElement = document.getElementById("deliveryQuickEdit");
   const savedRunsElement = document.getElementById("deliverySavedRuns");
   const savedRefreshButton = document.getElementById("deliverySavedRefreshButton");
@@ -52,6 +53,15 @@
   const CURRENT_DELIVERY_PARSER_VERSION = "delivery-local-v5";
   const OLD_PARSER_WARNING = "Deze run is gemaakt met een oudere parser. Upload de PDF opnieuw voor de nieuwste herkenning.";
   const DRIVER_MODE_STORAGE_PREFIX = "delivery-driver-status-v1:";
+  const ROUTE_COST_STORAGE_KEY = "delivery-route-cost-v1";
+  const DEFAULT_ROUTE_COST_SETTINGS = {
+    totalKm: "",
+    costPerKm: "",
+    driverHours: "",
+    hourlyCost: "",
+    prepMinutes: "",
+    prepHourlyCost: ""
+  };
   const PAYMENT_CORRECTION_OPTIONS = [
     "OK",
     "Op rekening",
@@ -146,6 +156,7 @@
     loaded: false,
     loadError: ""
   };
+  let routeCostStorageState = loadRouteCostStorageState();
 
   function escapeHtml(value) {
     return String(value || "")
@@ -154,6 +165,119 @@
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
+  }
+
+  function loadRouteCostStorageState() {
+    try {
+      const rawValue = window.localStorage?.getItem(ROUTE_COST_STORAGE_KEY) || "";
+      const parsedValue = rawValue ? JSON.parse(rawValue) : null;
+
+      if (!parsedValue || typeof parsedValue !== "object") {
+        return {
+          defaults: {},
+          runs: {}
+        };
+      }
+
+      return {
+        defaults: parsedValue.defaults && typeof parsedValue.defaults === "object" ? parsedValue.defaults : {},
+        runs: parsedValue.runs && typeof parsedValue.runs === "object" ? parsedValue.runs : {}
+      };
+    } catch (error) {
+      console.warn("[delivery] ritkosten laden mislukt", error);
+      return {
+        defaults: {},
+        runs: {}
+      };
+    }
+  }
+
+  function persistRouteCostStorageState() {
+    try {
+      window.localStorage?.setItem(ROUTE_COST_STORAGE_KEY, JSON.stringify({
+        defaults: routeCostStorageState.defaults || {},
+        runs: routeCostStorageState.runs || {}
+      }));
+    } catch (error) {
+      console.warn("[delivery] ritkosten opslaan mislukt", error);
+    }
+  }
+
+  function getRouteCostRunKey() {
+    if (latestRunSource === "saved" && latestRunId) {
+      return `saved:${latestRunId}`;
+    }
+
+    if (latestSourceHash) {
+      return `hash:${latestSourceHash}`;
+    }
+
+    if (latestDeliveryDate) {
+      return `date:${latestDeliveryDate}`;
+    }
+
+    return "draft";
+  }
+
+  function getRouteCostSettings() {
+    const runKey = getRouteCostRunKey();
+    const defaults = routeCostStorageState.defaults || {};
+    const runSettings = routeCostStorageState.runs?.[runKey] || {};
+
+    return {
+      ...DEFAULT_ROUTE_COST_SETTINGS,
+      ...defaults,
+      ...runSettings
+    };
+  }
+
+  function updateRouteCostSetting(fieldName, value) {
+    if (!Object.prototype.hasOwnProperty.call(DEFAULT_ROUTE_COST_SETTINGS, fieldName)) {
+      return;
+    }
+
+    const normalizedValue = String(value || "").replace(/[^\d,.]/g, "");
+    const runKey = getRouteCostRunKey();
+    const defaultFields = new Set(["costPerKm", "hourlyCost", "prepHourlyCost"]);
+
+    if (defaultFields.has(fieldName)) {
+      routeCostStorageState.defaults = {
+        ...(routeCostStorageState.defaults || {}),
+        [fieldName]: normalizedValue
+      };
+    }
+
+    routeCostStorageState.runs = {
+      ...(routeCostStorageState.runs || {}),
+      [runKey]: {
+        ...(routeCostStorageState.runs?.[runKey] || {}),
+        [fieldName]: normalizedValue
+      }
+    };
+    persistRouteCostStorageState();
+  }
+
+  function parseRouteCostNumber(value) {
+    const normalizedValue = String(value || "").trim().replace(",", ".");
+    const numericValue = Number(normalizedValue);
+
+    return Number.isFinite(numericValue) && numericValue > 0 ? numericValue : 0;
+  }
+
+  function formatRouteCostCurrency(value) {
+    return new Intl.NumberFormat("nl-NL", {
+      style: "currency",
+      currency: "EUR",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(Number.isFinite(value) ? value : 0);
+  }
+
+  function formatRouteCostNumber(value, fractionDigits = 1) {
+    return new Intl.NumberFormat("nl-NL", {
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits
+    }).format(Number.isFinite(value) ? value : 0);
   }
 
   function getEmptyDriverModeState() {
@@ -554,6 +678,11 @@
     if (actionsOverviewElement) {
       actionsOverviewElement.classList.add("empty");
       actionsOverviewElement.textContent = "Nog geen acties of betalingen beschikbaar.";
+    }
+
+    if (routeCostPanelElement) {
+      routeCostPanelElement.classList.add("empty");
+      routeCostPanelElement.textContent = "Nog geen ritkosten beschikbaar.";
     }
 
     if (preparationElement) {
@@ -2413,6 +2542,7 @@
     renderDashboard(routeStops, latestDeliveryDate);
     renderControlSummary(routeStops);
     renderActionsOverview(routeStops);
+    renderRouteCosts(routeStops, latestDeliveryDate);
     renderPreparation(routeStops);
     renderDriverPreview(routeStops, latestDeliveryDate);
     renderRouteBlocks(routeStops);
@@ -3072,6 +3202,7 @@
     renderDashboard(latestRouteStops, latestDeliveryDate);
     renderControlSummary(latestRouteStops);
     renderActionsOverview(latestRouteStops);
+    renderRouteCosts(latestRouteStops, latestDeliveryDate);
     renderPreparation(latestRouteStops);
     renderDriverPreview(latestRouteStops, latestDeliveryDate);
     renderRouteBlocks(latestRouteStops);
@@ -3705,6 +3836,186 @@
     `).join("");
   }
 
+  function getRouteCostSameDateSources(deliveryDate) {
+    const isoDate = parseDeliveryDateIso(deliveryDate);
+    const planningEntries = [
+      window.planningEntries,
+      window.entries,
+      window.planningData?.entries
+    ].find(Array.isArray) || [];
+    const workLogEntries = [
+      window.workLogs,
+      window.workLogData,
+      window.hoursData?.workLogs
+    ].find(Array.isArray) || [];
+
+    if (!isoDate) {
+      return {
+        planningEntries: [],
+        workLogs: []
+      };
+    }
+
+    const isDeliveryShift = (value) => /\bbezorg(?:dienst|ing)?\b/i.test(String(value || ""));
+
+    return {
+      planningEntries: planningEntries.filter((entry) =>
+        String(entry?.day || entry?.date || "").slice(0, 10) === isoDate
+        && isDeliveryShift(entry?.shiftName || entry?.shift || entry?.type || entry?.department)
+      ),
+      workLogs: workLogEntries.filter((entry) =>
+        String(entry?.day || entry?.date || entry?.workDate || "").slice(0, 10) === isoDate
+        && isDeliveryShift(entry?.shiftName || entry?.shift || entry?.type || entry?.department)
+      )
+    };
+  }
+
+  function getRouteCostRouteCount(stops) {
+    const routeNumbers = new Set(
+      (Array.isArray(stops) ? stops : [])
+        .map((stop) => getStopRouteNumber(stop))
+        .filter((routeNumber) => Number.isFinite(routeNumber) && routeNumber > 0)
+    );
+
+    return routeNumbers.size || (Array.isArray(stops) && stops.length ? 1 : 0);
+  }
+
+  function getRouteCostCalculation(stops, deliveryDate, settings) {
+    const normalizedStops = Array.isArray(stops) ? stops : [];
+    const products = getAllProducts(normalizedStops);
+    const preparation = calculatePreparation(normalizedStops);
+    const cuttingMinutes = preparation.cuttingCount * 20 / 60;
+    const manualPrepMinutes = parseRouteCostNumber(settings.prepMinutes);
+    const prepMinutes = manualPrepMinutes || cuttingMinutes;
+    const totalKm = parseRouteCostNumber(settings.totalKm);
+    const costPerKm = parseRouteCostNumber(settings.costPerKm);
+    const driverHours = parseRouteCostNumber(settings.driverHours);
+    const hourlyCost = parseRouteCostNumber(settings.hourlyCost);
+    const prepHourlyCost = parseRouteCostNumber(settings.prepHourlyCost) || hourlyCost;
+    const personnelCost = driverHours * hourlyCost;
+    const vehicleCost = totalKm * costPerKm;
+    const preparationCost = prepMinutes / 60 * prepHourlyCost;
+    const totalCost = personnelCost + vehicleCost + preparationCost;
+    const sameDateSources = getRouteCostSameDateSources(deliveryDate);
+    const warnings = [
+      "Omzet ontbreekt",
+      totalKm ? "Kilometers handmatig ingevuld" : "Kilometers ontbreken",
+      driverHours ? "Chauffeururen handmatig ingevuld" : "Chauffeururen handmatig invullen",
+      "Indicatie, geen boekhoudkundige berekening"
+    ];
+
+    return {
+      deliveryDate,
+      stopCount: normalizedStops.length,
+      routeCount: getRouteCostRouteCount(normalizedStops),
+      productLineCount: products.length,
+      cuttingCount: preparation.cuttingCount,
+      cuttingMinutes,
+      prepMinutes,
+      totalKm,
+      costPerKm,
+      driverHours,
+      hourlyCost,
+      prepHourlyCost,
+      personnelCost,
+      vehicleCost,
+      preparationCost,
+      totalCost,
+      costPerStop: normalizedStops.length ? totalCost / normalizedStops.length : 0,
+      sameDateSources,
+      warnings
+    };
+  }
+
+  function renderRouteCostInput(fieldName, label, value, placeholder, suffix = "") {
+    return `
+      <label class="delivery-route-cost-field">
+        <span>${escapeHtml(label)}</span>
+        <div>
+          <input
+            type="text"
+            inputmode="decimal"
+            autocomplete="off"
+            value="${escapeHtml(value)}"
+            placeholder="${escapeHtml(placeholder)}"
+            data-delivery-route-cost-field="${escapeHtml(fieldName)}"
+          >
+          ${suffix ? `<small>${escapeHtml(suffix)}</small>` : ""}
+        </div>
+      </label>
+    `;
+  }
+
+  function renderRouteCosts(stops, deliveryDate) {
+    if (!routeCostPanelElement) {
+      return;
+    }
+
+    if (!Array.isArray(stops) || !stops.length) {
+      routeCostPanelElement.classList.add("empty");
+      routeCostPanelElement.textContent = "Nog geen ritkosten beschikbaar.";
+      return;
+    }
+
+    const settings = getRouteCostSettings();
+    const calculation = getRouteCostCalculation(stops, deliveryDate, settings);
+    const planningLabel = calculation.sameDateSources.planningEntries.length
+      ? `${calculation.sameDateSources.planningEntries.length} bezorgdienst${calculation.sameDateSources.planningEntries.length === 1 ? "" : "en"} gevonden`
+      : "Geen bezorgdiensten beschikbaar in deze weergave";
+    const workLogLabel = calculation.sameDateSources.workLogs.length
+      ? `${calculation.sameDateSources.workLogs.length} werklog${calculation.sameDateSources.workLogs.length === 1 ? "" : "s"} gevonden`
+      : "Werkuren handmatig invullen";
+
+    routeCostPanelElement.classList.remove("empty");
+    routeCostPanelElement.innerHTML = `
+      <div class="delivery-route-cost-intro">
+        <strong>Indicatie ritkosten</strong>
+        <span>Lokale berekening voor deze bezorgrun. Er wordt niets opgeslagen op de server.</span>
+      </div>
+      <div class="delivery-route-cost-summary">
+        <span><strong>Datum</strong>${escapeHtml(calculation.deliveryDate || "datum controle nodig")}</span>
+        <span><strong>Stops</strong>${escapeHtml(calculation.stopCount)}</span>
+        <span><strong>Routes</strong>${escapeHtml(calculation.routeCount)}</span>
+        <span><strong>Productregels</strong>${escapeHtml(calculation.productLineCount)}</span>
+        <span><strong>Snijbroden</strong>${escapeHtml(calculation.cuttingCount)}</span>
+        <span><strong>Snijtijd</strong>${escapeHtml(formatRouteCostNumber(calculation.cuttingMinutes, 1))} min</span>
+      </div>
+      <div class="delivery-route-cost-source-note">
+        <span>${escapeHtml(planningLabel)}</span>
+        <span>${escapeHtml(workLogLabel)}</span>
+      </div>
+      <div class="delivery-route-cost-form">
+        ${renderRouteCostInput("totalKm", "Km totaal", settings.totalKm, "bijv. 48", "handmatig")}
+        ${renderRouteCostInput("costPerKm", "Kosten per km", settings.costPerKm, "bijv. 0,35", "lokaal onthouden")}
+        ${renderRouteCostInput("driverHours", "Chauffeururen", settings.driverHours, "bijv. 4,5", "handmatig")}
+        ${renderRouteCostInput("hourlyCost", "Uurloon/kostprijs", settings.hourlyCost, "bijv. 18,50", "per uur")}
+        ${renderRouteCostInput("prepMinutes", "Voorbereidingstijd", settings.prepMinutes, formatRouteCostNumber(calculation.cuttingMinutes, 1), "leeg = snijtijd")}
+        ${renderRouteCostInput("prepHourlyCost", "Voorbereiding tarief", settings.prepHourlyCost, "leeg = uurloon", "optioneel")}
+      </div>
+      <div class="delivery-route-cost-results">
+        <span><strong>Personeelskosten</strong><b data-delivery-route-cost-output="personnelCost">${escapeHtml(formatRouteCostCurrency(calculation.personnelCost))}</b></span>
+        <span><strong>Voertuigkosten</strong><b data-delivery-route-cost-output="vehicleCost">${escapeHtml(formatRouteCostCurrency(calculation.vehicleCost))}</b></span>
+        <span><strong>Voorbereiding/snijtijd</strong><b data-delivery-route-cost-output="preparationCost">${escapeHtml(formatRouteCostCurrency(calculation.preparationCost))}</b></span>
+        <span class="delivery-route-cost-total"><strong>Totale indicatie</strong><b data-delivery-route-cost-output="totalCost">${escapeHtml(formatRouteCostCurrency(calculation.totalCost))}</b></span>
+        <span><strong>Kosten per stop</strong><b data-delivery-route-cost-output="costPerStop">${escapeHtml(formatRouteCostCurrency(calculation.costPerStop))}</b></span>
+      </div>
+      <div class="delivery-route-cost-warnings" data-delivery-route-cost-warnings>
+        ${calculation.warnings.map((warning) => `<span>${escapeHtml(warning)}</span>`).join("")}
+      </div>
+    `;
+  }
+
+  function handleRouteCostInput(event) {
+    const field = event.target.closest("[data-delivery-route-cost-field]");
+
+    if (!field) {
+      return;
+    }
+
+    updateRouteCostSetting(field.dataset.deliveryRouteCostField, field.value);
+    renderRouteCosts(latestRouteStops, latestDeliveryDate);
+  }
+
   function scrollToDeliveryStop(index) {
     const stopElement = document.getElementById(`deliveryRouteStop${index}`);
 
@@ -4222,6 +4533,7 @@
     renderDashboard(routeStops, latestDeliveryDate);
     renderControlSummary(routeStops);
     renderActionsOverview(routeStops);
+    renderRouteCosts(routeStops, latestDeliveryDate);
     renderPreparation(routeStops);
     renderRouteBlocks(routeStops);
     renderQuickEdit(routeStops);
@@ -7416,6 +7728,7 @@
 
   deliveryPanelElement?.addEventListener("click", handleDeliveryPanelClick);
   employeeDeliveryPanelElement?.addEventListener("click", handleDeliveryPanelClick);
+  deliveryPanelElement?.addEventListener("change", handleRouteCostInput);
   function handleDriverModeStatusChange(event) {
     const completionDeliveredField = event.target.closest("[data-delivery-driver-complete-delivered]");
 
