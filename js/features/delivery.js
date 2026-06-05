@@ -5084,6 +5084,53 @@
     `;
   }
 
+  function getDriverModeProductDisplayName(product, productCount = "") {
+    let rawLine = String(product?.rawLine || "").trim();
+    const countText = String(productCount || "").trim();
+
+    if (!rawLine) {
+      return "Product onbekend";
+    }
+
+    if (countText) {
+      const escapedCount = countText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace("\\.", "[,.]");
+      const leadingCountPattern = new RegExp(`^${escapedCount}\\s+`, "i");
+      const trailingCountPattern = new RegExp(`\\s+${escapedCount}$`, "i");
+
+      rawLine = rawLine
+        .replace(leadingCountPattern, "")
+        .replace(trailingCountPattern, "")
+        .trim();
+    }
+
+    return rawLine || String(product?.rawLine || "").trim() || "Product onbekend";
+  }
+
+  function renderDriverModeProducts(stop) {
+    const products = getSortedProductsForStop(stop);
+
+    if (!products.length) {
+      return "<div class=\"delivery-driver-mode-empty\">Geen producten gekoppeld.</div>";
+    }
+
+    return `
+      <div class="delivery-driver-mode-products">
+        ${products.map((product) => {
+          const isWarmProduct = product.category === "warm" || isWarmPreparationProduct(product);
+          const productCount = String(product.count || "").trim();
+          const productName = getDriverModeProductDisplayName(product, productCount);
+
+          return `
+            <div class="delivery-driver-mode-product${isWarmProduct ? " has-warm" : ""}">
+              <strong>${escapeHtml(productCount || "?")}</strong>
+              <span>${isWarmProduct ? "<b aria-label=\"warm\">&#x1F525;</b> " : ""}${escapeHtml(productName)}</span>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
   function getDriverModeRouteSummary(routeItems) {
     const total = Array.isArray(routeItems) ? routeItems.length : 0;
     const stateItems = (Array.isArray(routeItems) ? routeItems : []).map((item) => getDriverModeStopState(item.stop));
@@ -5113,10 +5160,10 @@
     return `
       <div class="delivery-driver-mode-actions">
         <button type="button" class="delivery-driver-mode-primary-action" data-delivery-driver-mode-deliver-next>
-          ${state.delivered ? "Geleverd - volgende open stop" : "Geleverd + volgende stop"}
+          Stop afronden
         </button>
         <button type="button" class="delivery-driver-mode-skip-action${state.skipped && !state.delivered ? " is-done" : ""}" data-delivery-driver-mode-skip>
-          ${state.skipped && !state.delivered ? "Overgeslagen - volgende open stop" : "Overslaan"}
+          Overslaan
         </button>
         ${showPaymentAction
           ? `<button type="button" class="delivery-driver-mode-pay-action${state.paid ? " is-done" : ""}" data-delivery-driver-mode-pay>
@@ -5372,7 +5419,8 @@
     const isEmployeeMode = isEmployeeDriverModeActive();
     const routeSummary = getDriverModeRouteSummary(routeItems);
     const stopLabel = `Stop ${driverModeStopIndex + 1} van ${routeItems.length}`;
-    const deliveredProgressLabel = `${routeSummary.delivered} van ${routeSummary.total} geleverd`;
+    const deliveredProgressLabel = `${routeSummary.delivered} geleverd`;
+    const driverModeProgressText = `${routeSummary.delivered} geleverd · ${routeSummary.skipped} overgeslagen · ${routeSummary.open} open`;
     const progressPercentage = routeSummary.total
       ? Math.round((routeSummary.delivered / routeSummary.total) * 100)
       : 0;
@@ -5399,8 +5447,7 @@
               </div>`}
           <div class="delivery-driver-mode-progress">
             <div>
-              <strong>${escapeHtml(deliveredProgressLabel)}</strong>
-              <span>${escapeHtml(String(routeSummary.skipped))} overgeslagen - ${escapeHtml(String(routeSummary.open))} open</span>
+              <strong>${escapeHtml(driverModeProgressText)}</strong>
             </div>
             <div class="delivery-driver-mode-progress-track" aria-label="${escapeHtml(deliveredProgressLabel)}">
               <span style="width:${escapeHtml(String(progressPercentage))}%"></span>
@@ -5420,26 +5467,27 @@
             <strong>${escapeHtml(getRouteStopTimeLabel(stop))}</strong>
           </div>
           <h3>${escapeHtml(stop.customerName || "Klant onbekend")}</h3>
-          ${renderDriverModeIcons(stop)}
-          ${navigationUrl
-            ? `<a class="delivery-driver-mode-navigate" href="${escapeHtml(navigationUrl)}" target="_blank" rel="noopener">Navigeer</a>`
-            : "<button type=\"button\" class=\"delivery-driver-mode-navigate\" disabled>Navigeer</button>"}
           <div class="delivery-driver-mode-address">
             ${navigationUrl
               ? `<span>${escapeHtml(stop.address || "Adres onbekend")}</span>`
               : `<span>${escapeHtml(stop.address || "Adres onbekend")}</span>`}
           </div>
+          ${navigationUrl
+            ? `<a class="delivery-driver-mode-navigate" href="${escapeHtml(navigationUrl)}" target="_blank" rel="noopener">Navigeer</a>`
+            : "<button type=\"button\" class=\"delivery-driver-mode-navigate\" disabled>Navigeer</button>"}
           ${remark ? `<div class="delivery-driver-mode-remark">${escapeHtml(remark)}</div>` : ""}
-          <div class="delivery-driver-mode-meta">
-            <span>${escapeHtml(paymentStatus)}</span>
-            ${isWarmStop(stop) ? "<span>Warm controleren</span>" : ""}
-          </div>
-          ${renderDriverModeActions(stop)}
-          ${renderDriverModeCompletionPanel(stop)}
+          ${isDriverModePaymentActionRelevant(stop) || isWarmStop(stop)
+            ? `<div class="delivery-driver-mode-meta">
+                ${isDriverModePaymentActionRelevant(stop) ? `<span>${escapeHtml(paymentStatus)}</span>` : ""}
+                ${isWarmStop(stop) ? "<span>Warm controleren</span>" : ""}
+              </div>`
+            : ""}
           <section class="delivery-driver-mode-products-card">
             <h4>Mee te nemen</h4>
             ${renderDriverModeProducts(stop)}
           </section>
+          ${renderDriverModeActions(stop)}
+          ${renderDriverModeCompletionPanel(stop)}
         </article>
         <div class="delivery-driver-mode-nav">
           <button type="button" class="secondary" data-delivery-driver-mode-prev ${driverModeStopIndex <= 0 ? "disabled" : ""}>Vorige</button>
