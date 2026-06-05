@@ -126,6 +126,43 @@ function isCountText(value) {
   return /^(?:\d+[,.]?\d*|\d+\s*x|x\s*\d+)$/.test(String(value || "").trim());
 }
 
+function hasDeliveryProductKeyword(value) {
+  return /\b(?:ongesneden|gesneden|brood|bus|mandje|warm|saucijs|saucijzen|breudje|broodje|bol|gebak|stokbrood|volkoren|tarwe|wit|witte|vlaai|koek|desem|prokorn|oeoerenwit|waldkorn|spelt|meergr|appelrondje|appelcake|bavar|vruchtenschelp|vierkantje|krentewegge|rozijnenbrood|rozijnenbol|poesta|duutse|kneud|hollands|grof|ruwe|bolster)\b/i.test(String(value || ""));
+}
+
+function isTrailingCountProductText(value) {
+  const text = String(value || "").trim();
+
+  if (
+    !text ||
+    isCountText(text) ||
+    isColumnHeaderLabel(text) ||
+    isColumnStopCodeText(text) ||
+    isColumnPostcodeText(text) ||
+    isColumnTimeText(text)
+  ) {
+    return false;
+  }
+
+  if (isColumnAddressText(text) && !hasDeliveryProductKeyword(text)) {
+    return false;
+  }
+
+  return /^(?!\d{1,2}:\d{2})(?=.*[A-Za-z]).+\s+\d+[,.]?\d*$/.test(text) &&
+    hasDeliveryProductKeyword(text);
+}
+
+function formatColumnProductLine(countText, productText) {
+  const count = normalizePdfText(countText);
+  const product = normalizePdfText(productText);
+
+  if (/^heel\s+ONGESNEDEN\b/i.test(product)) {
+    return normalizePdfText(`${product} ${count}`);
+  }
+
+  return normalizePdfText(`${count} ${product}`);
+}
+
 function isProductCandidateText(value) {
   const text = String(value || "").trim();
 
@@ -216,10 +253,26 @@ function getColumnProductLines(items) {
       page: countItem.page,
       x: countItem.x,
       y: countItem.y,
-      text: normalizePdfText(`${countItem.text} ${match.text}`),
+      text: formatColumnProductLine(countItem.text, match.text),
       source: "column-pair"
     });
   });
+
+  items
+    .filter((item) =>
+      isTrailingCountProductText(item.text) &&
+      item.y < 330 &&
+      item.text.length <= 90
+    )
+    .forEach((item) => {
+      productLines.push({
+        page: item.page,
+        x: item.x,
+        y: item.y,
+        text: normalizePdfText(item.text),
+        source: "trailing-count"
+      });
+    });
 
   return productLines;
 }
@@ -300,6 +353,7 @@ function getColumnProductLinesForAnchor(rows, anchors, columnIndex, customerName
   }
 
   const { left, right } = getColumnBounds(anchors, columnIndex);
+  const columnTolerance = 4;
   const items = rows.flatMap((row) => Array.isArray(row.items) ? row.items : []);
   const normalizedCustomerName = normalizePdfText(customerName).toLowerCase();
   const productItems = items.filter((item) =>
@@ -311,8 +365,8 @@ function getColumnProductLinesForAnchor(rows, anchors, columnIndex, customerName
     item.text.length <= 90
   );
   const countItems = items.filter((item) =>
-    item.x >= left &&
-    item.x < right &&
+    item.x >= left - columnTolerance &&
+    item.x < right + columnTolerance &&
     isCountText(item.text) &&
     item.y >= 220 &&
     item.y <= 330
@@ -334,9 +388,22 @@ function getColumnProductLinesForAnchor(rows, anchors, columnIndex, customerName
       )[0]?.productItem || null;
 
     if (match) {
-      productLines.push(normalizePdfText(`${countItem.text} ${match.text}`));
+      productLines.push(formatColumnProductLine(countItem.text, match.text));
     }
   });
+
+  items
+    .filter((item) =>
+      item.x >= left &&
+      item.x < right &&
+      isTrailingCountProductText(item.text) &&
+      normalizePdfText(item.text).toLowerCase() !== normalizedCustomerName &&
+      item.y < 330 &&
+      item.text.length <= 90
+    )
+    .forEach((item) => {
+      productLines.push(normalizePdfText(item.text));
+    });
 
   return [...new Set(productLines)];
 }
