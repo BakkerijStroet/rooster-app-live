@@ -4212,55 +4212,58 @@
 
     if (state === "loading") {
       employeeDeliverySavedRunsElement.classList.add("empty");
-      employeeDeliverySavedRunsElement.textContent = "Opgeslagen routes worden geladen.";
+      employeeDeliverySavedRunsElement.textContent = "Bezorgroute wordt geladen.";
       return;
     }
 
     if (state === "error") {
       employeeDeliverySavedRunsElement.classList.add("empty");
-      employeeDeliverySavedRunsElement.textContent = "Opgeslagen routes konden niet worden geladen.";
+      employeeDeliverySavedRunsElement.textContent = "Bezorgroute kon niet worden geladen.";
       return;
     }
 
     const todayRuns = Array.isArray(runs) ? runs.filter(isEmployeeRunForToday) : [];
+    const todayRun = todayRuns[0] || null;
 
-    if (!todayRuns.length) {
+    if (!todayRun) {
       employeeDeliverySavedRunsElement.classList.add("empty");
-      employeeDeliverySavedRunsElement.textContent = "Er staat nog geen bezorgroute voor vandaag klaar.";
+      employeeDeliverySavedRunsElement.textContent = "Vandaag geen bezorgroute klaar.";
+      return;
+    }
+
+    const routeBlocks = Array.isArray(todayRun?.payload?.routeBlocks) ? todayRun.payload.routeBlocks : [];
+    const routeCards = routeBlocks
+      .map((routeBlock, routeIndex) => {
+        const routeNumber = getStopRouteNumber({
+          routeNumber: routeBlock?.routeNumber || routeIndex + 1,
+          routeName: routeBlock?.name || routeBlock?.routeName || ""
+        });
+        const stopCount = Array.isArray(routeBlock?.stops) ? routeBlock.stops.length : 0;
+
+        return {
+          routeNumber: routeNumber || routeIndex + 1,
+          stopCount
+        };
+      })
+      .filter((route) => route.stopCount > 0)
+      .sort((routeA, routeB) => routeA.routeNumber - routeB.routeNumber);
+
+    if (!routeCards.length) {
+      employeeDeliverySavedRunsElement.classList.add("empty");
+      employeeDeliverySavedRunsElement.textContent = "Vandaag geen bezorgroute klaar.";
       return;
     }
 
     employeeDeliverySavedRunsElement.classList.remove("empty");
-    employeeDeliverySavedRunsElement.innerHTML = todayRuns.map((run) => {
-      const displayTitle = getDeliveryRunDisplayTitle({
-        deliveryDate: run?.payload?.deliveryDate || "",
-        sourceFilename: run?.sourceFilename || run?.payload?.source?.filename || "",
-        fallbackDate: run?.payload?.source?.uploadedAt || run?.createdAt || run?.updatedAt || ""
-      });
-      const routeBlocks = Array.isArray(run?.payload?.routeBlocks) ? run.payload.routeBlocks : [];
-      const routeOneCount = routeBlocks.find((routeBlock, routeIndex) => getStopRouteNumber({
-        routeNumber: routeBlock?.routeNumber || routeIndex + 1,
-        routeName: routeBlock?.name || routeBlock?.routeName || ""
-      }) === 1)?.stops?.length || 0;
-      const routeTwoCount = routeBlocks.find((routeBlock, routeIndex) => getStopRouteNumber({
-        routeNumber: routeBlock?.routeNumber || routeIndex + 1,
-        routeName: routeBlock?.name || routeBlock?.routeName || ""
-      }) === 2)?.stops?.length || 0;
-      const stopCount = routeOneCount + routeTwoCount;
-      const updatedAt = run?.updatedAt || run?.createdAt || "";
-
-      return `
-        <article class="delivery-saved-run employee-delivery-run">
-          <strong>${escapeHtml(displayTitle)}</strong>
-          <span>${stopCount} stop${stopCount === 1 ? "" : "s"}</span>
-          <small>Bijgewerkt: ${escapeHtml(formatSavedRunDateTime(updatedAt))}</small>
-          <div class="delivery-saved-run-actions">
-            <button type="button" class="secondary" data-employee-delivery-open-run="${escapeHtml(run?.id || "")}" data-employee-delivery-route="1" ${routeOneCount ? "" : "disabled"}>${routeOneCount ? `Route 1 starten (${routeOneCount})` : "Route 1 leeg"}</button>
-            <button type="button" class="secondary" data-employee-delivery-open-run="${escapeHtml(run?.id || "")}" data-employee-delivery-route="2" ${routeTwoCount ? "" : "disabled"}>${routeTwoCount ? `Route 2 starten (${routeTwoCount})` : "Route 2 leeg"}</button>
+    employeeDeliverySavedRunsElement.innerHTML = routeCards.map((route) => `
+        <article class="employee-delivery-route-card">
+          <div>
+            <strong>Route ${escapeHtml(route.routeNumber)}</strong>
+            <span>${escapeHtml(route.stopCount)} stop${route.stopCount === 1 ? "" : "s"}</span>
           </div>
+          <button type="button" data-employee-delivery-open-run="${escapeHtml(todayRun?.id || "")}" data-employee-delivery-route="${escapeHtml(route.routeNumber)}">Start route</button>
         </article>
-      `;
-    }).join("");
+      `).join("");
   }
 
   function openSavedRoutesSection({ scroll = true } = {}) {

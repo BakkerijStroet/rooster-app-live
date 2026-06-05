@@ -17931,9 +17931,75 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   display: none;
 }
 
-.employee-delivery-run .delivery-saved-run-actions {
+.employee-delivery-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.employee-delivery-header h3 {
+  margin: 0;
+}
+
+.employee-delivery-header button {
+  min-height: 34px;
+  padding: 0.38rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.employee-delivery-routes {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+
+.employee-delivery-route-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 0.75rem;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.8rem;
+  background: var(--color-surface-soft);
+}
+
+.employee-delivery-route-card div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.employee-delivery-route-card strong {
+  color: var(--color-text);
+  font-size: 1.18rem;
+  line-height: 1.15;
+}
+
+.employee-delivery-route-card span {
+  color: var(--color-text-muted);
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+
+.employee-delivery-route-card button {
+  min-height: 52px;
+  border-radius: 10px;
+  padding-inline: 1rem;
+  font-weight: 950;
+}
+
+@media (max-width: 620px) {
+  .employee-delivery-header {
+    align-items: flex-start;
+  }
+
+  .employee-delivery-route-card {
+    grid-template-columns: 1fr;
+  }
+
+  .employee-delivery-route-card button {
+    width: 100%;
+  }
 }
 
 /* Compact dispatch board: keep the route as the work surface after upload. */
