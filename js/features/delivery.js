@@ -4882,7 +4882,7 @@
     return routeIndexes[routePosition + Math.sign(step)] ?? -1;
   }
 
-  function renderRouteOrderControls(index, totalStops = latestRouteStops.length) {
+  function renderRouteOrderControls(index, totalStops = latestRouteStops.length, { productsExpanded = false } = {}) {
     const previousIndex = getRouteNeighborStopIndex(index, -1);
     const nextIndex = getRouteNeighborStopIndex(index, 1);
     const routeNumber = getStopRouteNumber(latestRouteStops[index]);
@@ -4933,6 +4933,45 @@
     });
   }
 
+  function renderRouteOrderControls(index, totalStops = latestRouteStops.length, { productsExpanded = false } = {}) {
+    const previousIndex = getRouteNeighborStopIndex(index, -1);
+    const nextIndex = getRouteNeighborStopIndex(index, 1);
+    const routeNumber = getStopRouteNumber(latestRouteStops[index]);
+    const targetRouteNumber = routeNumber === 2 ? 1 : 2;
+
+    return `
+      <div class="delivery-route-order-controls">
+        <span class="delivery-route-drag-handle" aria-label="Sleep stop" title="Sleep">↕</span>
+        <button type="button" class="secondary" data-delivery-move-route="${index}" data-delivery-target-route="${targetRouteNumber}" aria-label="Verplaats naar Route ${targetRouteNumber}">Naar route ${targetRouteNumber}</button>
+        <button type="button" class="secondary" data-delivery-move-stop="${index}" data-delivery-move-direction="-1" ${previousIndex >= 0 ? "" : "disabled"} aria-label="Stop omhoog">Omhoog</button>
+        <button type="button" class="secondary" data-delivery-move-stop="${index}" data-delivery-move-direction="1" ${nextIndex >= 0 ? "" : "disabled"} aria-label="Stop omlaag">Omlaag</button>
+        <button type="button" class="secondary" data-delivery-toggle-products="${index}" aria-expanded="${productsExpanded ? "true" : "false"}">${productsExpanded ? "Producten verbergen" : "Producten tonen"}</button>
+      </div>
+    `;
+  }
+
+  function renderRouteStopIcons(stop, categories) {
+    const icons = [];
+
+    if (isWarmStop(stop)) {
+      icons.push({ icon: "🔥", label: "warm/snacks" });
+    }
+
+    if (categories.includes("gebak")) {
+      icons.push({ icon: "🎂", label: "banket/gebak" });
+    }
+
+    return `
+      <div class="delivery-route-stop-icons${icons.length ? "" : " is-empty"}">
+        ${icons.map((item) => `<span title="${escapeHtml(item.label)}" aria-label="${escapeHtml(item.label)}">${item.icon}</span>`).join("")}
+      </div>
+    `;
+  }
+
+  function getRouteBoardProductsForStop(stop) {
+    return getLoadProductsForStop(stop);
+  }
+
   function renderRouteStopTakeAlong(stop, index) {
     const products = getRouteBoardProductsForStop(stop);
 
@@ -4953,6 +4992,52 @@
             </div>`
           : "<div class=\"delivery-route-stop-products-empty\">Geen exacte productregels gekoppeld.</div>"}
       </section>
+    `;
+  }
+
+  function formatRouteBoardDuration(minutes) {
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+      return "ca. 0 min";
+    }
+
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+
+    if (!hours) {
+      return `ca. ${remainingMinutes} min`;
+    }
+
+    return remainingMinutes ? `ca. ${hours}u ${remainingMinutes}m` : `ca. ${hours}u`;
+  }
+
+  function getRouteBoardDurationLabel(items) {
+    const timeInfos = (Array.isArray(items) ? items : [])
+      .map((item) => getRouteTimeWindowInfo(item.stop))
+      .filter((info) => info.hasTime);
+
+    if (timeInfos.length >= 2) {
+      const start = Math.min(...timeInfos.map((info) => info.start));
+      const end = Math.max(...timeInfos.map((info) => info.end));
+      const duration = Math.max(end - start, 0);
+
+      return formatRouteBoardDuration(duration);
+    }
+
+    return formatRouteBoardDuration((Array.isArray(items) ? items.length : 0) * 8);
+  }
+
+  function renderRouteBoardSummary(items) {
+    const normalizedItems = Array.isArray(items) ? items : [];
+    const warmStops = normalizedItems.filter((item) => isWarmStop(item.stop)).length;
+    const timeWindows = normalizedItems.filter((item) => /\/|\bvoor\b|\bvanaf\b/i.test(String(item.stop?.timeWindow || ""))).length;
+
+    return `
+      <div class="delivery-route-lane-summary" aria-label="Routesamenvatting">
+        <span>${normalizedItems.length} stop${normalizedItems.length === 1 ? "" : "s"}</span>
+        <span>${warmStops} warm</span>
+        <span>${timeWindows} tijdvenster${timeWindows === 1 ? "" : "s"}</span>
+        <span>${escapeHtml(getRouteBoardDurationLabel(normalizedItems))}</span>
+      </div>
     `;
   }
 
@@ -6135,6 +6220,7 @@
       const hasOpenProblem = hasStopProblem(stop);
       const hasResolvedProblem = hasResolvedStopProblem(stop);
       const isProductsExpanded = expandedDeliveryRouteStopIndex === index;
+      const isSelected = selectedDeliveryStopIndex === index;
       const rowClasses = [
         "delivery-route-stop",
         isWarmStop(stop) ? "has-warm" : "",
@@ -6144,7 +6230,7 @@
         hasOpenProblem ? "has-problem" : "",
         hasResolvedProblem ? "has-resolved-problem" : "",
         isProductsExpanded ? "is-expanded" : "",
-        selectedDeliveryStopIndex === index ? "is-selected" : ""
+        isSelected ? "is-selected" : ""
       ].filter(Boolean).join(" ");
 
       return `
@@ -6155,7 +6241,7 @@
             <div class="delivery-stop-title">${escapeHtml(stop.customerName || "Klant onbekend")}</div>
           </div>
           <div class="delivery-stop-time">${escapeHtml(getRouteStopTimeLabel(stop))}</div>
-          ${renderRouteOrderControls(index, latestRouteStops.length)}
+          ${isSelected ? renderRouteOrderControls(index, latestRouteStops.length, { productsExpanded: isProductsExpanded }) : ""}
           ${isProductsExpanded ? renderRouteStopTakeAlong(stop, index) : ""}
         </article>
       `;
@@ -6177,34 +6263,31 @@
           </details>
         </div>
       ` : ""}
-      <div class="delivery-route-planner-grid">
+      <div class="delivery-route-planner-grid${routeTwoStops.length ? "" : " has-one-route"}">
         <section class="delivery-route-block delivery-route-lane is-active">
           <header class="delivery-route-lane-header">
             <div>
               <h4>Route 1</h4>
             </div>
-            <strong>${routeOneStops.length} stop${routeOneStops.length === 1 ? "" : "s"}</strong>
           </header>
+          ${renderRouteBoardSummary(routeOneStops)}
           <div class="delivery-route-stop-list">
             ${routeOneStops.length ? renderRouteLaneStops(routeOneStops) : "<div class=\"delivery-route-empty-lane\"><strong>Nog leeg</strong></div>"}
           </div>
         </section>
-        <section class="delivery-route-block delivery-route-lane is-secondary">
-          <header class="delivery-route-lane-header">
-            <div>
-              <h4>Route 2</h4>
-            </div>
-            <strong>${routeTwoStops.length} stop${routeTwoStops.length === 1 ? "" : "s"}</strong>
-          </header>
-          <div class="delivery-route-stop-list">
-            ${routeTwoStops.length ? renderRouteLaneStops(routeTwoStops) : `
-              <div class="delivery-route-empty-lane">
-                <strong>Nog leeg</strong>
-                <span>Route 2 wordt gebruikt als het voorstel genoeg stops veilig kan verdelen.</span>
+        ${routeTwoStops.length ? `
+          <section class="delivery-route-block delivery-route-lane is-secondary">
+            <header class="delivery-route-lane-header">
+              <div>
+                <h4>Route 2</h4>
               </div>
-            `}
-          </div>
-        </section>
+            </header>
+            ${renderRouteBoardSummary(routeTwoStops)}
+            <div class="delivery-route-stop-list">
+              ${renderRouteLaneStops(routeTwoStops)}
+            </div>
+          </section>
+        ` : ""}
       </div>
     `;
   }
@@ -7938,7 +8021,15 @@
     const cancelButton = event.target.closest("[data-delivery-cancel-correction]");
     const routeMoveButton = event.target.closest("[data-delivery-move-route]");
     const moveButton = event.target.closest("[data-delivery-move-stop]");
+    const productsButton = event.target.closest("[data-delivery-toggle-products]");
     const routeStop = event.target.closest("[data-delivery-route-stop]");
+
+    if (productsButton && !productsButton.disabled) {
+      const stopIndex = Number(productsButton.dataset.deliveryToggleProducts);
+      expandedDeliveryRouteStopIndex = expandedDeliveryRouteStopIndex === stopIndex ? -1 : stopIndex;
+      selectDeliveryStop(stopIndex);
+      return;
+    }
 
     if (routeMoveButton && !routeMoveButton.disabled) {
       moveDeliveryStopToRoute(
@@ -7984,7 +8075,9 @@
 
     if (routeStop) {
       const stopIndex = Number(routeStop.dataset.deliveryRouteStop);
-      expandedDeliveryRouteStopIndex = expandedDeliveryRouteStopIndex === stopIndex ? -1 : stopIndex;
+      if (expandedDeliveryRouteStopIndex !== stopIndex) {
+        expandedDeliveryRouteStopIndex = -1;
+      }
       selectDeliveryStop(stopIndex);
     }
   });
@@ -8005,7 +8098,9 @@
 
     event.preventDefault();
     const stopIndex = Number(routeStop.dataset.deliveryRouteStop);
-    expandedDeliveryRouteStopIndex = expandedDeliveryRouteStopIndex === stopIndex ? -1 : stopIndex;
+    if (expandedDeliveryRouteStopIndex !== stopIndex) {
+      expandedDeliveryRouteStopIndex = -1;
+    }
     selectDeliveryStop(stopIndex);
   });
   routeBlocksElement?.addEventListener("submit", (event) => {

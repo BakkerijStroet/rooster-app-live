@@ -18185,6 +18185,10 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   max-width: none;
 }
 
+.delivery-panel.has-delivery-run .delivery-route-planner-grid.has-one-route {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .delivery-panel.has-delivery-run .delivery-route-lane {
   gap: 0.14rem;
   border-radius: 6px;
@@ -18212,6 +18216,23 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   font-size: 0.7rem;
 }
 
+.delivery-panel.has-delivery-run .delivery-route-lane-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.22rem;
+  padding: 0.1rem 0 0.18rem;
+}
+
+.delivery-panel.has-delivery-run .delivery-route-lane-summary span {
+  border-radius: 999px;
+  padding: 0.12rem 0.42rem;
+  background: #f1eadf;
+  color: #5d4d3f;
+  font-size: 0.68rem;
+  font-weight: 850;
+  line-height: 1.15;
+}
+
 .delivery-panel.has-delivery-run .delivery-route-empty-lane {
   min-height: 36px;
   padding: 0.24rem;
@@ -18230,10 +18251,10 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 }
 
 .delivery-panel.has-delivery-run .delivery-route-stop {
-  grid-template-columns: 1.34rem max-content minmax(0, 1fr) max-content max-content;
+  grid-template-columns: 1.34rem max-content minmax(0, 1fr) max-content;
   gap: 0.3rem;
-  min-height: 36px;
-  padding: 0.22rem 0.34rem;
+  min-height: 34px;
+  padding: 0.2rem 0.34rem;
   border-radius: 5px;
   background: #fffdf9;
   transition: background-color var(--transition-soft), border-color var(--transition-soft), box-shadow var(--transition-soft), transform var(--transition-soft);
@@ -18244,9 +18265,10 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 }
 
 .delivery-panel.has-delivery-run .delivery-route-stop-products {
+  grid-column: 1 / -1;
   gap: 0.24rem;
   margin-top: 0.04rem;
-  padding: 0.36rem 0.44rem 0.38rem 2.24rem;
+  padding: 0.36rem 0.44rem 0.38rem 2.08rem;
   background: #fff9f0;
 }
 
@@ -18350,15 +18372,15 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   display: flex;
   gap: 0.12rem;
   align-items: center;
-  min-width: 3rem;
+  min-width: 1.25rem;
   justify-content: start;
   overflow: visible;
-  font-size: 1.06rem;
+  font-size: 0.98rem;
   line-height: 1;
 }
 
 .delivery-panel.has-delivery-run .delivery-route-stop-icons.is-empty {
-  min-width: 3rem;
+  min-width: 0.22rem;
 }
 
 .delivery-panel.has-delivery-run .delivery-route-stop-icons span {
@@ -18385,17 +18407,21 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 }
 
 .delivery-panel.has-delivery-run .delivery-route-order-controls {
-  gap: 0.05rem;
-  flex-wrap: nowrap;
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 0.22rem;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  padding: 0.16rem 0 0.02rem 2.08rem;
 }
 
 .delivery-panel.has-delivery-run .delivery-route-drag-handle,
 .delivery-panel.has-delivery-run .delivery-route-order-controls button {
-  min-width: 1.12rem;
-  min-height: 1.12rem;
-  padding: 0;
+  min-height: 1.5rem;
+  padding: 0.18rem 0.5rem;
   border-radius: 5px;
-  font-size: 0.62rem;
+  font-size: 0.68rem;
+  font-weight: 850;
   line-height: 1;
 }
 
@@ -19238,7 +19264,7 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   }
 
   .delivery-panel.has-delivery-run .delivery-route-stop {
-    grid-template-columns: 1.24rem max-content minmax(0, 1fr) max-content max-content;
+    grid-template-columns: 1.24rem max-content minmax(0, 1fr) max-content;
     gap: 0.18rem;
     min-height: 36px;
     padding: 0.22rem 0.24rem;
@@ -19255,7 +19281,8 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   }
 
   .delivery-panel.has-delivery-run .delivery-route-order-controls {
-    justify-content: end;
+    justify-content: start;
+    padding-left: 0.42rem;
   }
 
   .delivery-panel.has-delivery-run .delivery-route-stop-products {
@@ -19264,8 +19291,8 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 
   .delivery-panel.has-delivery-run .delivery-route-drag-handle,
   .delivery-panel.has-delivery-run .delivery-route-order-controls button {
-    min-width: 0.92rem;
-    min-height: 0.92rem;
+    min-height: 1.42rem;
+    padding: 0.16rem 0.42rem;
     font-size: 0.56rem;
   }
 
