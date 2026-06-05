@@ -6319,6 +6319,60 @@
     });
   }
 
+  function getProductDisplayName(product, productCount = "") {
+    let rawLine = String(product?.rawLine || "").trim();
+    const countText = String(productCount || "").trim();
+
+    if (!rawLine) {
+      return "Product onbekend";
+    }
+
+    if (countText) {
+      const escapedCount = countText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace("\\.", "[,.]");
+      rawLine = rawLine
+        .replace(new RegExp(`^${escapedCount}\\s+`, "i"), "")
+        .replace(new RegExp(`\\s+${escapedCount}$`, "i"), "")
+        .trim();
+    }
+
+    return rawLine || String(product?.rawLine || "").trim() || "Product onbekend";
+  }
+
+  function isDeliveryCostProduct(product) {
+    const productCount = String(product?.count || "").trim();
+    const productName = getProductDisplayName(product, productCount);
+
+    return /^bezorgen\b/i.test(productName);
+  }
+
+  function isWarmLoadProduct(product) {
+    return product?.category === "warm" || isWarmPreparationProduct(product);
+  }
+
+  function getLoadProductsForStop(stop) {
+    return getSortedProductsForStop(stop)
+      .filter((product) => !isDeliveryCostProduct(product))
+      .sort((productA, productB) => {
+        const warmDelta = (isWarmLoadProduct(productB) ? 1 : 0) - (isWarmLoadProduct(productA) ? 1 : 0);
+
+        if (warmDelta) {
+          return warmDelta;
+        }
+
+        const countDelta = getProductCountNumber(productB) - getProductCountNumber(productA);
+
+        if (countDelta) {
+          return countDelta;
+        }
+
+        return getProductDisplayName(productA, productA.count).localeCompare(
+          getProductDisplayName(productB, productB.count),
+          "nl",
+          { sensitivity: "base" }
+        );
+      });
+  }
+
   function renderProductOverview(stops) {
     if (!productOverviewElement) {
       return;
@@ -6956,19 +7010,74 @@
     `;
   }
 
+  function getLoadProductTotals(routes) {
+    const totalsByName = new Map();
+
+    routes.forEach((route) => {
+      route.stops.forEach((stop) => {
+        stop.products.forEach((product) => {
+          const productCount = String(product.count || "").trim();
+          const productName = getProductDisplayName(product, productCount);
+          const totalKey = productName.toLowerCase();
+          const existing = totalsByName.get(totalKey) || {
+            count: 0,
+            fallbackCount: productCount || "?",
+            name: productName,
+            isWarm: isWarmLoadProduct(product)
+          };
+          const numericCount = getProductCountNumber(product);
+
+          existing.count += numericCount;
+          existing.isWarm = existing.isWarm || isWarmLoadProduct(product);
+          totalsByName.set(totalKey, existing);
+        });
+      });
+    });
+
+    return [...totalsByName.values()].sort((itemA, itemB) => {
+      const warmDelta = (itemB.isWarm ? 1 : 0) - (itemA.isWarm ? 1 : 0);
+
+      if (warmDelta) {
+        return warmDelta;
+      }
+
+      const countDelta = itemB.count - itemA.count;
+
+      if (countDelta) {
+        return countDelta;
+      }
+
+      return itemA.name.localeCompare(itemB.name, "nl", { sensitivity: "base" });
+    });
+  }
+
   function renderPrintProductPage(stops) {
     const routes = getPrintRoutes(stops).map((route) => ({
       ...route,
       stops: route.stops.map((stop) => ({
         ...stop,
-        products: getSortedProductsForStop(stop)
+        products: getLoadProductsForStop(stop)
       }))
     }));
     const hasStops = routes.some((route) => route.stops.length);
+    const loadTotals = getLoadProductTotals(routes);
 
     return `
       <section class="delivery-print-page delivery-print-product-page">
         <h4>Producten / laden</h4>
+        ${loadTotals.length
+          ? `<section class="delivery-print-load-total">
+              <h5>Totaal laden</h5>
+              <div class="delivery-print-load-total-grid">
+                ${loadTotals.map((item) => `
+                  <div class="delivery-print-load-total-row${item.isWarm ? " has-warm" : ""}">
+                    <b>${escapeHtml(item.count ? String(item.count) : item.fallbackCount)}</b>
+                    <span>${item.isWarm ? "&#128293; " : ""}${escapeHtml(item.name)}</span>
+                  </div>
+                `).join("")}
+              </div>
+            </section>`
+          : ""}
         ${hasStops
           ? routes.map((route, routeIndex) => `
             <div class="delivery-print-product-route">
@@ -6986,21 +7095,21 @@
                           ? stop.products.map((product) => {
                             const numericCount = Number(product.count);
                             const isLargeCount = Number.isFinite(numericCount) && numericCount >= 10;
-                            const isWarmProduct = product.category === "warm";
+                            const isWarmProduct = isWarmLoadProduct(product);
+                            const productCount = String(product.count || "").trim();
+                            const productName = getProductDisplayName(product, productCount);
 
                             return `
                               <div class="delivery-print-product-row${isWarmProduct ? " has-warm" : ""}${isLargeCount ? " has-large-count" : ""}">
-                                <span class="delivery-print-checkbox" aria-hidden="true"></span>
-                                <b class="${isLargeCount ? "is-large" : ""}">${escapeHtml(product.count || "?")}</b>
-                                <span>${isWarmProduct ? "&#128293; " : ""}${escapeHtml(product.rawLine)}</span>
+                                <b class="${isLargeCount ? "is-large" : ""}">${escapeHtml(productCount || "?")}</b>
+                                <span>${isWarmProduct ? "&#128293; " : ""}${escapeHtml(productName)}</span>
                                 ${product.needsReview ? `<small>controle nodig${product.count ? "" : ": aantal niet herkend"}</small>` : ""}
                               </div>
                             `;
                           }).join("")
                           : `<div class="delivery-print-product-row is-empty">
-                              <span class="delivery-print-checkbox" aria-hidden="true"></span>
                               <b>?</b>
-                              <span>Geen productregels gekoppeld</span>
+                              <span>Geen laadproducten</span>
                             </div>`}
                       </div>
                     </article>
