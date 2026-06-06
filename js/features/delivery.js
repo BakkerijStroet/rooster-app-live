@@ -31,6 +31,11 @@
   const plannerApprovePrintButton = document.querySelector("[data-delivery-route-print]");
   const plannerSaveButton = document.querySelector("[data-delivery-route-save]");
   const manualTaskOpenButton = document.querySelector("[data-delivery-manual-task-open]");
+  const plannerQuestionsDialogElement = document.getElementById("deliveryPlannerQuestionsDialog");
+  const plannerQuestionsTitleElement = document.querySelector("[data-delivery-planner-questions-title]");
+  const plannerQuestionsIntroElement = document.querySelector("[data-delivery-planner-questions-intro]");
+  const plannerQuestionsListElement = document.querySelector("[data-delivery-planner-questions-list]");
+  const plannerQuestionsMoreButton = document.querySelector("[data-delivery-planner-questions-more]");
   const manualTaskDialogElement = document.getElementById("deliveryManualTaskDialog");
   const manualTaskFormElement = document.getElementById("deliveryManualTaskForm");
   const driverModeOpenButton = document.querySelector("[data-delivery-driver-mode-open]");
@@ -135,6 +140,8 @@
   let latestParserQualityBlocked = false;
   let latestHasLocalCorrections = false;
   let latestParserVersionWarning = "";
+  let latestDeliveryPlannerQuestions = [];
+  let areDeliveryPlannerQuestionsExpanded = false;
   let selectedDeliveryStopIndex = -1;
   let expandedDeliveryRouteStopIndex = -1;
   let draggedDeliveryStopIndex = -1;
@@ -753,6 +760,8 @@
     latestParserQualityBlocked = false;
     latestHasLocalCorrections = false;
     latestParserVersionWarning = "";
+    latestDeliveryPlannerQuestions = [];
+    areDeliveryPlannerQuestionsExpanded = false;
     selectedDeliveryStopIndex = -1;
     expandedDeliveryRouteStopIndex = -1;
     draggedDeliveryStopIndex = -1;
@@ -2491,6 +2500,7 @@
 
     renderRecognitionReport([]);
     clearPrintPreview();
+    showDeliveryPlannerQuestionsAfterUpload([]);
   }
 
   function renderParseResult(lines, recognized, warnings, extractionQuality = null, parserSource = "", serverParserReport = null) {
@@ -2582,6 +2592,7 @@
     renderProductOverview(routeStops);
     renderRecognitionReport(routeStops);
     clearPrintPreview();
+    showDeliveryPlannerQuestionsAfterUpload(routeStops);
   }
 
   function renderPreparation(stops) {
@@ -3226,6 +3237,304 @@
     }
 
     return Boolean(stop.needsReview || (Array.isArray(stop.notes) && stop.notes.length));
+  }
+
+  function getPlannerQuestionStopName(stop) {
+    return String(stop?.customerName || stop?.address || "deze stop").trim();
+  }
+
+  function addDeliveryPlannerQuestion(questions, question) {
+    if (!question?.text) {
+      return;
+    }
+
+    const key = String(question.key || question.text).toLowerCase();
+
+    if (questions.some((item) => item.key === key)) {
+      return;
+    }
+
+    questions.push({
+      key,
+      text: question.text,
+      status: question.status || "controle nodig",
+      priority: Number.isFinite(question.priority) ? question.priority : 100
+    });
+  }
+
+  function getFriendlyRouteCompletenessReason(reason) {
+    const value = String(reason || "").trim();
+
+    if (/parserkwaliteit/i.test(value)) {
+      return "De PDF-tekst lijkt wat onzeker. Wil je even controleren of alle stops goed staan?";
+    }
+
+    if (/vermoedelijke stops|gebouwde stops|stops/i.test(value)) {
+      return "Ik tel mogelijk meer stops in de PDF dan er in het routebord staan. Wil je controleren of de route compleet is?";
+    }
+
+    return value
+      ? `Ik wil dit punt graag even zeker weten: ${value}.`
+      : "";
+  }
+
+  function getFriendlyWarningQuestion(warning) {
+    const value = String(warning || "").trim();
+
+    if (!value || /Voorstelroute gemaakt/i.test(value)) {
+      return "";
+    }
+
+    const missingMatch = value.match(/^Mogelijk niet gekoppeld:\s*(.+)$/i);
+
+    if (missingMatch) {
+      return `Deze regel lijkt nog niet gekoppeld: "${missingMatch[1]}". Hoort deze bij een stop?`;
+    }
+
+    const blockedMatch = value.match(/^Blokkade:\s*(.+)$/i);
+
+    if (blockedMatch) {
+      return getFriendlyRouteCompletenessReason(blockedMatch[1]);
+    }
+
+    if (/Route onvolledig gelezen/i.test(value)) {
+      return "Ik ben niet helemaal zeker dat alle stops goed zijn ingelezen. Wil je het routebord even controleren?";
+    }
+
+    if (/PDF tekstextractie onbetrouwbaar/i.test(value)) {
+      return "Ik kon de tekst uit deze PDF niet betrouwbaar lezen. Wil je deze PDF even controleren of opnieuw exporteren?";
+    }
+
+    return "";
+  }
+
+  function buildDeliveryPlannerQuestions(stops = latestRouteStops) {
+    const normalizedStops = Array.isArray(stops) ? stops : [];
+    const questions = [];
+
+    if (latestParserQualityBlocked) {
+      addDeliveryPlannerQuestion(questions, {
+        key: "parser-quality-blocked",
+        text: "Ik kon de tekst uit deze PDF niet betrouwbaar lezen. Wil je deze PDF even controleren of opnieuw exporteren?",
+        priority: 5
+      });
+    }
+
+    if (latestRouteCompleteness?.isIncomplete) {
+      addDeliveryPlannerQuestion(questions, {
+        key: "route-completeness",
+        text: `Ik tel vermoedelijk ${latestRouteCompleteness.suspectedCount || "meer"} stops, maar bouwde er ${latestRouteCompleteness.builtCount || normalizedStops.length}. Wil je controleren of alle stops in het routebord staan?`,
+        priority: 8
+      });
+
+      (latestRouteCompleteness.reasons || []).forEach((reason, index) => {
+        addDeliveryPlannerQuestion(questions, {
+          key: `route-reason-${index}-${reason}`,
+          text: getFriendlyRouteCompletenessReason(reason),
+          priority: 12 + index
+        });
+      });
+
+      (latestRouteCompleteness.missingLines || []).forEach((line, index) => {
+        addDeliveryPlannerQuestion(questions, {
+          key: `missing-line-${line}`,
+          text: `Deze stop of adresregel lijkt nog niet gekoppeld: "${line}". Wil je checken waar deze hoort?`,
+          priority: 16 + index
+        });
+      });
+    }
+
+    if (latestServerParserReport && typeof latestServerParserReport === "object") {
+      const timeConfidence = latestServerParserReport.timeConfidence && typeof latestServerParserReport.timeConfidence === "object"
+        ? latestServerParserReport.timeConfidence
+        : {};
+
+      if (latestServerParserReport.quality && latestServerParserReport.quality !== "OK") {
+        addDeliveryPlannerQuestion(questions, {
+          key: "server-quality",
+          text: "De parserkwaliteit is niet helemaal zeker. Wil je de route nog even nalopen?",
+          priority: 18
+        });
+      }
+
+      if (Number(timeConfidence.ontbreekt || 0) > 0) {
+        addDeliveryPlannerQuestion(questions, {
+          key: "server-time-missing",
+          text: `Ik mis bij ${timeConfidence.ontbreekt} stop${timeConfidence.ontbreekt === 1 ? "" : "s"} een tijd. Wil je die even controleren?`,
+          priority: 22
+        });
+      }
+
+      if (Number(timeConfidence.onzeker || 0) > 0) {
+        addDeliveryPlannerQuestion(questions, {
+          key: "server-time-uncertain",
+          text: `Bij ${timeConfidence.onzeker} tijd${timeConfidence.onzeker === 1 ? "" : "en"} twijfel ik nog. Kloppen de tijdvensters zo?`,
+          priority: 24
+        });
+      }
+
+      (latestServerParserReport.unlinkedProductLines || []).slice(0, 6).forEach((line, index) => {
+        addDeliveryPlannerQuestion(questions, {
+          key: `server-unlinked-product-${line}`,
+          text: `Deze productregel is nog niet gekoppeld: "${line}". Bij welke stop hoort deze?`,
+          priority: 10 + index
+        });
+      });
+    }
+
+    normalizedStops.forEach((stop, index) => {
+      const stopName = getPlannerQuestionStopName(stop);
+      const notesText = Array.isArray(stop?.notes) ? stop.notes.join(" ") : "";
+      const hasProducts = Array.isArray(stop?.products) && stop.products.length > 0;
+      const customerMatch = getRecognitionCustomerMatch(stop);
+      const hasUnknownName = !String(stop?.customerName || "").trim() || /klant onbekend/i.test(String(stop?.customerName || ""));
+
+      if (!String(stop?.timeWindow || "").trim()) {
+        addDeliveryPlannerQuestion(questions, {
+          key: `stop-time-missing-${index}`,
+          text: `Ik mis een tijd bij ${stopName}. Welke tijd hoort hierbij?`,
+          priority: 28
+        });
+      } else if (/controle nodig|\?|onzeker/i.test(String(stop.timeWindow))) {
+        addDeliveryPlannerQuestion(questions, {
+          key: `stop-time-uncertain-${index}`,
+          text: `Ik twijfel over de tijd bij ${stopName}. Klopt "${stop.timeWindow}"?`,
+          priority: 30
+        });
+      }
+
+      if (hasUnknownName || !customerMatch) {
+        addDeliveryPlannerQuestion(questions, {
+          key: `stop-customer-unknown-${index}`,
+          text: `Ik herken de klant bij ${stopName} nog niet goed. Klopt deze klant?`,
+          priority: 34
+        });
+      } else if (customerMatch === "naam" || /klantmatch alleen via naam/i.test(notesText)) {
+        addDeliveryPlannerQuestion(questions, {
+          key: `stop-customer-weak-${index}`,
+          text: `Ik weet niet zeker of "${stopName}" goed gekoppeld is. Klopt deze klant?`,
+          priority: 36
+        });
+      }
+
+      if (!hasProducts && !isManualDeliveryTask(stop)) {
+        addDeliveryPlannerQuestion(questions, {
+          key: `stop-products-missing-${index}`,
+          text: `Bij ${stopName} vond ik geen producten. Klopt dat?`,
+          priority: 44
+        });
+      }
+
+      if (!String(stop?.paymentStatus || "").trim()) {
+        addDeliveryPlannerQuestion(questions, {
+          key: `stop-payment-missing-${index}`,
+          text: `De betaling bij ${stopName} is onduidelijk. Moet dit op rekening, contant, pin of tikkie?`,
+          priority: 80
+        });
+      }
+
+      if (stopHasReview(stop) && notesText && !/klantmatch alleen via naam|tijd niet herkend|tijd ontbreekt/i.test(notesText)) {
+        addDeliveryPlannerQuestion(questions, {
+          key: `stop-review-note-${index}-${notesText}`,
+          text: `Bij ${stopName} staat nog handmatige controle open. Wil je dit even checken?`,
+          priority: 60
+        });
+      }
+    });
+
+    (latestParseWarnings || []).forEach((warning, index) => {
+      addDeliveryPlannerQuestion(questions, {
+        key: `warning-${warning}`,
+        text: getFriendlyWarningQuestion(warning),
+        priority: 70 + index
+      });
+    });
+
+    return questions
+      .filter((question) => question.text)
+      .sort((a, b) => a.priority - b.priority || a.text.localeCompare(b.text, "nl"));
+  }
+
+  function renderDeliveryPlannerQuestionsModal() {
+    if (!plannerQuestionsDialogElement || !plannerQuestionsListElement) {
+      return;
+    }
+
+    const questions = latestDeliveryPlannerQuestions;
+    const hasQuestions = questions.length > 0;
+    const visibleQuestions = areDeliveryPlannerQuestionsExpanded ? questions : questions.slice(0, 5);
+
+    plannerQuestionsDialogElement.dataset.state = hasQuestions ? "questions" : "ok";
+
+    if (plannerQuestionsTitleElement) {
+      plannerQuestionsTitleElement.textContent = hasQuestions
+        ? "He planner! Ik heb een paar vragen over deze route 🚚"
+        : "Mooi! Route ziet er netjes uit";
+    }
+
+    if (plannerQuestionsIntroElement) {
+      plannerQuestionsIntroElement.textContent = hasQuestions
+        ? "Ik heb de PDF ingelezen, maar wil deze punten graag even zeker weten voordat je gaat printen."
+        : "Mooi! Ik heb geen bijzonderheden gevonden. Je kunt de route controleren en printen.";
+    }
+
+    plannerQuestionsListElement.innerHTML = hasQuestions
+      ? visibleQuestions.map((question) => `
+        <article class="delivery-planner-question-item">
+          <span>${escapeHtml(question.status)}</span>
+          <p>${escapeHtml(question.text)}</p>
+        </article>
+      `).join("")
+      : `
+        <article class="delivery-planner-question-item is-ok">
+          <span>klaar om te controleren</span>
+          <p>Geen extra vragen gevonden. Loop het routebord nog rustig na voordat je print.</p>
+        </article>
+      `;
+
+    if (plannerQuestionsMoreButton) {
+      const remainingCount = Math.max(0, questions.length - visibleQuestions.length);
+      plannerQuestionsMoreButton.hidden = !hasQuestions || questions.length <= visibleQuestions.length;
+      plannerQuestionsMoreButton.textContent = remainingCount > 0
+        ? `Toon alle punten (${remainingCount} extra)`
+        : "Toon alle punten";
+    }
+  }
+
+  function openDeliveryPlannerQuestionsModal() {
+    if (!plannerQuestionsDialogElement) {
+      return;
+    }
+
+    renderDeliveryPlannerQuestionsModal();
+
+    if (plannerQuestionsDialogElement.open) {
+      return;
+    }
+
+    if (typeof plannerQuestionsDialogElement.showModal === "function") {
+      plannerQuestionsDialogElement.showModal();
+    } else {
+      plannerQuestionsDialogElement.removeAttribute("hidden");
+    }
+  }
+
+  function closeDeliveryPlannerQuestionsModal() {
+    if (!plannerQuestionsDialogElement) {
+      return;
+    }
+
+    if (typeof plannerQuestionsDialogElement.close === "function") {
+      plannerQuestionsDialogElement.close();
+    } else {
+      plannerQuestionsDialogElement.setAttribute("hidden", "");
+    }
+  }
+
+  function showDeliveryPlannerQuestionsAfterUpload(stops = latestRouteStops) {
+    areDeliveryPlannerQuestionsExpanded = false;
+    latestDeliveryPlannerQuestions = buildDeliveryPlannerQuestions(stops);
+    openDeliveryPlannerQuestionsModal();
   }
 
   function rerenderDeliveryPreview({ refreshPrint = false } = {}) {
@@ -8042,6 +8351,9 @@
   });
   function handleDeliveryPanelClick(event) {
     const newPdfButton = event.target.closest("[data-delivery-route-new-pdf]");
+    const plannerQuestionsCloseButton = event.target.closest("[data-delivery-planner-questions-close]");
+    const plannerQuestionsMoreButton = event.target.closest("[data-delivery-planner-questions-more]");
+    const plannerQuestionsRouteButton = event.target.closest("[data-delivery-planner-questions-route]");
     const manualTaskButton = event.target.closest("[data-delivery-manual-task-open]");
     const manualTaskCloseButton = event.target.closest("[data-delivery-manual-task-close]");
     const showSavedButton = event.target.closest("[data-delivery-show-saved-routes]");
@@ -8066,6 +8378,23 @@
 
     if (newPdfButton) {
       pdfInput?.click();
+      return;
+    }
+
+    if (plannerQuestionsCloseButton) {
+      closeDeliveryPlannerQuestionsModal();
+      return;
+    }
+
+    if (plannerQuestionsMoreButton && !plannerQuestionsMoreButton.disabled) {
+      areDeliveryPlannerQuestionsExpanded = true;
+      renderDeliveryPlannerQuestionsModal();
+      return;
+    }
+
+    if (plannerQuestionsRouteButton) {
+      closeDeliveryPlannerQuestionsModal();
+      routeBlocksElement?.scrollIntoView({ block: "start", behavior: "smooth" });
       return;
     }
 

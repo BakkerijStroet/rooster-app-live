@@ -1163,6 +1163,24 @@
             </div>
           </div>
           <div id="deliveryRouteBlocks" class="delivery-route-blocks empty">Nog geen routeblokken beschikbaar.</div>
+          <dialog id="deliveryPlannerQuestionsDialog" class="delivery-planner-questions-dialog">
+            <div class="delivery-planner-questions-card">
+              <header>
+                <div>
+                  <strong data-delivery-planner-questions-title>He planner! Ik heb een paar vragen over deze route 🚚</strong>
+                  <span data-delivery-planner-questions-intro>Ik heb de PDF ingelezen, maar wil deze punten graag even zeker weten voordat je gaat printen.</span>
+                </div>
+                <button type="button" class="secondary" data-delivery-planner-questions-close aria-label="Vragen sluiten">Sluiten</button>
+              </header>
+              <div class="delivery-planner-questions-list" data-delivery-planner-questions-list></div>
+              <button type="button" class="secondary delivery-planner-questions-more" data-delivery-planner-questions-more hidden>Toon alle punten</button>
+              <div class="delivery-planner-questions-actions">
+                <button type="button" class="secondary" data-delivery-planner-questions-close>Ik controleer dit zelf</button>
+                <button type="button" class="secondary" data-delivery-planner-questions-close>Alles klopt zo</button>
+                <button type="button" data-delivery-planner-questions-route>Naar routebord</button>
+              </div>
+            </div>
+          </dialog>
           <dialog id="deliveryManualTaskDialog" class="delivery-manual-task-dialog">
             <form id="deliveryManualTaskForm" class="delivery-manual-task-form" method="dialog">
               <input type="hidden" name="taskIndex" value="">

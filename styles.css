@@ -12121,6 +12121,122 @@ button,
   background: rgba(37, 27, 18, 0.34);
 }
 
+.delivery-planner-questions-dialog {
+  width: min(620px, calc(100vw - 1.2rem));
+  border: 1px solid #ead7bd;
+  border-radius: 8px;
+  padding: 0;
+  color: var(--color-text);
+  box-shadow: 0 24px 70px rgba(50, 35, 18, 0.22);
+}
+
+.delivery-planner-questions-dialog::backdrop {
+  background: rgba(37, 27, 18, 0.34);
+}
+
+.delivery-planner-questions-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #fffdf9;
+}
+
+.delivery-planner-questions-card header {
+  display: flex;
+  gap: 0.8rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.delivery-planner-questions-card header div {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.delivery-planner-questions-card header strong {
+  font-size: 1.06rem;
+}
+
+.delivery-planner-questions-card header span {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.delivery-planner-questions-list {
+  display: grid;
+  gap: 0.45rem;
+  max-height: min(52vh, 420px);
+  overflow: auto;
+}
+
+.delivery-planner-question-item {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: start;
+  border: 1px solid #f0dfc7;
+  border-radius: 8px;
+  padding: 0.58rem 0.68rem;
+  background: #fff8ec;
+}
+
+.delivery-planner-question-item.is-ok {
+  border-color: #cdebd9;
+  background: #f2fbf5;
+}
+
+.delivery-planner-question-item span {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 0.18rem 0.42rem;
+  background: #fff1cf;
+  color: #795111;
+  font-size: 0.7rem;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.delivery-planner-question-item.is-ok span {
+  background: #dff4e7;
+  color: #23643a;
+}
+
+.delivery-planner-question-item p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.delivery-planner-questions-more {
+  justify-self: start;
+}
+
+.delivery-planner-questions-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
+@media (max-width: 640px) {
+  .delivery-planner-questions-card header,
+  .delivery-planner-questions-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .delivery-planner-question-item {
+    grid-template-columns: 1fr;
+  }
+
+  .delivery-planner-questions-actions button {
+    width: 100%;
+  }
+}
+
 .delivery-manual-task-form {
   display: grid;
   gap: 0.72rem;
