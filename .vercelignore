@@ -1,2 +1,7 @@
 acceptance-*
 chrome-test-profile*
+.chrome-*
+.edge-*
+.env.txt
+backup-*.json
+Handleiding_*.docx
