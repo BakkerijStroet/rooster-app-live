@@ -89,6 +89,7 @@
     "Overig"
   ];
   const MANUAL_DELIVERY_TASK_TYPES = ["Ophalen", "Afgeven", "Boodschap", "Overig"];
+  const PLANNER_ACTIONABLE_QUESTION_TYPES = ["time", "customer", "no-products", "payment", "unlinked-product", "parser-quality"];
   const CUTTING_PATTERN = /\b(gesneden|snijden|snij|gesn\.?)\b/i;
   const NOT_CUTTING_PATTERN = /\b(ongesneden|niet\s+gesneden|niet\s+snijden|\d+\s*plakken?|plakken?)\b/i;
   const NON_CUTTING_BREAD_PATTERN = /\b(broodjes?|bolletjes?|bol\b|punt(?:en)?|pistolet|stokbrood|mini\s+bol|witte\s+punt|rozijnenbol)\b/i;
@@ -142,6 +143,8 @@
   let latestParserVersionWarning = "";
   let latestDeliveryPlannerQuestions = [];
   let areDeliveryPlannerQuestionsExpanded = false;
+  let areDeliveryPlannerMissingTimesExpanded = false;
+  let latestPlannerCorrections = [];
   let selectedDeliveryStopIndex = -1;
   let expandedDeliveryRouteStopIndex = -1;
   let draggedDeliveryStopIndex = -1;
@@ -762,6 +765,8 @@
     latestParserVersionWarning = "";
     latestDeliveryPlannerQuestions = [];
     areDeliveryPlannerQuestionsExpanded = false;
+    areDeliveryPlannerMissingTimesExpanded = false;
+    latestPlannerCorrections = [];
     selectedDeliveryStopIndex = -1;
     expandedDeliveryRouteStopIndex = -1;
     draggedDeliveryStopIndex = -1;
@@ -2576,6 +2581,7 @@
     latestRunId = "";
     latestRunBaseUpdatedAt = "";
     latestHasLocalCorrections = false;
+    latestPlannerCorrections = [];
     latestPlannerStatus = "draft";
     selectedDeliveryStopIndex = -1;
     expandedDeliveryRouteStopIndex = -1;
@@ -3239,6 +3245,109 @@
     return Boolean(stop.needsReview || (Array.isArray(stop.notes) && stop.notes.length));
   }
 
+  function normalizePlannerCorrection(correction) {
+    if (!correction || typeof correction !== "object") {
+      return null;
+    }
+
+    return {
+      id: String(correction.id || ""),
+      questionKey: String(correction.questionKey || ""),
+      type: String(correction.type || ""),
+      questionText: String(correction.questionText || ""),
+      stopId: String(correction.stopId || ""),
+      stopIndex: Number.isInteger(Number(correction.stopIndex)) ? Number(correction.stopIndex) : -1,
+      customerName: String(correction.customerName || ""),
+      postcode: String(correction.postcode || ""),
+      originalValue: String(correction.originalValue || ""),
+      correctedValue: String(correction.correctedValue || ""),
+      action: String(correction.action || ""),
+      createdAt: String(correction.createdAt || ""),
+      sourcePdfHash: String(correction.sourcePdfHash || ""),
+      appliedToCurrentRun: Boolean(correction.appliedToCurrentRun)
+    };
+  }
+
+  function normalizePlannerCorrections(corrections) {
+    return (Array.isArray(corrections) ? corrections : [])
+      .map(normalizePlannerCorrection)
+      .filter(Boolean);
+  }
+
+  function getStopIdentity(stop, index = -1) {
+    const postcodePlace = getStopPostcodePlace(stop);
+
+    return {
+      stopId: String(stop?.sourceCode || stop?.customerId || `${postcodePlace.postcode || "stop"}-${index}`).trim(),
+      customerName: String(stop?.customerName || "").trim(),
+      postcode: postcodePlace.postcode || ""
+    };
+  }
+
+  function getSavedPlannerCorrection(questionKey) {
+    return latestPlannerCorrections.find((correction) => correction.questionKey === questionKey) || null;
+  }
+
+  function setPlannerCorrection(correction) {
+    const normalizedCorrection = normalizePlannerCorrection(correction);
+
+    if (!normalizedCorrection?.questionKey) {
+      return null;
+    }
+
+    const existingIndex = latestPlannerCorrections.findIndex((item) => item.questionKey === normalizedCorrection.questionKey);
+
+    if (existingIndex >= 0) {
+      latestPlannerCorrections[existingIndex] = normalizedCorrection;
+    } else {
+      latestPlannerCorrections.push(normalizedCorrection);
+    }
+
+    return normalizedCorrection;
+  }
+
+  function createPlannerCorrection(question, { correctedValue = "", action = "", stop = null, stopIndex = -1, appliedToCurrentRun = false } = {}) {
+    const identity = getStopIdentity(stop, stopIndex);
+
+    return setPlannerCorrection({
+      id: `planner-correction-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      questionKey: question.key,
+      type: question.type || "note",
+      questionText: question.text,
+      stopId: identity.stopId,
+      stopIndex,
+      customerName: identity.customerName || question.customerName || "",
+      postcode: identity.postcode,
+      originalValue: question.originalValue || "",
+      correctedValue,
+      action,
+      createdAt: new Date().toISOString(),
+      sourcePdfHash: latestSourceHash,
+      appliedToCurrentRun
+    });
+  }
+
+  function removeStopNotesMatching(stop, pattern) {
+    if (!stop || !Array.isArray(stop.notes)) {
+      return;
+    }
+
+    stop.notes = stop.notes.filter((note) => !pattern.test(note));
+  }
+
+  function refreshStopReviewState(stop) {
+    if (!stop) {
+      return;
+    }
+
+    const hasNotes = Array.isArray(stop.notes) && stop.notes.length > 0;
+    const missingBasics = !stop.customerName || !stop.address || !stop.paymentStatus || !stop.timeWindow;
+    stop.needsReview = Boolean(hasNotes || hasStopProblem(stop) || missingBasics);
+    if (!stop.needsReview && stop.reviewOverride !== true) {
+      stop.reviewOverride = false;
+    }
+  }
+
   function getPlannerQuestionStopName(stop) {
     return String(stop?.customerName || stop?.address || "deze stop").trim();
   }
@@ -3257,8 +3366,15 @@
     questions.push({
       key,
       text: question.text,
+      type: question.type || "note",
       status: question.status || "controle nodig",
-      priority: Number.isFinite(question.priority) ? question.priority : 100
+      priority: Number.isFinite(question.priority) ? question.priority : 100,
+      stopIndex: Number.isInteger(Number(question.stopIndex)) ? Number(question.stopIndex) : -1,
+      stopId: question.stopId || "",
+      postcode: question.postcode || "",
+      customerName: question.customerName || "",
+      originalValue: question.originalValue || "",
+      unlinkedLine: question.unlinkedLine || ""
     });
   }
 
@@ -3315,7 +3431,8 @@
     if (latestParserQualityBlocked) {
       addDeliveryPlannerQuestion(questions, {
         key: "parser-quality-blocked",
-        text: "Ik kon de tekst uit deze PDF niet betrouwbaar lezen. Wil je deze PDF even controleren of opnieuw exporteren?",
+        type: "parser-quality",
+        text: "Ik ben niet helemaal zeker dat de PDF netjes is gelezen. Wil je de route even nalopen?",
         priority: 5
       });
     }
@@ -3323,6 +3440,7 @@
     if (latestRouteCompleteness?.isIncomplete) {
       addDeliveryPlannerQuestion(questions, {
         key: "route-completeness",
+        type: "route-completeness",
         text: `Ik tel vermoedelijk ${latestRouteCompleteness.suspectedCount || "meer"} stops, maar bouwde er ${latestRouteCompleteness.builtCount || normalizedStops.length}. Wil je controleren of alle stops in het routebord staan?`,
         priority: 8
       });
@@ -3330,6 +3448,7 @@
       (latestRouteCompleteness.reasons || []).forEach((reason, index) => {
         addDeliveryPlannerQuestion(questions, {
           key: `route-reason-${index}-${reason}`,
+          type: "route-completeness",
           text: getFriendlyRouteCompletenessReason(reason),
           priority: 12 + index
         });
@@ -3338,7 +3457,9 @@
       (latestRouteCompleteness.missingLines || []).forEach((line, index) => {
         addDeliveryPlannerQuestion(questions, {
           key: `missing-line-${line}`,
+          type: "route-completeness",
           text: `Deze stop of adresregel lijkt nog niet gekoppeld: "${line}". Wil je checken waar deze hoort?`,
+          originalValue: line,
           priority: 16 + index
         });
       });
@@ -3352,7 +3473,8 @@
       if (latestServerParserReport.quality && latestServerParserReport.quality !== "OK") {
         addDeliveryPlannerQuestion(questions, {
           key: "server-quality",
-          text: "De parserkwaliteit is niet helemaal zeker. Wil je de route nog even nalopen?",
+          type: "parser-quality",
+          text: "Ik ben niet helemaal zeker dat de PDF netjes is gelezen. Wil je de route even nalopen?",
           priority: 18
         });
       }
@@ -3360,6 +3482,7 @@
       if (Number(timeConfidence.ontbreekt || 0) > 0) {
         addDeliveryPlannerQuestion(questions, {
           key: "server-time-missing",
+          type: "time-summary",
           text: `Ik mis bij ${timeConfidence.ontbreekt} stop${timeConfidence.ontbreekt === 1 ? "" : "s"} een tijd. Wil je die even controleren?`,
           priority: 22
         });
@@ -3368,6 +3491,7 @@
       if (Number(timeConfidence.onzeker || 0) > 0) {
         addDeliveryPlannerQuestion(questions, {
           key: "server-time-uncertain",
+          type: "time-summary",
           text: `Bij ${timeConfidence.onzeker} tijd${timeConfidence.onzeker === 1 ? "" : "en"} twijfel ik nog. Kloppen de tijdvensters zo?`,
           priority: 24
         });
@@ -3376,7 +3500,10 @@
       (latestServerParserReport.unlinkedProductLines || []).slice(0, 6).forEach((line, index) => {
         addDeliveryPlannerQuestion(questions, {
           key: `server-unlinked-product-${line}`,
-          text: `Deze productregel is nog niet gekoppeld: "${line}". Bij welke stop hoort deze?`,
+          type: "unlinked-product",
+          text: "Deze productregel kon ik nog niet koppelen. Bij welke stop hoort deze?",
+          originalValue: line,
+          unlinkedLine: line,
           priority: 10 + index
         });
       });
@@ -3384,6 +3511,7 @@
 
     normalizedStops.forEach((stop, index) => {
       const stopName = getPlannerQuestionStopName(stop);
+      const stopIdentity = getStopIdentity(stop, index);
       const notesText = Array.isArray(stop?.notes) ? stop.notes.join(" ") : "";
       const hasProducts = Array.isArray(stop?.products) && stop.products.length > 0;
       const customerMatch = getRecognitionCustomerMatch(stop);
@@ -3392,13 +3520,25 @@
       if (!String(stop?.timeWindow || "").trim()) {
         addDeliveryPlannerQuestion(questions, {
           key: `stop-time-missing-${index}`,
+          type: "time",
           text: `Ik mis een tijd bij ${stopName}. Welke tijd hoort hierbij?`,
+          stopIndex: index,
+          stopId: stopIdentity.stopId,
+          postcode: stopIdentity.postcode,
+          customerName: stopName,
+          originalValue: "",
           priority: 28
         });
       } else if (/controle nodig|\?|onzeker/i.test(String(stop.timeWindow))) {
         addDeliveryPlannerQuestion(questions, {
           key: `stop-time-uncertain-${index}`,
+          type: "time",
           text: `Ik twijfel over de tijd bij ${stopName}. Klopt "${stop.timeWindow}"?`,
+          stopIndex: index,
+          stopId: stopIdentity.stopId,
+          postcode: stopIdentity.postcode,
+          customerName: stopName,
+          originalValue: stop.timeWindow,
           priority: 30
         });
       }
@@ -3406,13 +3546,25 @@
       if (hasUnknownName || !customerMatch) {
         addDeliveryPlannerQuestion(questions, {
           key: `stop-customer-unknown-${index}`,
+          type: "customer",
           text: `Ik herken de klant bij ${stopName} nog niet goed. Klopt deze klant?`,
+          stopIndex: index,
+          stopId: stopIdentity.stopId,
+          postcode: stopIdentity.postcode,
+          customerName: stopName,
+          originalValue: stop.customerName || "",
           priority: 34
         });
       } else if (customerMatch === "naam" || /klantmatch alleen via naam/i.test(notesText)) {
         addDeliveryPlannerQuestion(questions, {
           key: `stop-customer-weak-${index}`,
+          type: "customer",
           text: `Ik weet niet zeker of "${stopName}" goed gekoppeld is. Klopt deze klant?`,
+          stopIndex: index,
+          stopId: stopIdentity.stopId,
+          postcode: stopIdentity.postcode,
+          customerName: stopName,
+          originalValue: stop.customerName || "",
           priority: 36
         });
       }
@@ -3420,7 +3572,12 @@
       if (!hasProducts && !isManualDeliveryTask(stop)) {
         addDeliveryPlannerQuestion(questions, {
           key: `stop-products-missing-${index}`,
+          type: "no-products",
           text: `Bij ${stopName} vond ik geen producten. Klopt dat?`,
+          stopIndex: index,
+          stopId: stopIdentity.stopId,
+          postcode: stopIdentity.postcode,
+          customerName: stopName,
           priority: 44
         });
       }
@@ -3428,7 +3585,13 @@
       if (!String(stop?.paymentStatus || "").trim()) {
         addDeliveryPlannerQuestion(questions, {
           key: `stop-payment-missing-${index}`,
+          type: "payment",
           text: `De betaling bij ${stopName} is onduidelijk. Moet dit op rekening, contant, pin of tikkie?`,
+          stopIndex: index,
+          stopId: stopIdentity.stopId,
+          postcode: stopIdentity.postcode,
+          customerName: stopName,
+          originalValue: "",
           priority: 80
         });
       }
@@ -3436,7 +3599,13 @@
       if (stopHasReview(stop) && notesText && !/klantmatch alleen via naam|tijd niet herkend|tijd ontbreekt/i.test(notesText)) {
         addDeliveryPlannerQuestion(questions, {
           key: `stop-review-note-${index}-${notesText}`,
+          type: "note",
           text: `Bij ${stopName} staat nog handmatige controle open. Wil je dit even checken?`,
+          stopIndex: index,
+          stopId: stopIdentity.stopId,
+          postcode: stopIdentity.postcode,
+          customerName: stopName,
+          originalValue: notesText,
           priority: 60
         });
       }
@@ -3455,49 +3624,240 @@
       .sort((a, b) => a.priority - b.priority || a.text.localeCompare(b.text, "nl"));
   }
 
+  function renderPlannerQuestionSavedAnswer(correction) {
+    if (!correction) {
+      return "";
+    }
+
+    const label = correction.correctedValue || correction.action || "opgeslagen";
+
+    return `
+      <div class="delivery-planner-answer-saved">
+        <strong>Antwoord opgeslagen</strong>
+        <span>${escapeHtml(label)}</span>
+      </div>
+    `;
+  }
+
+  function isActionablePlannerQuestion(question) {
+    return PLANNER_ACTIONABLE_QUESTION_TYPES.includes(question?.type || "");
+  }
+
+  function getOpenDeliveryPlannerQuestions() {
+    return latestDeliveryPlannerQuestions.filter((question) =>
+      isActionablePlannerQuestion(question) && !getSavedPlannerCorrection(question.key)
+    );
+  }
+
+  function isMissingTimePlannerQuestion(question) {
+    return question?.type === "time" && /^stop-time-missing-/.test(question.key || "");
+  }
+
+  function getDeliveryPlannerDisplayQuestions(openQuestions) {
+    const missingTimeQuestions = openQuestions.filter(isMissingTimePlannerQuestion);
+
+    if (missingTimeQuestions.length <= 1 || areDeliveryPlannerMissingTimesExpanded) {
+      return openQuestions;
+    }
+
+    const firstMissingTimeIndex = openQuestions.findIndex(isMissingTimePlannerQuestion);
+    const result = [];
+    let insertedGroup = false;
+
+    openQuestions.forEach((question, index) => {
+      if (isMissingTimePlannerQuestion(question)) {
+        if (!insertedGroup && index === firstMissingTimeIndex) {
+          result.push({
+            key: "missing-time-group",
+            type: "time-group",
+            text: `Ik mis tijden bij ${missingTimeQuestions.length} stops.`,
+            priority: question.priority,
+            groupedQuestions: missingTimeQuestions
+          });
+          insertedGroup = true;
+        }
+        return;
+      }
+
+      result.push(question);
+    });
+
+    return result;
+  }
+
+  function getDeliveryPlannerQuestionCounterText(openQuestionCount) {
+    if (openQuestionCount <= 0) {
+      return "Alles compleet 🎉";
+    }
+
+    return openQuestionCount === 1 ? "Nog 1 vraag" : `Nog ${openQuestionCount} vragen`;
+  }
+
+  function renderPlannerQuestionAnswerControls(question) {
+    const correction = getSavedPlannerCorrection(question.key);
+
+    if (correction) {
+      return renderPlannerQuestionSavedAnswer(correction);
+    }
+
+    const stopOptions = latestRouteStops.map((stop, index) => `
+      <option value="${escapeHtml(String(index))}" ${index === question.stopIndex ? "selected" : ""}>
+        ${escapeHtml(`${index + 1}. ${getPlannerQuestionStopName(stop)}${stop.timeWindow ? ` - ${stop.timeWindow}` : ""}`)}
+      </option>
+    `).join("");
+
+    if (question.type === "time") {
+      return `
+        <form class="delivery-planner-answer-form" data-delivery-planner-answer="${escapeHtml(question.key)}">
+          <label>
+            <span>Tijd invoeren</span>
+            <input type="text" name="correctedValue" inputmode="numeric" autocomplete="off" placeholder="HH:MM of HH:MM / HH:MM" required>
+          </label>
+          <button type="submit" name="action" value="set-time">Opslaan</button>
+        </form>
+      `;
+    }
+
+    if (question.type === "time-group") {
+      return `
+        <div class="delivery-planner-answer-form">
+          <button type="button" data-delivery-planner-missing-times>Toon ontbrekende tijden</button>
+        </div>
+      `;
+    }
+
+    if (question.type === "customer") {
+      return `
+        <form class="delivery-planner-answer-form" data-delivery-planner-answer="${escapeHtml(question.key)}">
+          <label>
+            <span>Klantnaam</span>
+            <input type="text" name="correctedValue" autocomplete="off" value="${escapeHtml(question.originalValue || question.customerName || "")}" placeholder="Klantnaam">
+          </label>
+          <div class="delivery-planner-answer-actions">
+            <button type="submit" class="secondary" name="action" value="confirm-customer">Dit klopt</button>
+            <button type="submit" name="action" value="always-recognize">Altijd herkennen als...</button>
+          </div>
+        </form>
+      `;
+    }
+
+    if (question.type === "no-products") {
+      return `
+        <form class="delivery-planner-answer-form" data-delivery-planner-answer="${escapeHtml(question.key)}">
+          <div class="delivery-planner-answer-actions">
+            <button type="submit" name="action" value="no-products-ok">Klopt, geen producten</button>
+            <button type="submit" class="secondary" name="action" value="keep-review">Later nalopen</button>
+          </div>
+        </form>
+      `;
+    }
+
+    if (question.type === "payment") {
+      return `
+        <form class="delivery-planner-answer-form" data-delivery-planner-answer="${escapeHtml(question.key)}">
+          <label>
+            <span>Betaalstatus</span>
+            <select name="correctedValue" required>
+              <option value="">Kies betaalstatus</option>
+              <option value="Op rekening">Op rekening</option>
+              <option value="Contant">Contant</option>
+              <option value="Pin">Pin</option>
+              <option value="Tikkie">Tikkie</option>
+              <option value="Niet betaald">Niet betaald</option>
+            </select>
+          </label>
+          <button type="submit" name="action" value="set-payment">Opslaan antwoord</button>
+        </form>
+      `;
+    }
+
+    if (question.type === "unlinked-product") {
+      return `
+        <form class="delivery-planner-answer-form" data-delivery-planner-answer="${escapeHtml(question.key)}">
+          <div class="delivery-planner-product-question-line">${escapeHtml(question.unlinkedLine || question.originalValue || "")}</div>
+          <label>
+            <span>Koppel aan stop</span>
+            <select name="stopIndex" required>
+              <option value="">Kies klant/stop</option>
+              ${stopOptions}
+            </select>
+          </label>
+          <button type="submit" name="action" value="link-product">Opslaan</button>
+        </form>
+      `;
+    }
+
+    if (question.type === "parser-quality") {
+      return `
+        <form class="delivery-planner-answer-form" data-delivery-planner-answer="${escapeHtml(question.key)}">
+          <button type="submit" name="action" value="checked-parser-quality">Ik controleer dit zelf</button>
+        </form>
+      `;
+    }
+
+    return `
+      <div class="delivery-planner-answer-note">
+        <span>Alleen ter controle. Er is voor dit punt nog geen automatische correctieactie.</span>
+      </div>
+    `;
+  }
+
   function renderDeliveryPlannerQuestionsModal() {
     if (!plannerQuestionsDialogElement || !plannerQuestionsListElement) {
       return;
     }
 
-    const questions = latestDeliveryPlannerQuestions;
+    const questions = getOpenDeliveryPlannerQuestions();
+    const displayQuestions = getDeliveryPlannerDisplayQuestions(questions);
     const hasQuestions = questions.length > 0;
-    const visibleQuestions = areDeliveryPlannerQuestionsExpanded ? questions : questions.slice(0, 5);
+    const visibleQuestions = areDeliveryPlannerQuestionsExpanded ? displayQuestions : displayQuestions.slice(0, 5);
 
     plannerQuestionsDialogElement.dataset.state = hasQuestions ? "questions" : "ok";
 
     if (plannerQuestionsTitleElement) {
       plannerQuestionsTitleElement.textContent = hasQuestions
         ? "He planner! Ik heb een paar vragen over deze route 🚚"
-        : "Mooi! Route ziet er netjes uit";
+        : "🎉 Mooi!";
     }
 
     if (plannerQuestionsIntroElement) {
       plannerQuestionsIntroElement.textContent = hasQuestions
-        ? "Ik heb de PDF ingelezen, maar wil deze punten graag even zeker weten voordat je gaat printen."
-        : "Mooi! Ik heb geen bijzonderheden gevonden. Je kunt de route controleren en printen.";
+        ? "Ik heb de PDF gelezen, maar ik wil graag nog een paar dingen van je weten."
+        : "Ik heb nu alles wat ik nodig heb voor deze route.";
     }
 
     plannerQuestionsListElement.innerHTML = hasQuestions
-      ? visibleQuestions.map((question) => `
+      ? `
+        <div class="delivery-planner-questions-counter">${escapeHtml(getDeliveryPlannerQuestionCounterText(questions.length))}</div>
+        ${visibleQuestions.map((question) => `
         <article class="delivery-planner-question-item">
-          <span>${escapeHtml(question.status)}</span>
-          <p>${escapeHtml(question.text)}</p>
+          <div>
+            <p>${escapeHtml(question.text)}</p>
+            ${renderPlannerQuestionAnswerControls(question)}
+          </div>
         </article>
-      `).join("")
+        `).join("")}
+      `
       : `
         <article class="delivery-planner-question-item is-ok">
-          <span>klaar om te controleren</span>
-          <p>Geen extra vragen gevonden. Loop het routebord nog rustig na voordat je print.</p>
+          <div>
+            <p>Alles compleet 🎉</p>
+            <small>Ik heb nu alles wat ik nodig heb voor deze route.</small>
+          </div>
         </article>
       `;
 
     if (plannerQuestionsMoreButton) {
-      const remainingCount = Math.max(0, questions.length - visibleQuestions.length);
-      plannerQuestionsMoreButton.hidden = !hasQuestions || questions.length <= visibleQuestions.length;
+      const remainingCount = Math.max(0, displayQuestions.length - visibleQuestions.length);
+      plannerQuestionsMoreButton.hidden = !hasQuestions || displayQuestions.length <= visibleQuestions.length;
       plannerQuestionsMoreButton.textContent = remainingCount > 0
         ? `Toon alle punten (${remainingCount} extra)`
         : "Toon alle punten";
+    }
+
+    const routeButton = plannerQuestionsDialogElement.querySelector("[data-delivery-planner-questions-route]");
+    if (routeButton) {
+      routeButton.textContent = hasQuestions ? "Naar routebord" : "Verder naar routebord";
     }
   }
 
@@ -3533,8 +3893,150 @@
 
   function showDeliveryPlannerQuestionsAfterUpload(stops = latestRouteStops) {
     areDeliveryPlannerQuestionsExpanded = false;
+    areDeliveryPlannerMissingTimesExpanded = false;
     latestDeliveryPlannerQuestions = buildDeliveryPlannerQuestions(stops);
     openDeliveryPlannerQuestionsModal();
+  }
+
+  function getPlannerQuestionByKey(questionKey) {
+    return latestDeliveryPlannerQuestions.find((question) => question.key === questionKey) || null;
+  }
+
+  function getStopIndexForPlannerQuestion(question, fallbackIndex = -1) {
+    const normalizedFallbackIndex = Number(fallbackIndex);
+
+    if (question?.stopId) {
+      const byStopId = latestRouteStops.findIndex((stop, index) => getStopIdentity(stop, index).stopId === question.stopId);
+
+      if (byStopId >= 0) {
+        return byStopId;
+      }
+    }
+
+    if (question?.postcode) {
+      const byPostcode = latestRouteStops.findIndex((stop) => getStopPostcodePlace(stop).postcode === question.postcode);
+
+      if (byPostcode >= 0) {
+        return byPostcode;
+      }
+    }
+
+    if (question?.customerName) {
+      const normalizedName = normalizeReferenceValue(question.customerName);
+      const byCustomerName = normalizedName
+        ? latestRouteStops.findIndex((stop) => normalizeReferenceValue(stop?.customerName).includes(normalizedName))
+        : -1;
+
+      if (byCustomerName >= 0) {
+        return byCustomerName;
+      }
+    }
+
+    return Number.isInteger(normalizedFallbackIndex) ? normalizedFallbackIndex : question.stopIndex;
+  }
+
+  function applyPlannerQuestionAnswer(form, submitter = null) {
+    const questionKey = String(form?.dataset?.deliveryPlannerAnswer || "").trim();
+    const question = getPlannerQuestionByKey(questionKey);
+
+    if (!question || !form) {
+      return;
+    }
+
+    const formData = submitter ? new FormData(form, submitter) : new FormData(form);
+    const action = String(formData.get("action") || "").trim();
+    const formStopIndex = Number(formData.get("stopIndex"));
+    const stopIndex = question.type === "unlinked-product"
+      ? (Number.isInteger(formStopIndex) ? formStopIndex : question.stopIndex)
+      : getStopIndexForPlannerQuestion(question, formStopIndex);
+    const stop = Number.isInteger(stopIndex) ? latestRouteStops[stopIndex] : null;
+    let correctedValue = String(formData.get("correctedValue") || "").trim();
+    let appliedToCurrentRun = false;
+
+    if (question.type === "time") {
+      const normalizedTimeWindow = getTimeWindow(correctedValue) || correctedValue;
+
+      if (!stop || !normalizedTimeWindow) {
+        setStatus("Vul een geldige tijd of tijdvenster in.", "error");
+        return;
+      }
+
+      stop.timeWindow = normalizedTimeWindow;
+      removeStopNotesMatching(stop, /tijd/i);
+      refreshStopReviewState(stop);
+      correctedValue = normalizedTimeWindow;
+      appliedToCurrentRun = true;
+    } else if (question.type === "customer") {
+      if (!stop) {
+        setStatus("Klantantwoord kon niet worden gekoppeld aan een stop.", "error");
+        return;
+      }
+
+      if (correctedValue) {
+        stop.customerName = correctedValue;
+      } else {
+        correctedValue = stop.customerName || question.customerName || "Klant bevestigd";
+      }
+
+      stop.knownCustomerMatch = action === "always-recognize" ? "planner-leerdata" : (stop.knownCustomerMatch || "planner-bevestigd");
+      removeStopNotesMatching(stop, /klant|naam|alias/i);
+      refreshStopReviewState(stop);
+      appliedToCurrentRun = true;
+    } else if (question.type === "no-products") {
+      if (stop && action === "no-products-ok") {
+        removeStopNotesMatching(stop, /product|aantal/i);
+        refreshStopReviewState(stop);
+        appliedToCurrentRun = true;
+      }
+
+      correctedValue = action === "no-products-ok" ? "Klopt, geen producten" : "Later nalopen";
+    } else if (question.type === "payment") {
+      if (!stop || !correctedValue) {
+        setStatus("Kies een betaalstatus.", "error");
+        return;
+      }
+
+      stop.paymentStatus = correctedValue;
+      removeStopNotesMatching(stop, /betaling|betaalstatus|factuur/i);
+      refreshStopReviewState(stop);
+      appliedToCurrentRun = true;
+    } else if (question.type === "unlinked-product") {
+      const productLine = question.unlinkedLine || question.originalValue;
+
+      if (!stop || !productLine) {
+        setStatus("Kies een stop om de productregel te koppelen.", "error");
+        return;
+      }
+
+      const alreadyLinked = (Array.isArray(stop.products) ? stop.products : []).some((product) =>
+        String(product?.rawLine || "").trim().toLowerCase() === productLine.trim().toLowerCase()
+      );
+
+      if (!alreadyLinked) {
+        addProductToStop(stop, productLine, false);
+      }
+
+      correctedValue = `${productLine} -> ${getPlannerQuestionStopName(stop)}`;
+      appliedToCurrentRun = true;
+    } else if (question.type === "parser-quality") {
+      correctedValue = "Route handmatig gecontroleerd";
+      appliedToCurrentRun = false;
+    } else {
+      correctedValue = action || "Handmatig gecontroleerd";
+    }
+
+    createPlannerCorrection(question, {
+      correctedValue,
+      action,
+      stop,
+      stopIndex,
+      appliedToCurrentRun
+    });
+
+    markDeliveryLocallyCorrected();
+    rerenderDeliveryPreview({ refreshPrint: isPrintPreviewActive() });
+    renderDeliveryPlannerQuestionsModal();
+    setStatus("Antwoord opgeslagen. Sla de route op om deze leerdata mee te bewaren.", "ready");
   }
 
   function rerenderDeliveryPreview({ refreshPrint = false } = {}) {
@@ -3975,6 +4477,33 @@
     `;
   }
 
+  function renderPlannerCorrectionsReport() {
+    const corrections = normalizePlannerCorrections(latestPlannerCorrections);
+
+    if (!corrections.length) {
+      return "";
+    }
+
+    return `
+      <section>
+        <h4>Plannerantwoorden</h4>
+        <div class="delivery-recognition-metrics">
+          ${renderRecognitionMetric("Antwoorden", corrections.length, "ok")}
+          ${renderRecognitionMetric("Toegepast op run", corrections.filter((correction) => correction.appliedToCurrentRun).length)}
+        </div>
+        <ul class="delivery-recognition-list">
+          ${corrections.slice(0, 10).map((correction) => `
+            <li>
+              ${escapeHtml(correction.type || "antwoord")}:
+              ${escapeHtml(correction.customerName || correction.postcode || "route")}
+              -> ${escapeHtml(correction.correctedValue || correction.action || "opgeslagen")}
+            </li>
+          `).join("")}
+        </ul>
+      </section>
+    `;
+  }
+
   function renderRecognitionReport(stops = latestRouteStops) {
     if (!recognitionReportElement) {
       return;
@@ -4061,6 +4590,7 @@
           </div>
         </section>
         ${renderServerParserReport(report.parser.serverReport)}
+        ${renderPlannerCorrectionsReport()}
       </div>
       ${report.products.cuttingUncertainLines.length ? `
         <div class="delivery-recognition-suspicious">
@@ -4941,6 +5471,7 @@
     latestParserSource = payload?.source?.parser || "";
     latestTextLineCount = Number(payload?.source?.textLineCount) || 0;
     latestUploadDate = payload?.source?.uploadedAt || run?.createdAt || "";
+    latestPlannerCorrections = normalizePlannerCorrections(payload.plannerCorrections);
     latestRunSource = "saved";
     latestRunId = run?.id || "";
     latestRunUpdatedAt = run?.updatedAt || run?.createdAt || "";
@@ -4967,6 +5498,9 @@
     };
     latestParserQualityBlocked = false;
     latestParserVersionWarning = parserVersionWarning;
+    latestDeliveryPlannerQuestions = [];
+    areDeliveryPlannerQuestionsExpanded = false;
+    areDeliveryPlannerMissingTimesExpanded = false;
     selectedDeliveryStopIndex = -1;
     expandedDeliveryRouteStopIndex = -1;
     draggedDeliveryStopIndex = -1;
@@ -7840,6 +8374,7 @@
         stops: route.stops
       })),
       preparation: calculatePreparation(payloadStops),
+      plannerCorrections: normalizePlannerCorrections(latestPlannerCorrections),
       driverPreview: {
         warnings: getDriverWarnings(payloadStops),
         firstStop: firstStop
@@ -8354,6 +8889,7 @@
     const plannerQuestionsCloseButton = event.target.closest("[data-delivery-planner-questions-close]");
     const plannerQuestionsMoreButton = event.target.closest("[data-delivery-planner-questions-more]");
     const plannerQuestionsRouteButton = event.target.closest("[data-delivery-planner-questions-route]");
+    const plannerMissingTimesButton = event.target.closest("[data-delivery-planner-missing-times]");
     const manualTaskButton = event.target.closest("[data-delivery-manual-task-open]");
     const manualTaskCloseButton = event.target.closest("[data-delivery-manual-task-close]");
     const showSavedButton = event.target.closest("[data-delivery-show-saved-routes]");
@@ -8395,6 +8931,12 @@
     if (plannerQuestionsRouteButton) {
       closeDeliveryPlannerQuestionsModal();
       routeBlocksElement?.scrollIntoView({ block: "start", behavior: "smooth" });
+      return;
+    }
+
+    if (plannerMissingTimesButton) {
+      areDeliveryPlannerMissingTimesExpanded = true;
+      renderDeliveryPlannerQuestionsModal();
       return;
     }
 
@@ -8512,6 +9054,16 @@
   deliveryPanelElement?.addEventListener("click", handleDeliveryPanelClick);
   employeeDeliveryPanelElement?.addEventListener("click", handleDeliveryPanelClick);
   deliveryPanelElement?.addEventListener("change", handleRouteCostInput);
+  deliveryPanelElement?.addEventListener("submit", (event) => {
+    const plannerAnswerForm = event.target.closest("[data-delivery-planner-answer]");
+
+    if (!plannerAnswerForm) {
+      return;
+    }
+
+    event.preventDefault();
+    applyPlannerQuestionAnswer(plannerAnswerForm, event.submitter || null);
+  });
   manualTaskFormElement?.addEventListener("submit", (event) => {
     event.preventDefault();
     applyManualTaskForm(manualTaskFormElement);

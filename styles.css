@@ -12172,7 +12172,6 @@ button,
 
 .delivery-planner-question-item {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
   gap: 0.55rem;
   align-items: start;
   border: 1px solid #f0dfc7;
@@ -12186,28 +12185,82 @@ button,
   background: #f2fbf5;
 }
 
-.delivery-planner-question-item span {
-  display: inline-flex;
-  width: fit-content;
-  border-radius: 999px;
-  padding: 0.18rem 0.42rem;
-  background: #fff1cf;
-  color: #795111;
-  font-size: 0.7rem;
-  font-weight: 900;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.delivery-planner-question-item.is-ok span {
-  background: #dff4e7;
-  color: #23643a;
-}
-
 .delivery-planner-question-item p {
   margin: 0;
   font-size: 0.92rem;
   line-height: 1.35;
+}
+
+.delivery-planner-question-item small {
+  display: block;
+  margin-top: 0.22rem;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+.delivery-planner-questions-counter {
+  border: 1px solid #dfe8d6;
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  background: #f6fbf2;
+  color: #315f2d;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.delivery-planner-answer-form,
+.delivery-planner-answer-saved,
+.delivery-planner-answer-note {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+  border: 1px solid #eadfce;
+  border-radius: 8px;
+  padding: 0.55rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.delivery-planner-product-question-line {
+  border: 1px dashed #d8c8ac;
+  border-radius: 8px;
+  padding: 0.42rem 0.5rem;
+  background: #fffaf0;
+  color: var(--color-text);
+  font-weight: 900;
+}
+
+.delivery-planner-answer-form label {
+  display: grid;
+  gap: 0.24rem;
+  font-weight: 800;
+}
+
+.delivery-planner-answer-form input,
+.delivery-planner-answer-form select {
+  width: 100%;
+}
+
+.delivery-planner-answer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.delivery-planner-answer-saved {
+  border-color: #cdebd9;
+  background: #f2fbf5;
+}
+
+.delivery-planner-answer-saved strong {
+  color: #23643a;
+  font-size: 0.82rem;
+}
+
+.delivery-planner-answer-saved span,
+.delivery-planner-answer-note span {
+  color: var(--color-text-muted);
+  font-size: 0.84rem;
 }
 
 .delivery-planner-questions-more {
@@ -12234,6 +12287,11 @@ button,
 
   .delivery-planner-questions-actions button {
     width: 100%;
+  }
+
+  .delivery-planner-answer-actions {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 }
 
