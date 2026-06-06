@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Willem Message Demo</title>
+  <style>
+    :root {
+      color: #342923;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #fffaf3;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 28px 16px;
+      background:
+        linear-gradient(180deg, rgba(244, 123, 32, 0.08), rgba(255, 255, 255, 0) 240px),
+        #fffaf3;
+    }
+
+    main {
+      width: min(860px, 100%);
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 18px;
+      color: #5f2a10;
+      font-size: 28px;
+      line-height: 1.15;
+    }
+
+    .demo-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .willem-message {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      max-width: 100%;
+      padding: 14px 16px;
+      border: 1px solid var(--willem-border);
+      border-left: 5px solid var(--willem-accent);
+      border-radius: 8px;
+      background: var(--willem-bg);
+      box-shadow: 0 12px 32px rgba(64, 43, 24, 0.08);
+    }
+
+    .willem-message__avatar {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      justify-content: center;
+      width: 58px;
+      height: 58px;
+      overflow: hidden;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--willem-accent) 0%, #fff5eb 100%);
+    }
+
+    .willem-message__avatar img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .willem-message__content {
+      min-width: 0;
+    }
+
+    .willem-message__title {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--willem-title);
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .willem-message__text {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+
+    .willem-message[data-variant="info"] {
+      --willem-bg: #fffaf3;
+      --willem-border: #f4d5b7;
+      --willem-accent: #f47b20;
+      --willem-title: #7a3510;
+    }
+
+    .willem-message[data-variant="success"] {
+      --willem-bg: #f6fbf4;
+      --willem-border: #cfe6c8;
+      --willem-accent: #6f9f3a;
+      --willem-title: #315d1e;
+    }
+
+    .willem-message[data-variant="warning"] {
+      --willem-bg: #fff8eb;
+      --willem-border: #f0c98e;
+      --willem-accent: #d2691e;
+      --willem-title: #78350f;
+    }
+
+    .willem-message[data-variant="empty"] {
+      --willem-bg: #fbfaf8;
+      --willem-border: #e8ded3;
+      --willem-accent: #c76b2a;
+      --willem-title: #5f4a3c;
+    }
+
+    @media (max-width: 520px) {
+      body {
+        padding: 18px 12px;
+      }
+
+      h1 {
+        font-size: 23px;
+      }
+
+      .willem-message {
+        align-items: flex-start;
+        padding: 13px;
+      }
+
+      .willem-message__avatar {
+        width: 50px;
+        height: 50px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Willem zegt:</h1>
+    <div class="demo-grid">
+      <section class="willem-message" data-variant="info" aria-live="polite">
+        <span class="willem-message__avatar" aria-hidden="true">
+          <img src="/mascot/willem/willem-avatar-v1.png" alt="" decoding="async">
+        </span>
+        <div class="willem-message__content">
+          <strong class="willem-message__title">Willem zegt:</strong>
+          <p class="willem-message__text">De planning is bijgewerkt. Kijk nog even rustig naar de open diensten.</p>
+        </div>
+      </section>
+
+      <section class="willem-message" data-variant="success" aria-live="polite">
+        <span class="willem-message__avatar" aria-hidden="true">
+          <img src="/mascot/willem/willem-avatar-v1.png" alt="" decoding="async">
+        </span>
+        <div class="willem-message__content">
+          <strong class="willem-message__title">Willem zegt:</strong>
+          <p class="willem-message__text">Mooi werk, alles staat klaar voor vandaag.</p>
+        </div>
+      </section>
+
+      <section class="willem-message" data-variant="warning" aria-live="polite">
+        <span class="willem-message__avatar" aria-hidden="true">
+          <img src="/mascot/willem/willem-avatar-v1.png" alt="" decoding="async">
+        </span>
+        <div class="willem-message__content">
+          <strong class="willem-message__title">Willem zegt:</strong>
+          <p class="willem-message__text">Er mist nog informatie voordat deze actie veilig kan worden afgerond.</p>
+        </div>
+      </section>
+
+      <section class="willem-message" data-variant="empty" aria-live="polite">
+        <span class="willem-message__avatar" aria-hidden="true">
+          <img src="/mascot/willem/willem-avatar-v1.png" alt="" decoding="async">
+        </span>
+        <div class="willem-message__content">
+          <strong class="willem-message__title">Willem zegt:</strong>
+          <p class="willem-message__text">Er is hier nog niets te tonen.</p>
+        </div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>
