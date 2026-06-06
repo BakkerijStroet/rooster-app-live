@@ -1153,6 +1153,7 @@
           <div class="delivery-route-planner-header">
             <div class="delivery-route-planner-actions">
               <button type="button" class="secondary" data-delivery-route-new-pdf>Nieuwe PDF</button>
+              <button type="button" class="secondary" data-delivery-manual-task-open disabled>Extra opdracht toevoegen</button>
               <button type="button" class="secondary" data-delivery-show-saved-routes>Opgeslagen routes</button>
               <button type="button" class="secondary" data-delivery-route-save disabled>Route opslaan</button>
               <button type="button" class="delivery-route-print-button" data-delivery-route-print disabled>Print routes</button>
@@ -1162,6 +1163,60 @@
             </div>
           </div>
           <div id="deliveryRouteBlocks" class="delivery-route-blocks empty">Nog geen routeblokken beschikbaar.</div>
+          <dialog id="deliveryManualTaskDialog" class="delivery-manual-task-dialog">
+            <form id="deliveryManualTaskForm" class="delivery-manual-task-form" method="dialog">
+              <input type="hidden" name="taskIndex" value="">
+              <header>
+                <div>
+                  <strong>Extra opdracht</strong>
+                  <span>Voeg een handmatige stop toe aan de bezorgroute.</span>
+                </div>
+                <button type="button" class="secondary" data-delivery-manual-task-close>Sluiten</button>
+              </header>
+              <label>
+                <span>Titel/opdracht</span>
+                <input type="text" name="title" required maxlength="90" placeholder="Bijv. Fruit ophalen">
+              </label>
+              <label>
+                <span>Adres</span>
+                <input type="text" name="address" maxlength="140" placeholder="Straat en huisnummer">
+              </label>
+              <label>
+                <span>Plaats/postcode optioneel</span>
+                <input type="text" name="area" maxlength="80" placeholder="Bijv. Borculo">
+              </label>
+              <div class="delivery-manual-task-grid">
+                <label>
+                  <span>Tijd/tijdvenster</span>
+                  <input type="text" name="timeWindow" maxlength="40" placeholder="Bijv. 10:00 / 11:00">
+                </label>
+                <label>
+                  <span>Route</span>
+                  <select name="routeNumber">
+                    <option value="1">Route 1</option>
+                    <option value="2">Route 2</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Type</span>
+                  <select name="taskType">
+                    <option value="Ophalen">Ophalen</option>
+                    <option value="Afgeven">Afgeven</option>
+                    <option value="Boodschap">Boodschap</option>
+                    <option value="Overig">Overig</option>
+                  </select>
+                </label>
+              </div>
+              <label>
+                <span>Opmerking optioneel</span>
+                <textarea name="remark" rows="3" maxlength="220" placeholder="Bijv. vragen bij de balie"></textarea>
+              </label>
+              <div class="delivery-manual-task-actions">
+                <button type="button" class="secondary" data-delivery-manual-task-close>Annuleren</button>
+                <button type="submit">Opdracht toevoegen</button>
+              </div>
+            </form>
+          </dialog>
         </article>
         <article id="deliveryDriverMode" class="capacity-card delivery-driver-mode delivery-work-card" hidden>
           <div id="deliveryDriverModeContent" class="delivery-driver-mode-content empty">Open een opgeslagen route om chauffeurmodus te bekijken.</div>

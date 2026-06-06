@@ -12108,6 +12108,79 @@ button,
   background: #6f390c;
 }
 
+.delivery-manual-task-dialog {
+  width: min(560px, calc(100vw - 1.4rem));
+  border: 1px solid #ead7bd;
+  border-radius: 8px;
+  padding: 0;
+  color: var(--color-text);
+  box-shadow: 0 24px 70px rgba(50, 35, 18, 0.22);
+}
+
+.delivery-manual-task-dialog::backdrop {
+  background: rgba(37, 27, 18, 0.34);
+}
+
+.delivery-manual-task-form {
+  display: grid;
+  gap: 0.72rem;
+  padding: 1rem;
+  background: #fffdf9;
+}
+
+.delivery-manual-task-form header,
+.delivery-manual-task-actions {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.delivery-manual-task-form header strong {
+  display: block;
+  font-size: 1rem;
+}
+
+.delivery-manual-task-form header span {
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
+
+.delivery-manual-task-form label {
+  display: grid;
+  gap: 0.24rem;
+  font-weight: 800;
+}
+
+.delivery-manual-task-form input,
+.delivery-manual-task-form select,
+.delivery-manual-task-form textarea {
+  width: 100%;
+}
+
+.delivery-manual-task-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.delivery-manual-task-badge,
+.delivery-print-route-label,
+.delivery-driver-manual-label {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  background: #eef6ff;
+  color: #275174;
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.delivery-manual-task-badge {
+  padding: 0.18rem 0.38rem;
+}
+
 .delivery-route-planner-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 0.42fr);
@@ -13807,6 +13880,11 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   line-height: 1.28;
 }
 
+.delivery-print-route-label {
+  margin-top: 0.18rem;
+  padding: 0.16rem 0.36rem;
+}
+
 .delivery-print-route-categories {
   display: flex;
   flex-wrap: wrap;
@@ -14060,6 +14138,16 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 
   .delivery-route-planner-actions {
     justify-content: start;
+  }
+
+  .delivery-manual-task-form header,
+  .delivery-manual-task-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .delivery-manual-task-grid {
+    grid-template-columns: 1fr;
   }
 
   .delivery-route-planner-grid {
@@ -18678,6 +18766,11 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   font-size: clamp(1.45rem, 7vw, 2rem);
   line-height: 1.1;
   white-space: nowrap;
+}
+
+.delivery-driver-manual-label {
+  padding: 0.28rem 0.52rem;
+  font-size: 0.82rem;
 }
 
 .delivery-driver-mode-alert {

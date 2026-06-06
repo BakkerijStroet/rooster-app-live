@@ -30,6 +30,9 @@
   const plannerStatusElement = document.querySelector("[data-delivery-planner-status]");
   const plannerApprovePrintButton = document.querySelector("[data-delivery-route-print]");
   const plannerSaveButton = document.querySelector("[data-delivery-route-save]");
+  const manualTaskOpenButton = document.querySelector("[data-delivery-manual-task-open]");
+  const manualTaskDialogElement = document.getElementById("deliveryManualTaskDialog");
+  const manualTaskFormElement = document.getElementById("deliveryManualTaskForm");
   const driverModeOpenButton = document.querySelector("[data-delivery-driver-mode-open]");
   const driverModeElement = document.getElementById("deliveryDriverMode");
   const driverModeContentElement = document.getElementById("deliveryDriverModeContent");
@@ -80,6 +83,7 @@
     "Betaling probleem",
     "Overig"
   ];
+  const MANUAL_DELIVERY_TASK_TYPES = ["Ophalen", "Afgeven", "Boodschap", "Overig"];
   const CUTTING_PATTERN = /\b(gesneden|snijden|snij|gesn\.?)\b/i;
   const NOT_CUTTING_PATTERN = /\b(ongesneden|niet\s+gesneden|niet\s+snijden|\d+\s*plakken?|plakken?)\b/i;
   const NON_CUTTING_BREAD_PATTERN = /\b(broodjes?|bolletjes?|bol\b|punt(?:en)?|pistolet|stokbrood|mini\s+bol|witte\s+punt|rozijnenbol)\b/i;
@@ -569,6 +573,13 @@
       plannerSaveButton.disabled = !saveState.canSave;
       plannerSaveButton.textContent = saveState.label;
       plannerSaveButton.title = saveState.title;
+    }
+
+    if (manualTaskOpenButton) {
+      manualTaskOpenButton.disabled = !latestRouteStops.length || isRoutePrintBlocked();
+      manualTaskOpenButton.title = latestRouteStops.length
+        ? "Voeg een extra opdracht toe aan de huidige route"
+        : "Upload of open eerst een bezorgroute";
     }
 
     if (driverModeOpenButton) {
@@ -1403,6 +1414,26 @@
   function normalizeCategories(categories) {
     const categorySet = new Set(Array.isArray(categories) ? categories.filter(Boolean) : []);
     return PRODUCT_CATEGORY_ORDER.filter((category) => categorySet.has(category));
+  }
+
+  function isManualDeliveryTask(stop) {
+    return Boolean(stop?.isManualTask);
+  }
+
+  function getManualDeliveryTaskType(stop) {
+    const taskType = String(stop?.manualTaskType || "").trim();
+    return MANUAL_DELIVERY_TASK_TYPES.includes(taskType) ? taskType : "Overig";
+  }
+
+  function getManualDeliveryTaskLabel(stop) {
+    return `Extra opdracht${isManualDeliveryTask(stop) ? ` · ${getManualDeliveryTaskType(stop)}` : ""}`;
+  }
+
+  function getManualDeliveryTaskAddress(address, area) {
+    return [address, area]
+      .map((part) => String(part || "").trim())
+      .filter(Boolean)
+      .join(", ");
   }
 
   function createRouteStop(lines, addressIndex, address) {
@@ -3227,6 +3258,144 @@
     setStatus("Lokale correcties nog niet opgeslagen.", "ready");
   }
 
+  function setManualTaskFormMode(index = -1) {
+    if (!manualTaskFormElement) {
+      return;
+    }
+
+    const normalizedIndex = Number(index);
+    const stop = Number.isInteger(normalizedIndex) ? latestRouteStops[normalizedIndex] : null;
+    const isEditing = Boolean(stop && isManualDeliveryTask(stop));
+    const formElements = manualTaskFormElement.elements;
+    const getField = (name) => formElements.namedItem(name);
+    const addressParts = isEditing
+      ? String(stop.address || "").split(",").map((part) => part.trim()).filter(Boolean)
+      : [];
+
+    getField("taskIndex").value = isEditing ? String(normalizedIndex) : "";
+    getField("title").value = isEditing ? stop.customerName || stop.manualTaskTitle || "" : "";
+    getField("address").value = isEditing ? addressParts[0] || stop.address || "" : "";
+    getField("area").value = isEditing ? stop.manualTaskArea || addressParts.slice(1).join(", ") : "";
+    getField("timeWindow").value = isEditing ? stop.timeWindow || "" : "";
+    getField("routeNumber").value = isEditing ? String(getStopRouteNumber(stop)) : "1";
+    getField("taskType").value = isEditing ? getManualDeliveryTaskType(stop) : "Ophalen";
+    getField("remark").value = isEditing ? stop.remark || "" : "";
+
+    const submitButton = manualTaskFormElement.querySelector("button[type=\"submit\"]");
+    if (submitButton) {
+      submitButton.textContent = isEditing ? "Opdracht opslaan" : "Opdracht toevoegen";
+    }
+  }
+
+  function openManualTaskDialog(index = -1) {
+    if (!manualTaskDialogElement || !manualTaskFormElement || !latestRouteStops.length || isRoutePrintBlocked()) {
+      return;
+    }
+
+    setManualTaskFormMode(index);
+
+    if (typeof manualTaskDialogElement.showModal === "function") {
+      manualTaskDialogElement.showModal();
+    } else {
+      manualTaskDialogElement.removeAttribute("hidden");
+    }
+  }
+
+  function closeManualTaskDialog() {
+    if (!manualTaskDialogElement) {
+      return;
+    }
+
+    if (typeof manualTaskDialogElement.close === "function") {
+      manualTaskDialogElement.close();
+    } else {
+      manualTaskDialogElement.setAttribute("hidden", "");
+    }
+  }
+
+  function getManualTaskStopFromForm(form) {
+    const formData = new FormData(form);
+    const title = String(formData.get("title") || "").trim();
+    const address = String(formData.get("address") || "").trim();
+    const area = String(formData.get("area") || "").trim();
+    const timeWindow = String(formData.get("timeWindow") || "").trim();
+    const routeNumber = Number(formData.get("routeNumber")) === 2 ? 2 : 1;
+    const taskType = MANUAL_DELIVERY_TASK_TYPES.includes(String(formData.get("taskType") || ""))
+      ? String(formData.get("taskType") || "")
+      : "Overig";
+    const remark = String(formData.get("remark") || "").trim();
+
+    if (!title) {
+      return null;
+    }
+
+    return {
+      customerId: "",
+      customerName: title,
+      address: getManualDeliveryTaskAddress(address, area),
+      postcode: "",
+      plaats: area,
+      categories: [],
+      products: [],
+      routeNumber,
+      routeName: `Route ${routeNumber}`,
+      routeBlockName: `Route ${routeNumber}`,
+      paymentStatus: "",
+      timeWindow,
+      remark,
+      notes: [],
+      needsReview: false,
+      isManualTask: true,
+      manualTaskType: taskType,
+      manualTaskTitle: title,
+      manualTaskArea: area
+    };
+  }
+
+  function applyManualTaskForm(form) {
+    const manualTaskStop = getManualTaskStopFromForm(form);
+
+    if (!manualTaskStop) {
+      setStatus("Vul een titel/opdracht in.", "error");
+      return;
+    }
+
+    const index = Number(form.elements.namedItem("taskIndex")?.value);
+    const isEditing = Number.isInteger(index) && latestRouteStops[index] && isManualDeliveryTask(latestRouteStops[index]);
+
+    if (isEditing) {
+      latestRouteStops[index] = {
+        ...latestRouteStops[index],
+        ...manualTaskStop
+      };
+      selectedDeliveryStopIndex = index;
+    } else {
+      latestRouteStops.push(manualTaskStop);
+      selectedDeliveryStopIndex = latestRouteStops.length - 1;
+    }
+
+    expandedDeliveryRouteStopIndex = -1;
+    closeManualTaskDialog();
+    markDeliveryLocallyCorrected();
+    rerenderDeliveryPreview({ refreshPrint: isPrintPreviewActive() });
+    scrollToDeliveryStop(selectedDeliveryStopIndex);
+  }
+
+  function removeManualTaskStop(index) {
+    const normalizedIndex = Number(index);
+
+    if (!Number.isInteger(normalizedIndex) || !isManualDeliveryTask(latestRouteStops[normalizedIndex])) {
+      return;
+    }
+
+    latestRouteStops.splice(normalizedIndex, 1);
+    selectedDeliveryStopIndex = -1;
+    expandedDeliveryRouteStopIndex = -1;
+    markDeliveryLocallyCorrected();
+    rerenderDeliveryPreview({ refreshPrint: isPrintPreviewActive() });
+    setStatus("Extra opdracht verwijderd. Nog niet opgeslagen.", "ready");
+  }
+
   function getDashboardStats(stops) {
     const normalizedStops = Array.isArray(stops) ? stops : [];
     const preparation = calculatePreparation(normalizedStops);
@@ -4398,6 +4567,7 @@
       ...(Array.isArray(stop?.categories) ? stop.categories : []),
       ...products.map((product) => product.category)
     ]);
+    const manualTask = isManualDeliveryTask(stop);
 
     return {
       customerId: typeof stop?.customerId === "string" ? stop.customerId : "",
@@ -4415,7 +4585,11 @@
       timeWindow: typeof stop?.timeWindow === "string" ? stop.timeWindow : "",
       remark: typeof stop?.remark === "string" ? stop.remark : "",
       notes: Array.isArray(stop?.notes) ? stop.notes.filter((note) => typeof note === "string") : [],
-      needsReview: Boolean(stop?.needsReview)
+      needsReview: Boolean(stop?.needsReview),
+      isManualTask: manualTask,
+      manualTaskType: manualTask ? getManualDeliveryTaskType(stop) : "",
+      manualTaskTitle: manualTask && typeof stop?.manualTaskTitle === "string" ? stop.manualTaskTitle : "",
+      manualTaskArea: manualTask && typeof stop?.manualTaskArea === "string" ? stop.manualTaskArea : ""
     };
   }
 
@@ -4885,8 +5059,15 @@
   function renderRouteOrderControls(index, totalStops = latestRouteStops.length, { productsExpanded = false } = {}) {
     const previousIndex = getRouteNeighborStopIndex(index, -1);
     const nextIndex = getRouteNeighborStopIndex(index, 1);
-    const routeNumber = getStopRouteNumber(latestRouteStops[index]);
+    const stop = latestRouteStops[index];
+    const routeNumber = getStopRouteNumber(stop);
     const targetRouteNumber = routeNumber === 2 ? 1 : 2;
+    const manualTaskControls = isManualDeliveryTask(stop)
+      ? `
+        <button type="button" class="secondary" data-delivery-edit-manual-task="${index}">Bewerken</button>
+        <button type="button" class="secondary" data-delivery-remove-manual-task="${index}">Verwijderen</button>
+      `
+      : "";
 
     return `
       <div class="delivery-route-order-controls">
@@ -4936,8 +5117,15 @@
   function renderRouteOrderControls(index, totalStops = latestRouteStops.length, { productsExpanded = false } = {}) {
     const previousIndex = getRouteNeighborStopIndex(index, -1);
     const nextIndex = getRouteNeighborStopIndex(index, 1);
-    const routeNumber = getStopRouteNumber(latestRouteStops[index]);
+    const stop = latestRouteStops[index];
+    const routeNumber = getStopRouteNumber(stop);
     const targetRouteNumber = routeNumber === 2 ? 1 : 2;
+    const manualTaskControls = isManualDeliveryTask(stop)
+      ? `
+        <button type="button" class="secondary" data-delivery-edit-manual-task="${index}">Bewerken</button>
+        <button type="button" class="secondary" data-delivery-remove-manual-task="${index}">Verwijderen</button>
+      `
+      : "";
 
     return `
       <div class="delivery-route-order-controls">
@@ -4946,6 +5134,7 @@
         <button type="button" class="secondary" data-delivery-move-stop="${index}" data-delivery-move-direction="-1" ${previousIndex >= 0 ? "" : "disabled"} aria-label="Stop omhoog">Omhoog</button>
         <button type="button" class="secondary" data-delivery-move-stop="${index}" data-delivery-move-direction="1" ${nextIndex >= 0 ? "" : "disabled"} aria-label="Stop omlaag">Omlaag</button>
         <button type="button" class="secondary" data-delivery-toggle-products="${index}" aria-expanded="${productsExpanded ? "true" : "false"}">${productsExpanded ? "Producten verbergen" : "Producten tonen"}</button>
+        ${manualTaskControls}
       </div>
     `;
   }
@@ -4990,7 +5179,7 @@
                 `;
               }).join("")}
             </div>`
-          : "<div class=\"delivery-route-stop-products-empty\">Geen exacte productregels gekoppeld.</div>"}
+          : `<div class="delivery-route-stop-products-empty">${isManualDeliveryTask(stop) ? "Geen laadproducten voor deze extra opdracht." : "Geen exacte productregels gekoppeld."}</div>`}
       </section>
     `;
   }
@@ -5523,8 +5712,8 @@
         <header class="delivery-driver-mode-top">
           ${isEmployeeMode
             ? `<div class="delivery-driver-mode-route-title">
-                <strong>${escapeHtml(routeName)}</strong>
-                <span>${escapeHtml(stopLabel)}</span>
+          <strong>${escapeHtml(routeName)}</strong>
+          <span>${escapeHtml(stopLabel)}</span>
               </div>`
             : `<div class="delivery-driver-mode-route-tabs">
                 <button type="button" class="secondary${driverModeRouteNumber === 1 ? " is-active" : ""}" data-delivery-driver-route="1" ${routeOneCount ? "" : "disabled"}>Route 1 <span>${routeOneCount}</span></button>
@@ -5551,6 +5740,7 @@
             ${renderDriverModeStopStatus(stop)}
             <strong>${escapeHtml(getRouteStopTimeLabel(stop))}</strong>
           </div>
+          ${isManualDeliveryTask(stop) ? `<div class="delivery-driver-manual-label">${escapeHtml(getManualDeliveryTaskLabel(stop))}</div>` : ""}
           <h3>${escapeHtml(stop.customerName || "Klant onbekend")}</h3>
           <div class="delivery-driver-mode-address">
             ${navigationUrl
@@ -6240,6 +6430,7 @@
           ${renderRouteStopIcons(stop, categories)}
           <div class="delivery-stop-main">
             <div class="delivery-stop-title">${escapeHtml(stop.customerName || "Klant onbekend")}</div>
+            ${isManualDeliveryTask(stop) ? `<span class="delivery-manual-task-badge">${escapeHtml(getManualDeliveryTaskLabel(stop))}</span>` : ""}
           </div>
           ${isSelected ? renderRouteOrderControls(index, latestRouteStops.length, { productsExpanded: isProductsExpanded }) : ""}
           ${isProductsExpanded ? renderRouteStopTakeAlong(stop, index) : ""}
@@ -7044,6 +7235,7 @@
                           <strong>${escapeHtml(getPrintRouteStopNumber(routeIndex, stopIndex))} ${renderPrintRouteIcons(stop)} ${escapeHtml(stop.customerName || "Klant onbekend")}</strong>
                           <span>${escapeHtml(getRouteStopTimeLabel(stop))}</span>
                         </div>
+                        ${isManualDeliveryTask(stop) ? `<div class="delivery-print-route-label">${escapeHtml(getManualDeliveryTaskLabel(stop))}</div>` : ""}
                         <div class="delivery-print-address">${escapeHtml(stop.address || "Adres onbekend")}</div>
                         ${remark ? `<div class="delivery-print-route-remark">${escapeHtml(remark)}</div>` : ""}
                         ${stopHasReview(stop) ? `<small>controle nodig${stop.notes.length ? `: ${escapeHtml(stop.notes.join(", "))}` : ""}</small>` : ""}
@@ -7078,6 +7270,7 @@
                         <span class="delivery-print-check-cell"><span class="delivery-print-checkbox" aria-hidden="true"></span><b>betaald</b></span>
                         <span class="delivery-print-check-main">
                           <strong>${escapeHtml(getPrintRouteStopNumber(routeIndex, stopIndex))} ${escapeHtml(stop.customerName || "Klant onbekend")}</strong>
+                          ${isManualDeliveryTask(stop) ? `<small>${escapeHtml(getManualDeliveryTaskLabel(stop))}</small>` : ""}
                           ${remark ? `<small>${escapeHtml(remark)}</small>` : ""}
                         </span>
                         <span class="delivery-print-check-time">${escapeHtml(getRouteStopTimeLabel(stop))}</span>
@@ -7140,7 +7333,7 @@
       stops: route.stops.map((stop) => ({
         ...stop,
         products: getLoadProductsForStop(stop)
-      }))
+      })).filter((stop) => stop.products.length || !isManualDeliveryTask(stop))
     }));
     const hasStops = routes.some((route) => route.stops.length);
     const loadTotals = getLoadProductTotals(routes);
@@ -7313,7 +7506,13 @@
         remark: stop.remark || "",
         notes: Array.isArray(stop.notes) ? stop.notes : [],
         needsReview: Boolean(stop.needsReview),
-        products: Array.isArray(stop.products) ? stop.products : []
+        products: Array.isArray(stop.products) ? stop.products : [],
+        ...(isManualDeliveryTask(stop) ? {
+          isManualTask: true,
+          manualTaskType: getManualDeliveryTaskType(stop),
+          manualTaskTitle: stop.manualTaskTitle || stop.customerName || "",
+          manualTaskArea: stop.manualTaskArea || stop.plaats || ""
+        } : {})
       };
     });
 
@@ -7843,6 +8042,8 @@
   });
   function handleDeliveryPanelClick(event) {
     const newPdfButton = event.target.closest("[data-delivery-route-new-pdf]");
+    const manualTaskButton = event.target.closest("[data-delivery-manual-task-open]");
+    const manualTaskCloseButton = event.target.closest("[data-delivery-manual-task-close]");
     const showSavedButton = event.target.closest("[data-delivery-show-saved-routes]");
     const routeSaveButton = event.target.closest("[data-delivery-route-save]");
     const routePrintButton = event.target.closest("[data-delivery-route-print]");
@@ -7865,6 +8066,16 @@
 
     if (newPdfButton) {
       pdfInput?.click();
+      return;
+    }
+
+    if (manualTaskButton && !manualTaskButton.disabled) {
+      openManualTaskDialog();
+      return;
+    }
+
+    if (manualTaskCloseButton) {
+      closeManualTaskDialog();
       return;
     }
 
@@ -7972,6 +8183,10 @@
   deliveryPanelElement?.addEventListener("click", handleDeliveryPanelClick);
   employeeDeliveryPanelElement?.addEventListener("click", handleDeliveryPanelClick);
   deliveryPanelElement?.addEventListener("change", handleRouteCostInput);
+  manualTaskFormElement?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    applyManualTaskForm(manualTaskFormElement);
+  });
   function handleDriverModeStatusChange(event) {
     const completionDeliveredField = event.target.closest("[data-delivery-driver-complete-delivered]");
 
@@ -8022,7 +8237,19 @@
     const routeMoveButton = event.target.closest("[data-delivery-move-route]");
     const moveButton = event.target.closest("[data-delivery-move-stop]");
     const productsButton = event.target.closest("[data-delivery-toggle-products]");
+    const editManualTaskButton = event.target.closest("[data-delivery-edit-manual-task]");
+    const removeManualTaskButton = event.target.closest("[data-delivery-remove-manual-task]");
     const routeStop = event.target.closest("[data-delivery-route-stop]");
+
+    if (editManualTaskButton && !editManualTaskButton.disabled) {
+      openManualTaskDialog(Number(editManualTaskButton.dataset.deliveryEditManualTask));
+      return;
+    }
+
+    if (removeManualTaskButton && !removeManualTaskButton.disabled) {
+      removeManualTaskStop(Number(removeManualTaskButton.dataset.deliveryRemoveManualTask));
+      return;
+    }
 
     if (productsButton && !productsButton.disabled) {
       const stopIndex = Number(productsButton.dataset.deliveryToggleProducts);
