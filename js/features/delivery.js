@@ -99,6 +99,8 @@
   const ORDER_REMARK_PATTERN = /\b(?:GESNEDEN\?|VULLING|AFWERKING|FOTO\s+OP\s+ELK\s+STUKJE\?|Extra\s+bestelling)\s*:/i;
   const ORDER_REMARK_FREE_TEXT_PATTERN = /^(?:1[,.]00\s+)?(?:\d+\s+)?(?:graag\b.*|.*\bgeen\s+(?:tomaat|kaas)\b.*|.*\bin\s+zakje\b.*)$/i;
   const ORDER_REMARK_GLUTEN_FREE_TEXT_PATTERN = /^(?:1[,.]00\s+.*\bglutenvrij\b.*|.*\bgraag\b.*\bglutenvrij\b.*)$/i;
+  const ORDER_REMARK_DECORATION_PATTERN = /^(?:1[,.]00\s+)?(?:gesneden|\+?\s*conve?ttie|met\s+tekst\b.*)$/i;
+  const ORDER_REMARK_HEALTHY_SANDWICH_TEXT_PATTERN = /^1[,.]00\s+\d+\s+broodjes\s+gezond$/i;
   const DELIVERY_ADMIN_PRODUCT_PATTERN = /\b(?:Bezorgkosten-\d{4}(?:-\d{4})?|Bezorgen\s+in\s+[A-Za-zÀ-ÿ.' -]+)\b/i;
   function getEmptyRouteAdviceReport() {
     return {
@@ -1269,15 +1271,15 @@
       categories.push("warm");
     }
 
-    if (/\b(broodje|pistolet|bolletje|sandwich|belegd|gesorteerde\s+bol|gesort\s+mini\s+bol|witte\s+bol|luxe\s+bol|gezonde?\s+bol)\b/.test(normalizedLine)) {
+    if (/\b(broodjes?|pistolet|bolletje|sandwich|belegd|gesorteerde\s+bol|gesort(?:e?erde?)?\s+bollen?|gesort\s+mini\s+bol|witte\s+bol|luxe\s+bol|gezonde?\s+bol|broodjes\s+gezond|harde\s+bol(?:len)?(?:\s+gesorteerd)?|rozijnenbol|croissant|mueslie\s+bol)\b/.test(normalizedLine)) {
       categories.push("broodjes");
     }
 
-    if (/\b(gebak|taart|vlaai|cake|koek|banket|bavar|bavarois|appelrondje|appelcake|vruchtenschelp|vierkantje|bonbons?|aardbei|suikervrij\s+gebak|cake\s+a\s+break)\b/.test(normalizedLine)) {
+    if (/\b(gebak|taart|slagroomtaart|vlaai|cake|koek|banket|bavar|bavarois|bavaroispunt|aardbeibav|lepelgebak|petit\s+fours?|appelrondje|appelcake|vruchtenschelp|vierkantje|bonbons?|aardbei|suikervrij\s+gebak|cake\s+a\s+break)\b/.test(normalizedLine)) {
       categories.push("gebak");
     }
 
-    if (/\b(brood|stokbrood|vloer|volkoren|tarwe|desem|mandje|bus|wit|witte|waldkorn|prokorn|spelt|meergr|hollands\s+grof|achterhoek\s+duuster|ruwe\s+bolster|oeoerenwit|admiraal|poesta|krentenbrood|rozijnenbrood|krentewegge|zomergranen|zesgranen|duutse\s+kneud)\b/.test(normalizedLine)) {
+    if (/\b(brood|stokbrood|vloer|volkoren|tarwe|desem|mandje|bus|wit|witte|waldkorn|prokorn|spelt|meergr|hollands\s+grof|achterhoek\s+duuster|ruwe\s+bolster|oeoerenwit|admiraal|poesta|krentenbrood|rozijnenbrood|krentewegge|mini\s+wegge\s+krent|zomergranen|zesgranen|duutse\s+kneud(?:el)?|jutters|mais)\b/.test(normalizedLine)) {
       categories.push("brood");
     }
 
@@ -1289,7 +1291,9 @@
 
     return ORDER_REMARK_PATTERN.test(value) ||
       ORDER_REMARK_FREE_TEXT_PATTERN.test(value) ||
-      ORDER_REMARK_GLUTEN_FREE_TEXT_PATTERN.test(value);
+      ORDER_REMARK_GLUTEN_FREE_TEXT_PATTERN.test(value) ||
+      ORDER_REMARK_DECORATION_PATTERN.test(value) ||
+      ORDER_REMARK_HEALTHY_SANDWICH_TEXT_PATTERN.test(value);
   }
 
   function isAdministrativeDeliveryProductLine(line) {
