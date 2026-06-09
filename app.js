@@ -2012,6 +2012,9 @@ function requestHoursApprovalWorkLogsFromCentral() {
     .finally(() => {
       hoursReportCentralWorkLogsLoading = false;
       renderHoursApproval();
+      if (activeTab === "administration") {
+        renderAdministrationDashboard();
+      }
       renderDashboard();
     });
 }
@@ -2938,6 +2941,9 @@ async function syncRequestDataFromCentral({ queueMissingCentralSave = true, pref
       renderTimeOffRequests();
       renderSwapRequests();
       renderSwapEntryOptions();
+      if (activeTab === "administration") {
+        renderAdministrationDashboard();
+      }
       renderDashboard();
     }
 
@@ -5418,7 +5424,7 @@ const mobileMediaQuery = window.matchMedia("(max-width: 640px)");
 let messageTimeoutId = null;
 let activeMessageState = null;
 let queuedMessageStates = [];
-const plannerAllowedTabs = ["dashboard", "week-current", "hours-approval", "requests", "vacations", "employees", "services", "planning", "delivery", "backup"];
+const plannerAllowedTabs = ["dashboard", "week-current", "hours-approval", "administration", "requests", "vacations", "employees", "services", "planning", "delivery", "backup"];
 const employeeAllowedTabs = ["week-current", "my-schedule", "my-hours", "my-account", "requests"];
 let planningDataRevision = 0;
 let requestDataRevision = 0;

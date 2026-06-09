@@ -985,7 +985,8 @@ body[data-role="employee"] [data-panel="employees"],
 body[data-role="employee"] [data-panel="services"],
 body[data-role="employee"] [data-panel="planning"],
 body[data-role="employee"] [data-panel="backup"],
-body[data-role="employee"] [data-panel="hours-approval"] {
+body[data-role="employee"] [data-panel="hours-approval"],
+body[data-role="employee"] [data-panel="administration"] {
   display: none !important;
 }
 
