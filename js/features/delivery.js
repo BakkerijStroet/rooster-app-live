@@ -3400,11 +3400,17 @@
     const timeInfo = getTripAnalysisTimeInfo(stop);
     const cluster = getRoutePlaceCluster(stop) || getRouteAreaKey(stop) || "onbekend";
     const warm = isWarmStop(stop);
+    const productCategories = normalizeCategories([
+      ...(Array.isArray(stop?.categories) ? stop.categories : []),
+      ...(Array.isArray(stop?.products) ? stop.products.flatMap(getRecognitionProductCategories) : [])
+    ]);
+    const pastry = !warm && productCategories.includes("gebak");
+    const bread = !warm && (productCategories.includes("brood") || productCategories.includes("broodjes"));
     const windowWidth = timeInfo.hasTime && Number.isFinite(timeInfo.end - timeInfo.start)
       ? Math.max(0, timeInfo.end - timeInfo.start)
       : Number.POSITIVE_INFINITY;
     const exactOrShortWindow = timeInfo.hasTime && windowWidth <= 30;
-    const timeCritical = Boolean(timeInfo.hasTime && (warm || exactOrShortWindow || timeInfo.beforeDeadline));
+    const timeCritical = Boolean(timeInfo.hasTime && (warm || timeInfo.beforeDeadline || (exactOrShortWindow && !pastry)));
 
     return {
       stop,
@@ -3412,6 +3418,11 @@
       timeInfo,
       cluster,
       warm,
+      pastry,
+      bread,
+      productRole: warm
+        ? "warm/tijdkritisch"
+        : (pastry ? "gebak/banket - kan vaak eerder mee" : (bread ? "brood - meestal minder tijdkritisch" : "overig")),
       windowWidth,
       timeCritical,
       timeKey: timeInfo.hasTime ? Math.round(timeInfo.start / 15) * 15 : null
@@ -3445,7 +3456,8 @@
   function buildRouteCapacityAdvice(stops) {
     const items = (Array.isArray(stops) ? stops : []).map(getRouteCapacityStopInfo);
     const timedItems = items.filter((item) => item.timeInfo.hasTime);
-    const reasons = [];
+    const routeTwoReasons = [];
+    const notes = [];
     const suggestions = [];
 
     if (!items.length) {
@@ -3453,6 +3465,7 @@
         recommendedRoutes: 1,
         label: "1 route lijkt voldoende",
         reasons: ["Nog geen stops om te beoordelen."],
+        notes: [],
         suggestions: []
       };
     }
@@ -3466,29 +3479,38 @@
     groupedByTime.forEach((group) => {
       const criticalGroup = group.filter((item) => item.timeCritical);
       const warmGroup = group.filter((item) => item.warm);
+      const pastryGroup = group.filter((item) => item.pastry);
       const clusters = new Set(group.map((item) => item.cluster).filter(Boolean));
       const criticalClusters = new Set(criticalGroup.map((item) => item.cluster).filter(Boolean));
       const warmClusters = new Set(warmGroup.map((item) => item.cluster).filter(Boolean));
       const timeLabel = formatClock(group[0].timeKey);
 
       if (warmGroup.length >= 2 && warmClusters.size >= 2) {
-        reasons.push(`Warme stops rond ${timeLabel} in verschillende plaatsen.`);
+        routeTwoReasons.push(`Warme stops rond ${timeLabel} in verschillende plaatsen.`);
         warmGroup.slice(1).forEach((item) => addRouteCapacitySuggestion(suggestions, item, "warme stop tegelijk met andere plaats"));
       }
 
+      if (warmGroup.length && pastryGroup.length) {
+        notes.push(`Gebak/banket rond ${timeLabel} kan vaak eerder mee dan warme producten.`);
+      }
+
       if (criticalGroup.length >= 3) {
-        reasons.push(`${criticalGroup.length} tijdkritische stops binnen 15 minuten rond ${timeLabel}.`);
+        routeTwoReasons.push(`${criticalGroup.length} warm/tijdkritische stops binnen 15 minuten rond ${timeLabel}.`);
         criticalGroup.slice(1).forEach((item) => addRouteCapacitySuggestion(suggestions, item, "tijdkritische stop in druk tijdblok"));
       }
 
       if (criticalGroup.length >= 2 && criticalClusters.size >= 2) {
-        reasons.push(`Tijdkritische stops rond ${timeLabel} in verschillende plaatsen.`);
+        routeTwoReasons.push(`Warm/tijdkritische stops rond ${timeLabel} in verschillende plaatsen.`);
         criticalGroup.slice(1).forEach((item) => addRouteCapacitySuggestion(suggestions, item, "zelfde tijd, andere plaats"));
       }
 
       if (group.length >= 3 && clusters.size >= 2 && group.some((item) => item.timeInfo.start === 10 * 60)) {
-        reasons.push(`Meerdere 10:00-stops in verschillende plaatsen.`);
-        group.slice(1).forEach((item) => addRouteCapacitySuggestion(suggestions, item, "10:00-blok met meerdere plaatsen"));
+        if (criticalGroup.length >= 2 && criticalClusters.size >= 2) {
+          routeTwoReasons.push(`Meerdere 10:00-stops met warm/tijdkritische druk in verschillende plaatsen.`);
+          criticalGroup.slice(1).forEach((item) => addRouteCapacitySuggestion(suggestions, item, "10:00-blok met tijdkritische druk"));
+        } else {
+          notes.push(`Meerdere 10:00-stops, maar geen hard Route 2-signaal zolang vooral gebak/brood eerder mee kan.`);
+        }
       }
     });
 
@@ -3503,25 +3525,26 @@
       const previousIsDemanding = previousTimedItem.warm || previousTimedItem.timeCritical;
 
       if (previousIsDemanding && gap < 30 && item.cluster !== previousTimedItem.cluster) {
-        reasons.push(`Warme stop ${item.timeInfo.label} past krap na vorige warme/tijdstop in andere plaats.`);
+        routeTwoReasons.push(`Warme stop ${item.timeInfo.label} past krap na vorige warme/tijdstop in andere plaats.`);
         addRouteCapacitySuggestion(suggestions, item, "warme stop past krap na vorige stop");
       }
     });
 
     items.forEach((item) => {
       if (item.warm && item.windowWidth <= 30) {
-        reasons.push(`Warm product met kort tijdvenster bij ${item.stop.customerName || "klant onbekend"}.`);
-        addRouteCapacitySuggestion(suggestions, item, "warm en kort tijdvenster");
+        notes.push(`Warm product met kort tijdvenster bij ${item.stop.customerName || "klant onbekend"} extra goed bewaken.`);
       }
     });
 
-    const uniqueReasons = [...new Set(reasons)];
+    const uniqueReasons = [...new Set(routeTwoReasons)];
+    const uniqueNotes = [...new Set(notes)];
     const recommendedRoutes = uniqueReasons.length ? 2 : 1;
 
     return {
       recommendedRoutes,
       label: recommendedRoutes === 2 ? "2 routes aanbevolen" : "1 route lijkt voldoende",
-      reasons: uniqueReasons.length ? uniqueReasons : ["Geen conflicterende tijd/warmte-signalen gevonden."],
+      reasons: uniqueReasons.length ? uniqueReasons : ["Geen harde Route 2-signalen gevonden."],
+      notes: uniqueNotes,
       suggestions: suggestions.slice(0, 5)
     };
   }
@@ -4966,6 +4989,37 @@
     `;
   }
 
+  function renderPlannerLogicReport() {
+    return `
+      <section>
+        <h4>Plannerlogica</h4>
+        <p class="panel-note">Beslisboom voor bezorgplanning. Route 2 ontstaat pas als advies in stap E.</p>
+        <ol class="delivery-recognition-list">
+          <li>
+            <strong>A. Stops herkennen</strong>
+            <small>Klant, adres, tijd/tijdvenster, betaling.</small>
+          </li>
+          <li>
+            <strong>B. Producten koppelen</strong>
+            <small>Alle producten onder de juiste klant, rawLine exact bewaren, warm/snijden/categorie apart herkennen.</small>
+          </li>
+          <li>
+            <strong>C. Controle op herkenning</strong>
+            <small>Stops zonder producten, producten zonder stop, onbekende klant, ontbrekende/onzekere tijd, betaalstatus en parserkwaliteit.</small>
+          </li>
+          <li>
+            <strong>D. Route maken</strong>
+            <small>Eerst tijd/tijdvenster, dan warme producten, daarna plaats/postcodecluster, routehistorie en PDF-volgorde als fallback.</small>
+          </li>
+          <li>
+            <strong>E. Routecapaciteit controleren</strong>
+            <small>1 bezorger als uitgangspunt. Warm/tijdkritisch weegt zwaarder dan gebak; gebak kan vaak eerder mee, brood is meestal minder tijdkritisch.</small>
+          </li>
+        </ol>
+      </section>
+    `;
+  }
+
   function renderRouteCapacityAdviceReport(stops) {
     const advice = buildRouteCapacityAdvice(stops);
     const tone = advice.recommendedRoutes === 2 ? "warning" : "ok";
@@ -4983,6 +5037,11 @@
             ${advice.reasons.map((reason) => `<li>Reden: ${escapeHtml(reason)}</li>`).join("")}
           </ul>
         ` : ""}
+        ${advice.notes?.length ? `
+          <ul class="delivery-recognition-list">
+            ${advice.notes.map((note) => `<li>Let op: ${escapeHtml(note)}</li>`).join("")}
+          </ul>
+        ` : ""}
         ${advice.recommendedRoutes === 2 && advice.suggestions.length ? `
           <p class="panel-note">Route 2 voorstel: ${advice.suggestions.map((suggestion) => escapeHtml(suggestion.label)).join(", ")}</p>
           <ul class="delivery-recognition-list">
@@ -4991,6 +5050,175 @@
             `).join("")}
           </ul>
         ` : ""}
+      </section>
+    `;
+  }
+
+  function getPdfReadCheckWarnings(stop) {
+    const warnings = [];
+    const customerMatch = getRecognitionCustomerMatch(stop);
+
+    if (!String(stop?.timeWindow || "").trim()) {
+      warnings.push("tijd ontbreekt");
+    }
+
+    if (!Array.isArray(stop?.products) || !stop.products.length) {
+      warnings.push("geen productregels gekoppeld");
+    }
+
+    if (!String(stop?.paymentStatus || "").trim()) {
+      warnings.push("betaalstatus onbekend");
+    }
+
+    if (!customerMatch || customerMatch === "naam") {
+      warnings.push(customerMatch === "naam" ? "klantmatch zwak" : "klant onbekend");
+    }
+
+    if (stopHasReview(stop)) {
+      warnings.push("controle nodig");
+    }
+
+    return [...new Set(warnings)];
+  }
+
+  function buildPdfReadCheckPages(stops, serverReport) {
+    const normalizedStops = Array.isArray(stops) ? stops : [];
+    const reportPages = Array.isArray(serverReport?.pages) ? serverReport.pages : [];
+    const pages = [];
+    let stopOffset = 0;
+
+    reportPages.forEach((page) => {
+      const stopCount = Math.max(0, Number(page?.stopCount) || 0);
+      const pageStops = normalizedStops.slice(stopOffset, stopOffset + stopCount);
+
+      if (pageStops.length || stopCount) {
+        pages.push({
+          pageNumber: page?.page || pages.length + 1,
+          stops: pageStops,
+          parserPage: page
+        });
+      }
+
+      stopOffset += stopCount;
+    });
+
+    if (stopOffset < normalizedStops.length) {
+      pages.push({
+        pageNumber: pages.length ? `${pages.length + 1}+` : 1,
+        stops: normalizedStops.slice(stopOffset),
+        parserPage: null
+      });
+    }
+
+    return pages.length ? pages : [{
+      pageNumber: 1,
+      stops: normalizedStops,
+      parserPage: null
+    }];
+  }
+
+  function renderPdfReadCheckStop(stop, globalIndex) {
+    const products = Array.isArray(stop?.products) ? stop.products : [];
+    const warnings = getPdfReadCheckWarnings(stop);
+    const postcodePlace = getStopPostcodePlace(stop);
+    const postcodePlaceLabel = [
+      stop?.postcode || postcodePlace.postcode,
+      postcodePlace.plaats
+    ].filter(Boolean).join(" ");
+
+    return `
+      <li>
+        <strong>${escapeHtml(globalIndex + 1)}. ${escapeHtml(stop?.customerName || "Klant onbekend")}</strong>
+        <div><span>Adres:</span> ${escapeHtml(stop?.address || "Adres onbekend")}</div>
+        ${postcodePlaceLabel ? `<div><span>Postcode/plaats:</span> ${escapeHtml(postcodePlaceLabel)}</div>` : ""}
+        <div><span>Tijd:</span> ${escapeHtml(stop?.timeWindow || "tijd ontbreekt")}</div>
+        <div><span>Betaald:</span> ${escapeHtml(stop?.paymentStatus || "betaalstatus onbekend")}</div>
+        <div>
+          <span>Producten:</span>
+          ${products.length ? `
+            <ul>
+              ${products.map((product) => `<li>${escapeHtml(product.rawLine || "Productregel onbekend")}</li>`).join("")}
+            </ul>
+          ` : "<em>Geen productregels gekoppeld.</em>"}
+        </div>
+        ${warnings.length ? `<small>Waarschuwingen: ${warnings.map(escapeHtml).join(" | ")}</small>` : ""}
+      </li>
+    `;
+  }
+
+  function renderPdfReadCheckReport(stops) {
+    const normalizedStops = Array.isArray(stops) ? stops : [];
+    const serverReport = latestServerParserReport;
+    const pages = buildPdfReadCheckPages(normalizedStops, serverReport);
+    const unlinkedProductLines = Array.isArray(serverReport?.unlinkedProductLines) ? serverReport.unlinkedProductLines : [];
+    const noProductStops = normalizedStops.filter((stop) => !Array.isArray(stop?.products) || !stop.products.length);
+    const noTimeStops = normalizedStops.filter((stop) => !String(stop?.timeWindow || "").trim());
+    const unknownCustomerStops = normalizedStops.filter((stop) => !getRecognitionCustomerMatch(stop));
+    let globalIndex = 0;
+
+    if (!normalizedStops.length && !serverReport) {
+      return "";
+    }
+
+    return `
+      <section>
+        <h4>PDF leescontrole</h4>
+        <p class="panel-note">Leesbare controle van wat de app uit de PDF heeft gehaald. Dit past niets aan.</p>
+        <div class="delivery-recognition-metrics">
+          ${renderRecognitionMetric("Parserkwaliteit", serverReport?.quality || (normalizedStops.length ? "lokaal" : "-"), serverReport?.quality === "geblokkeerd" ? "blocked" : "")}
+          ${renderRecognitionMetric("Stops", normalizedStops.length)}
+          ${renderRecognitionMetric("Ongekoppelde producten", unlinkedProductLines.length, unlinkedProductLines.length ? "warning" : "ok")}
+          ${renderRecognitionMetric("Stops zonder producten", noProductStops.length, noProductStops.length ? "warning" : "")}
+          ${renderRecognitionMetric("Stops zonder tijd", noTimeStops.length, noTimeStops.length ? "warning" : "")}
+          ${renderRecognitionMetric("Onbekende klantmatch", unknownCustomerStops.length, unknownCustomerStops.length ? "warning" : "")}
+        </div>
+        ${pages.map((page) => `
+          <div class="delivery-recognition-subsection">
+            <strong>Pagina ${escapeHtml(page.pageNumber)}</strong>
+            ${Array.isArray(page.parserPage?.pdfOrder) && page.parserPage.pdfOrder.length ? `
+              <small>PDF-volgorde: ${page.parserPage.pdfOrder.map((item) => `${escapeHtml(item.index)}. ${escapeHtml(item.label)}`).join(" | ")}</small>
+            ` : ""}
+            ${page.stops.length ? `
+              <ol class="delivery-recognition-list">
+                ${page.stops.map((stop) => renderPdfReadCheckStop(stop, globalIndex++)).join("")}
+              </ol>
+            ` : "<p class=\"panel-note\">Geen stops op deze pagina gevonden.</p>"}
+          </div>
+        `).join("")}
+        ${unlinkedProductLines.length ? `
+          <div class="delivery-recognition-subsection">
+            <strong>Ongekoppelde productregels</strong>
+            <ul class="delivery-recognition-list">
+              ${unlinkedProductLines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
+            </ul>
+          </div>
+        ` : ""}
+        <details>
+          <summary>Toon parserdetails</summary>
+          ${serverReport ? `
+            <div class="delivery-recognition-metrics">
+              ${renderRecognitionMetric("Leeswijze", serverReport.readMode || "-")}
+              ${renderRecognitionMetric("Kolompagina's", serverReport.strongColumnPages ?? 0)}
+              ${renderRecognitionMetric("Productregels gekoppeld", serverReport.productRulesLinked ?? 0)}
+              ${renderRecognitionMetric("Trailing-count", serverReport.trailingCountProductRules ?? 0)}
+            </div>
+            <ul class="delivery-recognition-list">
+              ${(Array.isArray(serverReport.pages) ? serverReport.pages : []).slice(0, 8).map((page) => `
+                <li>
+                  Pagina ${escapeHtml(page.page)}:
+                  items ${escapeHtml(page.itemCount ?? 0)},
+                  rijen ${escapeHtml(page.rowCount ?? 0)},
+                  kolommen ${escapeHtml(page.columnCount ?? 0)},
+                  stops ${escapeHtml(page.stopCount ?? 0)},
+                  producten ${escapeHtml(page.productRuleCount ?? 0)}
+                </li>
+              `).join("")}
+            </ul>
+            ${Array.isArray(serverReport.pdfOrder) && serverReport.pdfOrder.length ? `
+              <small>PDF-volgorde: ${serverReport.pdfOrder.slice(0, 20).map((item) => `${escapeHtml(item.index)}. ${escapeHtml(item.label)}`).join(" | ")}</small>
+            ` : ""}
+          ` : "<p class=\"panel-note\">Geen serverparserdetails beschikbaar voor deze run.</p>"}
+        </details>
       </section>
     `;
   }
@@ -5148,8 +5376,10 @@
           ` : ""}
         </section>
         ${renderRouteHistoryReport(normalizedStops)}
+        ${renderPlannerLogicReport()}
         ${renderRouteCapacityAdviceReport(normalizedStops)}
         ${renderTripBlockAnalysisReport(normalizedStops)}
+        ${renderPdfReadCheckReport(normalizedStops)}
         <section>
           <h4>Parserinformatie</h4>
           <div class="delivery-recognition-metrics">
