@@ -30,6 +30,7 @@
   const plannerStatusElement = document.querySelector("[data-delivery-planner-status]");
   const plannerApprovePrintButton = document.querySelector("[data-delivery-route-print]");
   const plannerSaveButton = document.querySelector("[data-delivery-route-save]");
+  const routeProposalButton = document.querySelector("[data-delivery-route-proposal]");
   const manualTaskOpenButton = document.querySelector("[data-delivery-manual-task-open]");
   const plannerQuestionsDialogElement = document.getElementById("deliveryPlannerQuestionsDialog");
   const plannerQuestionsTitleElement = document.querySelector("[data-delivery-planner-questions-title]");
@@ -583,6 +584,17 @@
       plannerSaveButton.disabled = !saveState.canSave;
       plannerSaveButton.textContent = saveState.label;
       plannerSaveButton.title = saveState.title;
+    }
+
+    if (routeProposalButton) {
+      const canMakeProposal = latestRouteStops.length > 0;
+      routeProposalButton.disabled = !canMakeProposal;
+      routeProposalButton.textContent = latestRouteProposalState === "suggested"
+        ? "Voorstelroute opnieuw maken"
+        : "Voorstelroute maken";
+      routeProposalButton.title = canMakeProposal
+        ? "Maak een voorstelroute op basis van tijd, afstand en huisregels"
+        : "Upload eerst een bezorgroute";
     }
 
     if (manualTaskOpenButton) {
@@ -2547,7 +2559,18 @@
       }
     }
 
-    const routeStops = applySuggestedRouteOrder(enrichStopsWithKnownCustomers(buildRouteStops(lines)));
+    const routeStops = assignSuggestedRouteNumbers(enrichStopsWithKnownCustomers(buildRouteStops(lines)));
+    assignPdfOrderIndexes(routeStops);
+    routeStops.forEach(markRouteProposalReview);
+    latestRouteProposalState = routeStops.length ? "pdf-order" : "none";
+    latestRouteAdviceReport = {
+      ...buildRouteAdviceReport(routeStops),
+      active: false,
+      reasons: [
+        "PDF-volgorde geladen",
+        "Klik op Voorstelroute maken voor sortering op tijd, afstand en huisregels"
+      ]
+    };
     latestRouteCompleteness = getRouteCompletenessInfo(lines, routeStops);
     const visibleWarnings = routeStops.length
       ? [
@@ -2557,7 +2580,7 @@
           : "",
         ...latestRouteCompleteness.reasons.map((reason) => `Blokkade: ${reason}`),
         ...latestRouteCompleteness.missingLines.map((line) => `Mogelijk niet gekoppeld: ${line}`),
-        "Voorstelroute gemaakt - controleer en sleep waar nodig"
+        "PDF-volgorde geladen - maak eventueel een voorstelroute"
       ].filter(Boolean)
       : warnings;
 
@@ -2762,6 +2785,114 @@
     return placeMatch ? placeMatch[1] : "";
   }
 
+  function getRoutePlaceCluster(stop) {
+    const postcodePlace = getStopPostcodePlace(stop);
+    const sourceText = [
+      postcodePlace.plaats,
+      stop?.postcode,
+      stop?.address,
+      stop?.customerName
+    ].join(" ").toUpperCase();
+    const placeMatch = sourceText.match(/\b(NEEDE|BORCULO|HAARLO|EIBERGEN|DIEPENHEIM|RUURLO|LOCHEM)\b/);
+
+    if (placeMatch) {
+      return placeMatch[1];
+    }
+
+    const areaKey = getRouteAreaKey(stop);
+    return areaKey || "";
+  }
+
+  function getRouteClusterOrder(stop) {
+    const cluster = getRoutePlaceCluster(stop);
+    const knownOrder = {
+      NEEDE: 10,
+      BORCULO: 20,
+      HAARLO: 30,
+      EIBERGEN: 40,
+      DIEPENHEIM: 50,
+      RUURLO: 60,
+      LOCHEM: 70
+    };
+
+    if (Object.prototype.hasOwnProperty.call(knownOrder, cluster)) {
+      return knownOrder[cluster];
+    }
+
+    const areaDigits = Number(String(getRouteAreaKey(stop)).replace(/\D/g, ""));
+    return Number.isFinite(areaDigits) && areaDigits > 0 ? 100 + areaDigits : 999;
+  }
+
+  function getRouteHistoryMatchesForStop(stop) {
+    const runs = latestRouteHistoryState.runs.filter((run) => run?.payload);
+    const historyItems = runs.flatMap(getRouteHistoryStopsFromRun);
+    const identity = getStopHistoryIdentity(stop);
+
+    return historyItems.filter((item) => {
+      const itemIdentity = getStopHistoryIdentity(item);
+
+      return Boolean(
+        identity.customerId && itemIdentity.customerId && identity.customerId === itemIdentity.customerId
+        || identity.fallbackKey && itemIdentity.fallbackKey && identity.fallbackKey === itemIdentity.fallbackKey
+      );
+    });
+  }
+
+  function getRouteHistoryPositionScore(stop) {
+    const matches = getRouteHistoryMatchesForStop(stop);
+    const routeOnePositions = matches
+      .filter((item) => getStopRouteNumber(item) === 1)
+      .map((item) => Number(item.position))
+      .filter((position) => Number.isFinite(position) && position > 0);
+
+    if (!routeOnePositions.length) {
+      return {
+        score: 500,
+        label: "",
+        seenCount: matches.length
+      };
+    }
+
+    const averagePosition = routeOnePositions.reduce((total, position) => total + position, 0) / routeOnePositions.length;
+
+    return {
+      score: Math.round(averagePosition * 10),
+      label: `routehistorie positie ${Math.round(averagePosition)}`,
+      seenCount: matches.length
+    };
+  }
+
+  function getRouteTimeRuleInfo(stop) {
+    const time = getRouteTimeWindowInfo(stop);
+    const rawTimeWindow = String(stop?.timeWindow || "");
+    const isBeforeDeadline = /\b(?:voor|v[oó]or)\b/i.test(rawTimeWindow);
+
+    if (!time.hasTime) {
+      return {
+        ...time,
+        sortMinutes: 24 * 60 + 180,
+        urgencyLabel: "tijd ontbreekt",
+        missingTime: true,
+        beforeDeadline: false
+      };
+    }
+
+    const windowWidth = Number.isFinite(time.end - time.start) ? Math.max(0, time.end - time.start) : 0;
+    const sortMinutes = isBeforeDeadline
+      ? Math.max(0, time.end - 45)
+      : time.start + Math.min(windowWidth, 180) * 0.08;
+
+    return {
+      ...time,
+      sortMinutes,
+      urgencyLabel: isBeforeDeadline
+        ? `voor ${time.label}`
+        : (windowWidth >= 180 ? `breed tijdvenster ${time.label}` : `vroeg tijdvenster ${time.label}`),
+      missingTime: false,
+      beforeDeadline: isBeforeDeadline
+    };
+  }
+
   function getStopPostcodePlace(stop) {
     const address = String(stop?.address || "").trim();
     const postcodeMatch = address.match(/\b([1-9][0-9]{3})\s?([A-Z]{2})\b\s*([A-Za-zÀ-ÿ.' -]{2,40})?/i);
@@ -2903,21 +3034,25 @@
   }
 
   function getRouteAdviceScore(stop, fallbackIndex = 0) {
-    const time = getRouteTimeWindowInfo(stop);
+    const time = getRouteTimeRuleInfo(stop);
     const areaKey = getRouteAreaKey(stop);
+    const placeCluster = getRoutePlaceCluster(stop);
+    const clusterOrder = getRouteClusterOrder(stop);
+    const history = getRouteHistoryPositionScore(stop);
     const pdfIndex = getStopPdfOrderIndex(stop, fallbackIndex);
     const warm = isWarmStop(stop);
     const score = (
-      (time.hasTime ? time.block : 99) * 100000
-      + (warm ? 0 : 10000)
-      + (areaKey ? Number(String(areaKey).replace(/\D/g, "")) || 5000 : 9000)
-      + (time.hasTime ? time.start : 9999)
+      (time.missingTime ? 999 : time.sortMinutes) * 100000
+      + (warm ? -2500 : 0)
+      + clusterOrder * 100
+      + history.score
       + pdfIndex
     );
     const reasons = [
-      time.hasTime ? `tijd ${time.label}` : "tijd ontbreekt",
-      warm ? "warm voorrang" : "",
-      areaKey ? `postcodecluster ${areaKey}` : "postcodecluster onbekend",
+      time.urgencyLabel,
+      warm ? "warm product" : "",
+      placeCluster ? `postcode/plaatscluster ${placeCluster}` : (areaKey ? `postcodecluster ${areaKey}` : "postcodecluster onbekend"),
+      history.label,
       `PDF-volgorde ${pdfIndex + 1}`
     ].filter(Boolean);
 
@@ -2925,6 +3060,9 @@
       score,
       time,
       areaKey,
+      placeCluster,
+      clusterOrder,
+      history,
       warm,
       pdfIndex,
       reasons
@@ -2952,32 +3090,8 @@
   function compareSuggestedRouteStops(stopA, stopB) {
     const adviceA = getRouteAdviceScore(stopA);
     const adviceB = getRouteAdviceScore(stopB);
-    const timeA = adviceA.time;
-    const timeB = adviceB.time;
 
-    if (timeA.block !== timeB.block) {
-      return timeA.block - timeB.block;
-    }
-
-    const warmA = isWarmStop(stopA) ? 0 : 1;
-    const warmB = isWarmStop(stopB) ? 0 : 1;
-
-    if (warmA !== warmB) {
-      return warmA - warmB;
-    }
-
-    if (timeA.start !== timeB.start) {
-      return timeA.start - timeB.start;
-    }
-
-    const areaA = adviceA.areaKey;
-    const areaB = adviceB.areaKey;
-
-    if (areaA && areaB && areaA !== areaB) {
-      return areaA.localeCompare(areaB, "nl");
-    }
-
-    return getStopPdfOrderIndex(stopA) - getStopPdfOrderIndex(stopB);
+    return adviceA.score - adviceB.score;
   }
 
   function getStopRouteNumber(stop) {
@@ -3020,7 +3134,7 @@
     const normalizedStops = Array.isArray(stops) ? stops : [];
     const clusters = new Set(normalizedStops.map(getRouteAreaKey).filter(Boolean));
     const routeCounts = getRouteAdviceRouteCounts(normalizedStops);
-    const sampleScores = normalizedStops.slice(0, 5).map((stop, index) => {
+    const sampleScores = normalizedStops.map((stop, index) => {
       const advice = getRouteAdviceScore(stop, index);
 
       return {
@@ -3032,6 +3146,8 @@
     });
     const hasTimes = normalizedStops.some((stop) => getRouteTimeWindowInfo(stop).hasTime);
     const warmStopCount = normalizedStops.filter(isWarmStop).length;
+    const missingTimeCount = normalizedStops.filter((stop) => !getRouteTimeWindowInfo(stop).hasTime).length;
+    const historyMatchedCount = normalizedStops.filter((stop) => getRouteHistoryPositionScore(stop).seenCount > 0).length;
 
     return {
       active: Boolean(normalizedStops.length && latestRouteProposalState === "suggested"),
@@ -3043,9 +3159,11 @@
         hasTimes ? "Tijdvensters gebruikt" : "",
         warmStopCount ? "Warme stops gebruikt" : "",
         clusters.size ? "Postcodeclusters gebruikt" : "",
+        historyMatchedCount ? "Routehistorie gebruikt als lichte tie-breaker" : "",
+        missingTimeCount ? `${missingTimeCount} stop${missingTimeCount === 1 ? "" : "s"} zonder tijd achter tijdstops gehouden` : "",
         "PDF-volgorde gebruikt als fallback",
         "Alles blijft standaard in Route 1; planner verplaatst zelf naar Route 2",
-        "Routegeschiedenis kan later gebruikt worden voor adviezen"
+        historyMatchedCount ? "" : "Routegeschiedenis kan later gebruikt worden voor adviezen"
       ].filter(Boolean)
     };
   }
@@ -3060,6 +3178,21 @@
     const suggestedStops = assignSuggestedRouteNumbers([...normalizedStops].sort(compareSuggestedRouteStops));
     latestRouteAdviceReport = buildRouteAdviceReport(suggestedStops);
     return suggestedStops;
+  }
+
+  function makeSuggestedRouteProposal() {
+    if (!latestRouteStops.length) {
+      setStatus("Voorstelroute kan nog niet worden gemaakt.", "error");
+      return;
+    }
+
+    latestRouteStops = applySuggestedRouteOrder(latestRouteStops);
+    selectedDeliveryStopIndex = -1;
+    expandedDeliveryRouteStopIndex = -1;
+    draggedDeliveryStopIndex = -1;
+    resetDeliveryPlanningApproval();
+    rerenderDeliveryPreview({ refreshPrint: isPrintPreviewActive() });
+    setStatus("Voorstelroute gemaakt op basis van tijd, afstand en huisregels.", "ready");
   }
 
   function getStopCompletenessKey(stop) {
@@ -4034,6 +4167,9 @@
     });
 
     markDeliveryLocallyCorrected();
+    if (appliedToCurrentRun && latestRouteProposalState === "suggested") {
+      latestRouteStops = applySuggestedRouteOrder(latestRouteStops);
+    }
     rerenderDeliveryPreview({ refreshPrint: isPrintPreviewActive() });
     renderDeliveryPlannerQuestionsModal();
     setStatus("Antwoord opgeslagen. Sla de route op om deze leerdata mee te bewaren.", "ready");
@@ -8891,6 +9027,7 @@
     const plannerQuestionsRouteButton = event.target.closest("[data-delivery-planner-questions-route]");
     const plannerMissingTimesButton = event.target.closest("[data-delivery-planner-missing-times]");
     const manualTaskButton = event.target.closest("[data-delivery-manual-task-open]");
+    const routeProposalActionButton = event.target.closest("[data-delivery-route-proposal]");
     const manualTaskCloseButton = event.target.closest("[data-delivery-manual-task-close]");
     const showSavedButton = event.target.closest("[data-delivery-show-saved-routes]");
     const routeSaveButton = event.target.closest("[data-delivery-route-save]");
@@ -8942,6 +9079,11 @@
 
     if (manualTaskButton && !manualTaskButton.disabled) {
       openManualTaskDialog();
+      return;
+    }
+
+    if (routeProposalActionButton && !routeProposalActionButton.disabled) {
+      makeSuggestedRouteProposal();
       return;
     }
 
