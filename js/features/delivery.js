@@ -96,7 +96,9 @@
   const NON_CUTTING_BREAD_PATTERN = /\b(broodjes?|bolletjes?|bol\b|punt(?:en)?|pistolet|stokbrood|mini\s+bol|witte\s+punt|rozijnenbol)\b/i;
   const CUTTING_BREAD_PATTERN = /\b(bus|mandje|vloer|volkoren|tarwe|waldkorn|spelt|meergr|hollands\s+grof|grof\s+volkoren|prokorn|poesta|duutse\s+kneud|achterhoek\s+duuster|ruwe\s+bolster|oeoerenwit|admiraal|krentenbrood|rozijnenbrood|krentewegge|zomergranen|zesgranen)\b/i;
   const WARM_PREPARATION_PATTERN = /\b(warm|saucijs|saucijzen|saucijzenbroodje|appelflap|frikandel|worstenbrood|ham[-\s]?kaas|kaassouffle|kroket|snack|pizza)\b/i;
-  const ORDER_REMARK_PATTERN = /\b(?:GESNEDEN\?|VULLING|AFWERKING|FOTO\s+OP\s+ELK\s+STUKJE\?)\s*:/i;
+  const ORDER_REMARK_PATTERN = /\b(?:GESNEDEN\?|VULLING|AFWERKING|FOTO\s+OP\s+ELK\s+STUKJE\?|Extra\s+bestelling)\s*:/i;
+  const ORDER_REMARK_FREE_TEXT_PATTERN = /^(?:1[,.]00\s+)?(?:\d+\s+)?(?:graag\b.*|.*\bgeen\s+(?:tomaat|kaas)\b.*|.*\bin\s+zakje\b.*)$/i;
+  const ORDER_REMARK_GLUTEN_FREE_TEXT_PATTERN = /^(?:1[,.]00\s+.*\bglutenvrij\b.*|.*\bgraag\b.*\bglutenvrij\b.*)$/i;
   const DELIVERY_ADMIN_PRODUCT_PATTERN = /\b(?:Bezorgkosten-\d{4}(?:-\d{4})?|Bezorgen\s+in\s+[A-Za-zÀ-ÿ.' -]+)\b/i;
   function getEmptyRouteAdviceReport() {
     return {
@@ -1283,7 +1285,11 @@
   }
 
   function isOrderRemarkProductLine(line) {
-    return ORDER_REMARK_PATTERN.test(String(line || ""));
+    const value = String(line || "").trim();
+
+    return ORDER_REMARK_PATTERN.test(value) ||
+      ORDER_REMARK_FREE_TEXT_PATTERN.test(value) ||
+      ORDER_REMARK_GLUTEN_FREE_TEXT_PATTERN.test(value);
   }
 
   function isAdministrativeDeliveryProductLine(line) {
