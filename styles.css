@@ -552,6 +552,61 @@ body[data-auth-locked="true"] .requests-card {
   pointer-events: none;
 }
 
+.login-card--willem {
+  border-color: rgba(var(--color-primary-rgb), 0.3);
+  background:
+    linear-gradient(180deg, rgba(var(--color-surface-rgb), 0.98), rgba(var(--color-surface-rgb), 0.96)),
+    linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.12), rgba(var(--color-surface-rgb), 0.78));
+}
+
+.login-card--willem > * {
+  position: relative;
+  z-index: 1;
+}
+
+.login-willem-message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
+  border-left: 4px solid var(--color-surface-soft-active);
+  border-radius: 16px;
+  background: rgba(var(--color-surface-rgb), 0.82);
+  box-shadow: 0 10px 24px rgba(var(--color-primary-rgb), 0.08);
+}
+
+.login-willem-avatar {
+  display: block;
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--color-surface);
+  box-shadow: 0 4px 14px rgba(var(--color-shadow-rgb), 0.08);
+}
+
+.login-willem-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.login-willem-copy strong {
+  color: var(--color-text);
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.login-willem-copy span {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .login-brand {
   display: flex;
   flex-direction: column;
