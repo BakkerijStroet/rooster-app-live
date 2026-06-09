@@ -3396,6 +3396,136 @@
     };
   }
 
+  function getRouteCapacityStopInfo(stop, index) {
+    const timeInfo = getTripAnalysisTimeInfo(stop);
+    const cluster = getRoutePlaceCluster(stop) || getRouteAreaKey(stop) || "onbekend";
+    const warm = isWarmStop(stop);
+    const windowWidth = timeInfo.hasTime && Number.isFinite(timeInfo.end - timeInfo.start)
+      ? Math.max(0, timeInfo.end - timeInfo.start)
+      : Number.POSITIVE_INFINITY;
+    const exactOrShortWindow = timeInfo.hasTime && windowWidth <= 30;
+    const timeCritical = Boolean(timeInfo.hasTime && (warm || exactOrShortWindow || timeInfo.beforeDeadline));
+
+    return {
+      stop,
+      index,
+      timeInfo,
+      cluster,
+      warm,
+      windowWidth,
+      timeCritical,
+      timeKey: timeInfo.hasTime ? Math.round(timeInfo.start / 15) * 15 : null
+    };
+  }
+
+  function getRouteCapacityStopLabel(item) {
+    const customerName = item?.stop?.customerName || "Klant onbekend";
+    const timeLabel = item?.timeInfo?.hasTime ? item.timeInfo.label : "geen tijd";
+    return `${customerName} ${timeLabel}${item?.warm ? " warm" : ""}`;
+  }
+
+  function addRouteCapacitySuggestion(suggestions, item, reason) {
+    if (!item || !item.stop) {
+      return;
+    }
+
+    const key = getStopCompletenessKey(item.stop) || `${item.index}:${item.stop.customerName || ""}`;
+
+    if (suggestions.some((suggestion) => suggestion.key === key)) {
+      return;
+    }
+
+    suggestions.push({
+      key,
+      label: getRouteCapacityStopLabel(item),
+      reason
+    });
+  }
+
+  function buildRouteCapacityAdvice(stops) {
+    const items = (Array.isArray(stops) ? stops : []).map(getRouteCapacityStopInfo);
+    const timedItems = items.filter((item) => item.timeInfo.hasTime);
+    const reasons = [];
+    const suggestions = [];
+
+    if (!items.length) {
+      return {
+        recommendedRoutes: 1,
+        label: "1 route lijkt voldoende",
+        reasons: ["Nog geen stops om te beoordelen."],
+        suggestions: []
+      };
+    }
+
+    const groupedByTime = timedItems.reduce((groups, item) => {
+      const key = item.timeKey;
+      groups.set(key, [...(groups.get(key) || []), item]);
+      return groups;
+    }, new Map());
+
+    groupedByTime.forEach((group) => {
+      const criticalGroup = group.filter((item) => item.timeCritical);
+      const warmGroup = group.filter((item) => item.warm);
+      const clusters = new Set(group.map((item) => item.cluster).filter(Boolean));
+      const criticalClusters = new Set(criticalGroup.map((item) => item.cluster).filter(Boolean));
+      const warmClusters = new Set(warmGroup.map((item) => item.cluster).filter(Boolean));
+      const timeLabel = formatClock(group[0].timeKey);
+
+      if (warmGroup.length >= 2 && warmClusters.size >= 2) {
+        reasons.push(`Warme stops rond ${timeLabel} in verschillende plaatsen.`);
+        warmGroup.slice(1).forEach((item) => addRouteCapacitySuggestion(suggestions, item, "warme stop tegelijk met andere plaats"));
+      }
+
+      if (criticalGroup.length >= 3) {
+        reasons.push(`${criticalGroup.length} tijdkritische stops binnen 15 minuten rond ${timeLabel}.`);
+        criticalGroup.slice(1).forEach((item) => addRouteCapacitySuggestion(suggestions, item, "tijdkritische stop in druk tijdblok"));
+      }
+
+      if (criticalGroup.length >= 2 && criticalClusters.size >= 2) {
+        reasons.push(`Tijdkritische stops rond ${timeLabel} in verschillende plaatsen.`);
+        criticalGroup.slice(1).forEach((item) => addRouteCapacitySuggestion(suggestions, item, "zelfde tijd, andere plaats"));
+      }
+
+      if (group.length >= 3 && clusters.size >= 2 && group.some((item) => item.timeInfo.start === 10 * 60)) {
+        reasons.push(`Meerdere 10:00-stops in verschillende plaatsen.`);
+        group.slice(1).forEach((item) => addRouteCapacitySuggestion(suggestions, item, "10:00-blok met meerdere plaatsen"));
+      }
+    });
+
+    timedItems.forEach((item, index) => {
+      const previousTimedItem = timedItems[index - 1] || null;
+
+      if (!previousTimedItem || !item.warm) {
+        return;
+      }
+
+      const gap = item.timeInfo.start - previousTimedItem.timeInfo.end;
+      const previousIsDemanding = previousTimedItem.warm || previousTimedItem.timeCritical;
+
+      if (previousIsDemanding && gap < 30 && item.cluster !== previousTimedItem.cluster) {
+        reasons.push(`Warme stop ${item.timeInfo.label} past krap na vorige warme/tijdstop in andere plaats.`);
+        addRouteCapacitySuggestion(suggestions, item, "warme stop past krap na vorige stop");
+      }
+    });
+
+    items.forEach((item) => {
+      if (item.warm && item.windowWidth <= 30) {
+        reasons.push(`Warm product met kort tijdvenster bij ${item.stop.customerName || "klant onbekend"}.`);
+        addRouteCapacitySuggestion(suggestions, item, "warm en kort tijdvenster");
+      }
+    });
+
+    const uniqueReasons = [...new Set(reasons)];
+    const recommendedRoutes = uniqueReasons.length ? 2 : 1;
+
+    return {
+      recommendedRoutes,
+      label: recommendedRoutes === 2 ? "2 routes aanbevolen" : "1 route lijkt voldoende",
+      reasons: uniqueReasons.length ? uniqueReasons : ["Geen conflicterende tijd/warmte-signalen gevonden."],
+      suggestions: suggestions.slice(0, 5)
+    };
+  }
+
   function applySuggestedRouteOrder(stops) {
     const normalizedStops = Array.isArray(stops) ? stops : [];
 
@@ -4836,6 +4966,35 @@
     `;
   }
 
+  function renderRouteCapacityAdviceReport(stops) {
+    const advice = buildRouteCapacityAdvice(stops);
+    const tone = advice.recommendedRoutes === 2 ? "warning" : "ok";
+
+    return `
+      <section>
+        <h4>Routecapaciteit advies</h4>
+        <p class="panel-note">Advies: eerst beoordeeld alsof alles met 1 bezorger wordt gereden. De route wordt niet aangepast.</p>
+        <div class="delivery-recognition-metrics">
+          ${renderRecognitionMetric("Advies", advice.label, tone)}
+          ${renderRecognitionMetric("Stops bekeken", Array.isArray(stops) ? stops.length : 0)}
+        </div>
+        ${advice.reasons.length ? `
+          <ul class="delivery-recognition-list">
+            ${advice.reasons.map((reason) => `<li>Reden: ${escapeHtml(reason)}</li>`).join("")}
+          </ul>
+        ` : ""}
+        ${advice.recommendedRoutes === 2 && advice.suggestions.length ? `
+          <p class="panel-note">Route 2 voorstel: ${advice.suggestions.map((suggestion) => escapeHtml(suggestion.label)).join(", ")}</p>
+          <ul class="delivery-recognition-list">
+            ${advice.suggestions.map((suggestion) => `
+              <li>${escapeHtml(suggestion.label)} <small>${escapeHtml(suggestion.reason)}</small></li>
+            `).join("")}
+          </ul>
+        ` : ""}
+      </section>
+    `;
+  }
+
   function renderServerParserReport(report) {
     if (!report || typeof report !== "object") {
       return "";
@@ -4989,6 +5148,7 @@
           ` : ""}
         </section>
         ${renderRouteHistoryReport(normalizedStops)}
+        ${renderRouteCapacityAdviceReport(normalizedStops)}
         ${renderTripBlockAnalysisReport(normalizedStops)}
         <section>
           <h4>Parserinformatie</h4>
