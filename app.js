@@ -8849,6 +8849,117 @@ function getAdministrationDeliverySummary(selection) {
   });
 }
 
+function getAdministrationDeliveryRunsForDate(dateValue) {
+  return administrationDeliveryRuns.filter((run) => getAdministrationDeliveryRunDate(run) === dateValue);
+}
+
+function getAdministrationDeliverySignalText(stop = {}) {
+  const textParts = [
+    stop.customerName,
+    stop.address,
+    stop.postcode,
+    stop.timeWindow,
+    stop.paymentStatus,
+    stop.remark,
+    stop.note,
+    Array.isArray(stop.notes) ? stop.notes.join(" ") : "",
+    Array.isArray(stop.products)
+      ? stop.products.map((product) => [
+          product?.rawLine,
+          product?.name,
+          product?.product,
+          product?.category,
+          product?.remark,
+          product?.note
+        ].filter(Boolean).join(" ")).join(" ")
+      : ""
+  ];
+
+  return textParts.filter(Boolean).join(" ").toLowerCase();
+}
+
+function getAdministrationDeliverySignalReasons(stop = {}) {
+  const text = getAdministrationDeliverySignalText(stop);
+  const reasons = [];
+  const hasPaidInfoSignal = /\b(contant|pin|betaald)\b/i.test(text);
+
+  if (/\bfactu(?:u)?r\b|op rekening/i.test(text)) {
+    reasons.push("Factuur nodig");
+  }
+
+  if (/\btikkie\b/i.test(text)) {
+    reasons.push("Tikkie nodig");
+  }
+
+  if (/niet betaald|onbetaald|nog betalen|betaling controleren/i.test(text)) {
+    reasons.push("Betaling controleren");
+  }
+
+  if (
+    stop.needsReview ||
+    stop.remark ||
+    stop.note ||
+    (Array.isArray(stop.notes) && stop.notes.length > 0) ||
+    hasPaidInfoSignal ||
+    /bijzonderheden|bijzonderheid|opmerking|remark|note|controle nodig/i.test(text)
+  ) {
+    reasons.push("Bijzonderheden");
+  }
+
+  return [...new Set(reasons)];
+}
+
+function getAdministrationDeliveryAdministrationForDate(dateValue = getTodayLocalDateValue()) {
+  const items = [];
+  const summary = {
+    invoiceNeeded: 0,
+    tikkieNeeded: 0,
+    paymentCheckNeeded: 0,
+    specialNotes: 0
+  };
+
+  getAdministrationDeliveryRunsForDate(dateValue).forEach((run) => {
+    const runDate = getAdministrationDeliveryRunDate(run);
+
+    getAdministrationDeliveryStopsFromRun(run).forEach((stop, index) => {
+      const reasons = getAdministrationDeliverySignalReasons(stop);
+
+      if (!reasons.length) {
+        return;
+      }
+
+      if (reasons.includes("Factuur nodig")) {
+        summary.invoiceNeeded += 1;
+      }
+
+      if (reasons.includes("Tikkie nodig")) {
+        summary.tikkieNeeded += 1;
+      }
+
+      if (reasons.includes("Betaling controleren")) {
+        summary.paymentCheckNeeded += 1;
+      }
+
+      if (reasons.includes("Bijzonderheden")) {
+        summary.specialNotes += 1;
+      }
+
+      items.push({
+        customerName: stop.customerName || stop.knownCustomerName || stop.address || "Onbekende klant",
+        date: runDate || dateValue,
+        routeNumber: Number(stop.routeNumber || stop.route || 1) || 1,
+        stopNumber: index + 1,
+        reasons
+      });
+    });
+  });
+
+  return {
+    ...summary,
+    items
+  };
+}
+
 function getAdministrationHoursSummary(selection) {
   const seenRows = new Set();
   const rows = getHoursReportRows(selection).filter((row) => {
@@ -8982,6 +9093,30 @@ function getAdministrationRequestsSummary(selection) {
   return summary;
 }
 
+function getAdministrationOpenRequestCount() {
+  return [
+    ...timeOffRequests.map((request) => ({ request, requestType: "timeoff" })),
+    ...swapRequests.map((request) => ({ request, requestType: "swap" }))
+  ].filter(({ request, requestType }) => {
+    if (isDeletedRequest(request) || normalizeAdministrationRequestStatus(request) !== "open") {
+      return false;
+    }
+
+    return requestType === "swap"
+      ? Boolean(request.date)
+      : Boolean(getTimeOffStartDate(request));
+  }).length;
+}
+
+function getAdministrationHoursToReviewCount(todayValue = getTodayLocalDateValue()) {
+  return getHoursReportSourceLogs().filter((log) =>
+    log.employeeName &&
+    log.day &&
+    log.day <= todayValue &&
+    ["open", "revision", "rejected"].includes(log.status)
+  ).length;
+}
+
 function renderAdministrationMetric(label, value, help = "") {
   return `
     <div class="administration-metric">
@@ -8989,6 +9124,81 @@ function renderAdministrationMetric(label, value, help = "") {
       <strong>${escapeHtmlAttribute(String(value))}</strong>
       ${help ? `<small>${escapeHtmlAttribute(help)}</small>` : ""}
     </div>
+  `;
+}
+
+function renderAdministrationActionTile(label, value, help = "", goTab = "") {
+  return `
+    <article class="administration-action-tile">
+      <div>
+        <span>${escapeHtmlAttribute(label)}</span>
+        <strong>${escapeHtmlAttribute(String(value))}</strong>
+        ${help ? `<small>${escapeHtmlAttribute(help)}</small>` : ""}
+      </div>
+      ${goTab ? `<button type="button" class="secondary" data-administration-go-tab="${escapeHtmlAttribute(goTab)}">Open</button>` : ""}
+    </article>
+  `;
+}
+
+function renderAdministrationDeliveryAdminList(deliveryAdministration, statusText = "") {
+  if (statusText) {
+    return `<div class="administration-list empty">${escapeHtmlAttribute(statusText)}</div>`;
+  }
+
+  if (!deliveryAdministration.items.length) {
+    return `<div class="administration-list empty">Geen bezorgsignalen voor vandaag.</div>`;
+  }
+
+  const visibleItems = deliveryAdministration.items.slice(0, 8);
+  const remainingCount = deliveryAdministration.items.length - visibleItems.length;
+
+  return `
+    <div class="administration-delivery-admin-list">
+      ${visibleItems.map((item) => `
+        <div class="administration-delivery-admin-row">
+          <div>
+            <strong>${escapeHtmlAttribute(item.customerName)}</strong>
+          </div>
+          <span>${escapeHtmlAttribute(formatDate(item.date))} · route ${escapeHtmlAttribute(String(item.routeNumber))} · stop ${escapeHtmlAttribute(String(item.stopNumber))}</span>
+          <em>${escapeHtmlAttribute(item.reasons.join(", "))}</em>
+        </div>
+      `).join("")}
+      ${remainingCount > 0 ? `<div class="administration-note">Nog ${remainingCount} bezorgsignaal/signalen niet getoond.</div>` : ""}
+    </div>
+  `;
+}
+
+function renderAdministrationActionTodayBlock() {
+  if (!administrationDeliveryRunsLoaded && !administrationDeliveryRunsLoading && !administrationDeliveryRunsError) {
+    void loadAdministrationDeliveryRuns();
+  }
+
+  const todayValue = getTodayLocalDateValue();
+  const deliveryAdministration = getAdministrationDeliveryAdministrationForDate(todayValue);
+  const deliveryStatusText = administrationDeliveryRunsLoading
+    ? "Bezorging laden..."
+    : administrationDeliveryRunsError
+      ? "Nog niet beschikbaar"
+      : (!administrationDeliveryRunsLoaded ? "Nog niet beschikbaar" : "");
+  const deliveryValue = (value) => deliveryStatusText ? "Nog niet beschikbaar" : value;
+
+  return `
+    <section class="administration-action-panel">
+      <header class="administration-card-head">
+        <div>
+          <h3>Actie Vandaag</h3>
+          <p>${escapeHtmlAttribute(formatDate(todayValue))}</p>
+        </div>
+      </header>
+      <div class="administration-action-grid">
+        ${renderAdministrationActionTile("Open aanvragen", getAdministrationOpenRequestCount(), "Aanvragen die aandacht vragen", "requests")}
+        ${renderAdministrationActionTile("Uren controleren", getAdministrationHoursToReviewCount(todayValue), "Open of teruggestuurde uren", "hours-approval")}
+        ${renderAdministrationActionTile("Facturen maken", deliveryValue(deliveryAdministration.invoiceNeeded), "Bezorgsignalen vandaag", "delivery")}
+        ${renderAdministrationActionTile("Tikkies versturen", deliveryValue(deliveryAdministration.tikkieNeeded), "Bezorgsignalen vandaag", "delivery")}
+        ${renderAdministrationActionTile("Betalingen controleren", deliveryValue(deliveryAdministration.paymentCheckNeeded), "Bezorgsignalen vandaag", "delivery")}
+        ${renderAdministrationActionTile("Bezorgingen met bijzonderheden", deliveryValue(deliveryAdministration.specialNotes), "Stops met opmerking of controle", "delivery")}
+      </div>
+    </section>
   `;
 }
 
@@ -9104,7 +9314,16 @@ function renderAdministrationDashboard() {
     return;
   }
 
+  const todayValue = getTodayLocalDateValue();
+  const deliveryAdministration = getAdministrationDeliveryAdministrationForDate(todayValue);
+  const deliveryStatusText = administrationDeliveryRunsLoading
+    ? "Bezorging laden..."
+    : administrationDeliveryRunsError
+      ? "Nog niet beschikbaar"
+      : (!administrationDeliveryRunsLoaded ? "Nog niet beschikbaar" : "");
+
   administrationDashboard.innerHTML = `
+    ${renderAdministrationActionTodayBlock()}
     <section class="administration-summary">
       <div>
         <span>Periode</span>
@@ -9120,6 +9339,16 @@ function renderAdministrationDashboard() {
       ${renderAdministrationDeliveryBlock(selection)}
       ${renderAdministrationRequestsBlock(selection)}
     </div>
+    <section class="administration-delivery-admin administration-card">
+      <header class="administration-card-head">
+        <div>
+          <h3>Bezorging administratie</h3>
+          <p>Factuur, tikkie, betaling en bijzonderheden voor vandaag</p>
+        </div>
+        <button type="button" class="secondary" data-administration-go-tab="delivery">Naar Bezorging</button>
+      </header>
+      ${renderAdministrationDeliveryAdminList(deliveryAdministration, deliveryStatusText)}
+    </section>
   `;
 }
 

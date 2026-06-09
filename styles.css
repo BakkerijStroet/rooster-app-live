@@ -6738,13 +6738,63 @@ body[data-role="employee"][data-employee-locked="true"] .director-screen-toolbar
   gap: 14px;
 }
 
+body[data-role="planner"] .app-shell > [data-panel="administration"].app-panel.is-active {
+  grid-column: 1 / -1;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  justify-self: stretch;
+}
+
+body[data-role="planner"] [data-panel="administration"] .director-screen-header {
+  grid-template-columns: minmax(220px, 0.45fr) minmax(0, 1.55fr);
+  gap: 14px;
+  align-items: end;
+}
+
 .administration-toolbar {
   align-items: end;
+}
+
+body[data-role="planner"] [data-panel="administration"] .administration-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+  max-width: none;
+}
+
+body[data-role="planner"] [data-panel="administration"] .administration-toolbar .week-select {
+  flex: 0 1 150px;
+  min-width: 128px;
+  max-width: 190px;
+}
+
+body[data-role="planner"] [data-panel="administration"] .administration-toolbar #administrationStartLabel,
+body[data-role="planner"] [data-panel="administration"] .administration-toolbar #administrationEndLabel {
+  flex-basis: 140px;
+}
+
+body[data-role="planner"] [data-panel="administration"] .administration-toolbar .week-select:last-child {
+  flex-basis: 190px;
+}
+
+.administration-toolbar .week-select span {
+  white-space: nowrap;
+}
+
+.administration-toolbar select,
+.administration-toolbar input {
+  width: 100%;
+  min-width: 0;
 }
 
 .administration-dashboard {
   display: grid;
   gap: 14px;
+  width: 100%;
+  min-width: 0;
 }
 
 .administration-summary {
@@ -6776,9 +6826,109 @@ body[data-role="employee"][data-employee-locked="true"] .director-screen-toolbar
   font-size: 15px;
 }
 
+.administration-action-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.administration-action-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.administration-action-tile {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  align-items: stretch;
+  gap: 10px;
+  min-width: 0;
+  min-height: 126px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-primary-soft);
+}
+
+.administration-action-tile div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.administration-action-tile span,
+.administration-action-tile small,
+.administration-delivery-admin-row span {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.administration-action-tile strong {
+  font-size: 1.2rem;
+  line-height: 1.15;
+}
+
+.administration-action-tile button {
+  min-height: 32px;
+  padding: 6px 10px;
+  width: 100%;
+}
+
+.administration-delivery-admin {
+  display: grid;
+  gap: 8px;
+}
+
+.administration-delivery-admin-list {
+  display: grid;
+  gap: 6px;
+}
+
+.administration-delivery-admin-row {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(160px, 0.45fr) minmax(260px, 0.8fr);
+  gap: 14px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  font-size: 13px;
+}
+
+.administration-delivery-admin-row div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.administration-delivery-admin-row span {
+  color: var(--color-text-muted);
+}
+
+.administration-delivery-admin-row strong,
+.administration-delivery-admin-row span,
+.administration-delivery-admin-row em,
+.administration-action-tile span,
+.administration-action-tile strong,
+.administration-action-tile small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.administration-delivery-admin-row em {
+  font-style: normal;
+  text-align: right;
+}
+
 .administration-card-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
   gap: 14px;
   align-items: start;
 }
@@ -6873,12 +7023,25 @@ body[data-role="employee"][data-employee-locked="true"] .director-screen-toolbar
 }
 
 @media (max-width: 1100px) {
+  .administration-action-grid {
+    grid-template-columns: repeat(3, minmax(150px, 1fr));
+  }
+
   .administration-card-grid {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 640px) {
+  .administration-action-grid,
+  .administration-delivery-admin-row {
+    grid-template-columns: 1fr;
+  }
+
+  .administration-delivery-admin-row em {
+    text-align: left;
+  }
+
   .administration-card-head {
     display: grid;
   }
