@@ -3168,6 +3168,234 @@
     };
   }
 
+  function getTripAnalysisTimeInfo(stop) {
+    const rawTimeWindow = String(stop?.timeWindow || "").trim();
+    const matches = [...rawTimeWindow.matchAll(/\b([01]?\d|2[0-3])[:.]([0-5]\d)\b/g)];
+
+    if (!matches.length) {
+      return {
+        hasTime: false,
+        start: Number.POSITIVE_INFINITY,
+        end: Number.POSITIVE_INFINITY,
+        label: getRouteStopTimeLabel(stop),
+        missing: true,
+        beforeDeadline: false,
+        broadWindow: false
+      };
+    }
+
+    const firstMatch = matches[0];
+    const lastMatch = matches[matches.length - 1];
+    const start = Number(firstMatch[1]) * 60 + Number(firstMatch[2]);
+    const end = Number(lastMatch[1]) * 60 + Number(lastMatch[2]);
+    const beforeDeadline = /\b(?:voor|v[oó]or)\b/i.test(rawTimeWindow);
+    const broadWindow = Math.max(0, end - start) >= 120;
+
+    return {
+      hasTime: true,
+      start,
+      end,
+      label: matches.length > 1
+        ? `${firstMatch[0].replace(".", ":")} / ${lastMatch[0].replace(".", ":")}`
+        : firstMatch[0].replace(".", ":"),
+      missing: false,
+      beforeDeadline,
+      broadWindow
+    };
+  }
+
+  function getTripAnalysisStopReasons(stop, timeInfo) {
+    const reasons = [];
+    const cluster = getRoutePlaceCluster(stop);
+    const history = getRouteHistoryPositionScore(stop);
+
+    if (isWarmStop(stop)) {
+      reasons.push("warm product");
+    }
+
+    if (!timeInfo.hasTime) {
+      reasons.push("geen tijd bekend");
+    } else if (timeInfo.beforeDeadline) {
+      reasons.push(`deadline ${timeInfo.label}`);
+    } else if (timeInfo.start <= 9 * 60) {
+      reasons.push(timeInfo.broadWindow ? "vroege tijd / breed tijdvenster" : "vroege tijd");
+    } else if (timeInfo.broadWindow) {
+      reasons.push("breed tijdvenster");
+    } else {
+      reasons.push("tijdkritisch");
+    }
+
+    if (cluster) {
+      reasons.push(`cluster ${cluster}`);
+    }
+
+    if (history.seenCount > 0 && history.label) {
+      reasons.push(history.label);
+    }
+
+    return reasons;
+  }
+
+  function getTripAnalysisBlockTitle(stops) {
+    const normalizedStops = Array.isArray(stops) ? stops : [];
+    const timeInfos = normalizedStops.map((item) => item.timeInfo);
+    const timedInfos = timeInfos.filter((timeInfo) => timeInfo.hasTime);
+    const hasWarm = normalizedStops.some((item) => item.warm);
+
+    if (!timedInfos.length) {
+      return "flexibel / geen tijd";
+    }
+
+    const firstStart = Math.min(...timedInfos.map((timeInfo) => timeInfo.start));
+    const hasDeadline = timedInfos.some((timeInfo) => timeInfo.beforeDeadline);
+
+    if (hasWarm && firstStart >= 10 * 60 + 45) {
+      return "late warme ronde";
+    }
+
+    if (hasWarm) {
+      return "warm/tijdkritisch";
+    }
+
+    if (firstStart <= 9 * 60) {
+      return "vroege ronde";
+    }
+
+    if (hasDeadline) {
+      return "deadline ronde";
+    }
+
+    return "logische ronde";
+  }
+
+  function getTripAnalysisBoundary(previousItem, nextItem, currentBlock) {
+    if (!previousItem || !nextItem) {
+      return null;
+    }
+
+    if (!nextItem.timeInfo.hasTime) {
+      return {
+        returnToBakery: false,
+        reason: "stops zonder tijd apart controleren"
+      };
+    }
+
+    if (!previousItem.timeInfo.hasTime && nextItem.timeInfo.hasTime) {
+      return {
+        returnToBakery: false,
+        reason: "tijdstops beginnen na flexibel blok"
+      };
+    }
+
+    const currentBlockHasWarm = currentBlock.some((item) => item.warm);
+    const gap = previousItem.timeInfo.hasTime
+      ? nextItem.timeInfo.start - previousItem.timeInfo.end
+      : 0;
+
+    if (nextItem.warm && (!currentBlockHasWarm || gap >= 45)) {
+      return {
+        returnToBakery: true,
+        reason: `warme stop om ${nextItem.timeInfo.label}`
+      };
+    }
+
+    if (previousItem.warm && nextItem.timeInfo.hasTime && gap >= 45) {
+      return {
+        returnToBakery: true,
+        reason: `tijdruimte ${Math.round(gap)} minuten na warme stop`
+      };
+    }
+
+    if (gap >= 75) {
+      return {
+        returnToBakery: false,
+        reason: `grote tijdruimte ${Math.round(gap)} minuten`
+      };
+    }
+
+    const earlyLimit = 9 * 60;
+    const midStart = 10 * 60;
+
+    if (
+      previousItem.timeInfo.hasTime
+      && previousItem.timeInfo.start <= earlyLimit
+      && nextItem.timeInfo.start >= midStart
+    ) {
+      return {
+        returnToBakery: false,
+        reason: "overgang van vroege ronde naar latere tijdstops"
+      };
+    }
+
+    return null;
+  }
+
+  function buildTripAnalysisForRoute(items, routeNumber) {
+    const routeItems = (Array.isArray(items) ? items : []).map((item) => {
+      const timeInfo = getTripAnalysisTimeInfo(item.stop);
+
+      return {
+        ...item,
+        timeInfo,
+        warm: isWarmStop(item.stop),
+        reasons: getTripAnalysisStopReasons(item.stop, timeInfo)
+      };
+    });
+    const blocks = [];
+    let currentBlock = [];
+
+    routeItems.forEach((item) => {
+      const previousItem = currentBlock[currentBlock.length - 1] || null;
+      const boundary = getTripAnalysisBoundary(previousItem, item, currentBlock);
+
+      if (boundary && currentBlock.length) {
+        blocks.push({
+          title: getTripAnalysisBlockTitle(currentBlock),
+          stops: currentBlock,
+          nextBoundary: boundary
+        });
+        currentBlock = [];
+      }
+
+      currentBlock.push(item);
+    });
+
+    if (currentBlock.length) {
+      blocks.push({
+        title: getTripAnalysisBlockTitle(currentBlock),
+        stops: currentBlock,
+        nextBoundary: null
+      });
+    }
+
+    const boundaryCount = blocks.filter((block) => block.nextBoundary).length;
+
+    return {
+      routeNumber,
+      blocks,
+      boundaryCount,
+      hasClearBoundaries: boundaryCount > 0
+    };
+  }
+
+  function buildDeliveryTripBlockAnalysis(stops) {
+    const indexedStops = (Array.isArray(stops) ? stops : []).map((stop, index) => ({
+      stop,
+      index
+    }));
+    const routeOneStops = indexedStops.filter((item) => getStopRouteNumber(item.stop) !== 2);
+    const routeTwoStops = indexedStops.filter((item) => getStopRouteNumber(item.stop) === 2);
+    const routes = [
+      routeOneStops.length ? buildTripAnalysisForRoute(routeOneStops, 1) : null,
+      routeTwoStops.length ? buildTripAnalysisForRoute(routeTwoStops, 2) : null
+    ].filter(Boolean);
+
+    return {
+      routes,
+      hasClearBoundaries: routes.some((route) => route.hasClearBoundaries)
+    };
+  }
+
   function applySuggestedRouteOrder(stops) {
     const normalizedStops = Array.isArray(stops) ? stops : [];
 
@@ -4563,6 +4791,51 @@
     `;
   }
 
+  function renderTripBlockAnalysisReport(stops) {
+    const analysis = buildDeliveryTripBlockAnalysis(stops);
+
+    if (!analysis.routes.length) {
+      return "";
+    }
+
+    return `
+      <section>
+        <h4>Ritblok-analyse</h4>
+        <p class="panel-note">Advies: deze analyse verklaart logische rondes, maar past de route niet aan.</p>
+        ${analysis.hasClearBoundaries ? "" : "<p class=\"panel-note\">Geen duidelijke ritblokken gevonden.</p>"}
+        ${analysis.routes.map((route) => `
+          <div class="delivery-recognition-subsection">
+            <strong>Route ${escapeHtml(route.routeNumber)}</strong>
+            ${route.hasClearBoundaries ? "" : "<p class=\"panel-note\">Geen duidelijke ritgrenzen in deze route.</p>"}
+            <ul class="delivery-recognition-list">
+              ${route.blocks.map((block, blockIndex) => `
+                <li>
+                  <strong>Rit ${escapeHtml(blockIndex + 1)}: ${escapeHtml(block.title)}</strong>
+                  <ul>
+                    ${block.stops.map((item) => `
+                      <li>
+                        ${escapeHtml(item.stop.customerName || "Klant onbekend")}
+                        ${escapeHtml(item.timeInfo.hasTime ? item.timeInfo.label : "geen tijd")}
+                        ${item.warm ? "🔥" : ""}
+                        <small>Reden: ${escapeHtml(item.reasons.join(" / "))}</small>
+                      </li>
+                    `).join("")}
+                  </ul>
+                  ${block.nextBoundary ? `
+                    <small>
+                      ${block.nextBoundary.returnToBakery ? "Terug naar bakkerij. " : ""}
+                      Reden ritgrens: ${escapeHtml(block.nextBoundary.reason)}
+                    </small>
+                  ` : ""}
+                </li>
+              `).join("")}
+            </ul>
+          </div>
+        `).join("")}
+      </section>
+    `;
+  }
+
   function renderServerParserReport(report) {
     if (!report || typeof report !== "object") {
       return "";
@@ -4716,6 +4989,7 @@
           ` : ""}
         </section>
         ${renderRouteHistoryReport(normalizedStops)}
+        ${renderTripBlockAnalysisReport(normalizedStops)}
         <section>
           <h4>Parserinformatie</h4>
           <div class="delivery-recognition-metrics">
