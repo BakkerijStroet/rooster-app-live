@@ -1,492 +1,803 @@
-# Project Summary - Rooster/Uren App
+# Project Summary - Roosterapp Bakkerij Stroet
 
-Laatst bijgewerkt: 2026-05-12
+Laatst bijgewerkt: 2026-06-09
+
+Live URL: https://rooster-app-live.vercel.app
 
 ## 1. Projectoverzicht
 
-Deze app ondersteunt Bakkerij Stroet bij roosters, urenregistratie, medewerkersbeheer, aanvragen, vakanties/ziekte en slimme roosterplanning. De app heeft twee hoofdomgevingen:
+Roosterapp is het live planning-, uren-, aanvragen- en bezorgplatform voor Bakkerij Stroet.
 
-- Planneromgeving: rooster bekijken, Rooster plannen, diensten, medewerkers, aanvragen, vakanties, urencontrole, back-up en mailinstellingen.
-- Medewerkeromgeving: mobiel-first login, rooster bekijken, Mijn rooster, Mijn uren, Extra gewerkt, aanvragen, Mijn aanvragen en Mijn account.
+De app ondersteunt:
 
-Data werkt in twee standen:
+- rooster bekijken en plannen
+- slimme planner / voorstelplanning
+- medewerkersbeheer en bevoegdheden
+- aanvragen, afwezigheid en beschikbaarheid
+- urenregistratie en urencontrole
+- bezorg-PDF verwerken, routebord, print en chauffeurmodus
+- administratie-overzicht voor planner/admin
+
+Architectuur:
+
+- `index.html`: statische structuur, panelen, login, modals en script/style includes.
+- `app.js`: centrale appstate, renderlogica, roosterplanning, aanvragen, uren, administratie en login.
+- `styles.css`: styling, responsive layouts en printregels.
+- `js/features/*`: featuremodules, waaronder delivery, requests, hours, employees en planninghelpers.
+- `api/*`: Vercel API-routes.
+- Data via Supabase/API-structuur.
+- Deploy via GitHub/main en Vercel production.
+
+Belangrijke live afspraak:
 
-- Live-mode: centrale data via Supabase en Vercel API-routes.
-- Testmode: lokaal gescheiden, zonder Supabase/API-sync.
+- Codewijzigingen: checks draaien, commit, push naar `main`, Vercel deploy controleren en live werking controleren.
+- Live data niet overschrijven.
+- Geen productie-mail zonder expliciet akkoord.
 
-Belangrijke grondregel: Supabase is in live-mode de centrale bron. Lege of stale localStorage mag nooit centrale data overschrijven of oude data terugzetten.
+## 2. Actuele Live Status
 
-## 1A. Actuele live status
+Laatste bekende production status:
 
-Huidige live versie: `20260512-preserve-filled-slots`.
+- Production URL: https://rooster-app-live.vercel.app
+- Vercel project: `rooster-app-live`
+- Static root/output staat op repository root.
+- `vercel.json` gebruikt `outputDirectory: "."`.
+- Hoofdpagina, `app.js` en `styles.css` worden als statische root-assets geserveerd.
+- Cache headers staan op no-store/no-cache voor HTML, `app.js`, `styles.css` en `js/*`.
 
-De app zit nu in de fase stabiliseren/afronden. De huidige werkafspraak is: geen brede refactors, geen Supabase-schemawijzigingen zonder plan en geen productie-mails zonder expliciet akkoord.
+Meest recente documentatiestand:
 
-Live bevestigd:
+- `PROJECT_SUMMARY.md` is deze actuele bron van projectcontext.
+- De app is geen volledig automatisch beslissysteem; het is een praktische slimme planningsassistent.
+- Planner/admin blijft leidend bij planning, routes, aanvragen en opslaan.
 
-- Bewust-open slots blijven persistent na opslaan en refresh.
-- Bestaande ingevulde slots worden niet meer overschreven of als open behandeld door `Voorstel maken`.
-- Proposal-state wordt verzoend met actuele live `planning_entries` voordat een voorstel wordt opgebouwd.
-- Medewerkers zien open en bewust-open diensten niet.
-- `Extra gewerkt` zonder geplande dienst werkt live via bestaande workLog-flow.
-- Planner approval voor workLogs wacht nu de directe live save af.
-- Mailtestmodus is zichtbaar in de planneromgeving.
-- Testmails worden geforceerd naar `info@bakkerijstroet.nl`.
-- Supabase/live gezondheid is na unpause bevestigd: `employee_data`, `request_data`, `work_logs` en `planning_entries` laden weer goed.
+## 3. Belangrijke Principes
 
-Supabase was tijdelijk gepauzeerd door free-tier inactivity. Voor productiegebruik is Supabase Pro of een ander plan met minder inactivity-risico aan te raden.
+- Geen Supabase-schemawijzigingen zonder apart akkoord en plan.
+- Geen API-breaking changes zonder apart akkoord.
+- Geen autosave tenzij expliciet gevraagd.
+- Geen live rooster opslaan tijdens read-only tests.
+- Geen mailflow of productie-mail starten zonder expliciet akkoord.
+- Planner blijft leidend.
+- Bij onzekerheid: tonen, niet stil gokken.
+- Product `rawLine` uit bezorg-PDF exact behouden.
+- Parser mag onzekerheden niet verbergen; die moeten zichtbaar zijn in Technisch.
+- Route 2 ontstaat eerst als advies na routecapaciteitscontrole, niet eerder.
+- Chauffeuracties blijven lokaal/localStorage, tenzij later anders besloten.
+- Geen bestaande live data overschrijven met stale localStorage.
+
+## 4. Bezorgmodule
+
+De bezorgmodule is uitgegroeid tot een praktische planner- en chauffeurflow voor bezorglijsten.
+
+### PDF Upload en Parser
+
+PDF-upload loopt via de serverparser:
+
+- `api/delivery-parse-pdf.js`
+- Frontend/routebord in `js/features/delivery.js`
+
+De parser ondersteunt en rapporteert:
+
+- STOPHEADER-detectie voor klant/adres/tijd/betaling.
+- STOPPRODUCT-detectie voor productregels.
+- Leading-count productregels, bijvoorbeeld `11 WARM Breudje Trump`.
+- Trailing-count productregels, bijvoorbeeld `heel ONGESNEDEN Oeoerenwit 3`.
+- Kolomgebaseerde reconstructie met verbeterde productkolomgrenzen.
+- Pagina-overgangen, zodat producten bij de juiste stop blijven.
+- Producten onder de juiste klant koppelen.
+- Productregels zonder stop zichtbaar rapporteren.
+- Stops zonder producten zichtbaar rapporteren.
+- Onbekende/zwakke klantmatch zichtbaar maken.
+
+Belangrijke parserfixes:
+
+- `ONGESNEDEN` blokkeert snijberekening, maar blijft wel productregel.
+- Grandcafe de gracht behoudt `heel ONGESNEDEN Oeoerenwit 3`.
+- HCR Prinsen Haarlo behoudt productregels over kolomgrenzen heen.
+- Beerten krijgt niet langer HCR-productregels.
+- Cafe Beltman/pagina-overgangen blijven controlepunt.
 
-## 2. Architectuur
+### Productclassificatie
 
-### Frontend
+Productregels worden praktijkgericht geclassificeerd:
 
-- `index.html`: statische structuur, panelen, login, fatal recovery UI, formulieren, containers en script/cache-versies.
-- `styles.css`: zachte beige/oranje appstijl, responsive layouts, mobile nav, planner panels, chips, modals, rooster- en urenstyling.
-- `app.js`: hoofdapplicatie met state, rendering, eventhandlers, sync orchestration, localStorage, businessregels en fallback/recovery.
-- `js/features/...`: helpermodules voor planning, uren, requests, employees, mail, navigation, render helpers en bootstrap helpers.
+- `laadproduct`: echte producten die chauffeur moet meenemen.
+- `orderOpmerking`: opmerkingen, taartopties, verpakkings- of bereidingswensen.
+- `administratief`: bezorgkosten/transportregels.
 
-Belangrijke modules:
+Voorbeelden orderOpmerking:
+
+- `GESNEDEN?:`
+- `VULLING:`
+- `AFWERKING:`
+- `FOTO OP ELK STUKJE?:`
+- `Extra Bestelling:`
+- `1,00 Graag 5 x glutenvrij broodje.`
+- `1,00 1 geen tomaat en 1 van geen kaas`
+- `1,00 in zakje`
+- `1,00 Met tekst`
+- `1,00 +convettie`
+
+Voorbeelden administratief:
+
+- `Bezorgkosten-...`
+- `Bezorgen in Borculo`
+- `Bezorgen in Eibergen`
+- `Bezorgen in Neede`
+
+Belangrijk onderscheid:
+
+- `Glutenvrij Broodje 5` mag laadproduct blijven.
+- `1,00 Graag 5 x glutenvrij broodje.` is orderOpmerking.
+- `5 broodjes gezond` blijft laadproduct.
+- `1,00 5 broodjes gezond` is orderOpmerking.
 
-- `js/features/hours.js`
-- `js/features/hours-panel-prep.js`
-- `js/features/planning-core.js`
-- `js/features/planning-panel-prep.js`
-- `js/features/planning-status.js`
-- `js/features/planning-assignments.js`
-- `js/features/day-planner.js`
-- `js/features/requests.js`
-- `js/features/requests-panel-prep.js`
-- `js/features/employees.js`
-- `js/features/employee-panel-prep.js`
-- `js/features/mail.js`
+Productcategorieen voor routekwaliteit:
 
-### API-routes
+- warm: hoogste tijdkritiek.
+- gebak/banket/taart: middelhoge tijdprioriteit, kan vaak eerder mee.
+- brood/broodjes: lagere tijdprioriteit.
+- administratief en orderOpmerking tellen niet als laadproduct.
 
-- `api/planning-entries.js`: centrale sync van roosterregels, inclusief tombstones.
-- `api/request-data.js`: centrale sync van verlof-, ziekte- en ruilverzoeken, inclusief tombstones.
-- `api/work-logs.js`: centrale sync van urenregistraties.
-- `api/employee-data.js`: centrale sync van medewerkers, meta, rechten, patronen en extra beschikbaarheid.
-- `api/send-email.js`: server-side mailroute.
-- `api/export-backup.js`: centrale export/back-up.
+### Praktijkregels
 
-### Supabase-tabellen
+- Stop zonder tijd is geen fout.
+- Stop zonder tijd krijgt label: `Flexibele stop (geen tijd opgegeven)`.
+- Tijdkritische stops en warme producten gaan voor flexibele stops.
+- Postcodes die met `9999` beginnen zijn administratieve postcodes.
+- `9999`-postcodes worden niet gebruikt voor postcodecluster/routeoptimalisatie.
+- Bij administratieve postcode gebruikt de app plaats/adres/klantmatch/historie als zachtere signalen.
+- Technisch toont: `Administratieve postcode gebruikt`.
 
-- `planning_entries`
-- `request_data`
-- `work_logs`
-- `employee_data`
+### Technisch Paneel
 
-Er zijn recent geen Supabase-schemawijzigingen gedaan voor de beschreven features; wijzigingen zijn via bestaande payload/meta-velden en bestaande routes opgelost.
+Onder Technisch staan nu meerdere controles:
 
-### Supabase gezondheid
+- PDF leescontrole.
+- Herkenningsrapport.
+- Parserkwaliteit.
+- Unieke/ongekoppelde productregels.
+- Flexibele stops.
+- Administratieve postcodes.
+- Productcategorieen.
+- Plannerantwoorden/correcties.
+- Ritblok-analyse.
+- Routecapaciteit advies.
+- Plannerlogica.
 
-- Supabase was tijdelijk gepauzeerd door free-tier inactivity.
-- Na unpause is live gezondheid bevestigd.
-- `employee_data`, `request_data`, `work_logs` en `planning_entries` laden weer goed en leveren niet-lege datasets.
-- Advies voor productiegebruik: Supabase Pro of een passend productieplan overwegen om inactivity-pauses te voorkomen.
+PDF leescontrole toont plannergericht per pagina:
 
-## 3. Veiligheidsregels
+- gevonden stops in volgorde.
+- klantnaam.
+- adres.
+- postcode/plaats.
+- tijd/tijdvenster.
+- betaalstatus.
+- gekoppelde productregels.
+- waarschuwingen.
 
-- Geen productie-mail naar echte medewerkers zonder expliciet akkoord.
-- Mailtestmodus gebruikt vaste testontvanger `info@bakkerijstroet.nl`.
-- In mailtestmodus forceert de serverroute de werkelijke ontvanger naar `info@bakkerijstroet.nl`.
-- MailLog houdt nieuwe entries auditbaar bij met logische ontvangers, werkelijke ontvangers en testmode/forceTestRecipient-vlaggen.
-- Oude mailLogs zonder deze auditvelden blijven backward-compatible.
-- Testmode raakt Supabase/API-sync niet.
-- Live-mode gebruikt centrale data als bron.
-- Tombstones in planning/request-data winnen van oude lokale data.
-- `work_logs` en employee-data zijn upsert/sync gericht, niet hard-delete gericht.
-- Supabase service role key blijft alleen server-side.
-- Geen schema/API-wijzigingen zonder vooraf plan/SQL.
-- Geen bestaande roosterdata wijzigen tenzij de gebruiker expliciet om die actie vraagt.
+Standaard is dit leesbaar voor planner; parserdetails met x/y/kolominfo blijven apart voor debugging.
 
-## 4. Planneromgeving
+### Plannerlogica A t/m E
 
-### Dashboard
+De bezorg-planning beslisboom is vastgelegd als technische routekwaliteit-regels:
 
-Dashboard toont samenvattingen voor planning, aanvragen, uren en aandachtspunten. Rendering loopt via `renderDashboard()`, `renderHomeSummary()` en gerelateerde helpers.
+A. Stops herkennen
 
-### Rooster
+- klant
+- adres
+- tijd/tijdvenster
+- betaling
 
-- Compact weekrooster met maandag t/m zondag.
-- Bakkerij/Winkel groepering en centrale dienstsortering.
-- Medewerkers zien geen open/niet-ingevulde diensten.
-- Planner ziet open diensten en statusinformatie.
-- Afwezigheden onder roosterdagen zijn compact: alleen `Naam type`, bijvoorbeeld `Gerry vakantie`, `Wendy ziek`.
-- Reden/status/toelichting wordt niet meer in roosterchips getoond.
+B. Producten koppelen
 
-### Uren controleren
+- alle producten onder juiste klant
+- `rawLine` exact bewaren
+- warm/snijden/categorie apart herkennen
 
-Planner-inbox voor workLogs:
+C. Controle op A en B
 
-- WorkLogs met `status: "open"` staan klaar voor controle.
-- Statusfilters: alles, open, goedgekeurd, afgewezen/correctie, ontbrekend.
-- Medewerkerfilter, weekfilter en export blijven beschikbaar.
-- Extra gewerkt zonder geplande dienst wordt meegenomen als normale workLog-regel.
-- Planner kan goedkeuren, terugsturen met opmerking of afwijzen.
-- Live fix bevestigd: planner approval wacht de directe live save af voordat de UI de status als definitief behandelt.
+- stops zonder producten
+- producten zonder stop
+- onbekende klant
+- ontbrekende/onzekere tijd
+- betaalstatus onduidelijk
+- parserkwaliteit
 
-Belangrijke helpers:
+D. Route maken volgens regels
 
-- `renderHoursApproval()`
-- `renderPlannerHoursControlItem(...)`
-- `getWorkLogsForWeek(...)`
-- `updateWorkLogStatus(...)`
+- eerst tijd/tijdvenster
+- dan warme producten
+- dan plaats/postcodecluster
+- dan routehistorie
+- dan PDF-volgorde als fallback
 
-### Aanvragen
+E. Controleren of een route haalbaar is
 
-Planner-inbox voor vrije dag, vakantie, ziekmelding en ruil:
+- stops tegelijk
+- warme snacks tegelijk
+- warme snacks in verschillende plaatsen
+- gebak mag vaak eerder mee
+- brood is minder tijdkritisch
+- als tijdsplanning fout loopt: tweede route adviseren
 
-- Compacte tellerkaarten en filters.
-- Korte status- en mailbadges.
-- Goedgekeurde aanvragen kunnen door planner worden gewijzigd waar de bestaande flow dat ondersteunt.
-- Ziekmeldingen mogen planning/vakantiecontext overrulen wanneer ze beschikbaarheid blokkeren.
-- Standaardreden/toelichting wordt veilig ingevuld waar de flow dat nodig heeft, maar niet in compacte overzichten getoond.
+Route 2 mag pas in stap E als advies ontstaan.
 
-### Vakanties
+### Routecapaciteit Advies
 
-Het scherm `Vakanties` is een weekoverzicht:
+Routecapaciteit advies beoordeelt eerst de hele route alsof een bezorger rijdt.
 
-- Weken staan chronologisch onder elkaar.
-- Per week: weeknummer, datumrange en afwezigheidschips.
-- Chips zijn kort: `Naam vakantie`, `Naam vrije dag`, `Naam ziek`.
-- Chips tonen weekdagcontext zonder lange datums, bijvoorbeeld `Chantal vrije dag · di`, `Sophie vrije dag · ma, wo`, `Ronny vakantie · ma-wo`, `Monique vakantie · hele week`.
-- Meerweekse afwezigheid staat in elke betreffende week.
-- Vakantie/vrije dag worden normaal alleen goedgekeurd getoond; ziekmeldingen mogen ook open/ingediend zichtbaar zijn omdat ze planning blokkeren.
-- Als niemand afwezig is: `Geen afwezigen`.
+Signalen voor tweede route:
 
-### Medewerkers
+- warm + warm rond dezelfde tijd in verschillende plaatsen.
+- meerdere tijdkritische stops binnen korte tijd.
+- meerdere 10:00-stops in verschillende plaats/postcodeclusters.
+- combinatie van warm + kort tijdvenster.
+- groot risico op te laat komen.
 
-- Compacte beheerpagina met zoeken/filteren.
-- Detailpaneel met tabs voor gegevens, planning, uren en account.
-- Nieuwe medewerkers zijn direct actief met tijdelijke standaardpin.
-- Uit dienst zetten en heractiveren is ondersteund.
-- Oud werknemers staan apart en worden niet getoond in login/planningkeuzes.
-- Uit dienst medewerkers worden niet automatisch voorgesteld in Rooster plannen.
-- Planner kan pincode zien/resetten, tijdelijke pin maken en plannerrechten beheren.
-- Extra beschikbaarheid kan per medewerker worden beheerd.
+Niet direct Route 2:
 
-### Diensten
+- warm + gebak rond dezelfde tijd.
+- warm + warm in dezelfde plaats: waarschuwing, geen harde Route 2.
+- broodconflicten zonder tijdkritiek.
 
-`Diensten` bevat vaste standaardtijden/basisschema. Tijd aanpassen in `Rooster plannen` wijzigt niet de diensttemplate, maar alleen de planning-entry van die week/dag/dienst.
+Output:
 
-## 5. Rooster Plannen
+- `1 route lijkt voldoende`
+- of `2 routes aanbevolen`
+- met redenen en mogelijke Route 2-stops.
 
-`Rooster plannen` is de veilige voorstelomgeving voor toekomstige roosters.
+De app vult Route 2 niet automatisch.
 
-### Basisgedrag
+### Voorstelroute Maken
 
-- Diensten blijven altijd zichtbaar, ook als nog niemand is ingevuld.
-- `Voorstel maken` maakt een tijdelijk voorstel.
-- `Rooster opslaan` schrijft pas daarna naar echte `planning_entries`.
-- `Week wissen` reset proposal-state volledig zodat `Voorstel maken` daarna opnieuw vers kan draaien.
-- `Vorige voorstel herstellen` blijft bedoeld voor bewust herstel van proposal-snapshots.
+Na PDF-upload blijft de route eerst in PDF-volgorde.
 
-### Scoring en filters
+Knop:
 
-Harde filters:
+- `Voorstelroute maken`
 
-- medewerker is actief/in dienst.
-- bevoegd voor dienst/rol.
-- beschikbaar.
-- niet ziek/vakantie/vrije dag.
-- toegestane combinaties.
+Pas na klikken wordt de route slim voorgesteld op basis van:
 
-Daarna scoring:
+- tijd/tijdvenster
+- warme producten
+- plaats/postcodecluster
+- routehistorie als zachte hint
+- PDF-volgorde fallback
+- plannerantwoorden/correcties
 
-- basispatroon match weegt zwaar.
-- vaste werkdagen en vaste diensten wegen zwaar.
-- weekendhulpen worden niet zomaar doordeweeks ingepland.
-- medewerkers zoals Saskia worden niet automatisch boven hun bekende patroonbelasting volgepland.
-- eerdere roosterhistorie, contract/belasting en afdeling/rol zijn aanvullende voorkeuren.
-- lage confidence blijft OPEN.
+De planner kan daarna altijd handmatig slepen/verplaatsen.
 
-Belangrijk principe: liever OPEN dan een verkeerde medewerker.
+Er is ook:
 
-### Open houden en statussen
+- `Terug naar PDF-volgorde`
 
-- Planner kan diensten bewust `Open houden`.
-- Bewust open blijft behouden bij opslaan/herberekenen.
-- Statuskleuren:
-  - groen = ingevuld.
-  - rood = open.
-  - oranje = bewust open.
-- Open diensten zonder logische kandidaat blijven open met reden zoals `Geen logische medewerker beschikbaar`, `Geen patroonmatch`, `Te veel ingepland` of `Weekendkracht buiten patroon`.
+Opslaan/print gebruikt de actuele routevolgorde.
 
-### Beschikbaarheid en afwezigheid
+### Route 1 / Route 2
 
-- Ziek/vakantie/vrije dag blokkeren beschikbaarheid.
-- Ziekmelding/operatie/herstel met datumranges blokkeren de betreffende dagen.
-- Wendy/operatie/herstel in juni is expliciet in de planningavailability-fixes meegenomen.
-- Ziekmelding kan vakantie/vrije dag in beschikbaarheidscontext overrulen.
+- App begint conceptueel met een route.
+- Route 2 is standaard leeg.
+- Route 2 wordt in plannerroutebord verborgen als er geen stops zijn.
+- Route 2 verschijnt zodra planner stops verplaatst.
+- Route 2 mag door advies worden voorgesteld, maar niet automatisch definitief gevuld.
 
-### Extra beschikbaarheid en herberekenen
+### Opgeslagen Routes
 
-- Bij `Medewerkers` kan planner tijdelijke extra beschikbaarheid vastleggen per week/datum/dag(en), optioneel met tijden en opmerking.
-- Extra beschikbaarheid verandert het basispatroon niet.
-- Extra beschikbaarheid betekent: medewerker mag extra voorgesteld worden, niet verplicht ingepland.
-- Weekendhulpen mogen doordeweeks alleen logisch worden voorgesteld als extra beschikbaarheid dat ondersteunt.
-- `Herbereken week` vult vooral open diensten opnieuw, zonder bestaande goede/handmatige keuzes stuk te maken.
-- Bewust open blijft bewust open.
-- Medewerkerkeuze toont badge/reden `Extra beschikbaar` waar relevant.
+Bezorgruns worden opgeslagen via bestaande delivery-runs payload:
 
-### Tijd aanpassen
+- geen nieuwe Supabase-tabel.
+- geen schemawijziging.
+- opgeslagen routes kunnen opnieuw worden geopend.
+- extra opdrachten en plannerCorrections kunnen in bestaande payload mee.
 
-- Op dienstniveau in `Rooster plannen` kan de planner tijdelijk start/eindtijd aanpassen.
-- Modal/popover toont dienstnaam, standaardtijd, starttijd, eindtijd, opslaan, reset standaardtijd en annuleren.
-- Aangepaste dienst toont badge `Aangepast`.
-- Aangepaste tijd wordt op planning-entry niveau opgeslagen.
-- Diensttemplates in `Diensten` blijven ongewijzigd.
-- Refresh behoudt aangepaste tijden op die ene geplande dienst.
+### Extra Opdrachten
 
-### Opslaan en slotKeys
+Planner kan handmatig extra opdrachten toevoegen:
 
-- Rooster opslaan bewaart correct na refresh.
-- Dubbele bezetting/save-merge bug is opgelost met stabiele slotKeys.
-- Bestaande ingevulde slots worden niet stil overschreven.
-- Open/bewust-open status blijft herkenbaar na save/reload.
-- `Voorstel maken` behandelt bestaande live ingevulde slots als leidend en maakt ze niet leeg/open.
-- Proposal-state wordt bij opbouw verzoend met actuele live planning.
-- Als live planning niet betrouwbaar geladen is, moet opslaan geblokkeerd worden in plaats van open slots te genereren.
-
-## 6. Medewerkeromgeving
-
-### Startup, login en navigatie
-
-- Safe startup is nu de standaard startup.
-- Normale URL start net als `?safe=1`: eerst minimale login/start, geen zware render of oude schermrestore voor login.
-- Na login wordt data stapsgewijs geladen.
-- Fatal recovery UI staat buiten app-root en bevat herstelknop.
-- Login toont kleine versie-indicatie.
-- Mobiel gebruikt bottom-nav.
-- Naamknop opent `Mijn account`.
+- titel/opdracht
+- adres
+- plaats/postcode optioneel
+- tijd/tijdvenster optioneel
+- route: Route 1 of Route 2
+- opmerking optioneel
+- type: Ophalen, Afgeven, Boodschap, Overig
 
-### Rooster
-
-- Medewerkers zien alleen ingevulde diensten.
-- Open/niet-ingevulde diensten blijven verborgen.
-- Weekrooster toont Bakkerij/Winkel-context en compacte afwezigheidschips.
-- Afwezigheden zijn kort: `Gerry vakantie`, `Monique vrije dag`, `Wendy ziek`.
-- Dit geeft ruilcontext zonder plannerinformatie.
-
-### Mijn rooster
-
-Mijn rooster is opgeschoond en medewerkergericht:
-
-- Weeklijst toont alleen weeknummer, datumrange en eigen dienststatus.
-- Voorbeelden: `Je hebt 3 diensten` of `Geen diensten`.
-- Geen plannerinformatie zoals open diensten, uren open, algemene status of conflicten.
-- Weekdetail toont per dag duidelijk `Dienst`, `Vrij` of `Geen dienst`.
-- Eigen diensten tonen dienstnaam en tijd.
-- Meerdere eigen diensten op een dag staan compact onder elkaar.
-- Volledig ingevuld roostercontext is minder prominent en optioneel/compact.
-- Open diensten blijven verborgen.
-
-### Mijn uren
-
-Mobiel-first:
-
-- Tabs: `Uren invullen`, `Mijn gewerkte uren`, `Extra gewerkt`.
-- Geplande diensten kunnen als workLog worden ingevuld/ingediend.
-- `Extra gewerkt` is voor werk buiten planning.
-- Extra gewerkt zonder geplande dienst wordt opgeslagen als `workLog` met `status: "open"`.
-- Planner ziet deze extra uren bij `Uren controleren`.
-- Medewerker ziet ze terug bij `Extra gewerkt` en `Mijn gewerkte uren`.
-- Na refresh blijven ze zichtbaar omdat submit nu centrale `work_logs` opslag afwacht.
-- Extra uren worden niet opgeslagen als aanvraag en komen niet in `Mijn aanvragen`.
-
-### Mijn aanvragen
-
-- Medewerker ziet eigen vrije dagen, vakantie, ziekte en ruilverzoeken.
-- Open aanvragen kunnen worden ingetrokken indien flow dat toestaat.
-- Extra gewerkt hoort hier niet thuis.
-
-### Mijn account
-
-- Huidige pincode blijft zichtbaar.
-- Veld `Huidige pin invoeren` is verwijderd.
-- Alleen nieuwe pin en bevestiging blijven over.
-- Loginlogica en nieuwe-pin-validatie zijn niet versoepeld.
-
-## 7. Urenflow
-
-WorkLogs bevatten o.a.:
-
-- `id`
-- `employeeName`
-- `day`
-- `shiftName`
-- `plannedStart`
-- `plannedEnd`
-- `actualStart`
-- `actualEnd`
-- `breakMinutes`
-- `notes`
-- `status`
-- `submittedAt`
-- `updatedAt`
-- `data_mode` via API/context
-
-Statussen:
-
-- `draft`: concept/ingevuld maar nog niet ingediend.
-- `open`: ingediend, zichtbaar voor plannercontrole.
-- `approved`: goedgekeurd.
-- `rejected`: afgewezen.
-- `revision`: opmerking/aanpassing nodig.
-
-Belangrijke recente fix:
-
-- Handmatige workLog-id voor extra uren: `manual|employeeName|day`.
-- `Extra gewerkt` zonder geplande dienst gebruikt `shiftName: "Extra gewerkt"`.
-- Bij submit in live-mode wordt centrale save direct geflusht.
-- Bij centrale fout wordt lokale tijdelijke wijziging teruggedraaid en toont de app: `Extra uren konden niet worden opgeslagen. Probeer opnieuw.`
-- Succesmelding: `Extra uren ingediend.`
-- Live validatie: `manual|Niek|2026-05-12` is veilig door de flow gegaan.
-- Live statusverloop bevestigd: `open` -> `approved`.
-- Geen duplicate workLog ontstaan bij refresh of approval.
-- Planner approval wacht nu de directe live save af.
-
-Stale localStorage:
-
-- Live-mode laadt workLogs centraal.
-- Lokale cache mag centrale lege/actuele data niet overschrijven.
-- Corrupt localStorage wordt defensief genegeerd waar helpers dat ondersteunen.
-
-## 8. Aanvragen en Vakanties
-
-Ondersteund:
-
-- Vrije dag
-- Vakantie
-- Ziekmelding
-- Ruilverzoek
+Gedrag:
+
+- verschijnt als stop in routebord.
+- label `Extra opdracht`.
+- kan naar Route 1/2.
+- kan omhoog/omlaag.
+- kan worden bewerkt/verwijderd.
+- komt mee in print routeblad en afvinklijst.
+- komt mee in chauffeurmodus.
+- niet op blad 4 als er geen producten zijn.
+- telt niet als parserfout.
+
+### Routebord Productpreview
+
+Planner-routebord:
+
+- compacte stopregels.
+- tijd staat vooraan: stopnummer, tijd, indicator, klantnaam.
+- alleen geselecteerde stop toont acties.
+- productpreview kan open/dicht.
+- productpreview gebruikt `stop.products[].rawLine`.
+- warmproducten bovenaan.
+- bezorgkostenregels verborgen.
+- HCR/Grandcafe/Beerten productkoppeling is belangrijk validatiepunt.
+
+### Ritblok-analyse
+
+Onder Technisch staat read-only ritblok-analyse:
+
+- analyseert routevolgorde zonder route te wijzigen.
+- stelt logische ritten/rondes voor.
+- benoemt mogelijke terugkomst naar bakkerij.
+- gebruikt tijdvensters, warme producten, grote tijdgaten, stops zonder tijd.
+- Routebord, print en chauffeurmodus blijven ongewijzigd.
+
+Belangrijk praktijkpunt:
+
+- Chauffeur neemt niet altijd alles in een keer mee.
+- Daarom is een totaal-laadlijst niet leidend als hoofdlogica.
+- Ritblokken helpen verklaren welke producten mogelijk later geladen worden.
+
+### Ritkosten Indicatie
+
+Onder Bezorging > Financieel staat `Indicatie ritkosten`.
+
+Data:
+
+- datum van run
+- routes
+- stops
+- productregels
+- snijbroden
+- snijtijd
+
+Lokale invoer:
+
+- km totaal
+- kosten per km
+- chauffeururen
+- uurloon/kostprijs per uur
+- voorbereidingstijd/tarief
+
+Berekening:
+
+- personeelskosten = chauffeururen x uurloon
+- voertuigkosten = km totaal x kosten per km
+- voorbereiding/snijtijdkosten
+- totale indicatieve ritkosten
+- kosten per stop
 
 Belangrijk:
 
-- `request_data` is de bron voor aanvragen/vakanties.
-- Verwijderen/intrekken gebruikt tombstones waar van toepassing.
-- Ronny testaanvragen zijn via veilige delete/tombstone-flow verwijderd indien matching records aanwezig waren.
-- Vakantie/vrije dag/ziek labels zijn overal compact gemaakt.
-- Redenen/statussen/toelichting verschijnen niet meer in rooster- of vakantielabels.
-- Goedgekeurde aanvragen blijven planner-wijzigbaar waar de bestaande flow dat toestaat.
-- Ziekmeldingen met periode beinvloeden planningavailability.
+- Indicatie, geen boekhoudkundige berekening.
+- Omzet ontbreekt.
+- Geen winst/verlies per klant.
+- Instellingen lokaal via localStorage.
+- Geen API-write of payloadwijziging.
 
-## 9. Styling en UX
+## 5. Print
 
-- Appstijl is vernieuwd naar zachte beige/oranje tinten.
-- Oude blauwe/bruine accenten zijn zoveel mogelijk vervangen.
-- Logo is vervangen/gebruikt als actuele branding.
-- Tabs, filters en mobiele navigatie zijn consistenter.
-- Cards/chips zijn compacter en rustiger.
-- Modals/confirmaties zijn verbeterd voor planning, tijd aanpassen en riskante acties.
-- Geen grote tekstblokken onder roosters; labels zijn kort en scanbaar.
+Bezorgprint blijft gericht op vaste praktische pagina's.
 
-## 10. Android, Cache en Startup
+Belangrijk:
 
-Aanpak na Android/Samsung white screen:
+- Print blijft vaste 4 pagina's.
+- Geen routevolgorde wijziging door print.
+- Geen parserwijziging door print.
 
-- `structuredClone` is vervangen/afgevangen via veilige clone helpers.
-- Safe mode via `?safe=1` blijft bestaan.
-- Safe startup is nu standaard voor normale URL.
-- Geen automatische restore naar dashboard/rooster voor login.
-- Geen zware dashboard/planning/request/worklog render voor login.
-- Fatal error screen staat buiten app-root met hoge z-index.
-- Foutscherm bevat appversie, laatste startup-stap, foutmelding, userAgent, herstelknop en link naar veilige modus.
-- Herstelknop wist alleen lokale browserdata/cache van deze app, nooit Supabase.
-- Fallbacks zijn toegevoegd voor oudere browserfeatures zoals `crypto.randomUUID`, observer APIs, `CSS.escape`, matchMedia listeners en scrollIntoView opties.
-- Cache-busting wordt bij relevante fixes verhoogd via `APP_VERSION` en script/style querystrings.
+Blad 4: Producten / Laden
 
-Huidige live versie: `20260512-preserve-filled-slots`.
+- klantcontrole/laadlijst.
+- klantnaam groter en vet.
+- tijd duidelijk zichtbaar.
+- productaantallen als duidelijke badge.
+- warmproducten bovenaan en duidelijk gemarkeerd.
+- productregels compacter en leesbaar op A4.
+- bezorgkostenregels verborgen.
+- administratieve regels niet in laadproducttelling.
+- HCR toont alle 8 producten bij correcte parserkoppeling.
+- Noaberhoes/Beerten/Maxx warme en grote aantallen zijn validatiepunten.
 
-## 11. Mail
+Belangrijk principe:
 
-Mail loopt via server-side route en bestaande mailhelpers.
+- Geen `Totaal laden` als hoofdlogica voor chauffeur, omdat routes in meerdere ritten kunnen worden gereden.
+- Totaaloverzicht kan nuttig zijn, maar ritblokken/praktische rondes zijn leidender.
 
-Actuele veiligheidsstatus:
+## 6. Chauffeurmodus
 
-- Aanvraagmails en wijzigingsmails gebruiken mailLog-statussen.
-- Mailtestmodus is zichtbaar in de planneromgeving.
-- Testontvanger blijft `info@bakkerijstroet.nl`.
-- `api/send-email.js` forceert bij `testMode` of `forceTestRecipient` de werkelijke ontvanger naar `info@bakkerijstroet.nl`.
-- Twan is gebruikt/bedoeld als veilige testmedewerker voor mailtests.
-- Productie-mail moet bewust worden aangezet.
-- Geen frontend secrets.
-- De daadwerkelijke mailveiligheid is niet gewijzigd door de auditpatch.
+Toegang:
 
-MailLog auditvelden:
+- Dennis
+- Kevin
+- Jos
 
-- `recipients` blijft bestaan voor backward compatibility.
-- Nieuwe mailLog entries bevatten ook `logicalRecipients`, `actualRecipients`, `testMode` en `forceTestRecipient`.
-- `logicalRecipients` beschrijft voor wie de mail functioneel bedoeld was.
-- `actualRecipients` beschrijft waar de mailroute de mail echt naartoe heeft gestuurd.
-- In testmodus moet `actualRecipients` zichtbaar `["info@bakkerijstroet.nl"]` bevatten.
-- Oude mailLogs zonder deze velden blijven renderen; sanitizer vult `logicalRecipients` uit `recipients`, laat `actualRecipients` leeg en gebruikt `testMode: false` / `forceTestRecipient: false`.
+Medewerker-Bezorgen scherm:
 
-Openstaand:
+- toont alleen route van vandaag.
+- titel: `Bezorgroute vandaag`.
+- toont Route 1 met aantal stops en knop `Start route`.
+- toont Route 2 alleen als Route 2 stops heeft.
+- geen bestandsnaam, bijgewerkt-tijd, oude routes of plannerinformatie.
+- als geen route: `Vandaag geen bezorgroute klaar.`
 
-- Volledige live mailflow moet nog gecontroleerd worden per flow: vakantie, vrije dag, ziekmelding, goedkeuren, afwijzen, intrekken en ruilverzoek.
-- Geen productie-mails naar echte medewerkers sturen zonder expliciet akkoord.
+Chauffeur-stop-scherm:
 
-## 12. Recente commits
+- mobiel-first.
+- boven compact: route, stopnummer, voortgang.
+- stopkaart met status, tijd, klantnaam, adres en navigatie.
+- knop `Navigeer`.
+- producten / `Mee te nemen` prominent en boven acties.
+- productregels uit `stop.products/rawLine`.
+- geen dubbele aantallen.
+- warmproducten bovenaan.
+- acties rustiger:
+  - `Stop afronden`
+  - `Overslaan`
+  - betaald alleen waar relevant.
+  - notitie kleiner/onder acties.
+- sticky ondernavigatie:
+  - Vorige
+  - Volgende open
+  - Volgende
+- sticky navigatie overlapt producten niet.
 
-Recente relevante commits:
+Status:
 
-- `3634840` - `fix: record actual mail recipients in test mode logs`: mailLog auditvelden voor logische/werkelijke ontvangers en testmodus.
-- `83b0e81` - `fix: expose safe mail test mode status`: planner ziet mailtestmodus en vaste testontvanger expliciet.
-- `73f525e` - basis voor `20260512-preserve-filled-slots`: bestaande ingevulde slots blijven behouden bij voorstelopbouw.
-- `bf4ca57` - `fix: persist extra hours without planned shift`: extra gewerkt zonder geplande dienst wordt centraal als open workLog opgeslagen.
-- `10d15f2` - `fix: make safe startup the default`: normale startup gebruikt veilige login-start.
-- `08fea5b` - `fix: stabilize android normal startup`: normale Android-startup verder gestabiliseerd.
-- `a5da8a5` - `fix: add safe mode for android startup`: `?safe=1` fallback toegevoegd.
-- `0a77dbd` - `fix: show persistent android fatal error screen`: vaste fatal-error container buiten app-root.
-- `42b2e69` - `fix: keep android crash recovery visible`: recovery zichtbaar houden bij runtime errors.
-- `0188622` - `fix: harden app startup for android recovery`: localStorage/browserfeature recovery.
-- `4d474af` - `feat: add extra availability for smart planning`: extra beschikbaarheid en herberekenen.
-- `5c1e92b` - `fix: prevent android white screen crash`: eerste Android white-screen mitigatie.
-- `021a2d5` - `feat: allow planning shift time overrides`: tijd aanpassen per geplande dienst.
-- `e72b155` - `style: improve weekly vacation overview readability`: vakantieweekchips met dagafkortingen/bereiken.
-- `8eff201` - `chore: end of day app cleanup and checks`: dagafsluiting en controles.
-- `b9aca80` - `style: organize vacations by week`: vakantiescherm naar weekoverzicht.
-- `9035130` - `style: simplify pin change form`: huidige-pin invoerveld verwijderd.
-- `3514a21` - `style: simplify employee my roster view`: Mijn rooster opgeschoond.
-- `b2f3489` - `fix: reset planning proposal state after clearing week`: Week wissen reset proposal-state.
-- `7f137a0` - `feat: show full employee roster context`: medewerkerroostercontext uitgebreid.
-- `86d706a` - `fix: respect employee work patterns in planning proposals`: basispatronen strenger leidend.
-- `189787e` - `style: simplify roster absence labels`: korte afwezigheidslabels.
-- `7fcfd03` - `fix: debug and apply employee sick leave availability`: ziekte beschikbaarheid debug/fix.
-- `740be7f` - `feat: improve smart planning checks and proposal reasons`: betere proposalredenen/checks.
-- `bda6348` - `fix: stabilize planning saves and sick leave availability`: planning save en ziekteavailability.
-- `e71c500` - `fix: prevent duplicate planning slot saves`: dubbele slot-save bug met stabiele slotKeys.
-- `483e173` - `fix: apply sick leave ranges to planning proposals`: ziekteranges blokkeren voorstellen.
-- `977bb6d` - `fix: hide open shifts from employee mobile roster`: open diensten verborgen voor medewerkers.
+- chauffeurstatus via localStorage.
+- afronden/overslaan/notitie/betaald lokaal.
+- geen API writes.
+- geen autosave/live sync.
+- verplichte afhandeling kan lokaal worden gestuurd door statuslogica.
+- lokale routevolgorde aanpassen blijft lokaal/chauffeurgericht.
 
-## 13. Open aandachtspunten
+## 7. Administratie
 
-Nog bewust testen/afronden:
+Nieuw tabblad:
 
-- Volledige mailflows in testmodus: goedkeuren, afwijzen, intrekken, vakantie, ziekmelding en ruilverzoek.
-- Vrije-dag testaanvraag Twan `2026-12-05` kan worden gebruikt voor een gecontroleerde goedkeuren/afwijzen-mailtest nadat expliciet akkoord is gegeven.
-- Android/Samsung praktijktest op de echte probleemtelefoon.
-- Mobiele langere sessietest voor medewerkergebruik.
-- Daarna pas UX/polish.
-- Productie-mail pas bewust aanzetten na expliciet akkoord.
+- `Administratie`
+- planner/admin only.
+- medewerker ziet dit tabblad niet.
+- read-only dashboard.
 
-## 14. Ontwikkelafspraken
+Geen:
 
-- Houd wijzigingen klein en gericht.
-- De app zit nu in stabiliseren/afronden.
-- Geen brede refactors.
-- Geen Supabase-schema/API-wijzigingen zonder vooraf plan.
-- Geen harde deletes tenzij expliciet gevraagd en exact gematcht.
-- Geen echte productie-mails zonder akkoord.
-- Respecteer testmode/live-mode scheiding.
-- Geen oude lokale cache laten winnen van centrale live-data.
-- Bij codewijzigingen minimaal:
+- geen datawijziging.
+- geen API POST/PATCH/DELETE.
+- geen Supabase-schema.
+- geen autosave.
+- geen roosterlogica.
+
+Filters:
+
+- week
+- maand
+- eigen datumrange
+- medewerker
+
+Blokken:
+
+### Urenoverzicht
+
+- gebruikt bestaande `workLogs`.
+- toont totaal uren per medewerker.
+- toont totaal alle medewerkers.
+- dedupe op workLog-id/fallbackkey.
+- knop naar bestaande `Uren controleren`.
+- geen nieuwe print/mail in Administratie zelf.
+
+### Bezorgoverzicht
+
+- gebruikt bestaande delivery-runs read-only.
+- periodefilter.
+- aantal bezorgruns.
+- aantal stops.
+- aantal routes.
+- aantal productregels/laadproducten.
+- aantal warme stops.
+- administratieve bezorgregels apart.
+- geen omzet/winst.
+- geen ritkostenuitbreiding.
+
+### Aanvragenoverzicht
+
+- gebruikt bestaande request-data arrays.
+- telt open/goedgekeurd/afgewezen.
+- telt vrije dagen, ziek, vakantie, beschikbaarheid.
+- telt ruilaanvragen apart.
+- medewerkerfilter werkt voor medewerkergerelateerde aanvragen.
+
+## 8. Aanvragen
+
+Aanvragenflow ondersteunt:
+
+- vrije dag.
+- vakantie.
+- ziekmelding.
+- ruilverzoek.
+- beschikbaarheid: niet beschikbaar / extra beschikbaar.
+
+Planner-aanvragenoverzicht:
+
+- kaartweergave in plaats van tabelachtige horizontale regels.
+- medewerkernaam groot.
+- type aanvraag direct onder naam.
+- datum/periode duidelijk.
+- beschikbaarheidsdagen zichtbaar.
+- aandachtspunten in rustig blok.
+- toelichting in eigen blok.
+- goedkeuren/afwijzen/opmerking onderaan.
+- extra beschikbaarheid duidelijk groen/positief.
+
+Flow:
+
+- goedkeuren blijft bestaande flow.
+- afwijzen blijft bestaande flow.
+- opmerking blijft bestaande flow.
+- mailflow niet aangepast door kaartweergave.
+- opslag/API/Supabase niet aangepast door kaartweergave.
+
+Normalisatie:
+
+- `api/request-data.js` ondersteunt endDate/range veiliger voor beschikbaarheidsaanvragen.
+- Bestaand gedrag voor vakantie/ziek behouden.
+- Geen live aanvragen gewijzigd door de fix.
+
+Tellingen:
+
+- Dashboard/open-aanvragen bug opgelost: teller en lijst gebruiken consistente logica.
+- Open/goedgekeurd/afgewezen tellingen zijn onderdeel van Administratie.
+
+## 9. Beschikbaarheid
+
+Beschikbaarheidsaanvragen zitten onder bestaande tab `Aanvragen`.
+
+Niet beschikbaar:
+
+- vakantie
+- examens
+- studiedag
+- school
+- weekend weg
+- tijdelijk niet beschikbaar
+
+Extra beschikbaar:
+
+- extra beschikbaar
+- extra vakantiewerk
+- extra zaterdag beschikbaar
+
+Gedrag:
+
+- niet beschikbaar = harde blokkade voor planner.
+- extra beschikbaar = scoreboost / voorkeurskandidaat.
+- meerdere weken in een aanvraag mogelijk via van/tot.
+- extra beschikbaarheid toont positief/groen en niet als vrije dag.
+- geen automatische roosterwijziging.
+
+## 10. Uren
+
+Bron:
+
+- `workLogs` is leidend.
+- Geen roosterdata als fallback voor gewerkte uren-overzicht.
+
+Urenfuncties:
+
+- `Uren controleren` voor planner/admin.
+- gewerkte uren overzicht.
+- week/maand/eigen datumrange.
+- medewerkerfilter.
+- totalen per medewerker.
+- totaal alle medewerkers.
+- print urenoverzicht.
+- mailconcept maken.
+
+Print:
+
+- print-only layout.
+- geen app UI/sidebar/knoppen in print.
+- A4 leesbaar.
+
+Mailconcept:
+
+- mailto/lokaal concept.
+- geen automatische verzending.
+- totalen en filters meegenomen.
+
+Statussen workLogs:
+
+- draft
+- open
+- approved
+- rejected
+- revision
+
+Extra gewerkt:
+
+- kan zonder geplande dienst.
+- komt als workLog binnen.
+- planner kan controleren/goedkeuren.
+
+## 11. Beveiliging en Login
+
+Planner / Directie globale login:
+
+- pincode is `1990`.
+- `1234` werkt niet meer voor globale Planner / Directie.
+- oude remembered planner-sessies zijn ongeldig gemaakt via auth-versie.
+
+Medewerkerslogin:
+
+- blijft bestaande medewerkers/account-flow gebruiken.
+- `Bakkerij Stroet / Directie` is een medewerkeraccount en niet hetzelfde als globale Planner / Directie login.
+- `Bakkerij Stroet / Directie` gebruikt employeeMeta/loginPin zoals live data staat.
+- Dennis/Kevin/Jos blijven delivery-medewerkers voor chauffeurmodus.
+- gewone medewerkers behouden hun eigen loginflow.
+
+Belangrijk:
+
+- `DEFAULT_EMPLOYEE_LOGIN_PIN` blijft alleen medewerkerfallback.
+- Planner/directie mag niet via default employee pin binnenkomen.
+- Geen Supabase-datawijziging nodig voor globale plannerpin.
+
+## 12. Roosterplanning en Winkelstructuur
+
+Winkelstructuur:
+
+- oude `Winkel 1` t/m `Winkel 8` is vervangen door generieke `Winkeldienst`.
+- `Allround` bestaat, maar wordt niet automatisch als basisdienst gegenereerd.
+- tijd is leidend.
+- oude data blijft backward-compatible.
+
+Basisbezetting winkel:
+
+- dinsdag: 3 Winkeldiensten.
+- woensdag: 3 Winkeldiensten.
+- donderdag: 3 Winkeldiensten.
+- vrijdag: 4 Winkeldiensten.
+- zaterdag: 6 Winkeldiensten.
+
+Zaterdag:
+
+- minimaal 2 vaste dames op zaterdag Winkeldienst uit Saskia, Wendy, Luna, Monique.
+- zaterdag winkel heeft voorrang boven doordeweekse winkel.
+- zaterdaghulpen draaien niet zonder voldoende vaste dames.
+
+Persoonlijke winkelregels:
+
+- Saskia: oneven week di/do/vr, even week di/vr/za.
+- Wendy: meestal di/wo-ochtend/vr-ochtend/za, ongeveer 1 zaterdag per maand vrij.
+- Luna: flexibel, ongeveer 1 zaterdag per maand vrij.
+- Monique: flexibel, liefst dinsdag vrij, ongeveer 1 zaterdag per maand vrij.
+- Gerry: niet dinsdag, zaterdag alleen als laatste redmiddel.
+
+Bezorgdiensten in planner:
+
+- dinsdag Kevin.
+- woensdag Jos.
+- donderdag Dennis.
+- vrijdag Kevin.
+- zaterdag Kevin.
+- als vaste bezorger afwezig is, niet zomaar iemand anders plannen.
+
+Niek:
+
+- vaste flexibele supportpraktijk:
+  - donderdagmiddag
+  - vrijdagmiddag
+  - zaterdag
+- geen Winkeldienst.
+- wel Allround/Inpak indien bevoegd.
+- geen fallback naar andere medewerkers op Niek-specifieke slots.
+
+Plannerhulpen:
+
+- Weekcontrole.
+- Urenbalans.
+- Open diensten oplossen.
+- Save-confirmation modal.
+- OPEN-redenen in gewone planner-taal.
+- Praktijkpatronen en netto planneruren.
+
+## 13. Medewerkers en Bevoegdheden
+
+Bevoegdheden-UI:
+
+- onder Winkeldiensten nog maar een generieke checkbox `Winkeldienst`.
+- oude Winkeldienst 1-8 rechten blijven intern backward-compatible.
+- oude rechten tellen als geschikt voor generieke Winkeldienst.
+- nieuwe planning gebruikt generieke Winkeldienst.
+
+Medewerkersbeheer:
+
+- planner kan medewerkers beheren.
+- account/pincode-flow via bestaande medewerkers/account-flow.
+- geen schemawijziging.
+
+## 14. Mailveiligheid
+
+Mailveiligheid:
+
+- testmodus stuurt naar `info@bakkerijstroet.nl`.
+- planner ziet mailtestmodus.
+- mailLog bevat logicalRecipients en actualRecipients.
+- testMode en forceTestRecipient zichtbaar.
+- productie-mails niet versturen zonder akkoord.
+
+## 15. Deploy en Techniek
+
+Belangrijke deploymentfixes:
+
+- Vercel static root/output fix.
+- `vercel.json` gebruikt `outputDirectory: "."`.
+- Root route rewrite naar `index.html` voor niet-API routes.
+- Headers/no-cache voor HTML, `app.js`, `styles.css`, `js/*`.
+- `.vercelignore` sluit lokale testprofielen, `.env.txt`, backups en handleidingen uit.
+
+Belangrijke bestanden:
+
+- `app.js`
+- `index.html`
+- `styles.css`
+- `js/features/delivery.js`
+- `api/delivery-parse-pdf.js`
+- `api/delivery-runs.js`
+- `api/request-data.js`
+- `api/work-logs.js`
+- `api/planning-entries.js`
+- `api/employee-data.js`
+- `api/send-email.js`
+- `data/delivery-products.json`
+- `data/delivery-customers.json`
+- `vercel.json`
+- `.vercelignore`
+
+Ontwikkelregels:
+
+- kleine gerichte wijzigingen.
+- geen brede refactor zonder noodzaak.
+- voor code:
   - `git diff --check`
   - `node --check app.js`
-  - relevante API/module `node --check` indien geraakt
-  - handmatige flowtest waar mogelijk
-- Bij documentatie-only:
-  - `git diff --check`
-- Commit met duidelijke message en push naar `main`.
+  - `node --check` voor gewijzigde JS/API modules.
+  - relevante flow testen.
+- daarna:
+  - commit met duidelijke message.
+  - push naar `main`.
+  - Vercel deploy controleren.
+  - live controleren dat wijziging actief is.
+
+## 16. Recente Belangrijke Commits
+
+Selectie van recente live commits:
+
+- `2175ca1` - `Add administration dashboard`
+- `5dcd17c` - `Expand delivery product classification`
+- `e6e0d40` - `Improve delivery order note classification`
+- `de6e63c` - `Improve delivery stop classification`
+- `1364ac9` / `07dcfd8` - OPEN-redenen en labels
+- `fac1535` - weekcontrole
+- `6811694` / `14a51fe` - urenbalans
+- `b8c27ce` / `7bb462e` - beschikbaarheidsaanvragen en UX
+- `d56675f` - ervaren zaterdagbezetting
+- `12355db` - vaste bezorgregels
+- `af0c239` / `01a367b` - praktijkregels slimme planner
+- `b2eb923` / `c8ae83f` - generieke winkelstructuur
+
+## 17. Open Aandachtspunten
+
+Nog bewust te testen/doorontwikkelen:
+
+- Live visuele browsercontrole van Administratie-tab met plannerlogin.
+- Verdere bezorg-parservalidatie met nieuwe echte PDF's.
+- Adviesregels op basis van plannerCorrections later eventueel automatisch voorstellen, maar niet stil toepassen.
+- Eventuele ritblok-print/chauffeurlogica pas na apart akkoord.
+- Volledige productie-mail pas na expliciet akkoord.
+- Supabase productieplan overwegen om inactivity-pauzes te voorkomen.
