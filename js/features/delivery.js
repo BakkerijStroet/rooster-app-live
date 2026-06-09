@@ -56,7 +56,7 @@
   const GENERIC_ADDRESS_PATTERN = /^[A-Za-zÀ-ÿ.' -]+\s+\d+[a-z]?(?:[-/]\d+)?\s*,?\s+[A-Za-zÀ-ÿ.' -]+$/i;
   const PLACE_ONLY_PATTERN = /^(?:Neede|Borculo|Haarlo|Eibergen|Diepenheim)$/i;
   const PRODUCT_COUNT_PATTERN = /^(?:(\d+[,.]?\d*)|(\d+)\s*x|x\s*(\d+))\s+\S+/i;
-  const PRODUCT_CATEGORY_ORDER = ["brood", "gebak", "broodjes", "warm"];
+  const PRODUCT_CATEGORY_ORDER = ["brood", "gebak", "broodjes", "warm", "orderOpmerking", "administratief"];
   const PAYMENT_STATUS_VALUES = ["OK", "Op rekening", "Niet betaald", "Betaald via Ideal", "Contant", "Pin", "Tikkie"];
   const DELIVERY_TIME_ZONE = "Europe/Amsterdam";
   const CURRENT_DELIVERY_PARSER_VERSION = "delivery-local-v5";
@@ -96,6 +96,8 @@
   const NON_CUTTING_BREAD_PATTERN = /\b(broodjes?|bolletjes?|bol\b|punt(?:en)?|pistolet|stokbrood|mini\s+bol|witte\s+punt|rozijnenbol)\b/i;
   const CUTTING_BREAD_PATTERN = /\b(bus|mandje|vloer|volkoren|tarwe|waldkorn|spelt|meergr|hollands\s+grof|grof\s+volkoren|prokorn|poesta|duutse\s+kneud|achterhoek\s+duuster|ruwe\s+bolster|oeoerenwit|admiraal|krentenbrood|rozijnenbrood|krentewegge|zomergranen|zesgranen)\b/i;
   const WARM_PREPARATION_PATTERN = /\b(warm|saucijs|saucijzen|saucijzenbroodje|appelflap|frikandel|worstenbrood|ham[-\s]?kaas|kaassouffle|kroket|snack|pizza)\b/i;
+  const ORDER_REMARK_PATTERN = /\b(?:GESNEDEN\?|VULLING|AFWERKING|FOTO\s+OP\s+ELK\s+STUKJE\?)\s*:/i;
+  const DELIVERY_ADMIN_PRODUCT_PATTERN = /\b(?:Bezorgkosten-\d{4}(?:-\d{4})?|Bezorgen\s+in\s+[A-Za-zÀ-ÿ.' -]+)\b/i;
   function getEmptyRouteAdviceReport() {
     return {
       active: false,
@@ -1240,12 +1242,25 @@
   }
 
   function getProductCategory(line) {
+    if (isOrderRemarkProductLine(line)) {
+      return "orderOpmerking";
+    }
+
+    if (isAdministrativeDeliveryProductLine(line)) {
+      return "administratief";
+    }
+
     const categories = getProductCategories(line);
     return categories.includes("warm") ? "warm" : categories[0] || "";
   }
 
   function getProductCategories(line) {
     const normalizedLine = String(line || "").toLowerCase();
+
+    if (isOrderRemarkProductLine(line) || isAdministrativeDeliveryProductLine(line)) {
+      return [];
+    }
+
     const categories = [...getReferenceProductCategories(line)];
 
     if (WARM_PREPARATION_PATTERN.test(normalizedLine) || /\b(hete|ovenwarm|oven\s*warm|warmhouden)\b/.test(normalizedLine)) {
@@ -1265,6 +1280,32 @@
     }
 
     return PRODUCT_CATEGORY_ORDER.filter((category) => categories.includes(category));
+  }
+
+  function isOrderRemarkProductLine(line) {
+    return ORDER_REMARK_PATTERN.test(String(line || ""));
+  }
+
+  function isAdministrativeDeliveryProductLine(line) {
+    return DELIVERY_ADMIN_PRODUCT_PATTERN.test(String(line || ""));
+  }
+
+  function isAdministrativePostcodeValue(value) {
+    return /\b9999\s?[A-Z]{2}\b/i.test(String(value || ""));
+  }
+
+  function stopHasAdministrativePostcode(stop) {
+    const postcodePlace = getStopPostcodePlace(stop);
+    return isAdministrativePostcodeValue(stop?.postcode) ||
+      isAdministrativePostcodeValue(postcodePlace.postcode) ||
+      isAdministrativePostcodeValue(stop?.address);
+  }
+
+  function isLoadProduct(product) {
+    return !isOrderRemarkProductLine(product?.rawLine) &&
+      !isAdministrativeDeliveryProductLine(product?.rawLine) &&
+      product?.category !== "orderOpmerking" &&
+      product?.category !== "administratief";
   }
 
   function getProductCount(line) {
@@ -1375,6 +1416,24 @@
         line: trimmedLine,
         category: "",
         needsReview: !POSTCODE_PATTERN.test(trimmedLine) && !ADDRESS_PATTERN.test(trimmedLine)
+      };
+    }
+
+    if (isOrderRemarkProductLine(trimmedLine)) {
+      return {
+        type: "orderopmerking",
+        line: trimmedLine,
+        category: "orderOpmerking",
+        needsReview: false
+      };
+    }
+
+    if (isAdministrativeDeliveryProductLine(trimmedLine)) {
+      return {
+        type: "administratief",
+        line: trimmedLine,
+        category: "administratief",
+        needsReview: false
       };
     }
 
@@ -1698,7 +1757,7 @@
 
     nextStop.notes = (Array.isArray(nextStop.notes) ? nextStop.notes : [])
       .filter((note) => !/klantnaam niet herkend/i.test(note));
-    nextStop.needsReview = Boolean(nextStop.notes.length);
+    nextStop.needsReview = Boolean(nextStop.notes.some(isActionableStopReviewNote));
 
     return nextStop;
   }
@@ -1863,11 +1922,14 @@
 
     const category = getProductCategory(line);
     const count = getProductCount(line);
+    const isNonLoadClassification = category === "orderOpmerking" || category === "administratief";
+    const productNeedsReview = !isNonLoadClassification && (needsReview || !count);
+
     stop.products.push({
       rawLine: line,
       count,
       category,
-      needsReview: needsReview || !count
+      needsReview: productNeedsReview
     });
 
     if (category && !stop.categories.includes(category)) {
@@ -1878,7 +1940,7 @@
       applyRemarkToStop(stop, line);
     }
 
-    if (needsReview || !count) {
+    if (productNeedsReview) {
       stop.needsReview = true;
       stop.notes.push(!count ? "controle nodig: aantal niet herkend" : "controle nodig: productregel onzeker");
     }
@@ -2162,7 +2224,7 @@
       timeWindow: definition.timeWindow || "",
       remark: definition.remark || "",
       notes: [...(definition.notes || [])],
-      needsReview: Boolean(definition.notes?.length || !definition.paymentStatus || !definition.timeWindow)
+      needsReview: Boolean(definition.notes?.length || !definition.paymentStatus)
     };
 
     (definition.products || []).forEach((productLine) => {
@@ -2174,7 +2236,7 @@
       }
     });
 
-    if (!stop.products.length) {
+    if (!stop.products.filter(isLoadProduct).length) {
       stop.needsReview = true;
       stop.notes.push("controle nodig: geen productregels aan deze stop gekoppeld");
     }
@@ -2218,11 +2280,10 @@
       return serverColumnStops.map((stop) => ({
         ...stop,
         categories: normalizeCategories(stop.categories),
-        needsReview: stop.needsReview || !stop.paymentStatus || !stop.timeWindow || !stop.remark,
+        needsReview: stop.needsReview || !stop.paymentStatus || !stop.remark,
         notes: [...new Set([
           ...stop.notes,
           ...(!stop.paymentStatus ? ["controle nodig: betaalstatus onduidelijk"] : []),
-          ...(!stop.timeWindow ? ["controle nodig: tijd niet herkend"] : []),
           ...(!stop.remark ? ["controle nodig: opmerking niet herkend"] : [])
         ])]
       }));
@@ -2333,11 +2394,10 @@
     return stops.map((stop) => ({
       ...stop,
       categories: normalizeCategories(stop.categories),
-      needsReview: stop.needsReview || !stop.paymentStatus || !stop.timeWindow || !stop.remark,
+      needsReview: stop.needsReview || !stop.paymentStatus || !stop.remark,
       notes: [...new Set([
         ...stop.notes,
         ...(!stop.paymentStatus ? ["controle nodig: betaalstatus onduidelijk"] : []),
-        ...(!stop.timeWindow ? ["controle nodig: tijd niet herkend"] : []),
         ...(!stop.remark ? ["controle nodig: opmerking niet herkend"] : [])
       ])]
     }));
@@ -2756,7 +2816,7 @@
         start: Number.POSITIVE_INFINITY,
         end: Number.POSITIVE_INFINITY,
         block: Number.POSITIVE_INFINITY,
-        label: "tijd ontbreekt"
+        label: "Flexibele stop (geen tijd opgegeven)"
       };
     }
 
@@ -2778,6 +2838,10 @@
     const postcodeMatch = address.match(/\b([1-9][0-9]{3})\s?([A-Z]{2})\b/);
 
     if (postcodeMatch) {
+      if (postcodeMatch[1] === "9999") {
+        return "";
+      }
+
       return postcodeMatch[1];
     }
 
@@ -2871,7 +2935,7 @@
       return {
         ...time,
         sortMinutes: 24 * 60 + 180,
-        urgencyLabel: "tijd ontbreekt",
+        urgencyLabel: "Flexibele stop (geen tijd opgegeven)",
         missingTime: true,
         beforeDeadline: false
       };
@@ -2914,7 +2978,8 @@
     const customerId = String(stop?.knownCustomerId || stop?.customerId || "").trim();
     const customerName = normalizeReferenceValue(stop?.customerName);
     const postcodePlace = getStopPostcodePlace(stop);
-    const postcode = normalizeReferencePostcode(stop?.postcode || postcodePlace.postcode);
+    const rawPostcode = stop?.postcode || postcodePlace.postcode;
+    const postcode = isAdministrativePostcodeValue(rawPostcode) ? "" : normalizeReferencePostcode(rawPostcode);
 
     return {
       customerId,
@@ -3037,6 +3102,7 @@
     const time = getRouteTimeRuleInfo(stop);
     const areaKey = getRouteAreaKey(stop);
     const placeCluster = getRoutePlaceCluster(stop);
+    const administrativePostcode = stopHasAdministrativePostcode(stop);
     const clusterOrder = getRouteClusterOrder(stop);
     const history = getRouteHistoryPositionScore(stop);
     const pdfIndex = getStopPdfOrderIndex(stop, fallbackIndex);
@@ -3051,7 +3117,8 @@
     const reasons = [
       time.urgencyLabel,
       warm ? "warm product" : "",
-      placeCluster ? `postcode/plaatscluster ${placeCluster}` : (areaKey ? `postcodecluster ${areaKey}` : "postcodecluster onbekend"),
+      administrativePostcode ? "administratieve postcode genegeerd voor routecluster" : "",
+      placeCluster ? `plaatscluster ${placeCluster}` : (areaKey ? `postcodecluster ${areaKey}` : "postcodecluster onbekend"),
       history.label,
       `PDF-volgorde ${pdfIndex + 1}`
     ].filter(Boolean);
@@ -3061,6 +3128,7 @@
       time,
       areaKey,
       placeCluster,
+      administrativePostcode,
       clusterOrder,
       history,
       warm,
@@ -3072,10 +3140,6 @@
   function markRouteProposalReview(stop) {
     const notes = Array.isArray(stop.notes) ? stop.notes : [];
     const nextNotes = [...notes];
-
-    if (!String(stop.timeWindow || "").trim()) {
-      nextNotes.push("controle nodig: tijd ontbreekt voor routevoorstel");
-    }
 
     if (!String(stop.address || "").trim()) {
       nextNotes.push("controle nodig: adres ontbreekt voor routevoorstel");
@@ -3132,7 +3196,7 @@
 
   function buildRouteAdviceReport(stops) {
     const normalizedStops = Array.isArray(stops) ? stops : [];
-    const clusters = new Set(normalizedStops.map(getRouteAreaKey).filter(Boolean));
+    const clusters = new Set(normalizedStops.map((stop) => getRoutePlaceCluster(stop) || getRouteAreaKey(stop)).filter(Boolean));
     const routeCounts = getRouteAdviceRouteCounts(normalizedStops);
     const sampleScores = normalizedStops.map((stop, index) => {
       const advice = getRouteAdviceScore(stop, index);
@@ -3160,7 +3224,7 @@
         warmStopCount ? "Warme stops gebruikt" : "",
         clusters.size ? "Postcodeclusters gebruikt" : "",
         historyMatchedCount ? "Routehistorie gebruikt als lichte tie-breaker" : "",
-        missingTimeCount ? `${missingTimeCount} stop${missingTimeCount === 1 ? "" : "s"} zonder tijd achter tijdstops gehouden` : "",
+        missingTimeCount ? `${missingTimeCount} flexibele stop${missingTimeCount === 1 ? "" : "s"} zonder tijd na tijdkritische stops geplaatst` : "",
         "PDF-volgorde gebruikt als fallback",
         "Alles blijft standaard in Route 1; planner verplaatst zelf naar Route 2",
         historyMatchedCount ? "" : "Routegeschiedenis kan later gebruikt worden voor adviezen"
@@ -3402,7 +3466,7 @@
     const warm = isWarmStop(stop);
     const productCategories = normalizeCategories([
       ...(Array.isArray(stop?.categories) ? stop.categories : []),
-      ...(Array.isArray(stop?.products) ? stop.products.flatMap(getRecognitionProductCategories) : [])
+      ...getLoadProductsForStop(stop).flatMap(getRecognitionProductCategories)
     ]);
     const pastry = !warm && productCategories.includes("gebak");
     const bread = !warm && (productCategories.includes("brood") || productCategories.includes("broodjes"));
@@ -3410,7 +3474,7 @@
       ? Math.max(0, timeInfo.end - timeInfo.start)
       : Number.POSITIVE_INFINITY;
     const exactOrShortWindow = timeInfo.hasTime && windowWidth <= 30;
-    const timeCritical = Boolean(timeInfo.hasTime && (warm || timeInfo.beforeDeadline || (exactOrShortWindow && !pastry)));
+    const timeCritical = Boolean(timeInfo.hasTime && (warm || timeInfo.beforeDeadline || (exactOrShortWindow && !pastry && !bread)));
 
     return {
       stop,
@@ -3488,6 +3552,8 @@
       if (warmGroup.length >= 2 && warmClusters.size >= 2) {
         routeTwoReasons.push(`Warme stops rond ${timeLabel} in verschillende plaatsen.`);
         warmGroup.slice(1).forEach((item) => addRouteCapacitySuggestion(suggestions, item, "warme stop tegelijk met andere plaats"));
+      } else if (warmGroup.length >= 2) {
+        notes.push(`Meerdere warme stops rond ${timeLabel} in dezelfde plaats/cluster: strak plannen, maar geen harde Route 2.`);
       }
 
       if (warmGroup.length && pastryGroup.length) {
@@ -3756,7 +3822,20 @@
       return false;
     }
 
-    return Boolean(stop.needsReview || (Array.isArray(stop.notes) && stop.notes.length));
+    const notes = Array.isArray(stop.notes) ? stop.notes : [];
+    const actionableNotes = notes.filter(isActionableStopReviewNote);
+
+    return Boolean(actionableNotes.length || (stop.needsReview && (!notes.length || actionableNotes.length)));
+  }
+
+  function isActionableStopReviewNote(note) {
+    const value = String(note || "").trim();
+
+    if (!value) {
+      return false;
+    }
+
+    return !/tijd ontbreekt|tijd niet herkend|tijd niet duidelijk/i.test(value);
   }
 
   function normalizePlannerCorrection(correction) {
@@ -3854,8 +3933,8 @@
       return;
     }
 
-    const hasNotes = Array.isArray(stop.notes) && stop.notes.length > 0;
-    const missingBasics = !stop.customerName || !stop.address || !stop.paymentStatus || !stop.timeWindow;
+    const hasNotes = Array.isArray(stop.notes) && stop.notes.some(isActionableStopReviewNote);
+    const missingBasics = !stop.customerName || !stop.address || !stop.paymentStatus;
     stop.needsReview = Boolean(hasNotes || hasStopProblem(stop) || missingBasics);
     if (!stop.needsReview && stop.reviewOverride !== true) {
       stop.reviewOverride = false;
@@ -3993,15 +4072,6 @@
         });
       }
 
-      if (Number(timeConfidence.ontbreekt || 0) > 0) {
-        addDeliveryPlannerQuestion(questions, {
-          key: "server-time-missing",
-          type: "time-summary",
-          text: `Ik mis bij ${timeConfidence.ontbreekt} stop${timeConfidence.ontbreekt === 1 ? "" : "s"} een tijd. Wil je die even controleren?`,
-          priority: 22
-        });
-      }
-
       if (Number(timeConfidence.onzeker || 0) > 0) {
         addDeliveryPlannerQuestion(questions, {
           key: "server-time-uncertain",
@@ -4027,23 +4097,11 @@
       const stopName = getPlannerQuestionStopName(stop);
       const stopIdentity = getStopIdentity(stop, index);
       const notesText = Array.isArray(stop?.notes) ? stop.notes.join(" ") : "";
-      const hasProducts = Array.isArray(stop?.products) && stop.products.length > 0;
+      const hasProducts = Array.isArray(stop?.products) && stop.products.filter(isLoadProduct).length > 0;
       const customerMatch = getRecognitionCustomerMatch(stop);
       const hasUnknownName = !String(stop?.customerName || "").trim() || /klant onbekend/i.test(String(stop?.customerName || ""));
 
-      if (!String(stop?.timeWindow || "").trim()) {
-        addDeliveryPlannerQuestion(questions, {
-          key: `stop-time-missing-${index}`,
-          type: "time",
-          text: `Ik mis een tijd bij ${stopName}. Welke tijd hoort hierbij?`,
-          stopIndex: index,
-          stopId: stopIdentity.stopId,
-          postcode: stopIdentity.postcode,
-          customerName: stopName,
-          originalValue: "",
-          priority: 28
-        });
-      } else if (/controle nodig|\?|onzeker/i.test(String(stop.timeWindow))) {
+      if (String(stop?.timeWindow || "").trim() && /controle nodig|\?|onzeker/i.test(String(stop.timeWindow))) {
         addDeliveryPlannerQuestion(questions, {
           key: `stop-time-uncertain-${index}`,
           type: "time",
@@ -4750,7 +4808,7 @@
     const reviewStops = normalizedStops.filter(stopHasReview);
     const unknownStops = normalizedStops.filter((stop) => !stop.customerName || !stop.address);
     const warmStops = normalizedStops.filter((stop) => isWarmStop(stop));
-    const warmMissingTimeCount = preparation.reviewNotes.filter((note) => note.includes("warm tijd ontbreekt")).length;
+    const warmMissingTimeCount = preparation.reviewNotes.filter((note) => note.includes("warm met flexibele tijd")).length;
 
     return {
       stopCount: normalizedStops.length,
@@ -4786,6 +4844,7 @@
 
   function getRecognitionReport(stops) {
     const normalizedStops = Array.isArray(stops) ? stops : [];
+    const allProducts = normalizedStops.flatMap((stop) => Array.isArray(stop?.products) ? stop.products : []);
     const products = getAllProducts(normalizedStops);
     const customerStats = normalizedStops.reduce((stats, stop) => {
       const match = getRecognitionCustomerMatch(stop);
@@ -4851,6 +4910,8 @@
       products: {
         total: products.length,
         ...productStats,
+        orderRemarks: allProducts.filter((product) => isOrderRemarkProductLine(product?.rawLine) || product?.category === "orderOpmerking").length,
+        administrative: allProducts.filter((product) => isAdministrativeDeliveryProductLine(product?.rawLine) || product?.category === "administratief").length,
         unknownLines: [...new Set(productStats.unknownLines)].slice(0, 8),
         cuttingUncertainLines: [...new Set(productStats.cuttingUncertainLines)].slice(0, 8)
       },
@@ -4968,7 +5029,7 @@
                     ${block.stops.map((item) => `
                       <li>
                         ${escapeHtml(item.stop.customerName || "Klant onbekend")}
-                        ${escapeHtml(item.timeInfo.hasTime ? item.timeInfo.label : "geen tijd")}
+                        ${escapeHtml(item.timeInfo.hasTime ? item.timeInfo.label : "Flexibele stop (geen tijd opgegeven)")}
                         ${item.warm ? "🔥" : ""}
                         <small>Reden: ${escapeHtml(item.reasons.join(" / "))}</small>
                       </li>
@@ -5005,11 +5066,11 @@
           </li>
           <li>
             <strong>C. Controle op herkenning</strong>
-            <small>Stops zonder producten, producten zonder stop, onbekende klant, ontbrekende/onzekere tijd, betaalstatus en parserkwaliteit.</small>
+            <small>Stops zonder laadproducten, producten zonder stop, onbekende klant, onzekere tijd, betaalstatus, flexibele stops en parserkwaliteit.</small>
           </li>
           <li>
             <strong>D. Route maken</strong>
-            <small>Eerst tijd/tijdvenster, dan warme producten, daarna plaats/postcodecluster, routehistorie en PDF-volgorde als fallback.</small>
+            <small>Eerst tijd/tijdvenster, dan warme producten, daarna plaats/adrescluster, routehistorie en PDF-volgorde als fallback. Administratieve 9999-postcodes sturen de route niet.</small>
           </li>
           <li>
             <strong>E. Routecapaciteit controleren</strong>
@@ -5058,10 +5119,6 @@
     const warnings = [];
     const customerMatch = getRecognitionCustomerMatch(stop);
 
-    if (!String(stop?.timeWindow || "").trim()) {
-      warnings.push("tijd ontbreekt");
-    }
-
     if (!Array.isArray(stop?.products) || !stop.products.length) {
       warnings.push("geen productregels gekoppeld");
     }
@@ -5079,6 +5136,20 @@
     }
 
     return [...new Set(warnings)];
+  }
+
+  function getPdfReadCheckLabels(stop) {
+    const labels = [];
+
+    if (!String(stop?.timeWindow || "").trim()) {
+      labels.push("Flexibele stop (geen tijd opgegeven)");
+    }
+
+    if (stopHasAdministrativePostcode(stop)) {
+      labels.push("Administratieve postcode gebruikt");
+    }
+
+    return labels;
   }
 
   function buildPdfReadCheckPages(stops, serverReport) {
@@ -5119,28 +5190,50 @@
 
   function renderPdfReadCheckStop(stop, globalIndex) {
     const products = Array.isArray(stop?.products) ? stop.products : [];
+    const loadProducts = products.filter(isLoadProduct);
+    const orderRemarkProducts = products.filter((product) => isOrderRemarkProductLine(product?.rawLine) || product?.category === "orderOpmerking");
+    const administrativeProducts = products.filter((product) => isAdministrativeDeliveryProductLine(product?.rawLine) || product?.category === "administratief");
     const warnings = getPdfReadCheckWarnings(stop);
+    const labels = getPdfReadCheckLabels(stop);
     const postcodePlace = getStopPostcodePlace(stop);
     const postcodePlaceLabel = [
       stop?.postcode || postcodePlace.postcode,
       postcodePlace.plaats
     ].filter(Boolean).join(" ");
+    const flexibleTimeLabel = stop?.timeWindow || "Flexibele stop (geen tijd opgegeven)";
 
     return `
       <li>
         <strong>${escapeHtml(globalIndex + 1)}. ${escapeHtml(stop?.customerName || "Klant onbekend")}</strong>
         <div><span>Adres:</span> ${escapeHtml(stop?.address || "Adres onbekend")}</div>
         ${postcodePlaceLabel ? `<div><span>Postcode/plaats:</span> ${escapeHtml(postcodePlaceLabel)}</div>` : ""}
-        <div><span>Tijd:</span> ${escapeHtml(stop?.timeWindow || "tijd ontbreekt")}</div>
+        <div><span>Tijd:</span> ${escapeHtml(flexibleTimeLabel)}</div>
         <div><span>Betaald:</span> ${escapeHtml(stop?.paymentStatus || "betaalstatus onbekend")}</div>
+        ${labels.length ? `<small>Labels: ${labels.map(escapeHtml).join(" | ")}</small>` : ""}
         <div>
-          <span>Producten:</span>
-          ${products.length ? `
+          <span>Laadproducten:</span>
+          ${loadProducts.length ? `
             <ul>
-              ${products.map((product) => `<li>${escapeHtml(product.rawLine || "Productregel onbekend")}</li>`).join("")}
+              ${loadProducts.map((product) => `<li>${escapeHtml(product.rawLine || "Productregel onbekend")}</li>`).join("")}
             </ul>
-          ` : "<em>Geen productregels gekoppeld.</em>"}
+          ` : "<em>Geen laadproducten gekoppeld.</em>"}
         </div>
+        ${orderRemarkProducts.length ? `
+          <div>
+            <span>Orderopmerkingen:</span>
+            <ul>
+              ${orderRemarkProducts.map((product) => `<li>${escapeHtml(product.rawLine || "Opmerking onbekend")}</li>`).join("")}
+            </ul>
+          </div>
+        ` : ""}
+        ${administrativeProducts.length ? `
+          <div>
+            <span>Administratief:</span>
+            <ul>
+              ${administrativeProducts.map((product) => `<li>${escapeHtml(product.rawLine || "Administratieve regel onbekend")}</li>`).join("")}
+            </ul>
+          </div>
+        ` : ""}
         ${warnings.length ? `<small>Waarschuwingen: ${warnings.map(escapeHtml).join(" | ")}</small>` : ""}
       </li>
     `;
@@ -5151,7 +5244,7 @@
     const serverReport = latestServerParserReport;
     const pages = buildPdfReadCheckPages(normalizedStops, serverReport);
     const unlinkedProductLines = Array.isArray(serverReport?.unlinkedProductLines) ? serverReport.unlinkedProductLines : [];
-    const noProductStops = normalizedStops.filter((stop) => !Array.isArray(stop?.products) || !stop.products.length);
+    const noProductStops = normalizedStops.filter((stop) => !Array.isArray(stop?.products) || !stop.products.filter(isLoadProduct).length);
     const noTimeStops = normalizedStops.filter((stop) => !String(stop?.timeWindow || "").trim());
     const unknownCustomerStops = normalizedStops.filter((stop) => !getRecognitionCustomerMatch(stop));
     let globalIndex = 0;
@@ -5168,8 +5261,8 @@
           ${renderRecognitionMetric("Parserkwaliteit", serverReport?.quality || (normalizedStops.length ? "lokaal" : "-"), serverReport?.quality === "geblokkeerd" ? "blocked" : "")}
           ${renderRecognitionMetric("Stops", normalizedStops.length)}
           ${renderRecognitionMetric("Ongekoppelde producten", unlinkedProductLines.length, unlinkedProductLines.length ? "warning" : "ok")}
-          ${renderRecognitionMetric("Stops zonder producten", noProductStops.length, noProductStops.length ? "warning" : "")}
-          ${renderRecognitionMetric("Stops zonder tijd", noTimeStops.length, noTimeStops.length ? "warning" : "")}
+          ${renderRecognitionMetric("Stops zonder laadproducten", noProductStops.length, noProductStops.length ? "warning" : "")}
+          ${renderRecognitionMetric("Flexibele stops", noTimeStops.length, noTimeStops.length ? "ok" : "")}
           ${renderRecognitionMetric("Onbekende klantmatch", unknownCustomerStops.length, unknownCustomerStops.length ? "warning" : "")}
         </div>
         ${pages.map((page) => `
@@ -5247,7 +5340,7 @@
           ${renderRecognitionMetric("Trailing-count", report.trailingCountProductRules ?? 0)}
           ${renderRecognitionMetric("Tijden zeker", timeConfidence.zeker ?? 0)}
           ${renderRecognitionMetric("Tijden onzeker", timeConfidence.onzeker ?? 0, timeConfidence.onzeker ? "warning" : "")}
-          ${renderRecognitionMetric("Tijden ontbrekend", timeConfidence.ontbreekt ?? 0, timeConfidence.ontbreekt ? "warning" : "")}
+          ${renderRecognitionMetric("Flexibele stops", timeConfidence.ontbreekt ?? 0, timeConfidence.ontbreekt ? "ok" : "")}
         </div>
         ${pages.length ? `
           <ul class="delivery-recognition-list">
@@ -5336,6 +5429,8 @@
             ${renderRecognitionMetric("Brood", report.products.bread)}
             ${renderRecognitionMetric("Banket", report.products.pastry)}
             ${renderRecognitionMetric("Warm", report.products.warm)}
+            ${renderRecognitionMetric("Orderopmerkingen", report.products.orderRemarks)}
+            ${renderRecognitionMetric("Administratief", report.products.administrative)}
             ${renderRecognitionMetric("Onbekend", report.products.unknown, report.products.unknown ? "warning" : "")}
             ${renderRecognitionMetric("Snijden onzeker", report.products.cuttingUncertain, report.products.cuttingUncertain ? "warning" : "")}
           </div>
@@ -5426,14 +5521,10 @@
       return [];
     }
 
-    const notes = Array.isArray(stop?.notes) ? stop.notes : [];
+    const notes = Array.isArray(stop?.notes) ? stop.notes.filter(isActionableStopReviewNote) : [];
 
     if (!stop?.paymentStatus) {
       reasons.push("betaalstatus ontbreekt");
-    }
-
-    if (!stop?.timeWindow) {
-      reasons.push("tijd ontbreekt");
     }
 
     if (!stop?.address || stop.needsReview && /controle nodig: klantnaam niet herkend|geen adres|adres/i.test(notes.join(" "))) {
@@ -6459,7 +6550,7 @@
         <h4>Warm/snacks</h4>
         <strong>${stats.warmStopCount} stop${stats.warmStopCount === 1 ? "" : "s"}</strong>
         <span>${stats.warmCount} stuks warm</span>
-        <span>${hasStops ? (stats.warmMissingTimeCount ? `${stats.warmMissingTimeCount} tijd ontbreekt` : "Tijdcontrole rustig") : "Nog geen warm-check"}</span>
+        <span>${hasStops ? (stats.warmMissingTimeCount ? `${stats.warmMissingTimeCount} flexibele warme stop` : "Tijdcontrole rustig") : "Nog geen warm-check"}</span>
       </section>
       <section class="delivery-dashboard-cardlet">
         <h4>Betalingen</h4>
@@ -8259,7 +8350,7 @@
     const productCount = String(product?.count || "").trim();
     const productName = getProductDisplayName(product, productCount);
 
-    return /^bezorgen\b/i.test(productName);
+    return isAdministrativeDeliveryProductLine(product?.rawLine) || /^bezorgen\b/i.test(productName);
   }
 
   function isWarmLoadProduct(product) {
@@ -8268,7 +8359,7 @@
 
   function getLoadProductsForStop(stop) {
     return getSortedProductsForStop(stop)
-      .filter((product) => !isDeliveryCostProduct(product))
+      .filter((product) => isLoadProduct(product) && !isDeliveryCostProduct(product))
       .sort((productA, productB) => {
         const warmDelta = (isWarmLoadProduct(productB) ? 1 : 0) - (isWarmLoadProduct(productA) ? 1 : 0);
 
@@ -8298,7 +8389,7 @@
     const stopsWithProducts = (Array.isArray(stops) ? stops : [])
       .map((stop) => ({
         ...stop,
-        products: getSortedProductsForStop(stop)
+        products: getLoadProductsForStop(stop)
       }))
       .filter((stop) => stop.products.length);
 
@@ -8343,7 +8434,7 @@
 
   function getAllProducts(stops) {
     return (Array.isArray(stops) ? stops : []).flatMap((stop) =>
-      getSortedProductsForStop(stop).map((product) => ({
+      getLoadProductsForStop(stop).map((product) => ({
         ...product,
         customerName: stop.customerName || "",
         address: stop.address || "",
@@ -8501,7 +8592,7 @@
         const productTime = getFirstTimeMinutes(product.timeWindow);
 
         if (productTime === null) {
-          reviewNotes.push(`warm tijd ontbreekt: ${product.customerName || "Klant onbekend"} - ${product.rawLine}`);
+          reviewNotes.push(`warm met flexibele tijd: ${product.customerName || "Klant onbekend"} - ${product.rawLine}`);
         } else if (earliestWarmTime === null || productTime < earliestWarmTime) {
           earliestWarmTime = productTime;
         }
@@ -8514,7 +8605,7 @@
     const ovenMomentLabel = warmCount && earliestWarmTime !== null
       ? `${formatClock(earliestWarmTime - ovenMinutes - packingMinutes)} voor eerste warme stop ${formatClock(earliestWarmTime)}`
       : warmCount
-        ? "controle nodig: tijd ontbreekt"
+        ? "flexibele tijd controleren bij warme producten"
         : "Geen warm/snacks gevonden";
 
     return {
