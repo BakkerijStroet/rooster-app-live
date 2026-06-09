@@ -290,6 +290,17 @@ const hoursReportPrintButton = document.getElementById("hoursReportPrintButton")
 const hoursReportMailButton = document.getElementById("hoursReportMailButton");
 const hoursReportPanel = document.getElementById("hoursReportPanel");
 const hoursReportMailConcept = document.getElementById("hoursReportMailConcept");
+const administrationPeriodSelect = document.getElementById("administrationPeriod");
+const administrationWeekLabel = document.getElementById("administrationWeekLabel");
+const administrationWeekInput = document.getElementById("administrationWeek");
+const administrationMonthLabel = document.getElementById("administrationMonthLabel");
+const administrationMonthInput = document.getElementById("administrationMonth");
+const administrationStartLabel = document.getElementById("administrationStartLabel");
+const administrationStartDateInput = document.getElementById("administrationStartDate");
+const administrationEndLabel = document.getElementById("administrationEndLabel");
+const administrationEndDateInput = document.getElementById("administrationEndDate");
+const administrationEmployeeSelect = document.getElementById("administrationEmployee");
+const administrationDashboard = document.getElementById("administrationDashboard");
 const myHoursSectionSwitch = document.getElementById("myHoursSectionSwitch");
 const myHoursFillButton = document.getElementById("myHoursFillButton");
 const myHoursTodayButton = document.getElementById("myHoursTodayButton");
@@ -1719,6 +1730,11 @@ let hoursReportCentralWorkLogsLoading = false;
 let hoursReportCentralWorkLogsError = "";
 let hoursReportCentralWorkLogs = [];
 let workLogCentralSnapshotSignature = "";
+let administrationDeliveryRunsLoaded = false;
+let administrationDeliveryRunsLoading = false;
+let administrationDeliveryRunsError = "";
+let administrationDeliveryRuns = [];
+let administrationDeliveryRunsMode = "";
 let lastWorkLogCentralSyncError = null;
 
 function isWorkLogCentralSyncEnabled() {
@@ -8592,6 +8608,513 @@ function getHoursReportEmployeeOptions() {
   ]
     .filter((employeeName) => employeeName && employeeName !== "Open")
     .sort((nameA, nameB) => nameA.localeCompare(nameB, "nl"));
+}
+
+function getAdministrationPeriodType() {
+  return administrationPeriodSelect?.value === "month"
+    ? "month"
+    : administrationPeriodSelect?.value === "custom"
+      ? "custom"
+      : "week";
+}
+
+function getAdministrationSelection() {
+  const periodType = getAdministrationPeriodType();
+  const weekValue = String(administrationWeekInput?.value || getCurrentWeekValue()).trim();
+  const monthValue = String(administrationMonthInput?.value || getCurrentMonthValue()).trim();
+  const customStartDate = String(administrationStartDateInput?.value || "").trim();
+  const customEndDate = String(administrationEndDateInput?.value || customStartDate || "").trim();
+  const employeeName = String(administrationEmployeeSelect?.value || "").trim();
+
+  if (periodType === "month") {
+    const { startDate, endDate } = getMonthBounds(monthValue);
+
+    return {
+      periodType,
+      periodLabel: formatMonthLabel(monthValue),
+      startDate,
+      endDate,
+      employeeName
+    };
+  }
+
+  if (periodType === "custom") {
+    const safeStartDate = customStartDate && customEndDate && customEndDate < customStartDate ? customEndDate : customStartDate;
+    const safeEndDate = customStartDate && customEndDate && customEndDate < customStartDate ? customStartDate : customEndDate;
+
+    return {
+      periodType,
+      periodLabel: safeStartDate && safeEndDate ? `${formatDate(safeStartDate)} - ${formatDate(safeEndDate)}` : "Eigen periode",
+      startDate: safeStartDate,
+      endDate: safeEndDate,
+      employeeName
+    };
+  }
+
+  const weekDates = getWeekDates(weekValue);
+
+  return {
+    periodType,
+    periodLabel: `Week ${weekValue.replace("-W", "-")}`,
+    startDate: weekDates[0] || "",
+    endDate: weekDates[weekDates.length - 1] || "",
+    employeeName
+  };
+}
+
+function syncAdministrationControls() {
+  if (!administrationPeriodSelect) {
+    return;
+  }
+
+  const periodType = getAdministrationPeriodType();
+
+  if (administrationWeekInput && !administrationWeekInput.value) {
+    administrationWeekInput.value = approvalWeekInput?.value || getCurrentWeekValue();
+  }
+
+  if (administrationMonthInput && !administrationMonthInput.value) {
+    administrationMonthInput.value = getCurrentMonthValue();
+  }
+
+  if (administrationStartDateInput && !administrationStartDateInput.value) {
+    const weekDates = getWeekDates(administrationWeekInput?.value || getCurrentWeekValue());
+    administrationStartDateInput.value = weekDates[0] || getTodayLocalDateValue();
+  }
+
+  if (administrationEndDateInput && !administrationEndDateInput.value) {
+    const weekDates = getWeekDates(administrationWeekInput?.value || getCurrentWeekValue());
+    administrationEndDateInput.value = weekDates[weekDates.length - 1] || getTodayLocalDateValue();
+  }
+
+  administrationWeekLabel?.classList.toggle("hidden", periodType !== "week");
+  administrationMonthLabel?.classList.toggle("hidden", periodType !== "month");
+  administrationStartLabel?.classList.toggle("hidden", periodType !== "custom");
+  administrationEndLabel?.classList.toggle("hidden", periodType !== "custom");
+
+  if (administrationEmployeeSelect) {
+    const selectedEmployee = administrationEmployeeSelect.value || "";
+    const options = [
+      ...new Set([
+        ...getHoursReportEmployeeOptions(),
+        ...timeOffRequests.map((request) => request.employeeName),
+        ...swapRequests.flatMap((request) => [request.employeeName, request.targetEmployeeName, request.offeredBy, request.swapWithEmployee])
+      ].filter(Boolean))
+    ].sort((nameA, nameB) => nameA.localeCompare(nameB, "nl"));
+
+    administrationEmployeeSelect.innerHTML = `<option value="">Alle medewerkers</option>${buildEmployeeOptions(options)}`;
+    administrationEmployeeSelect.value = options.includes(selectedEmployee) ? selectedEmployee : "";
+  }
+}
+
+async function loadAdministrationDeliveryRuns() {
+  const deliveryRunsMode = "test";
+
+  if (administrationDeliveryRunsMode && administrationDeliveryRunsMode !== deliveryRunsMode) {
+    administrationDeliveryRunsLoaded = false;
+    administrationDeliveryRuns = [];
+    administrationDeliveryRunsError = "";
+  }
+
+  if (!isPlannerRole() || administrationDeliveryRunsLoading || administrationDeliveryRunsLoaded) {
+    return;
+  }
+
+  administrationDeliveryRunsLoading = true;
+  administrationDeliveryRunsError = "";
+  administrationDeliveryRunsMode = deliveryRunsMode;
+
+  try {
+    const response = await fetch(`/api/delivery-runs?mode=${encodeURIComponent(deliveryRunsMode)}`, {
+      method: "GET"
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(payload?.message || "Bezorgruns laden mislukt.");
+    }
+
+    administrationDeliveryRuns = Array.isArray(payload?.runs) ? payload.runs : [];
+    administrationDeliveryRunsLoaded = true;
+  } catch (error) {
+    administrationDeliveryRunsError = error instanceof Error ? error.message : String(error);
+  } finally {
+    administrationDeliveryRunsLoading = false;
+    if (activeTab === "administration") {
+      renderAdministrationDashboard();
+    }
+  }
+}
+
+function getAdministrationDeliveryRunDate(run = {}) {
+  return String(
+    run?.payload?.deliveryDate ||
+    run?.payload?.source?.uploadedAt ||
+    run?.createdAt ||
+    run?.updatedAt ||
+    ""
+  ).slice(0, 10);
+}
+
+function getAdministrationDeliveryStopsFromRun(run = {}) {
+  const payload = run?.payload || {};
+  const routeBlocks = Array.isArray(payload.routeBlocks) ? payload.routeBlocks : [];
+
+  if (routeBlocks.length) {
+    return routeBlocks.flatMap((routeBlock) =>
+      Array.isArray(routeBlock?.stops)
+        ? routeBlock.stops.map((stop) => ({
+            ...stop,
+            routeNumber: Number(stop?.routeNumber || routeBlock.routeNumber || 1) || 1
+          }))
+        : []
+    );
+  }
+
+  if (Array.isArray(payload.routeStops)) {
+    return payload.routeStops;
+  }
+
+  if (Array.isArray(payload.stops)) {
+    return payload.stops;
+  }
+
+  return [];
+}
+
+function getAdministrationDeliveryRouteCount(run = {}) {
+  const payload = run?.payload || {};
+  const routeBlocks = Array.isArray(payload.routeBlocks) ? payload.routeBlocks : [];
+
+  if (routeBlocks.length) {
+    return routeBlocks.filter((routeBlock) => Array.isArray(routeBlock?.stops) && routeBlock.stops.length > 0).length;
+  }
+
+  const routeNumbers = new Set(
+    getAdministrationDeliveryStopsFromRun(run)
+      .map((stop) => Number(stop?.routeNumber || stop?.route || 1) || 1)
+  );
+
+  return routeNumbers.size || (getAdministrationDeliveryStopsFromRun(run).length ? 1 : 0);
+}
+
+function isAdministrationWarmProduct(product = {}) {
+  const rawLine = String(product?.rawLine || product?.name || product?.product || product || "");
+  return /\bWARM\b|saucijs|saucijzen|snack|breudje\s+trump/i.test(rawLine);
+}
+
+function isAdministrationAdministrativeDeliveryLine(product = {}) {
+  const rawLine = String(product?.rawLine || product?.name || product?.product || product || "").trim();
+  return /^bezorgkosten[-\s]/i.test(rawLine) || /^bezorgen\s+in\s+/i.test(rawLine) || product?.category === "administratief";
+}
+
+function getAdministrationDeliverySummary(selection) {
+  const runs = administrationDeliveryRuns
+    .filter((run) => {
+      const runDate = getAdministrationDeliveryRunDate(run);
+      return runDate && runDate >= selection.startDate && runDate <= selection.endDate;
+    });
+
+  return runs.reduce((summary, run) => {
+    const stops = getAdministrationDeliveryStopsFromRun(run);
+    const routeCount = getAdministrationDeliveryRouteCount(run);
+    const products = stops.flatMap((stop) => Array.isArray(stop?.products) ? stop.products : []);
+    const administrativeProducts = products.filter(isAdministrationAdministrativeDeliveryLine);
+    const loadProducts = products.filter((product) => !isAdministrationAdministrativeDeliveryLine(product));
+
+    summary.runs += 1;
+    summary.stops += stops.length;
+    summary.routes += routeCount;
+    summary.productRules += loadProducts.length;
+    summary.administrativeRules += administrativeProducts.length;
+    summary.warmStops += stops.filter((stop) =>
+      (Array.isArray(stop?.products) ? stop.products : [])
+        .filter((product) => !isAdministrationAdministrativeDeliveryLine(product))
+        .some(isAdministrationWarmProduct)
+    ).length;
+    return summary;
+  }, {
+    runs: 0,
+    stops: 0,
+    routes: 0,
+    productRules: 0,
+    warmStops: 0,
+    administrativeRules: 0
+  });
+}
+
+function getAdministrationHoursSummary(selection) {
+  const seenRows = new Set();
+  const rows = getHoursReportRows(selection).filter((row) => {
+    const rowKey = row.id || [
+      row.employeeName,
+      row.day,
+      row.shiftName,
+      row.actualStart,
+      row.actualEnd,
+      row.breakMinutes
+    ].join("|");
+
+    if (seenRows.has(rowKey)) {
+      return false;
+    }
+
+    seenRows.add(rowKey);
+    return true;
+  });
+  const validRows = rows.filter((row) => Number.isFinite(row.workedHours));
+  const { totalsByEmployee, totalHours } = getHoursReportTotals(validRows);
+
+  return {
+    rows,
+    validRows,
+    totalsByEmployee,
+    totalHours,
+    invalidCount: rows.length - validRows.length
+  };
+}
+
+function normalizeAdministrationRequestStatus(request = {}) {
+  const rawStatus = String(request?.status || "").trim().toLowerCase();
+
+  if (["approved", "goedgekeurd"].includes(rawStatus)) {
+    return "approved";
+  }
+
+  if (["rejected", "afgewezen", "declined"].includes(rawStatus)) {
+    return "rejected";
+  }
+
+  if (["withdrawn", "ingetrokken", "deleted"].includes(rawStatus)) {
+    return "withdrawn";
+  }
+
+  const displayStatus = getRequestDisplayStatus(request);
+  if (displayStatus === "approved" || displayStatus === "rejected") {
+    return displayStatus;
+  }
+
+  return "open";
+}
+
+function requestMatchesAdministrationSelection(request = {}, requestType = "timeoff", selection = getAdministrationSelection()) {
+  if (isDeletedRequest(request) || normalizeAdministrationRequestStatus(request) === "withdrawn") {
+    return false;
+  }
+
+  const employeeNames = requestType === "swap"
+    ? [request.employeeName, request.targetEmployeeName, request.offeredBy, request.swapWithEmployee]
+    : [request.employeeName];
+  const matchesEmployee = !selection.employeeName || employeeNames.some((employeeName) => employeeName === selection.employeeName);
+
+  if (!matchesEmployee) {
+    return false;
+  }
+
+  const startDate = requestType === "swap" ? (request.date || "") : getTimeOffStartDate(request);
+  const endDate = requestType === "swap" ? startDate : getTimeOffEndDate(request);
+
+  return Boolean(startDate) && startDate <= selection.endDate && (endDate || startDate) >= selection.startDate;
+}
+
+function getAdministrationRequestTypeKey(request = {}, requestType = "timeoff") {
+  if (requestType === "swap") {
+    return "swap";
+  }
+
+  if (isAvailabilityRequest(request)) {
+    return "availability";
+  }
+
+  const normalizedType = normalizeTimeOffRequestType(request?.availabilityType || request?.type || "");
+
+  if (normalizedType === "ziek") {
+    return "sick";
+  }
+
+  if (normalizedType === "vakantie") {
+    return "vacation";
+  }
+
+  return "free";
+}
+
+function getAdministrationRequestsSummary(selection) {
+  const summary = {
+    open: 0,
+    approved: 0,
+    rejected: 0,
+    free: 0,
+    sick: 0,
+    vacation: 0,
+    availability: 0,
+    swaps: 0
+  };
+
+  [
+    ...timeOffRequests.map((request) => ({ request, requestType: "timeoff" })),
+    ...swapRequests.map((request) => ({ request, requestType: "swap" }))
+  ]
+    .filter((item) => requestMatchesAdministrationSelection(item.request, item.requestType, selection))
+    .forEach(({ request, requestType }) => {
+      const statusKey = normalizeAdministrationRequestStatus(request);
+      const typeKey = getAdministrationRequestTypeKey(request, requestType);
+
+      if (statusKey === "approved") {
+        summary.approved += 1;
+      } else if (statusKey === "rejected") {
+        summary.rejected += 1;
+      } else {
+        summary.open += 1;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(summary, typeKey)) {
+        summary[typeKey] += 1;
+      }
+    });
+
+  return summary;
+}
+
+function renderAdministrationMetric(label, value, help = "") {
+  return `
+    <div class="administration-metric">
+      <span>${escapeHtmlAttribute(label)}</span>
+      <strong>${escapeHtmlAttribute(String(value))}</strong>
+      ${help ? `<small>${escapeHtmlAttribute(help)}</small>` : ""}
+    </div>
+  `;
+}
+
+function renderAdministrationHoursBlock(selection) {
+  const summary = getAdministrationHoursSummary(selection);
+  const employeeTotals = Object.entries(summary.totalsByEmployee)
+    .sort(([nameA], [nameB]) => nameA.localeCompare(nameB, "nl"));
+
+  return `
+    <article class="administration-card administration-hours-card">
+      <header class="administration-card-head">
+        <div>
+          <h3>Uren</h3>
+          <p>${escapeHtmlAttribute(selection.employeeName || "Alle medewerkers")}</p>
+        </div>
+        <button type="button" class="secondary" data-administration-go-tab="hours-approval">Naar Uren controleren</button>
+      </header>
+      <div class="administration-metric-grid">
+        ${renderAdministrationMetric("Urenregels", summary.rows.length)}
+        ${renderAdministrationMetric("Totaal uren", formatHours(summary.totalHours))}
+        ${renderAdministrationMetric("Medewerkers", employeeTotals.length)}
+      </div>
+      ${summary.invalidCount ? `<div class="administration-note">${summary.invalidCount} urenregel(s) zonder geldig totaal tellen niet mee.</div>` : ""}
+      <div class="administration-list ${employeeTotals.length ? "" : "empty"}">
+        ${employeeTotals.length
+          ? employeeTotals.map(([employeeName, hours]) => `
+              <div class="administration-list-row">
+                <span>${escapeHtmlAttribute(employeeName)}</span>
+                <strong>${formatHours(hours)}</strong>
+              </div>
+            `).join("")
+          : "Geen urenregistraties in deze selectie."}
+      </div>
+    </article>
+  `;
+}
+
+function renderAdministrationDeliveryBlock(selection) {
+  if (!administrationDeliveryRunsLoaded && !administrationDeliveryRunsLoading && !administrationDeliveryRunsError) {
+    void loadAdministrationDeliveryRuns();
+  }
+
+  const summary = getAdministrationDeliverySummary(selection);
+  const statusText = administrationDeliveryRunsLoading
+    ? "Bezorgruns laden..."
+    : administrationDeliveryRunsError
+      ? `Bezorgruns laden mislukt: ${administrationDeliveryRunsError}`
+      : "";
+
+  return `
+    <article class="administration-card">
+      <header class="administration-card-head">
+        <div>
+          <h3>Bezorging</h3>
+          <p>Opgeslagen bezorgruns</p>
+        </div>
+      </header>
+      ${statusText ? `<div class="administration-note">${escapeHtmlAttribute(statusText)}</div>` : ""}
+      <div class="administration-metric-grid">
+        ${renderAdministrationMetric("Bezorgruns", summary.runs)}
+        ${renderAdministrationMetric("Stops", summary.stops)}
+        ${renderAdministrationMetric("Routes", summary.routes)}
+        ${renderAdministrationMetric("Productregels", summary.productRules)}
+        ${renderAdministrationMetric("Warme stops", summary.warmStops)}
+        ${renderAdministrationMetric("Administratief", summary.administrativeRules)}
+      </div>
+    </article>
+  `;
+}
+
+function renderAdministrationRequestsBlock(selection) {
+  const summary = getAdministrationRequestsSummary(selection);
+
+  return `
+    <article class="administration-card">
+      <header class="administration-card-head">
+        <div>
+          <h3>Aanvragen</h3>
+          <p>${escapeHtmlAttribute(selection.employeeName || "Alle medewerkers")}</p>
+        </div>
+        <button type="button" class="secondary" data-administration-go-tab="requests">Naar Aanvragen</button>
+      </header>
+      <div class="administration-metric-grid">
+        ${renderAdministrationMetric("Open", summary.open)}
+        ${renderAdministrationMetric("Goedgekeurd", summary.approved)}
+        ${renderAdministrationMetric("Afgewezen", summary.rejected)}
+        ${renderAdministrationMetric("Vrije dagen", summary.free)}
+        ${renderAdministrationMetric("Ziek", summary.sick)}
+        ${renderAdministrationMetric("Vakantie", summary.vacation)}
+        ${renderAdministrationMetric("Beschikbaarheid", summary.availability)}
+        ${renderAdministrationMetric("Ruilaanvragen", summary.swaps)}
+      </div>
+    </article>
+  `;
+}
+
+function renderAdministrationDashboard() {
+  if (!administrationDashboard) {
+    return;
+  }
+
+  if (!isPlannerRole()) {
+    administrationDashboard.innerHTML = "";
+    return;
+  }
+
+  syncAdministrationControls();
+
+  const selection = getAdministrationSelection();
+
+  if (!selection.startDate || !selection.endDate) {
+    administrationDashboard.innerHTML = `<div class="administration-empty">Kies een geldige periode.</div>`;
+    return;
+  }
+
+  administrationDashboard.innerHTML = `
+    <section class="administration-summary">
+      <div>
+        <span>Periode</span>
+        <strong>${escapeHtmlAttribute(selection.periodLabel)}</strong>
+      </div>
+      <div>
+        <span>Datums</span>
+        <strong>${escapeHtmlAttribute(formatDate(selection.startDate))} - ${escapeHtmlAttribute(formatDate(selection.endDate))}</strong>
+      </div>
+    </section>
+    <div class="administration-card-grid">
+      ${renderAdministrationHoursBlock(selection)}
+      ${renderAdministrationDeliveryBlock(selection)}
+      ${renderAdministrationRequestsBlock(selection)}
+    </div>
+  `;
 }
 
 function renderHoursReportPreview() {
@@ -31596,6 +32119,11 @@ function renderActiveTabContent() {
     return;
   }
 
+  if (activeTab === "administration") {
+    renderAdministrationDashboard();
+    return;
+  }
+
   if (activeTab === "week-current" || activeTab === "week-next") {
     renderEmployeeFilterOptions();
     updateWeekViewTitle();
@@ -37125,6 +37653,40 @@ hoursReportPrintButton?.addEventListener("click", () => {
 hoursReportMailButton?.addEventListener("click", () => {
   renderHoursReportPreview();
   renderHoursReportMailConcept();
+});
+
+administrationPeriodSelect?.addEventListener("change", () => {
+  renderAdministrationDashboard();
+});
+
+administrationWeekInput?.addEventListener("change", () => {
+  renderAdministrationDashboard();
+});
+
+administrationMonthInput?.addEventListener("change", () => {
+  renderAdministrationDashboard();
+});
+
+administrationStartDateInput?.addEventListener("change", () => {
+  renderAdministrationDashboard();
+});
+
+administrationEndDateInput?.addEventListener("change", () => {
+  renderAdministrationDashboard();
+});
+
+administrationEmployeeSelect?.addEventListener("change", () => {
+  renderAdministrationDashboard();
+});
+
+administrationDashboard?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-administration-go-tab]");
+
+  if (!button || !isPlannerRole()) {
+    return;
+  }
+
+  setActiveTab(button.dataset.administrationGoTab || "dashboard");
 });
 
 roleSelect.addEventListener("change", () => {

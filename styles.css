@@ -6733,6 +6733,165 @@ body[data-role="employee"][data-employee-locked="true"] .director-screen-toolbar
   font: inherit;
 }
 
+.administration-panel {
+  gap: 14px;
+}
+
+.administration-toolbar {
+  align-items: end;
+}
+
+.administration-dashboard {
+  display: grid;
+  gap: 14px;
+}
+
+.administration-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-primary-soft);
+}
+
+.administration-summary div {
+  display: grid;
+  gap: 2px;
+  min-width: 180px;
+}
+
+.administration-summary span,
+.administration-card-head p,
+.administration-note,
+.administration-empty,
+.administration-metric small {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.administration-summary strong {
+  font-size: 15px;
+}
+
+.administration-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.administration-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.administration-card-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.administration-card-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.administration-card-head p {
+  margin: 3px 0 0;
+}
+
+.administration-card-head button {
+  flex: 0 0 auto;
+  min-height: 34px;
+}
+
+.administration-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.administration-metric {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-primary-soft);
+}
+
+.administration-metric span {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.administration-metric strong {
+  font-size: 1.18rem;
+  line-height: 1.15;
+}
+
+.administration-list {
+  display: grid;
+  gap: 6px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.administration-list.empty,
+.administration-empty {
+  padding: 12px;
+  border: 1px dashed var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-muted);
+}
+
+.administration-list-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  font-size: 13px;
+}
+
+.administration-list-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1100px) {
+  .administration-card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .administration-card-head {
+    display: grid;
+  }
+
+  .administration-card-head button,
+  .administration-metric-grid {
+    width: 100%;
+  }
+
+  .administration-metric-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .hours-control-week-actions {
   align-items: end;
 }
