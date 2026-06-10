@@ -6097,6 +6097,49 @@ textarea.input-error {
   gap: 10px;
 }
 
+.willem-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
+  border-left: 4px solid var(--color-surface-soft-active);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(var(--color-surface-rgb), 0.98), rgba(var(--color-primary-rgb), 0.08));
+  box-shadow: 0 10px 24px rgba(var(--color-primary-rgb), 0.08);
+}
+
+.willem-card__avatar {
+  display: block;
+  flex: 0 0 auto;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--color-surface);
+  box-shadow: 0 4px 14px rgba(var(--color-shadow-rgb), 0.08);
+}
+
+.willem-card__content {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.willem-card__title {
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.willem-card__text {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 .dashboard-item {
   display: grid;
   gap: 6px;

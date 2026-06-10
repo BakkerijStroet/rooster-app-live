@@ -29803,6 +29803,13 @@ function renderDashboard() {
   };
 
   plannerDashboard.innerHTML = `
+    <article class="willem-card">
+      <img src="/mascot/willem/willem-avatar-v1.png" alt="Willem van Bakkerij Stroet" class="willem-card__avatar">
+      <div class="willem-card__content">
+        <strong class="willem-card__title">Willem zegt:</strong>
+        <p class="willem-card__text">Goedemorgen! Alles staat klaar voor vandaag.</p>
+      </div>
+    </article>
     <section class="panel-section">
       <h3>Vandaag nodig</h3>
       <div class="dashboard-grid">
