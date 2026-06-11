@@ -505,20 +505,8 @@
         <div class="login-card login-card--willem">
           <div class="login-brand">
             <img src="/mascot/willem/willem-avatar-v1.png" alt="Willem van Bakkerij Stroet" class="login-brand-willem">
-            <div class="login-brand-copy">
-              <strong>Welkom bij Stroet!</strong>
-              <span>Willem helpt je snel inloggen</span>
-            </div>
-          </div>
-          <div class="login-willem-message" aria-label="Willem helpt met inloggen">
-            <img src="/mascot/willem/willem-avatar-v1.png" alt="Willem van Bakkerij Stroet" class="login-willem-avatar">
-            <div class="login-willem-copy">
-              <strong>Goedemorgen!</strong>
-              <span>Willem helpt je met inloggen.</span>
-            </div>
           </div>
           <h2 id="loginOverlayTitle">Welkom bij Stroet!</h2>
-          <p class="panel-note" id="loginOverlayNote">Tik je naam aan en voer je pincode in.</p>
           <div id="loginEmployeeTilesPanel" class="login-employee-panel">
             <div class="login-panel-heading">
               <span>Medewerkers</span>
@@ -527,7 +515,6 @@
             <div id="loginEmployeeTiles" class="login-employee-tiles" aria-label="Medewerkers"></div>
           </div>
           <div id="loginPinPanel" class="login-pin-panel hidden">
-            <button type="button" id="loginBackToEmployeesButton" class="secondary login-back-button">Terug naar namen</button>
             <div class="login-selected-user">
               <span>Inloggen als</span>
               <strong id="loginSelectedEmployeeName">Medewerker</strong>
@@ -572,6 +559,7 @@
           <div class="form-actions compact-actions">
             <button type="button" id="loginConfirmButton">Inloggen als planner</button>
           </div>
+          <button type="button" id="loginBackToEmployeesButton" class="secondary login-back-button hidden">Terug</button>
           <small id="loginAppVersion" style="display:block;margin-top:10px;text-align:center;color:#7a685c;font-size:0.78rem;">versie 20260604-planner-pin-security</small>
         </div>
       </section>

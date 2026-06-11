@@ -1157,9 +1157,25 @@ function getAvailableLoginEmployees() {
   const modeEmployees = getEmployeesForMode(selectedMode);
   const modeEmployeeMeta = getEmployeeMetaForMode(selectedMode, modeEmployees);
   return modeEmployees.filter((employeeName) =>
+    isRealEmployeeLoginName(employeeName) &&
     normalizeEmployeeStatus(modeEmployeeMeta?.[employeeName]?.status) === "active" &&
     modeEmployeeMeta?.[employeeName]?.loginAllowed !== false
   );
+}
+
+function isRealEmployeeLoginName(employeeName) {
+  const normalizedName = String(employeeName || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+  if (!normalizedName) {
+    return false;
+  }
+
+  return normalizedName !== "open" &&
+    !normalizedName.includes("directie") &&
+    !normalizedName.includes("bakkerij stroet");
 }
 
 function clearPlannerPinInput() {
@@ -12644,6 +12660,7 @@ function updateLoginRoleState() {
   loginPinPanel?.classList.toggle("hidden", !shouldShowPinPanel);
   loginPlannerPinLabel?.classList.toggle("hidden", !shouldShowPinPanel);
   loginPinKeypad?.classList.toggle("hidden", !(isEmployeeLogin && Boolean(selectedEmployee)));
+  loginBackToEmployeesButton?.classList.toggle("hidden", !(isEmployeeLogin && Boolean(selectedEmployee)));
   loginConfirmButton.classList.toggle("hidden", !shouldShowPinPanel);
   loginActionsContainer?.classList.toggle("hidden", !shouldShowPinPanel);
   if (loginSelectedEmployeeName) {
