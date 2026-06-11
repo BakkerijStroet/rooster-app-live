@@ -90,6 +90,12 @@
     "Betaling probleem",
     "Overig"
   ];
+  const DRIVER_DELIVERY_PROBLEM_REASONS = [
+    "Product ontbreekt",
+    "Klant wilde niet alles",
+    "Product beschadigd",
+    "Anders"
+  ];
   const MANUAL_DELIVERY_TASK_TYPES = ["Ophalen", "Afgeven", "Boodschap", "Overig"];
   const PLANNER_ACTIONABLE_QUESTION_TYPES = ["time", "customer", "no-products", "payment", "unlinked-product", "parser-quality"];
   const CUTTING_PATTERN = /\b(gesneden|snijden|snij|gesn\.?)\b/i;
@@ -7322,9 +7328,67 @@
       ["niet betaald", "contant", "pin", "tikkie", "tikkie gestuurd", "controle nodig", "betaling controle"].includes(status);
   }
 
+  function getDriverModePaymentPresentation(stop, state = getDriverModeStopState(stop)) {
+    const status = normalizePaymentStatusLabel(stop?.paymentStatus);
+    const paymentChoice = state.paymentChoice || "";
+
+    if (paymentChoice === "pin") {
+      return { state: "paid", label: "Gepind", detail: "Betaling lokaal geregistreerd." };
+    }
+
+    if (paymentChoice === "cash") {
+      return { state: "paid", label: "Contant ontvangen", detail: "Betaling lokaal geregistreerd." };
+    }
+
+    if (paymentChoice === "tikkie") {
+      return { state: "action", label: "Tikkie verstuurd", detail: "Controleer later of de betaling binnenkomt." };
+    }
+
+    if (paymentChoice === "unpaid") {
+      return { state: "action", label: "Niet betaald", detail: "Betaling staat lokaal als niet ontvangen." };
+    }
+
+    if (status === "op rekening" || status === "rekening") {
+      return { state: "account", label: "Op rekening", detail: "Geen betaalactie nodig." };
+    }
+
+    if (["ok", "betaald", "betaald via ideal", "pin betaald", "contant betaald", "tikkie betaald"].includes(status)) {
+      return { state: "paid", label: "Reeds betaald", detail: stop?.paymentStatus || "Geen betaalactie nodig." };
+    }
+
+    if (status === "niet betaald" || status === "pin" || status === "contant" || status === "tikkie") {
+      return { state: "action", label: "Niet betaald", detail: "PIN meenemen." };
+    }
+
+    return { state: "review", label: "Controle nodig", detail: "Betaalstatus onbekend." };
+  }
+
+  function renderDriverModePaymentStatus(stop) {
+    const presentation = getDriverModePaymentPresentation(stop);
+
+    return `
+      <div class="delivery-driver-mode-payment-status" data-delivery-driver-payment-state="${escapeHtml(presentation.state)}">
+        <strong>${escapeHtml(presentation.label)}</strong>
+        <span>${escapeHtml(presentation.detail)}</span>
+      </div>
+    `;
+  }
+
+  function renderDriverModeReasonButtons(state) {
+    const currentNote = String(state?.note || "").trim();
+
+    return `
+      <div class="delivery-driver-mode-reason-row" aria-label="Reden niet alles geleverd">
+        ${DRIVER_DELIVERY_PROBLEM_REASONS.map((reason) => `
+          <button type="button" class="delivery-driver-mode-reason${currentNote === reason ? " is-active" : ""}" data-delivery-driver-mode-reason="${escapeHtml(reason)}">${escapeHtml(reason)}</button>
+        `).join("")}
+      </div>
+    `;
+  }
+
   function renderDriverModeActions(stop) {
     const state = getDriverModeStopState(stop);
-    const paymentStatus = stop?.paymentStatus || "betaling controle";
+    const paymentPresentation = getDriverModePaymentPresentation(stop, state);
     const showPaymentAction = isDriverModePaymentActionRelevant(stop);
     const deliveryChoice = state.deliveryChoice || (state.delivered ? "all" : "");
     const paymentChoice = state.paymentChoice || (state.paid ? "cash" : "");
@@ -7333,30 +7397,39 @@
     return `
       <div class="delivery-driver-mode-actions">
         <section class="delivery-driver-mode-step">
-          <h5>Levering</h5>
+          <h5>Alles geleverd?</h5>
           <div class="delivery-driver-mode-choice-row">
-            <button type="button" class="delivery-driver-mode-choice${deliveryChoice === "all" ? " is-active" : ""}" data-delivery-driver-mode-delivery="all">Alles geleverd</button>
-            <button type="button" class="delivery-driver-mode-choice${deliveryChoice === "partial" ? " is-active" : ""}" data-delivery-driver-mode-delivery="partial">Niet alles geleverd</button>
+            <button type="button" class="delivery-driver-mode-choice${deliveryChoice === "all" ? " is-active" : ""}" data-delivery-driver-mode-delivery="all">Ja</button>
+            <button type="button" class="delivery-driver-mode-choice${deliveryChoice === "partial" ? " is-active" : ""}" data-delivery-driver-mode-delivery="partial">Nee</button>
           </div>
+          ${deliveryChoice === "partial" ? renderDriverModeReasonButtons(state) : ""}
+          ${deliveryChoice === "partial"
+            ? `<label class="delivery-driver-mode-note">
+                <textarea data-delivery-driver-note rows="2" maxlength="180" placeholder="Korte reden of bijzonderheid">${escapeHtml(state.note)}</textarea>
+              </label>`
+            : ""}
         </section>
         ${showPaymentAction
           ? `<section class="delivery-driver-mode-step">
               <h5>Betaling</h5>
               <div class="delivery-driver-mode-choice-row">
+                <button type="button" class="delivery-driver-mode-choice${paymentChoice === "pin" ? " is-active" : ""}" data-delivery-driver-mode-payment="pin">Gepind</button>
                 <button type="button" class="delivery-driver-mode-choice${paymentChoice === "cash" ? " is-active" : ""}" data-delivery-driver-mode-payment="cash">Contant ontvangen</button>
-                <button type="button" class="delivery-driver-mode-choice${paymentChoice === "tikkie" ? " is-active" : ""}" data-delivery-driver-mode-payment="tikkie">Tikkie nodig</button>
+                <button type="button" class="delivery-driver-mode-choice${paymentChoice === "tikkie" ? " is-active" : ""}" data-delivery-driver-mode-payment="tikkie">Tikkie verstuurd</button>
                 <button type="button" class="delivery-driver-mode-choice${paymentChoice === "unpaid" ? " is-active" : ""}" data-delivery-driver-mode-payment="unpaid">Niet betaald</button>
               </div>
             </section>`
-          : `<div class="delivery-driver-mode-payment-note">Betaling: ${escapeHtml(paymentStatus)}</div>`}
-        <section class="delivery-driver-mode-step">
-          <h5>Bijzonderheden</h5>
-          ${noteOpen
-            ? `<label class="delivery-driver-mode-note">
-                <textarea data-delivery-driver-note rows="2" maxlength="180" placeholder="Korte bijzonderheid">${escapeHtml(state.note)}</textarea>
-              </label>`
-            : `<button type="button" class="delivery-driver-mode-note-toggle" data-delivery-driver-note-toggle="open">Bijzonderheid toevoegen</button>`}
-        </section>
+          : `<div class="delivery-driver-mode-payment-note">${escapeHtml(paymentPresentation.label)}</div>`}
+        ${deliveryChoice === "partial"
+          ? ""
+          : `<section class="delivery-driver-mode-step">
+              <h5>Bijzonderheden</h5>
+              ${noteOpen
+                ? `<label class="delivery-driver-mode-note">
+                    <textarea data-delivery-driver-note rows="2" maxlength="180" placeholder="Korte bijzonderheid">${escapeHtml(state.note)}</textarea>
+                  </label>`
+                : `<button type="button" class="delivery-driver-mode-note-toggle" data-delivery-driver-note-toggle="open">Bijzonderheid toevoegen</button>`}
+            </section>`}
         <button type="button" class="delivery-driver-mode-primary-action" data-delivery-driver-mode-deliver-next>
           Stop afronden
         </button>
@@ -7704,7 +7777,6 @@
       : "";
     const remark = String(stop.remark || "").trim();
     const practicalRemarks = getDriverModePracticalRemarks(stop);
-    const paymentStatus = stop.paymentStatus || "betaling controle";
     const canMoveToNextOpen = routeItems.some((item, itemIndex) =>
       itemIndex > driverModeStopIndex && !isDriverModeStopHandled(item.stop)
     );
@@ -7741,6 +7813,7 @@
           </div>
           ${isManualDeliveryTask(stop) ? `<div class="delivery-driver-manual-label">${escapeHtml(getManualDeliveryTaskLabel(stop))}</div>` : ""}
           <h3>${escapeHtml(stop.customerName || "Klant onbekend")}</h3>
+          ${renderDriverModePaymentStatus(stop)}
           <div class="delivery-driver-mode-address">
             ${navigationUrl
               ? `<span>${escapeHtml(stop.address || "Adres onbekend")}</span>`
@@ -7756,10 +7829,9 @@
                 ${practicalRemarks.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
               </div>`
             : ""}
-          ${isDriverModePaymentActionRelevant(stop) || isWarmStop(stop)
+          ${isWarmStop(stop)
             ? `<div class="delivery-driver-mode-meta">
-                ${isDriverModePaymentActionRelevant(stop) ? `<span>${escapeHtml(paymentStatus)}</span>` : ""}
-                ${isWarmStop(stop) ? "<span>Warm controleren</span>" : ""}
+                <span>Warm controleren</span>
               </div>`
             : ""}
           <section class="delivery-driver-mode-products-card">
@@ -7984,7 +8056,7 @@
       return;
     }
 
-    if (paymentRelevant && !["cash", "tikkie", "unpaid"].includes(paymentChoice)) {
+    if (paymentRelevant && !["pin", "cash", "tikkie", "unpaid"].includes(paymentChoice)) {
       driverModeActionMessage = "Kies eerst de betaling.";
       renderDriverMode();
       return;
@@ -7993,7 +8065,7 @@
     updateDriverModeStopState(stop, {
       delivered: true,
       skipped: false,
-      paid: paymentRelevant ? paymentChoice === "cash" : state.paid,
+      paid: paymentRelevant ? ["pin", "cash"].includes(paymentChoice) : state.paid,
       deliveryChoice,
       paymentChoice: paymentRelevant ? paymentChoice : state.paymentChoice,
       note: String(state.note || "").trim(),
@@ -8088,14 +8160,32 @@
   function setCurrentDriverModePaymentChoice(choice) {
     const stop = getCurrentDriverModeStop();
 
-    if (!stop || !["cash", "tikkie", "unpaid"].includes(choice)) {
+    if (!stop || !["pin", "cash", "tikkie", "unpaid"].includes(choice)) {
       renderDriverMode();
       return;
     }
 
     updateDriverModeStopState(stop, {
       paymentChoice: choice,
-      paid: choice === "cash"
+      paid: ["pin", "cash"].includes(choice)
+    });
+    driverModeActionMessage = "";
+    renderDriverMode();
+  }
+
+  function setCurrentDriverModeDeliveryReason(reason) {
+    const stop = getCurrentDriverModeStop();
+    const normalizedReason = DRIVER_DELIVERY_PROBLEM_REASONS.includes(reason) ? reason : "Anders";
+
+    if (!stop) {
+      renderDriverMode();
+      return;
+    }
+
+    updateDriverModeStopState(stop, {
+      deliveryChoice: "partial",
+      note: normalizedReason,
+      noteOpen: true
     });
     driverModeActionMessage = "";
     renderDriverMode();
@@ -10220,6 +10310,7 @@
     const driverModeDeliverNextButton = event.target.closest("[data-delivery-driver-mode-deliver-next]");
     const driverModeDeliveryChoiceButton = event.target.closest("[data-delivery-driver-mode-delivery]");
     const driverModePaymentChoiceButton = event.target.closest("[data-delivery-driver-mode-payment]");
+    const driverModeReasonButton = event.target.closest("[data-delivery-driver-mode-reason]");
     const driverModeNoteToggleButton = event.target.closest("[data-delivery-driver-note-toggle]");
     const driverModeSkipButton = event.target.closest("[data-delivery-driver-mode-skip]");
     const driverModePayButton = event.target.closest("[data-delivery-driver-mode-pay]");
@@ -10331,6 +10422,11 @@
 
     if (driverModePaymentChoiceButton && !driverModePaymentChoiceButton.disabled) {
       setCurrentDriverModePaymentChoice(driverModePaymentChoiceButton.dataset.deliveryDriverModePayment);
+      return;
+    }
+
+    if (driverModeReasonButton && !driverModeReasonButton.disabled) {
+      setCurrentDriverModeDeliveryReason(driverModeReasonButton.dataset.deliveryDriverModeReason);
       return;
     }
 
