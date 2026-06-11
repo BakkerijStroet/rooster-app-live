@@ -6371,7 +6371,10 @@
       return "Kies eerst het soort bon.";
     }
 
-    if (!Number.isFinite(Number(String(payload.amount).replace(",", "."))) || Number(String(payload.amount).replace(",", ".")) < 0) {
+    const amountText = String(payload.amount || "").trim().replace(",", ".");
+    const amountValue = Number(amountText);
+
+    if (!amountText || !Number.isFinite(amountValue) || amountValue < 0) {
       return "Vul een geldig bedrag in.";
     }
 
