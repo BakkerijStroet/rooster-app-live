@@ -164,6 +164,30 @@ function normalizeReceiptKind(value) {
   return text;
 }
 
+function normalizeReceiptStatus(value) {
+  const text = normalizeText(value);
+
+  if (!RECEIPT_STATUS_VALUES.includes(text)) {
+    const error = new Error("Kies een geldige status voor de bon.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return text;
+}
+
+function normalizeReceiptId(value) {
+  const text = normalizeText(value);
+
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text)) {
+    const error = new Error("Bon-id ontbreekt of is ongeldig.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return text;
+}
+
 function normalizePaidWith(value) {
   const text = normalizeText(value);
 
@@ -314,6 +338,8 @@ function toApiReceipt(row) {
     remark: row.remark || "",
     status: row.status || "new",
     adminNote: row.admin_note || "",
+    statusUpdatedAt: row.status_updated_at || "",
+    statusUpdatedBy: row.status_updated_by || "",
     photoPath: row.photo_path || "",
     photoMimeType: row.photo_mime_type || "",
     photoSizeBytes: Number(row.photo_size_bytes) || 0,
@@ -442,7 +468,7 @@ function appendOptionalDateFilter(query, columnName, operator, value) {
 async function readExpenseReceipts(mode, options = {}) {
   const query = [
     `data_mode=eq.${encodeURIComponent(mode)}`,
-    "select=id,data_mode,receipt_date,employee_name,kind,amount,paid_with,remark,status,admin_note,photo_path,photo_mime_type,photo_size_bytes,created_at,updated_at,deleted_at",
+    "select=id,data_mode,receipt_date,employee_name,kind,amount,paid_with,remark,status,admin_note,status_updated_at,status_updated_by,photo_path,photo_mime_type,photo_size_bytes,created_at,updated_at,deleted_at",
     "deleted_at=is.null",
     "order=receipt_date.desc,created_at.desc"
   ];
@@ -514,6 +540,36 @@ async function createExpenseReceipt(input) {
   }
 }
 
+async function updateExpenseReceipt(input) {
+  const id = normalizeReceiptId(input?.id);
+  const dataMode = normalizeMode(input?.mode || input?.dataMode || input?.data_mode);
+  const status = normalizeReceiptStatus(input?.status);
+  const adminNote = normalizeText(input?.adminNote || input?.admin_note).slice(0, 1000);
+  const statusUpdatedBy = normalizeText(input?.statusUpdatedBy || input?.status_updated_by || input?.updatedBy || input?.updated_by).slice(0, 120);
+  const rows = await supabaseRequest(`expense_receipts?data_mode=eq.${encodeURIComponent(dataMode)}&id=eq.${encodeURIComponent(id)}&deleted_at=is.null`, {
+    method: "PATCH",
+    headers: {
+      Prefer: "return=representation"
+    },
+    body: JSON.stringify({
+      status,
+      admin_note: adminNote || null,
+      status_updated_at: new Date().toISOString(),
+      status_updated_by: statusUpdatedBy || null
+    })
+  });
+  const receipt = Array.isArray(rows) ? toApiReceipt(rows[0]) : toApiReceipt(rows);
+
+  if (!receipt) {
+    const error = new Error("Bon niet gevonden.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const [receiptWithPhotoUrl] = await attachSignedPhotoUrls([receipt]);
+  return receiptWithPhotoUrl || receipt;
+}
+
 module.exports = async function handler(req, res) {
   try {
     if (req.method === "GET") {
@@ -529,6 +585,14 @@ module.exports = async function handler(req, res) {
       return;
     }
 
+    if (req.method === "PATCH") {
+      const body = parseBody(req);
+      const receipt = await updateExpenseReceipt(body);
+
+      sendJson(res, 200, { receipt });
+      return;
+    }
+
     if (req.method === "POST") {
       const body = parseBody(req);
       const receipt = await createExpenseReceipt(body);
@@ -537,7 +601,7 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    res.setHeader("Allow", "GET, POST");
+    res.setHeader("Allow", "GET, POST, PATCH");
     sendJson(res, 405, { message: "Methode niet toegestaan." });
   } catch (error) {
     const statusCode = Number(error?.statusCode) || 500;

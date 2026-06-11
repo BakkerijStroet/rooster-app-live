@@ -1777,6 +1777,8 @@ let administrationExpenseReceiptsLoading = false;
 let administrationExpenseReceiptsError = "";
 let administrationExpenseReceipts = [];
 let administrationExpenseReceiptsMode = "";
+let administrationExpenseReceiptStatusFilter = "new";
+let administrationExpenseReceiptUpdatingId = "";
 let lastWorkLogCentralSyncError = null;
 
 function isWorkLogCentralSyncEnabled() {
@@ -9609,6 +9611,12 @@ function getExpenseReceiptStatusLabel(status = "") {
   return "Nieuw";
 }
 
+function getExpenseReceiptStatusFilterLabel(status = "") {
+  if (status === "all") return "Alle";
+
+  return getExpenseReceiptStatusLabel(status);
+}
+
 function formatExpenseReceiptAmount(amount) {
   const numericAmount = Number(amount);
 
@@ -9635,15 +9643,26 @@ function getAdministrationExpenseReceipts(selection) {
   });
 }
 
+function getAdministrationVisibleExpenseReceipts(receipts = []) {
+  if (administrationExpenseReceiptStatusFilter === "all") {
+    return receipts;
+  }
+
+  return receipts.filter((receipt) => (receipt?.status || "new") === administrationExpenseReceiptStatusFilter);
+}
+
 function getAdministrationExpenseReceiptSummary(receipts = []) {
   return receipts.reduce((summary, receipt) => {
     const status = receipt?.status || "new";
+    const amount = Number(receipt?.amount) || 0;
+    const isEmployeeAdvance = receipt?.paidWith === "employee_advance";
 
     summary.count += 1;
-    summary.total += Number(receipt?.amount) || 0;
+    summary.total += amount;
 
     if (status === "new") {
       summary.new += 1;
+      summary.newTotal += amount;
     } else if (status === "approved") {
       summary.approved += 1;
     } else if (status === "processed") {
@@ -9652,20 +9671,98 @@ function getAdministrationExpenseReceiptSummary(receipts = []) {
       summary.rejected += 1;
     }
 
+    if (isEmployeeAdvance && status !== "rejected" && status !== "processed") {
+      summary.employeeAdvanceTotal += amount;
+    }
+
+    if (status === "new" || status === "approved") {
+      summary.toProcess += 1;
+    }
+
     return summary;
   }, {
     count: 0,
     total: 0,
     new: 0,
+    newTotal: 0,
     approved: 0,
     rejected: 0,
-    processed: 0
+    processed: 0,
+    employeeAdvanceTotal: 0,
+    toProcess: 0
   });
+}
+
+function renderAdministrationExpenseReceiptStatusFilters() {
+  const filters = [
+    { value: "new", label: "Nieuw" },
+    { value: "approved", label: "Goedgekeurd" },
+    { value: "rejected", label: "Afgewezen" },
+    { value: "processed", label: "Verwerkt" },
+    { value: "all", label: "Alle" }
+  ];
+
+  return `
+    <div class="administration-expense-filters" aria-label="Bonnen filteren op status">
+      ${filters.map((filter) => `
+        <button
+          type="button"
+          class="secondary administration-expense-filter${administrationExpenseReceiptStatusFilter === filter.value ? " is-active" : ""}"
+          data-expense-receipt-filter="${escapeHtmlAttribute(filter.value)}"
+          aria-pressed="${administrationExpenseReceiptStatusFilter === filter.value ? "true" : "false"}"
+        >${escapeHtmlAttribute(filter.label)}</button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderAdministrationExpenseReceiptActions(receipt = {}) {
+  const receiptId = String(receipt?.id || "");
+  const status = receipt?.status || "new";
+  const isUpdating = administrationExpenseReceiptUpdatingId === receiptId;
+  const actionButtons = [
+    { status: "approved", label: "Goedkeuren" },
+    { status: "rejected", label: "Afwijzen" },
+    { status: "processed", label: "Verwerkt" }
+  ];
+
+  if (!receiptId) {
+    return "";
+  }
+
+  return `
+    <div class="administration-expense-actions">
+      <label>
+        <span>Admin-notitie</span>
+        <textarea
+          data-expense-receipt-note="${escapeHtmlAttribute(receiptId)}"
+          rows="2"
+          maxlength="1000"
+          placeholder="Optioneel"
+          ${isUpdating ? "disabled" : ""}
+        >${escapeHtmlAttribute(receipt.adminNote || "")}</textarea>
+      </label>
+      <div class="administration-expense-action-buttons">
+        ${actionButtons.map((action) => `
+          <button
+            type="button"
+            class="secondary"
+            data-expense-receipt-id="${escapeHtmlAttribute(receiptId)}"
+            data-expense-receipt-status="${escapeHtmlAttribute(action.status)}"
+            ${isUpdating || status === action.status ? "disabled" : ""}
+          >${isUpdating ? "Bezig..." : escapeHtmlAttribute(action.label)}</button>
+        `).join("")}
+      </div>
+      ${receipt.statusUpdatedBy || receipt.statusUpdatedAt
+        ? `<small class="administration-expense-updated">Bijgewerkt${receipt.statusUpdatedBy ? ` door ${escapeHtmlAttribute(receipt.statusUpdatedBy)}` : ""}${receipt.statusUpdatedAt ? ` op ${escapeHtmlAttribute(formatDate(receipt.statusUpdatedAt))}` : ""}</small>`
+        : ""}
+    </div>
+  `;
 }
 
 function renderAdministrationExpenseReceiptsList(receipts = []) {
   if (!receipts.length) {
-    return `<div class="administration-list empty">Geen bonnen of kosten in deze selectie.</div>`;
+    return `<div class="administration-list empty">Geen bonnen of kosten met filter ${escapeHtmlAttribute(getExpenseReceiptStatusFilterLabel(administrationExpenseReceiptStatusFilter).toLowerCase())}.</div>`;
   }
 
   return `
@@ -9683,6 +9780,7 @@ function renderAdministrationExpenseReceiptsList(receipts = []) {
           <span>${escapeHtmlAttribute(getExpenseReceiptPaidWithLabel(receipt.paidWith))}</span>
           <strong>${escapeHtmlAttribute(formatExpenseReceiptAmount(receipt.amount))}</strong>
           <em>${escapeHtmlAttribute(getExpenseReceiptStatusLabel(receipt.status))}</em>
+          ${renderAdministrationExpenseReceiptActions(receipt)}
         </div>
       `).join("")}
     </div>
@@ -9700,6 +9798,7 @@ function renderAdministrationExpenseReceiptsBlock(selection) {
       ? `Bonnen laden mislukt: ${administrationExpenseReceiptsError}`
       : "";
   const receipts = getAdministrationExpenseReceipts(selection);
+  const visibleReceipts = getAdministrationVisibleExpenseReceipts(receipts);
   const summary = getAdministrationExpenseReceiptSummary(receipts);
 
   return `
@@ -9707,19 +9806,89 @@ function renderAdministrationExpenseReceiptsBlock(selection) {
       <header class="administration-card-head">
         <div>
           <h3>Bonnen / Kosten</h3>
-          <p>Centrale bonnenregistratie zonder foto in fase 1</p>
+          <p>Centrale bonnenregistratie met administratie-afhandeling</p>
         </div>
       </header>
       ${statusText ? `<div class="administration-note">${escapeHtmlAttribute(statusText)}</div>` : ""}
       <div class="administration-metric-grid">
-        ${renderAdministrationMetric("Bonnen", summary.count)}
-        ${renderAdministrationMetric("Totaal", formatExpenseReceiptAmount(summary.total))}
-        ${renderAdministrationMetric("Nieuw", summary.new)}
-        ${renderAdministrationMetric("Verwerkt", summary.processed)}
+        ${renderAdministrationMetric("Nieuwe bonnen", summary.new)}
+        ${renderAdministrationMetric("Totaal nieuw", formatExpenseReceiptAmount(summary.newTotal))}
+        ${renderAdministrationMetric("Voorgeschoten", formatExpenseReceiptAmount(summary.employeeAdvanceTotal))}
+        ${renderAdministrationMetric("Te verwerken", summary.toProcess)}
       </div>
-      ${renderAdministrationExpenseReceiptsList(statusText ? [] : receipts)}
+      ${renderAdministrationExpenseReceiptStatusFilters()}
+      ${renderAdministrationExpenseReceiptsList(statusText ? [] : visibleReceipts)}
     </section>
   `;
+}
+
+function getAdministrationExpenseReceiptById(receiptId) {
+  const normalizedId = String(receiptId || "").trim();
+
+  return administrationExpenseReceipts.find((receipt) => String(receipt?.id || "") === normalizedId) || null;
+}
+
+function getAdministrationExpenseReceiptStatusUpdaterName() {
+  return isPlannerRole() ? "Planner / Directie" : (getRoleScopedEmployeeName() || "Medewerker");
+}
+
+async function updateAdministrationExpenseReceiptStatus(receiptId, status) {
+  if (!isPlannerRole()) {
+    return;
+  }
+
+  const receipt = getAdministrationExpenseReceiptById(receiptId);
+
+  if (!receipt || administrationExpenseReceiptUpdatingId) {
+    return;
+  }
+
+  const escapedReceiptId = typeof CSS !== "undefined" && typeof CSS.escape === "function"
+    ? CSS.escape(String(receiptId))
+    : String(receiptId).replace(/"/g, "\\\"");
+  const noteElement = administrationDashboard?.querySelector(`[data-expense-receipt-note="${escapedReceiptId}"]`);
+  const adminNote = typeof noteElement?.value === "string" ? noteElement.value.trim() : (receipt.adminNote || "");
+  administrationExpenseReceiptUpdatingId = String(receiptId);
+  administrationExpenseReceiptsError = "";
+  renderAdministrationDashboard();
+
+  try {
+    const response = await fetch(expenseReceiptApiEndpoint, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        id: receipt.id,
+        dataMode: receipt.dataMode || currentDataMode,
+        status,
+        adminNote,
+        statusUpdatedBy: getAdministrationExpenseReceiptStatusUpdaterName()
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(payload?.message || "Bon bijwerken mislukt.");
+    }
+
+    if (payload?.receipt) {
+      administrationExpenseReceipts = administrationExpenseReceipts.map((currentReceipt) =>
+        String(currentReceipt?.id || "") === String(payload.receipt.id || "")
+          ? payload.receipt
+          : currentReceipt
+      );
+    }
+
+    showToast(`Bon gemarkeerd als ${getExpenseReceiptStatusLabel(status).toLowerCase()}.`);
+  } catch (error) {
+    administrationExpenseReceiptsError = error instanceof Error ? error.message : String(error);
+  } finally {
+    administrationExpenseReceiptUpdatingId = "";
+    if (activeTab === "administration") {
+      renderAdministrationDashboard();
+    }
+  }
 }
 
 function renderAdministrationActionTodayBlock() {
@@ -38683,6 +38852,27 @@ administrationEmployeeSelect?.addEventListener("change", () => {
 });
 
 administrationDashboard?.addEventListener("click", (event) => {
+  const filterButton = event.target.closest("[data-expense-receipt-filter]");
+
+  if (filterButton && isPlannerRole()) {
+    const nextFilter = filterButton.dataset.expenseReceiptFilter || "new";
+    administrationExpenseReceiptStatusFilter = ["new", "approved", "rejected", "processed", "all"].includes(nextFilter)
+      ? nextFilter
+      : "new";
+    renderAdministrationDashboard();
+    return;
+  }
+
+  const receiptStatusButton = event.target.closest("[data-expense-receipt-id][data-expense-receipt-status]");
+
+  if (receiptStatusButton && isPlannerRole()) {
+    void updateAdministrationExpenseReceiptStatus(
+      receiptStatusButton.dataset.expenseReceiptId || "",
+      receiptStatusButton.dataset.expenseReceiptStatus || ""
+    );
+    return;
+  }
+
   const button = event.target.closest("[data-administration-go-tab]");
 
   if (!button || !isPlannerRole()) {
