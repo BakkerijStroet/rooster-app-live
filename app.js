@@ -19,13 +19,21 @@ const loginOverlay = document.getElementById("loginOverlay");
 const loginRoleSelect = document.getElementById("loginRoleSelect");
 const loginEmployeeLabel = document.getElementById("loginEmployeeLabel");
 const loginEmployeeSelect = document.getElementById("loginEmployeeSelect");
+const loginEmployeeTilesPanel = document.getElementById("loginEmployeeTilesPanel");
+const loginEmployeeTiles = document.getElementById("loginEmployeeTiles");
+const loginPlannerModeButton = document.getElementById("loginPlannerModeButton");
+const loginPinPanel = document.getElementById("loginPinPanel");
+const loginBackToEmployeesButton = document.getElementById("loginBackToEmployeesButton");
+const loginSelectedEmployeeName = document.getElementById("loginSelectedEmployeeName");
 const loginPlannerPinLabel = document.getElementById("loginPlannerPinLabel");
 const loginPlannerPinInput = document.getElementById("loginPlannerPinInput");
+const loginPinKeypad = document.getElementById("loginPinKeypad");
 const loginErrorMessage = document.getElementById("loginErrorMessage");
 const loginTestModeCheckbox = document.getElementById("loginTestMode");
 const loginConfirmButton = document.getElementById("loginConfirmButton");
 const APP_VERSION = "20260604-planner-pin-security";
 window.StroetAppVersion = APP_VERSION;
+let loginAutoSubmitInProgress = false;
 const submitButton = document.getElementById("submitButton");
 const cancelButton = document.getElementById("cancelButton");
 const newButton = document.getElementById("newButton");
@@ -1241,14 +1249,12 @@ function openSessionLogin({ preferredRole = activeRole, preferredEmployee = "" }
   clearLoginError();
   clearPlannerPinInput();
   populateLoginEmployeeSelect();
-  loginRoleSelect.value = preferredRole === "employee" ? "employee" : "planner";
+  loginRoleSelect.value = "employee";
   if (loginTestModeCheckbox) {
     loginTestModeCheckbox.checked = currentDataMode === "test";
   }
   populateLoginEmployeeSelect();
-  loginEmployeeSelect.value = getAvailableLoginEmployees().includes(preferredEmployee)
-    ? preferredEmployee
-    : "";
+  loginEmployeeSelect.value = "";
   updateLoginRoleState();
   appShell?.classList.add("login-required");
   loginOverlay.classList.remove("hidden");
@@ -12517,23 +12523,141 @@ function updateTestModeBadge() {
   testModeBadge.classList.add("hidden");
 }
 
+function getLoginActionsContainer() {
+  return loginConfirmButton?.closest(".form-actions") || null;
+}
+
+function setLoginPinFocus() {
+  if (!loginPlannerPinInput) {
+    return;
+  }
+
+  window.setTimeout(() => {
+    loginPlannerPinInput.focus();
+    loginPlannerPinInput.select?.();
+  }, 0);
+}
+
+function updateLoginPinInputValue(value) {
+  if (!loginPlannerPinInput) {
+    return;
+  }
+
+  loginPlannerPinInput.value = value;
+  loginPlannerPinInput.dispatchEvent(new Event("input", { bubbles: true }));
+  setLoginPinFocus();
+}
+
+function getLoginEmployeeSelectNames() {
+  if (!loginEmployeeSelect) {
+    return [];
+  }
+
+  return Array.from(loginEmployeeSelect.options)
+    .map((option) => option.value)
+    .filter(Boolean);
+}
+
+function renderLoginEmployeeTiles() {
+  if (!loginEmployeeTiles) {
+    return;
+  }
+
+  const selectEmployees = getLoginEmployeeSelectNames();
+  const activeLoginEmployees = getAvailableLoginEmployees();
+  const availableEmployees = getEmployeesWithFavoritesFirst(
+    (selectEmployees.length ? selectEmployees : activeLoginEmployees)
+      .filter((employeeName) => activeLoginEmployees.includes(employeeName))
+  );
+  const selectedEmployee = loginEmployeeSelect?.value || "";
+
+  if (!availableEmployees.length) {
+    loginEmployeeTiles.innerHTML = `<div class="login-employee-empty">Geen actieve medewerkers beschikbaar.</div>`;
+    return;
+  }
+
+  loginEmployeeTiles.innerHTML = availableEmployees.map((employeeName) => `
+    <button type="button" class="login-employee-tile${employeeName === selectedEmployee ? " is-selected" : ""}" data-login-employee="${escapeHtmlAttribute(employeeName)}">
+      <span>${escapeHtmlAttribute(employeeName)}</span>
+    </button>
+  `).join("");
+}
+
+function resetLoginToEmployeeTiles({ clearPin = true } = {}) {
+  if (loginRoleSelect) {
+    loginRoleSelect.value = "employee";
+  }
+  if (loginEmployeeSelect) {
+    loginEmployeeSelect.value = "";
+  }
+  if (clearPin) {
+    clearPlannerPinInput();
+  }
+  clearLoginError();
+  updateLoginRoleState({ clearPin: false });
+}
+
+function openLoginPinPanelForEmployee(employeeName) {
+  const availableEmployees = getLoginEmployeeSelectNames()
+    .filter((selectEmployeeName) => getAvailableLoginEmployees().includes(selectEmployeeName));
+  if (!loginEmployeeSelect || !availableEmployees.includes(employeeName)) {
+    showLoginError("Kies eerst een actieve medewerker.");
+    return;
+  }
+
+  loginRoleSelect.value = "employee";
+  loginEmployeeSelect.value = employeeName;
+  clearLoginError();
+  clearPlannerPinInput();
+  updateLoginRoleState({ clearPin: false });
+  setLoginPinFocus();
+}
+
+function openPlannerLoginMode() {
+  if (loginRoleSelect) {
+    loginRoleSelect.value = "planner";
+  }
+  if (loginEmployeeSelect) {
+    loginEmployeeSelect.value = "";
+  }
+  clearLoginError();
+  clearPlannerPinInput();
+  updateLoginRoleState({ clearPin: false });
+  setLoginPinFocus();
+}
+
 function updateLoginRoleState() {
   if (!loginEmployeeLabel || !loginConfirmButton) {
     return;
   }
 
   const isEmployeeLogin = getLoginRoleValue() === "employee";
+  const selectedEmployee = loginEmployeeSelect?.value || "";
+  const shouldShowEmployeeTiles = isEmployeeLogin && !selectedEmployee;
+  const shouldShowPinPanel = !shouldShowEmployeeTiles;
+  const loginActionsContainer = getLoginActionsContainer();
+
   clearLoginError();
-  clearPlannerPinInput();
-  loginEmployeeLabel.classList.toggle("hidden", !isEmployeeLogin);
-  loginPlannerPinLabel?.classList.remove("hidden");
+  renderLoginEmployeeTiles();
+  loginEmployeeLabel.classList.add("hidden");
+  loginEmployeeTilesPanel?.classList.toggle("hidden", !shouldShowEmployeeTiles);
+  loginPinPanel?.classList.toggle("hidden", !shouldShowPinPanel);
+  loginPlannerPinLabel?.classList.toggle("hidden", !shouldShowPinPanel);
+  loginPinKeypad?.classList.toggle("hidden", !(isEmployeeLogin && Boolean(selectedEmployee)));
+  loginConfirmButton.classList.toggle("hidden", !shouldShowPinPanel);
+  loginActionsContainer?.classList.toggle("hidden", !shouldShowPinPanel);
+  if (loginSelectedEmployeeName) {
+    loginSelectedEmployeeName.textContent = isEmployeeLogin
+      ? (selectedEmployee || "Medewerker")
+      : "Planner / Directie";
+  }
   if (loginPlannerPinLabel) {
     loginPlannerPinLabel.firstChild.textContent = isEmployeeLogin ? "Pincode" : "Planner pincode";
   }
   if (loginPlannerPinInput) {
     loginPlannerPinInput.placeholder = isEmployeeLogin ? "Voer pincode in" : "Voer pincode in";
   }
-  loginConfirmButton.textContent = isEmployeeLogin ? "Inloggen als medewerker" : "Inloggen als planner";
+  loginConfirmButton.textContent = isEmployeeLogin ? "Inloggen" : "Inloggen als planner";
 }
 
 function populateLoginEmployeeSelect() {
@@ -12556,6 +12680,7 @@ function populateLoginEmployeeSelect() {
   } else {
     loginEmployeeSelect.value = "";
   }
+  renderLoginEmployeeTiles();
 }
 
 function openLoginOverlay() {
@@ -12567,6 +12692,26 @@ function openLoginOverlay() {
 
 function closeLoginOverlay() {
   closeSessionLogin();
+}
+
+function maybeAutoSubmitEmployeeLogin() {
+  if (loginAutoSubmitInProgress || getLoginRoleValue() !== "employee") {
+    return;
+  }
+
+  const employeeName = loginEmployeeSelect?.value || "";
+  const enteredPin = String(loginPlannerPinInput?.value || "").trim();
+  const expectedPin = employeeName ? getEmployeeLoginPin(employeeName) : "";
+
+  if (!employeeName || !expectedPin || enteredPin.length !== expectedPin.length) {
+    return;
+  }
+
+  loginAutoSubmitInProgress = true;
+  window.setTimeout(() => {
+    applyLoggedInUserSelection({ showStartupMessage: true });
+    loginAutoSubmitInProgress = false;
+  }, 0);
 }
 
 function applyLoggedInUserSelection({ showStartupMessage = false } = {}) {
@@ -38383,19 +38528,85 @@ resetTestDataButton?.addEventListener("click", () => {
 });
 
 loginRoleSelect?.addEventListener("change", () => {
+  clearPlannerPinInput();
   updateLoginRoleState();
 });
 
 loginEmployeeSelect?.addEventListener("change", () => {
   clearLoginError();
+  updateLoginRoleState();
+  if (loginEmployeeSelect.value) {
+    setLoginPinFocus();
+  }
+});
+
+loginEmployeeTiles?.addEventListener("click", (event) => {
+  if (!(event.target instanceof Element)) {
+    return;
+  }
+
+  const tile = event.target.closest("[data-login-employee]");
+  if (!tile) {
+    return;
+  }
+
+  openLoginPinPanelForEmployee(tile.dataset.loginEmployee || "");
+});
+
+loginPlannerModeButton?.addEventListener("click", () => {
+  openPlannerLoginMode();
+});
+
+loginBackToEmployeesButton?.addEventListener("click", () => {
+  resetLoginToEmployeeTiles();
+});
+
+loginPinKeypad?.addEventListener("click", (event) => {
+  if (!(event.target instanceof Element)) {
+    return;
+  }
+
+  const button = event.target.closest("button");
+  if (!button) {
+    return;
+  }
+
+  const currentValue = String(loginPlannerPinInput?.value || "");
+  const digit = button.dataset.loginPinDigit;
+  const action = button.dataset.loginPinAction;
+
+  if (typeof digit === "string" && /^\d$/.test(digit)) {
+    updateLoginPinInputValue(`${currentValue}${digit}`.slice(0, 6));
+    return;
+  }
+
+  if (action === "backspace") {
+    updateLoginPinInputValue(currentValue.slice(0, -1));
+    return;
+  }
+
+  if (action === "clear") {
+    updateLoginPinInputValue("");
+  }
 });
 
 loginPlannerPinInput?.addEventListener("input", () => {
   clearLoginError();
+  maybeAutoSubmitEmployeeLogin();
+});
+
+loginPlannerPinInput?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") {
+    return;
+  }
+
+  event.preventDefault();
+  applyLoggedInUserSelection({ showStartupMessage: true });
 });
 
 loginTestModeCheckbox?.addEventListener("change", () => {
   populateLoginEmployeeSelect();
+  updateLoginRoleState();
 });
 
 loginConfirmButton?.addEventListener("click", () => {

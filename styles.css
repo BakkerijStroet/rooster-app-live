@@ -527,7 +527,7 @@ body[data-auth-locked="true"] .requests-card {
 }
 
 .login-card {
-  width: min(100%, 440px);
+  width: min(100%, 560px);
   display: grid;
   gap: 16px;
   padding: 28px 24px 24px;
@@ -627,6 +627,16 @@ body[data-auth-locked="true"] .requests-card {
   box-shadow: 0 8px 22px rgba(var(--color-shadow-rgb), 0.05);
 }
 
+.login-brand-willem {
+  width: 86px;
+  height: 86px;
+  object-fit: cover;
+  border-radius: 50%;
+  background: var(--color-surface);
+  border: 2px solid rgba(var(--color-primary-rgb), 0.22);
+  box-shadow: 0 10px 24px rgba(var(--color-primary-rgb), 0.14);
+}
+
 .login-brand-copy {
   display: grid;
   gap: 4px;
@@ -649,7 +659,7 @@ body[data-auth-locked="true"] .requests-card {
   text-align: center;
   font-size: 28px;
   line-height: 1.1;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .login-card .panel-note {
@@ -683,6 +693,116 @@ body[data-auth-locked="true"] .requests-card {
   color: var(--color-success);
 }
 
+.login-employee-panel,
+.login-pin-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.login-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.login-planner-mode-button,
+.login-back-button {
+  min-height: 40px;
+  padding-inline: 12px;
+  white-space: nowrap;
+}
+
+.login-employee-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.login-employee-tile {
+  min-height: 58px;
+  padding: 12px 10px;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.22);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(var(--color-surface-rgb), 0.98), rgba(var(--color-surface-rgb), 0.92)),
+    var(--color-surface);
+  color: var(--color-text);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: center;
+  box-shadow: 0 8px 18px rgba(var(--color-primary-rgb), 0.08);
+}
+
+.login-employee-tile:hover,
+.login-employee-tile:focus-visible,
+.login-employee-tile.is-selected {
+  border-color: var(--color-surface-soft-active);
+  background:
+    linear-gradient(180deg, rgba(var(--color-surface-rgb), 1), rgba(var(--color-primary-rgb), 0.1)),
+    var(--color-surface);
+}
+
+.login-employee-tile span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.login-employee-empty {
+  grid-column: 1 / -1;
+  padding: 14px;
+  border: 1px dashed rgba(var(--color-primary-rgb), 0.28);
+  border-radius: 14px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.login-selected-user {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.22);
+  border-left: 4px solid var(--color-surface-soft-active);
+  border-radius: 14px;
+  background: rgba(var(--color-surface-rgb), 0.86);
+}
+
+.login-selected-user span {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.login-selected-user strong {
+  color: var(--color-text);
+  font-size: 19px;
+  line-height: 1.2;
+}
+
+.login-pin-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.login-pin-keypad button {
+  min-height: 54px;
+  padding: 10px 8px;
+  border-radius: 14px;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.login-pin-keypad button.secondary {
+  font-size: 13px;
+  line-height: 1.15;
+}
+
 .clerk-signin-mount {
   min-height: 24px;
   display: grid;
@@ -706,7 +826,7 @@ body[data-auth-locked="true"] .requests-card {
 
 @media (max-width: 640px) {
   .login-card {
-    width: min(100%, 360px);
+    width: min(100%, 390px);
     padding: 24px 18px 20px;
   }
 
@@ -719,8 +839,33 @@ body[data-auth-locked="true"] .requests-card {
     font-size: 24px;
   }
 
+  .login-panel-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .login-planner-mode-button,
+  .login-back-button {
+    width: 100%;
+  }
+
+  .login-employee-tile {
+    min-height: 62px;
+    font-size: 14px;
+  }
+
+  .login-pin-keypad button {
+    min-height: 58px;
+  }
+
   #clerkLoginActions {
     flex-direction: column;
+  }
+}
+
+@media (min-width: 720px) {
+  .login-employee-tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

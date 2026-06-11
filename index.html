@@ -504,10 +504,10 @@
       <section class="login-overlay hidden" id="loginOverlay" aria-live="polite">
         <div class="login-card login-card--willem">
           <div class="login-brand">
-            <img src="Logo%202020.jpg" alt="Bakkerij Stroet logo" class="login-brand-logo">
+            <img src="/mascot/willem/willem-avatar-v1.png" alt="Willem van Bakkerij Stroet" class="login-brand-willem">
             <div class="login-brand-copy">
-              <strong>Bakkerij Stroet</strong>
-              <span>Rooster &amp; uren</span>
+              <strong>Welkom bij Stroet!</strong>
+              <span>Willem helpt je snel inloggen</span>
             </div>
           </div>
           <div class="login-willem-message" aria-label="Willem helpt met inloggen">
@@ -517,9 +517,23 @@
               <span>Willem helpt je met inloggen.</span>
             </div>
           </div>
-          <h2 id="loginOverlayTitle">Inloggen</h2>
-          <p class="panel-note" id="loginOverlayNote">Kies hoe je de app wilt openen.</p>
-          <label>
+          <h2 id="loginOverlayTitle">Welkom bij Stroet!</h2>
+          <p class="panel-note" id="loginOverlayNote">Tik je naam aan en voer je pincode in.</p>
+          <div id="loginEmployeeTilesPanel" class="login-employee-panel">
+            <div class="login-panel-heading">
+              <span>Medewerkers</span>
+              <button type="button" id="loginPlannerModeButton" class="secondary login-planner-mode-button">Planner / Directie</button>
+            </div>
+            <div id="loginEmployeeTiles" class="login-employee-tiles" aria-label="Medewerkers"></div>
+          </div>
+          <div id="loginPinPanel" class="login-pin-panel hidden">
+            <button type="button" id="loginBackToEmployeesButton" class="secondary login-back-button">Terug naar namen</button>
+            <div class="login-selected-user">
+              <span>Inloggen als</span>
+              <strong id="loginSelectedEmployeeName">Medewerker</strong>
+            </div>
+          </div>
+          <label class="login-technical-control hidden" aria-hidden="true">
             Gebruikerstype
             <select id="loginRoleSelect">
               <option value="planner">Planner / Directie</option>
@@ -536,6 +550,20 @@
             Planner pincode
             <input type="password" id="loginPlannerPinInput" inputmode="numeric" autocomplete="current-password" placeholder="Voer pincode in">
           </label>
+          <div id="loginPinKeypad" class="login-pin-keypad hidden" aria-label="Pincode cijfers">
+            <button type="button" data-login-pin-digit="1">1</button>
+            <button type="button" data-login-pin-digit="2">2</button>
+            <button type="button" data-login-pin-digit="3">3</button>
+            <button type="button" data-login-pin-digit="4">4</button>
+            <button type="button" data-login-pin-digit="5">5</button>
+            <button type="button" data-login-pin-digit="6">6</button>
+            <button type="button" data-login-pin-digit="7">7</button>
+            <button type="button" data-login-pin-digit="8">8</button>
+            <button type="button" data-login-pin-digit="9">9</button>
+            <button type="button" class="secondary" data-login-pin-action="backspace">Wis</button>
+            <button type="button" data-login-pin-digit="0">0</button>
+            <button type="button" class="secondary" data-login-pin-action="clear">Leegmaken</button>
+          </div>
           <div id="loginErrorMessage" class="panel-note hidden" aria-live="assertive"></div>
           <label class="login-checkbox hidden" aria-hidden="true">
             <input type="checkbox" id="loginTestMode">
