@@ -676,9 +676,13 @@
     });
   }
 
+  function isDeliveryParserHardBlocked() {
+    return latestParserQualityBlocked || !latestRouteStops.length;
+  }
+
   function renderPlannerStatus() {
     const isPrintBlocked = isRoutePrintBlocked();
-    const isParserBlocked = latestParserQualityBlocked || latestSaveState.status === "blocked";
+    const isParserBlocked = isDeliveryParserHardBlocked();
     const saveState = getRouteSaveActionState();
 
     if (plannerApprovePrintButton) {
@@ -6095,7 +6099,7 @@
     const hasStops = latestRouteStops.length > 0;
     const isBusy = latestSaveState.status === "saving" || latestSaveState.status === "updating";
     const isSavedRun = latestRunSource === "saved";
-    const isParserBlocked = latestParserQualityBlocked || latestSaveState.status === "blocked";
+    const isParserBlocked = isDeliveryParserHardBlocked();
     const canPatch = hasStops
       && isSavedRun
       && latestHasLocalCorrections
@@ -9352,7 +9356,7 @@
   }
 
   function renderPrintPreviewWithWarning() {
-    if (!latestRouteStops.length || latestParserQualityBlocked || latestSaveState.status === "blocked") {
+    if (isDeliveryParserHardBlocked()) {
       return;
     }
 
@@ -9361,11 +9365,12 @@
       return;
     }
 
-    renderPrintPreviewWithWarning();
+    renderPrintPreview();
+    openPrintPreviewSection();
   }
 
   function approvePlanningAndOpenPrint() {
-    if (!latestRouteStops.length || latestParserQualityBlocked || latestSaveState.status === "blocked") {
+    if (isDeliveryParserHardBlocked()) {
       return;
     }
 
@@ -9484,7 +9489,7 @@
   }
 
   async function saveDeliveryRun() {
-    if (!latestRouteStops.length || !latestSourceHash || latestSaveState.status === "saving" || latestSaveState.status === "updating" || latestParserQualityBlocked || latestSaveState.status === "blocked") {
+    if (!latestRouteStops.length || !latestSourceHash || latestSaveState.status === "saving" || latestSaveState.status === "updating" || isDeliveryParserHardBlocked()) {
       return;
     }
 
@@ -10265,7 +10270,7 @@
 
     if (routeStop) {
       const stopIndex = Number(routeStop.dataset.deliveryRouteStop);
-      expandedDeliveryRouteStopIndex = stopIndex;
+      expandedDeliveryRouteStopIndex = expandedDeliveryRouteStopIndex === stopIndex ? -1 : stopIndex;
       selectDeliveryStop(stopIndex);
     }
   });
@@ -10286,7 +10291,7 @@
 
     event.preventDefault();
     const stopIndex = Number(routeStop.dataset.deliveryRouteStop);
-    expandedDeliveryRouteStopIndex = stopIndex;
+    expandedDeliveryRouteStopIndex = expandedDeliveryRouteStopIndex === stopIndex ? -1 : stopIndex;
     selectDeliveryStop(stopIndex);
   });
   routeBlocksElement?.addEventListener("submit", (event) => {
