@@ -19490,6 +19490,63 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   overflow-wrap: anywhere;
 }
 
+.delivery-driver-mode-wizard {
+  display: grid;
+  gap: 0.56rem;
+}
+
+.delivery-driver-mode-wizard-indicator {
+  justify-self: start;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.24rem 0.56rem;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.delivery-driver-mode-wizard-back {
+  justify-self: start;
+  min-height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.3rem 0.72rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.delivery-driver-mode-review-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.delivery-driver-mode-review-list div {
+  display: grid;
+  gap: 0.12rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.58rem 0.68rem;
+  background: var(--color-surface);
+}
+
+.delivery-driver-mode-review-list strong {
+  color: var(--color-text);
+  font-size: 0.98rem;
+  line-height: 1.15;
+}
+
+.delivery-driver-mode-review-list span {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  font-weight: 850;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
 .delivery-driver-mode-payment-status {
   display: grid;
   gap: 0.1rem;
