@@ -7311,6 +7311,16 @@ body[data-role="planner"] [data-panel="administration"] .administration-toolbar 
   line-height: 1.25;
 }
 
+.administration-expense-photo-link {
+  width: fit-content;
+  margin-top: 3px;
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 950;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .administration-expense-row em {
   justify-self: end;
   padding: 4px 8px;
@@ -19025,6 +19035,54 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   resize: vertical;
 }
 
+.employee-receipt-photo-picker input {
+  padding: 0.65rem;
+  border: 1px dashed var(--color-border);
+  background: #fffaf4;
+}
+
+.employee-receipt-photo-preview {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 86px 1fr;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: #fffaf4;
+}
+
+.employee-receipt-photo-preview.hidden {
+  display: none;
+}
+
+.employee-receipt-photo-preview img {
+  width: 86px;
+  height: 86px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--color-surface);
+}
+
+.employee-receipt-photo-preview div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.employee-receipt-photo-preview span {
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+  font-weight: 850;
+}
+
+.employee-receipt-photo-preview button {
+  width: fit-content;
+  min-height: 34px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+}
+
 .employee-receipt-form__wide,
 .employee-receipt-form button,
 .employee-receipt-status {
@@ -19181,6 +19239,15 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
 
   .employee-receipt-form {
     grid-template-columns: 1fr;
+  }
+
+  .employee-receipt-photo-preview {
+    grid-template-columns: 72px 1fr;
+  }
+
+  .employee-receipt-photo-preview img {
+    width: 72px;
+    height: 72px;
   }
 }
 

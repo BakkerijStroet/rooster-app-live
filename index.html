@@ -1427,8 +1427,20 @@
               Opmerking
               <textarea id="employeeExpenseReceiptRemark" rows="3" maxlength="500" placeholder="Korte toelichting"></textarea>
             </label>
+            <label class="employee-receipt-form__wide employee-receipt-photo-picker">
+              Foto van bon
+              <input type="file" id="employeeExpenseReceiptPhoto" accept="image/*" capture="environment">
+            </label>
+            <div id="employeeExpenseReceiptPhotoPreview" class="employee-receipt-photo-preview hidden">
+              <img id="employeeExpenseReceiptPhotoImage" alt="Voorbeeld van bonfoto">
+              <div>
+                <strong>Foto klaar</strong>
+                <span id="employeeExpenseReceiptPhotoMeta">Geen foto gekozen.</span>
+                <button type="button" id="employeeExpenseReceiptPhotoRemoveButton" class="secondary">Foto verwijderen</button>
+              </div>
+            </div>
             <button type="submit" id="employeeExpenseReceiptSubmitButton">Bon indienen</button>
-            <div id="employeeExpenseReceiptStatus" class="panel-note employee-receipt-status" aria-live="polite">Foto toevoegen komt in fase 2.</div>
+            <div id="employeeExpenseReceiptStatus" class="panel-note employee-receipt-status" aria-live="polite">Foto is optioneel.</div>
           </form>
         </article>
       </section>

@@ -53,6 +53,11 @@
   const employeeExpenseReceiptAmountElement = document.getElementById("employeeExpenseReceiptAmount");
   const employeeExpenseReceiptPaidWithElement = document.getElementById("employeeExpenseReceiptPaidWith");
   const employeeExpenseReceiptRemarkElement = document.getElementById("employeeExpenseReceiptRemark");
+  const employeeExpenseReceiptPhotoElement = document.getElementById("employeeExpenseReceiptPhoto");
+  const employeeExpenseReceiptPhotoPreviewElement = document.getElementById("employeeExpenseReceiptPhotoPreview");
+  const employeeExpenseReceiptPhotoImageElement = document.getElementById("employeeExpenseReceiptPhotoImage");
+  const employeeExpenseReceiptPhotoMetaElement = document.getElementById("employeeExpenseReceiptPhotoMeta");
+  const employeeExpenseReceiptPhotoRemoveButton = document.getElementById("employeeExpenseReceiptPhotoRemoveButton");
   const employeeExpenseReceiptSubmitButton = document.getElementById("employeeExpenseReceiptSubmitButton");
   const employeeExpenseReceiptStatusElement = document.getElementById("employeeExpenseReceiptStatus");
   const savedRoutesSectionElement = document.querySelector(".delivery-saved-section");
@@ -79,6 +84,9 @@
     prepMinutes: "",
     prepHourlyCost: ""
   };
+  const RECEIPT_PHOTO_ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+  const RECEIPT_PHOTO_TARGET_BYTES = 1.5 * 1024 * 1024;
+  const RECEIPT_PHOTO_MAX_EDGE = 1600;
   const PAYMENT_CORRECTION_OPTIONS = [
     "OK",
     "Op rekening",
@@ -195,6 +203,7 @@
     loadError: ""
   };
   let routeCostStorageState = loadRouteCostStorageState();
+  let employeeExpenseReceiptPhotoState = null;
 
   function escapeHtml(value) {
     return String(value || "")
@@ -6335,6 +6344,153 @@
     employeeExpenseReceiptStatusElement.dataset.state = state || "";
   }
 
+  function readBlobAsDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.addEventListener("load", () => resolve(String(reader.result || "")));
+      reader.addEventListener("error", () => reject(new Error("Foto lezen mislukt.")));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function loadImageElement(src) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.addEventListener("load", () => resolve(image));
+      image.addEventListener("error", () => reject(new Error("Foto kon niet worden verwerkt.")));
+      image.src = src;
+    });
+  }
+
+  function canvasToBlob(canvas, mimeType, quality) {
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => resolve(blob), mimeType, quality);
+    });
+  }
+
+  async function getCompressedReceiptPhotoBlob(file) {
+    const objectUrl = URL.createObjectURL(file);
+
+    try {
+      const image = await loadImageElement(objectUrl);
+      const scale = Math.min(1, RECEIPT_PHOTO_MAX_EDGE / Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height));
+      const width = Math.max(1, Math.round((image.naturalWidth || image.width) * scale));
+      const height = Math.max(1, Math.round((image.naturalHeight || image.height) * scale));
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+
+      if (!context) {
+        return file.size <= RECEIPT_PHOTO_TARGET_BYTES
+          ? { blob: file, mimeType: file.type }
+          : null;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      context.drawImage(image, 0, 0, width, height);
+
+      const preferredTypes = file.type === "image/webp"
+        ? ["image/webp", "image/jpeg"]
+        : ["image/jpeg"];
+
+      for (const mimeType of preferredTypes) {
+        for (const quality of [0.86, 0.78, 0.68, 0.58]) {
+          const blob = await canvasToBlob(canvas, mimeType, quality);
+
+          if (blob && blob.size <= RECEIPT_PHOTO_TARGET_BYTES) {
+            return { blob, mimeType };
+          }
+        }
+      }
+
+      const fallbackBlob = await canvasToBlob(canvas, "image/jpeg", 0.5);
+      return fallbackBlob ? { blob: fallbackBlob, mimeType: "image/jpeg" } : null;
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+
+  function setEmployeeExpenseReceiptPhotoPreview(photoState) {
+    employeeExpenseReceiptPhotoState = photoState || null;
+
+    if (!employeeExpenseReceiptPhotoPreviewElement) {
+      return;
+    }
+
+    if (!employeeExpenseReceiptPhotoState) {
+      employeeExpenseReceiptPhotoPreviewElement.classList.add("hidden");
+      if (employeeExpenseReceiptPhotoImageElement) {
+        employeeExpenseReceiptPhotoImageElement.removeAttribute("src");
+      }
+      if (employeeExpenseReceiptPhotoMetaElement) {
+        employeeExpenseReceiptPhotoMetaElement.textContent = "Geen foto gekozen.";
+      }
+      return;
+    }
+
+    employeeExpenseReceiptPhotoPreviewElement.classList.remove("hidden");
+    if (employeeExpenseReceiptPhotoImageElement) {
+      employeeExpenseReceiptPhotoImageElement.src = employeeExpenseReceiptPhotoState.previewUrl;
+    }
+    if (employeeExpenseReceiptPhotoMetaElement) {
+      employeeExpenseReceiptPhotoMetaElement.textContent = `${employeeExpenseReceiptPhotoState.fileName} · ${formatFileSize(employeeExpenseReceiptPhotoState.sizeBytes)}`;
+    }
+  }
+
+  function clearEmployeeExpenseReceiptPhoto() {
+    employeeExpenseReceiptPhotoState = null;
+    if (employeeExpenseReceiptPhotoElement) {
+      employeeExpenseReceiptPhotoElement.value = "";
+    }
+    setEmployeeExpenseReceiptPhotoPreview(null);
+  }
+
+  async function handleEmployeeExpenseReceiptPhotoSelection() {
+    const file = employeeExpenseReceiptPhotoElement?.files?.[0] || null;
+
+    if (!file) {
+      clearEmployeeExpenseReceiptPhoto();
+      return;
+    }
+
+    if (!RECEIPT_PHOTO_ALLOWED_TYPES.includes(file.type)) {
+      clearEmployeeExpenseReceiptPhoto();
+      setEmployeeExpenseReceiptStatus("Foto moet een JPEG, PNG of WebP-afbeelding zijn.", "error");
+      window.showMessage?.("Foto moet een JPEG, PNG of WebP-afbeelding zijn.", "error");
+      return;
+    }
+
+    setEmployeeExpenseReceiptStatus("Foto wordt verkleind...", "loading");
+
+    try {
+      const compressedPhoto = await getCompressedReceiptPhotoBlob(file);
+
+      if (!compressedPhoto?.blob || compressedPhoto.blob.size > RECEIPT_PHOTO_TARGET_BYTES) {
+        clearEmployeeExpenseReceiptPhoto();
+        setEmployeeExpenseReceiptStatus("Foto is te groot. Kies of maak een kleinere foto.", "error");
+        window.showMessage?.("Foto is te groot. Kies of maak een kleinere foto.", "error");
+        return;
+      }
+
+      const dataUrl = await readBlobAsDataUrl(compressedPhoto.blob);
+      const base64 = dataUrl.split(",")[1] || "";
+
+      setEmployeeExpenseReceiptPhotoPreview({
+        fileName: file.name || "bonfoto",
+        mimeType: compressedPhoto.mimeType,
+        base64,
+        sizeBytes: compressedPhoto.blob.size,
+        previewUrl: dataUrl
+      });
+      setEmployeeExpenseReceiptStatus("Foto klaar om mee te sturen.", "success");
+    } catch (error) {
+      clearEmployeeExpenseReceiptPhoto();
+      const message = error instanceof Error ? error.message : "Foto verwerken mislukt.";
+      setEmployeeExpenseReceiptStatus(message, "error");
+      window.showMessage?.(message, "error");
+    }
+  }
+
   function getCurrentEmployeeReceiptName() {
     const currentEmployeeSelect = document.getElementById("currentEmployee");
     const portalEmployeeSelect = document.getElementById("portalEmployee");
@@ -6358,7 +6514,14 @@
       kind,
       amount,
       paidWith,
-      remark
+      remark,
+      photo: employeeExpenseReceiptPhotoState
+        ? {
+            mimeType: employeeExpenseReceiptPhotoState.mimeType,
+            base64: employeeExpenseReceiptPhotoState.base64,
+            sizeBytes: employeeExpenseReceiptPhotoState.sizeBytes
+          }
+        : null
     };
   }
 
@@ -6390,6 +6553,7 @@
     if (employeeExpenseReceiptAmountElement) employeeExpenseReceiptAmountElement.value = "";
     if (employeeExpenseReceiptPaidWithElement) employeeExpenseReceiptPaidWithElement.value = "";
     if (employeeExpenseReceiptRemarkElement) employeeExpenseReceiptRemarkElement.value = "";
+    clearEmployeeExpenseReceiptPhoto();
   }
 
   async function submitEmployeeExpenseReceipt() {
@@ -6423,7 +6587,7 @@
       }
 
       resetEmployeeExpenseReceiptForm();
-      setEmployeeExpenseReceiptStatus("Bon ingediend. Foto toevoegen komt in fase 2.", "success");
+      setEmployeeExpenseReceiptStatus("Bon ingediend.", "success");
       document.dispatchEvent(new CustomEvent("stroet:expense-receipt-submitted", {
         detail: {
           mode: payload.mode
@@ -10783,13 +10947,20 @@
     event.preventDefault();
     void submitEmployeeExpenseReceipt();
   });
+  employeeExpenseReceiptPhotoElement?.addEventListener("change", () => {
+    void handleEmployeeExpenseReceiptPhotoSelection();
+  });
+  employeeExpenseReceiptPhotoRemoveButton?.addEventListener("click", () => {
+    clearEmployeeExpenseReceiptPhoto();
+    setEmployeeExpenseReceiptStatus("Foto verwijderd.", "");
+  });
   document.addEventListener("stroet:tab-change", (event) => {
     if (event.detail?.activeTab === "employee-delivery-overview") {
       renderEmployeeDeliveryOverview();
     }
 
     if (event.detail?.activeTab === "employee-delivery-receipts") {
-      setEmployeeExpenseReceiptStatus("Foto toevoegen komt in fase 2.", "");
+      setEmployeeExpenseReceiptStatus(employeeExpenseReceiptPhotoState ? "Foto klaar om mee te sturen." : "Foto is optioneel.", employeeExpenseReceiptPhotoState ? "success" : "");
     }
   });
   savedRunsElement?.addEventListener("click", (event) => {

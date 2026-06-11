@@ -9676,6 +9676,9 @@ function renderAdministrationExpenseReceiptsList(receipts = []) {
             <strong>${escapeHtmlAttribute(receipt.employeeName || "Onbekende medewerker")}</strong>
             <span>${escapeHtmlAttribute(formatDate(receipt.receiptDate || receipt.createdAt))} · ${escapeHtmlAttribute(getExpenseReceiptKindLabel(receipt.kind))}</span>
             ${receipt.remark ? `<small>${escapeHtmlAttribute(receipt.remark)}</small>` : ""}
+            ${receipt.photoUrl
+              ? `<a class="administration-expense-photo-link" href="${escapeHtmlAttribute(receipt.photoUrl)}" target="_blank" rel="noopener">Foto bekijken</a>`
+              : (receipt.photoPath ? `<small>Foto tijdelijk niet beschikbaar</small>` : "")}
           </div>
           <span>${escapeHtmlAttribute(getExpenseReceiptPaidWithLabel(receipt.paidWith))}</span>
           <strong>${escapeHtmlAttribute(formatExpenseReceiptAmount(receipt.amount))}</strong>

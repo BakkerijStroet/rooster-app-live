@@ -3,6 +3,14 @@
 const RECEIPT_KIND_VALUES = ["fuel", "supermarket", "bakery_purchase", "other"];
 const RECEIPT_PAID_WITH_VALUES = ["employee_advance", "business_account", "cash", "other"];
 const RECEIPT_STATUS_VALUES = ["new", "approved", "rejected", "processed"];
+const RECEIPT_PHOTO_BUCKET = "expense-receipts";
+const RECEIPT_PHOTO_ALLOWED_TYPES = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp"
+};
+const RECEIPT_PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+const RECEIPT_PHOTO_SIGNED_URL_SECONDS = 10 * 60;
 
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
@@ -89,6 +97,45 @@ async function supabaseRequest(path, options = {}) {
   return payload;
 }
 
+async function storageRequest(path, options = {}) {
+  const { url, serviceKey } = getSupabaseConfig();
+
+  if (!url || !serviceKey) {
+    const error = new Error("Supabase configuratie ontbreekt.");
+    error.statusCode = 503;
+    throw error;
+  }
+
+  const response = await fetch(`${url}/storage/v1/${path}`, {
+    ...options,
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      ...(options.headers || {})
+    }
+  });
+
+  const text = await response.text();
+  let payload = null;
+
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      payload = text;
+    }
+  }
+
+  if (!response.ok) {
+    const error = new Error(typeof payload === "string" ? payload : (payload?.message || "Supabase Storage request mislukt."));
+    error.statusCode = response.status;
+    error.details = payload;
+    throw error;
+  }
+
+  return payload;
+}
+
 function normalizeDate(value) {
   const text = normalizeText(value);
 
@@ -144,6 +191,92 @@ function normalizeAmount(value) {
   return Math.round(amount * 100) / 100;
 }
 
+function normalizeBase64(value) {
+  const rawValue = normalizeText(value);
+  const dataUrlMatch = rawValue.match(/^data:([^;,]+);base64,(.+)$/i);
+  const base64 = dataUrlMatch ? dataUrlMatch[2] : rawValue;
+
+  return base64.replace(/\s+/g, "");
+}
+
+function validatePhotoMagic(buffer, mimeType) {
+  if (mimeType === "image/jpeg") {
+    return buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  }
+
+  if (mimeType === "image/png") {
+    return buffer.length >= 8 &&
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47 &&
+      buffer[4] === 0x0d &&
+      buffer[5] === 0x0a &&
+      buffer[6] === 0x1a &&
+      buffer[7] === 0x0a;
+  }
+
+  if (mimeType === "image/webp") {
+    return buffer.length >= 12 &&
+      buffer.toString("ascii", 0, 4) === "RIFF" &&
+      buffer.toString("ascii", 8, 12) === "WEBP";
+  }
+
+  return false;
+}
+
+function normalizeReceiptPhoto(value) {
+  if (!value) {
+    return null;
+  }
+
+  const mimeType = normalizeText(value?.mimeType || value?.mime_type).toLowerCase();
+  const extension = RECEIPT_PHOTO_ALLOWED_TYPES[mimeType];
+
+  if (!extension) {
+    const error = new Error("Foto moet een JPEG, PNG of WebP-afbeelding zijn.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const base64 = normalizeBase64(value?.base64 || value?.data || value?.dataUrl || value?.data_url);
+
+  if (!base64 || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) {
+    const error = new Error("Foto ontbreekt of is geen geldige base64.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const estimatedBytes = Math.floor((base64.length * 3) / 4);
+
+  if (estimatedBytes > RECEIPT_PHOTO_MAX_BYTES + 2) {
+    const error = new Error("Foto is te groot. Gebruik maximaal 2 MB.");
+    error.statusCode = 413;
+    throw error;
+  }
+
+  const buffer = Buffer.from(base64, "base64");
+
+  if (!buffer.length || buffer.length > RECEIPT_PHOTO_MAX_BYTES) {
+    const error = new Error("Foto is te groot. Gebruik maximaal 2 MB.");
+    error.statusCode = buffer.length ? 413 : 400;
+    throw error;
+  }
+
+  if (!validatePhotoMagic(buffer, mimeType)) {
+    const error = new Error("Foto-inhoud komt niet overeen met het bestandstype.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return {
+    buffer,
+    mimeType,
+    extension,
+    sizeBytes: buffer.length
+  };
+}
+
 function normalizeReceiptInput(value) {
   const employeeName = normalizeText(value?.employeeName || value?.employee_name);
 
@@ -160,7 +293,8 @@ function normalizeReceiptInput(value) {
     kind: normalizeReceiptKind(value?.kind),
     amount: normalizeAmount(value?.amount),
     paidWith: normalizePaidWith(value?.paidWith || value?.paid_with),
-    remark: normalizeText(value?.remark).slice(0, 500)
+    remark: normalizeText(value?.remark).slice(0, 500),
+    photo: normalizeReceiptPhoto(value?.photo)
   };
 }
 
@@ -183,10 +317,118 @@ function toApiReceipt(row) {
     photoPath: row.photo_path || "",
     photoMimeType: row.photo_mime_type || "",
     photoSizeBytes: Number(row.photo_size_bytes) || 0,
+    photoUrl: row.photo_url || "",
     createdAt: row.created_at || "",
     updatedAt: row.updated_at || "",
     deletedAt: row.deleted_at || ""
   };
+}
+
+function getReceiptPhotoPath(receipt, photo) {
+  const mode = receipt.dataMode === "test" ? "test" : "live";
+  const dateParts = String(receipt.receiptDate || new Date().toISOString().slice(0, 10)).split("-");
+  const year = dateParts[0] || new Date().getFullYear();
+  const month = dateParts[1] || String(new Date().getMonth() + 1).padStart(2, "0");
+
+  return `${mode}/${year}/${month}/${receipt.id}.${photo.extension}`;
+}
+
+async function uploadReceiptPhoto(path, photo) {
+  await storageRequest(`object/${encodeURIComponent(RECEIPT_PHOTO_BUCKET)}/${path.split("/").map(encodeURIComponent).join("/")}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": photo.mimeType,
+      "Cache-Control": "31536000",
+      "x-upsert": "false"
+    },
+    body: photo.buffer
+  });
+}
+
+async function updateReceiptPhotoMetadata(receipt, photoPath, photo) {
+  const rows = await supabaseRequest(`expense_receipts?data_mode=eq.${encodeURIComponent(receipt.dataMode)}&id=eq.${encodeURIComponent(receipt.id)}&deleted_at=is.null`, {
+    method: "PATCH",
+    headers: {
+      Prefer: "return=representation"
+    },
+    body: JSON.stringify({
+      photo_path: photoPath,
+      photo_mime_type: photo.mimeType,
+      photo_size_bytes: photo.sizeBytes
+    })
+  });
+
+  return Array.isArray(rows) ? toApiReceipt(rows[0]) : toApiReceipt(rows);
+}
+
+async function softDeleteReceipt(receipt) {
+  if (!receipt?.id) {
+    return;
+  }
+
+  try {
+    await supabaseRequest(`expense_receipts?data_mode=eq.${encodeURIComponent(receipt.dataMode)}&id=eq.${encodeURIComponent(receipt.id)}&deleted_at=is.null`, {
+      method: "PATCH",
+      headers: {
+        Prefer: "return=minimal"
+      },
+      body: JSON.stringify({
+        deleted_at: new Date().toISOString()
+      })
+    });
+  } catch {
+    // Best-effort cleanup only; keep the original upload error visible to the caller.
+  }
+}
+
+async function createSignedPhotoUrl(photoPath) {
+  const path = normalizeText(photoPath);
+
+  if (!path) {
+    return "";
+  }
+
+  const payload = await storageRequest(`object/sign/${encodeURIComponent(RECEIPT_PHOTO_BUCKET)}/${path.split("/").map(encodeURIComponent).join("/")}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      expiresIn: RECEIPT_PHOTO_SIGNED_URL_SECONDS
+    })
+  });
+  const signedUrl = normalizeText(payload?.signedURL || payload?.signedUrl || payload?.url);
+
+  if (!signedUrl) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(signedUrl)) {
+    return signedUrl;
+  }
+
+  const { url } = getSupabaseConfig();
+  return `${url}/storage/v1${signedUrl.startsWith("/") ? signedUrl : `/${signedUrl}`}`;
+}
+
+async function attachSignedPhotoUrls(receipts) {
+  return Promise.all(receipts.map(async (receipt) => {
+    if (!receipt.photoPath) {
+      return receipt;
+    }
+
+    try {
+      return {
+        ...receipt,
+        photoUrl: await createSignedPhotoUrl(receipt.photoPath)
+      };
+    } catch {
+      return {
+        ...receipt,
+        photoUrl: ""
+      };
+    }
+  }));
 }
 
 function appendOptionalDateFilter(query, columnName, operator, value) {
@@ -220,7 +462,8 @@ async function readExpenseReceipts(mode, options = {}) {
   }
 
   const rows = await supabaseRequest(`expense_receipts?${query.join("&")}`, { method: "GET" });
-  return Array.isArray(rows) ? rows.map(toApiReceipt).filter(Boolean) : [];
+  const receipts = Array.isArray(rows) ? rows.map(toApiReceipt).filter(Boolean) : [];
+  return attachSignedPhotoUrls(receipts);
 }
 
 async function createExpenseReceipt(input) {
@@ -250,7 +493,25 @@ async function createExpenseReceipt(input) {
     throw error;
   }
 
-  return receipt;
+  if (!normalizedInput.photo) {
+    return receipt;
+  }
+
+  try {
+    const photoPath = getReceiptPhotoPath(receipt, normalizedInput.photo);
+    await uploadReceiptPhoto(photoPath, normalizedInput.photo);
+    const updatedReceipt = await updateReceiptPhotoMetadata(receipt, photoPath, normalizedInput.photo);
+
+    return updatedReceipt
+      ? {
+          ...updatedReceipt,
+          photoUrl: await createSignedPhotoUrl(photoPath)
+        }
+      : receipt;
+  } catch (error) {
+    await softDeleteReceipt(receipt);
+    throw error;
+  }
 }
 
 module.exports = async function handler(req, res) {
