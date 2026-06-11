@@ -19495,6 +19495,34 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   gap: 0.56rem;
 }
 
+.delivery-driver-mode-wizard-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.45rem;
+}
+
+.delivery-driver-mode-wizard-header > div {
+  display: grid;
+  gap: 0.08rem;
+  min-width: 0;
+}
+
+.delivery-driver-mode-wizard-header strong {
+  color: var(--color-text);
+  font-size: 0.98rem;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+
+.delivery-driver-mode-wizard-header span {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+}
+
 .delivery-driver-mode-wizard-indicator {
   justify-self: start;
   border: 1px solid var(--color-border);

@@ -7330,9 +7330,48 @@
       ["niet betaald", "contant", "pin", "tikkie", "tikkie gestuurd", "controle nodig", "betaling controle"].includes(status);
   }
 
+  function getDriverModeAutomaticPaymentChoice(stop) {
+    const status = normalizePaymentStatusLabel(stop?.paymentStatus);
+
+    if (status === "op rekening" || status === "rekening") {
+      return "account";
+    }
+
+    if (["ok", "betaald", "betaald via ideal", "ideal", "reeds betaald", "pin betaald", "contant betaald", "tikkie betaald"].includes(status)) {
+      return "paid";
+    }
+
+    return "";
+  }
+
+  function getDriverModeResolvedPaymentChoice(stop, state = getDriverModeStopState(stop)) {
+    return state.paymentChoice || getDriverModeAutomaticPaymentChoice(stop) || (state.paid ? "cash" : "");
+  }
+
+  function getDriverModeAutomaticPaymentPatch(stop, state = getDriverModeStopState(stop)) {
+    const automaticChoice = getDriverModeAutomaticPaymentChoice(stop);
+
+    if (!automaticChoice || isDriverModePaymentActionRelevant(stop) || state.paymentChoice) {
+      return {};
+    }
+
+    return {
+      paymentChoice: automaticChoice,
+      paid: automaticChoice === "paid" ? true : state.paid
+    };
+  }
+
   function getDriverModePaymentPresentation(stop, state = getDriverModeStopState(stop)) {
     const status = normalizePaymentStatusLabel(stop?.paymentStatus);
-    const paymentChoice = state.paymentChoice || "";
+    const paymentChoice = getDriverModeResolvedPaymentChoice(stop, state);
+
+    if (paymentChoice === "account") {
+      return { state: "account", label: "Op rekening", detail: "Geen betaalactie nodig." };
+    }
+
+    if (paymentChoice === "paid") {
+      return { state: "paid", label: "Reeds betaald", detail: stop?.paymentStatus || "Geen betaalactie nodig." };
+    }
 
     if (paymentChoice === "pin") {
       return { state: "paid", label: "Gepind", detail: "Betaling lokaal geregistreerd." };
@@ -7390,11 +7429,14 @@
 
   function getDriverModePaymentSummary(stop, state = getDriverModeStopState(stop)) {
     const presentation = getDriverModePaymentPresentation(stop, state);
+    const paymentChoice = getDriverModeResolvedPaymentChoice(stop, state);
 
-    if (state.paymentChoice === "pin") return "Gepind";
-    if (state.paymentChoice === "cash") return "Contant ontvangen";
-    if (state.paymentChoice === "tikkie") return "Tikkie verstuurd";
-    if (state.paymentChoice === "unpaid") return "Niet betaald";
+    if (paymentChoice === "account") return "Op rekening";
+    if (paymentChoice === "paid") return "Reeds betaald";
+    if (paymentChoice === "pin") return "Gepind";
+    if (paymentChoice === "cash") return "Contant ontvangen";
+    if (paymentChoice === "tikkie") return "Tikkie verstuurd";
+    if (paymentChoice === "unpaid") return "Niet betaald";
 
     return presentation.label;
   }
@@ -7446,7 +7488,7 @@
 
     if (
       isDriverModePaymentActionRelevant(stop) &&
-      !["pin", "cash", "tikkie", "unpaid"].includes(state.paymentChoice || (state.paid ? "cash" : ""))
+      !["pin", "cash", "tikkie", "unpaid"].includes(getDriverModeResolvedPaymentChoice(stop, state))
     ) {
       return "payment";
     }
@@ -7482,10 +7524,25 @@
     return `<div class="delivery-driver-mode-wizard-indicator">Stap ${escapeHtml(stepIndex)} van ${escapeHtml(DRIVER_WIZARD_STEPS.length)}</div>`;
   }
 
+  function renderDriverModeWizardHeader(stop, step) {
+    const postcodePlace = getStopPostcodePlace(stop);
+    const location = stop?.address || [postcodePlace.postcode, postcodePlace.plaats].filter(Boolean).join(" ");
+
+    return `
+      <div class="delivery-driver-mode-wizard-header">
+        <div>
+          <strong>${escapeHtml(stop?.customerName || "Klant onbekend")}</strong>
+          ${location ? `<span>${escapeHtml(location)}</span>` : ""}
+        </div>
+        ${renderDriverModeWizardStepIndicator(step)}
+      </div>
+    `;
+  }
+
   function renderDriverModeWizardIntro({ stop, navigationUrl, remark, practicalRemarks }) {
     return `
       <div class="delivery-driver-mode-wizard" data-delivery-driver-wizard-step="intro">
-        ${renderDriverModeWizardStepIndicator("intro")}
+        ${renderDriverModeWizardHeader(stop, "intro")}
         <div class="delivery-driver-mode-stop-head">
           ${renderDriverModeStopStatus(stop)}
           <strong>${escapeHtml(getRouteStopTimeLabel(stop))}</strong>
@@ -7523,7 +7580,7 @@
 
     return `
       <div class="delivery-driver-mode-wizard" data-delivery-driver-wizard-step="delivery">
-        ${renderDriverModeWizardStepIndicator("delivery")}
+        ${renderDriverModeWizardHeader(stop, "delivery")}
         ${renderDriverModeWizardBack("delivery")}
         <h3>Alles geleverd?</h3>
         <div class="delivery-driver-mode-choice-row">
@@ -7542,11 +7599,11 @@
   }
 
   function renderDriverModeWizardPayment(stop, state) {
-    const paymentChoice = state.paymentChoice || (state.paid ? "cash" : "");
+    const paymentChoice = getDriverModeResolvedPaymentChoice(stop, state);
 
     return `
       <div class="delivery-driver-mode-wizard" data-delivery-driver-wizard-step="payment">
-        ${renderDriverModeWizardStepIndicator("payment")}
+        ${renderDriverModeWizardHeader(stop, "payment")}
         ${renderDriverModeWizardBack("payment")}
         <h3>Betaling</h3>
         ${renderDriverModePaymentStatus(stop)}
@@ -7560,12 +7617,12 @@
     `;
   }
 
-  function renderDriverModeWizardNote(state) {
+  function renderDriverModeWizardNote(stop, state) {
     const noteOpen = state.noteOpen || Boolean(state.note);
 
     return `
       <div class="delivery-driver-mode-wizard" data-delivery-driver-wizard-step="note">
-        ${renderDriverModeWizardStepIndicator("note")}
+        ${renderDriverModeWizardHeader(stop, "note")}
         ${renderDriverModeWizardBack("note")}
         <h3>Bijzonderheden?</h3>
         <div class="delivery-driver-mode-choice-row">
@@ -7587,7 +7644,7 @@
 
     return `
       <div class="delivery-driver-mode-wizard" data-delivery-driver-wizard-step="review">
-        ${renderDriverModeWizardStepIndicator("review")}
+        ${renderDriverModeWizardHeader(stop, "review")}
         ${renderDriverModeWizardBack("review")}
         <h3>Controle</h3>
         ${missingStep ? `<div class="delivery-driver-mode-alert">Controleer eerst de ontbrekende stap.</div>` : ""}
@@ -7615,11 +7672,11 @@
     }
 
     if (step === "payment") {
-      return renderDriverModeWizardNote(state);
+      return renderDriverModeWizardNote(stop, state);
     }
 
     if (step === "note") {
-      return renderDriverModeWizardNote(state);
+      return renderDriverModeWizardNote(stop, state);
     }
 
     if (step === "review") {
@@ -7634,7 +7691,7 @@
     const paymentPresentation = getDriverModePaymentPresentation(stop, state);
     const showPaymentAction = isDriverModePaymentActionRelevant(stop);
     const deliveryChoice = state.deliveryChoice || (state.delivered ? "all" : "");
-    const paymentChoice = state.paymentChoice || (state.paid ? "cash" : "");
+    const paymentChoice = getDriverModeResolvedPaymentChoice(stop, state);
     const noteOpen = state.noteOpen || deliveryChoice === "partial";
 
     return `
@@ -8264,7 +8321,8 @@
     const state = getDriverModeStopState(stop);
     const deliveryChoice = state.deliveryChoice || "";
     const paymentRelevant = isDriverModePaymentActionRelevant(stop);
-    const paymentChoice = state.paymentChoice || (state.paid ? "cash" : "");
+    const paymentChoice = getDriverModeResolvedPaymentChoice(stop, state);
+    const automaticPaymentPatch = getDriverModeAutomaticPaymentPatch(stop, state);
 
     if (!["all", "partial"].includes(deliveryChoice)) {
       driverModeActionMessage = "Kies eerst of alles geleverd is.";
@@ -8290,9 +8348,9 @@
     updateDriverModeStopState(stop, {
       delivered: true,
       skipped: false,
-      paid: paymentRelevant ? ["pin", "cash"].includes(paymentChoice) : state.paid,
+      paid: paymentRelevant ? ["pin", "cash"].includes(paymentChoice) : (paymentChoice === "paid" ? true : state.paid),
       deliveryChoice,
-      paymentChoice: paymentRelevant ? paymentChoice : state.paymentChoice,
+      paymentChoice: paymentRelevant ? paymentChoice : (automaticPaymentPatch.paymentChoice || state.paymentChoice),
       note: String(state.note || "").trim(),
       noteOpen: Boolean(state.noteOpen || state.note || deliveryChoice === "partial"),
       wizardStep: "review"
@@ -8375,10 +8433,14 @@
       return;
     }
 
+    const state = getDriverModeStopState(stop);
+    const nextStep = normalizedChoice === "all" ? getDriverModeNextWizardStep(stop, "delivery") : "delivery";
+
     updateDriverModeStopState(stop, {
       deliveryChoice: normalizedChoice,
-      noteOpen: normalizedChoice === "partial" ? true : getDriverModeStopState(stop).noteOpen,
-      wizardStep: normalizedChoice === "all" ? getDriverModeNextWizardStep(stop, "delivery") : "delivery"
+      noteOpen: normalizedChoice === "partial" ? true : state.noteOpen,
+      ...(!isDriverModePaymentActionRelevant(stop) && nextStep === "note" ? getDriverModeAutomaticPaymentPatch(stop, state) : {}),
+      wizardStep: nextStep
     });
     driverModeActionMessage = "";
     renderDriverMode();
@@ -8451,7 +8513,12 @@
       : getDriverModeNextWizardStep(stop, currentStep);
 
     if (nextStep === "payment" && !isDriverModePaymentActionRelevant(stop)) {
-      setCurrentDriverModeWizardStep(delta < 0 ? "delivery" : "note");
+      updateDriverModeStopState(stop, {
+        ...(delta > 0 ? getDriverModeAutomaticPaymentPatch(stop, state) : {}),
+        wizardStep: delta < 0 ? "delivery" : "note"
+      });
+      driverModeActionMessage = "";
+      renderDriverMode();
       return;
     }
 
@@ -8467,6 +8534,16 @@
       }
     }
 
+    if (currentStep === "note" && delta > 0 && nextStep === "review") {
+      updateDriverModeStopState(stop, {
+        ...getDriverModeAutomaticPaymentPatch(stop, state),
+        wizardStep: "review"
+      });
+      driverModeActionMessage = "";
+      renderDriverMode();
+      return;
+    }
+
     setCurrentDriverModeWizardStep(nextStep);
   }
 
@@ -8477,6 +8554,8 @@
       renderDriverMode();
       return;
     }
+
+    const state = getDriverModeStopState(stop);
 
     if (choice === "add") {
       updateDriverModeStopState(stop, {
@@ -8490,7 +8569,8 @@
 
     updateDriverModeStopState(stop, {
       noteOpen: false,
-      note: getDriverModeStopState(stop).deliveryChoice === "partial" ? getDriverModeStopState(stop).note : "",
+      note: state.deliveryChoice === "partial" ? state.note : "",
+      ...getDriverModeAutomaticPaymentPatch(stop, state),
       wizardStep: "review"
     });
     driverModeActionMessage = "";
