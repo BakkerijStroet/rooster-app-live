@@ -7036,6 +7036,117 @@ body[data-role="planner"] [data-panel="administration"] .administration-toolbar 
   text-align: right;
 }
 
+.administration-driver-results {
+  gap: 10px;
+}
+
+.administration-driver-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.administration-driver-block {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.administration-driver-block h4 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 0.96rem;
+}
+
+.administration-driver-route-grid,
+.administration-driver-payment-list,
+.administration-driver-attention-list {
+  display: grid;
+  gap: 7px;
+}
+
+.administration-driver-route-card,
+.administration-driver-row {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  font-size: 13px;
+}
+
+.administration-driver-route-card {
+  grid-template-columns: minmax(240px, 1fr) minmax(260px, 1fr);
+  align-items: center;
+}
+
+.administration-driver-row {
+  grid-template-columns: minmax(240px, 1fr) minmax(180px, auto);
+  align-items: center;
+}
+
+.administration-driver-row.is-attention {
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, auto);
+  background: #fff8ed;
+}
+
+.administration-driver-row.is-attention small {
+  grid-column: 1 / -1;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.administration-driver-route-card div,
+.administration-driver-row div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.administration-driver-route-card span,
+.administration-driver-row span {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.administration-driver-route-card strong,
+.administration-driver-route-card span,
+.administration-driver-row strong,
+.administration-driver-row span,
+.administration-driver-row em {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.administration-driver-row em {
+  justify-self: end;
+  font-style: normal;
+  font-weight: 900;
+  text-align: right;
+}
+
+.administration-driver-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(70px, 1fr));
+  gap: 6px;
+}
+
+.administration-driver-stats span {
+  display: grid;
+  gap: 2px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: var(--color-primary-soft);
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+.administration-driver-stats b {
+  color: var(--color-text);
+  font-size: 1rem;
+}
+
 .administration-card-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(260px, 1fr));
@@ -7137,6 +7248,10 @@ body[data-role="planner"] [data-panel="administration"] .administration-toolbar 
     grid-template-columns: repeat(3, minmax(150px, 1fr));
   }
 
+  .administration-driver-route-card {
+    grid-template-columns: 1fr;
+  }
+
   .administration-card-grid {
     grid-template-columns: 1fr;
   }
@@ -7144,12 +7259,20 @@ body[data-role="planner"] [data-panel="administration"] .administration-toolbar 
 
 @media (max-width: 640px) {
   .administration-action-grid,
-  .administration-delivery-admin-row {
+  .administration-delivery-admin-row,
+  .administration-driver-row,
+  .administration-driver-row.is-attention {
     grid-template-columns: 1fr;
   }
 
-  .administration-delivery-admin-row em {
+  .administration-delivery-admin-row em,
+  .administration-driver-row em {
+    justify-self: start;
     text-align: left;
+  }
+
+  .administration-driver-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .administration-card-head {

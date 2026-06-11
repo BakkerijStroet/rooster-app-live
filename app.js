@@ -8924,6 +8924,215 @@ function getAdministrationDeliverySignalReasons(stop = {}) {
   return [...new Set(reasons)];
 }
 
+function normalizeAdministrationDriverReferenceValue(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/&[a-z]+;/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeAdministrationDriverPostcode(value) {
+  return String(value || "").toUpperCase().replace(/\s+/g, "");
+}
+
+function getAdministrationDeliveryStopPostcode(stop = {}) {
+  const postcode = String(stop.postcode || "").trim();
+  const address = String(stop.address || "").trim();
+  const match = `${postcode} ${address}`.match(/\b[1-9][0-9]{3}\s?[A-Z]{2}\b/i);
+
+  return normalizeAdministrationDriverPostcode(match ? match[0] : postcode);
+}
+
+function getAdministrationDriverStopKey(stop = {}) {
+  const customerKey = normalizeAdministrationDriverReferenceValue(stop.customerId || stop.knownCustomerId || stop.customerName || "");
+  const addressKey = normalizeAdministrationDriverReferenceValue(stop.address || "");
+  const postcodeKey = getAdministrationDeliveryStopPostcode(stop);
+  const timeKey = normalizeAdministrationDriverReferenceValue(stop.timeWindow || "");
+
+  return [customerKey, postcodeKey, addressKey, timeKey].filter(Boolean).join("|") || "stop-onbekend";
+}
+
+function getAdministrationDriverRouteStorageKey(run = {}, routeNumber = 1) {
+  const runKey = String(run.id || run.sourceHash || run?.payload?.source?.hash || "").trim();
+  const routeKey = Number(routeNumber) === 2 ? "2" : "1";
+
+  return runKey ? `delivery-driver-status-v1:${runKey}:route-${routeKey}` : "";
+}
+
+function readAdministrationDriverRouteState(run = {}, routeNumber = 1) {
+  const storageKey = getAdministrationDriverRouteStorageKey(run, routeNumber);
+
+  if (!storageKey) {
+    return { storageKey, stops: {}, routeOrders: {}, hasLocalState: false };
+  }
+
+  try {
+    const rawValue = window.localStorage?.getItem(storageKey) || "";
+    const parsedValue = rawValue ? JSON.parse(rawValue) : null;
+
+    return {
+      storageKey,
+      stops: parsedValue?.stops && typeof parsedValue.stops === "object" ? parsedValue.stops : {},
+      routeOrders: parsedValue?.routeOrders && typeof parsedValue.routeOrders === "object" ? parsedValue.routeOrders : {},
+      hasLocalState: Boolean(parsedValue?.stops && Object.keys(parsedValue.stops).length)
+    };
+  } catch {
+    return { storageKey, stops: {}, routeOrders: {}, hasLocalState: false };
+  }
+}
+
+function getAdministrationDriverPaymentChoice(stop = {}, state = {}) {
+  const explicitChoice = typeof state.paymentChoice === "string" ? state.paymentChoice : "";
+  const status = String(stop.paymentStatus || "").trim().toLowerCase();
+
+  if (explicitChoice) {
+    return explicitChoice;
+  }
+
+  if (state.paid) {
+    return "cash";
+  }
+
+  if (status === "op rekening" || status === "rekening") {
+    return state.updatedAt ? "account" : "";
+  }
+
+  if (["ok", "betaald", "betaald via ideal", "ideal", "reeds betaald", "pin betaald", "contant betaald", "tikkie betaald"].includes(status)) {
+    return state.updatedAt ? "paid" : "";
+  }
+
+  return "";
+}
+
+function getAdministrationDriverPaymentLabel(choice = "") {
+  if (choice === "account") return "Op rekening";
+  if (choice === "paid") return "Reeds betaald";
+  if (choice === "pin") return "Gepind";
+  if (choice === "cash") return "Contant ontvangen";
+  if (choice === "tikkie") return "Tikkie verstuurd";
+  if (choice === "unpaid") return "Niet betaald";
+
+  return "Onbekend / nog niet afgehandeld";
+}
+
+function getAdministrationDriverAttentionReasons(state = {}, paymentChoice = "") {
+  const reasons = [];
+  const note = String(state.note || "").trim();
+
+  if (state.skipped && !state.delivered) {
+    reasons.push("Overgeslagen");
+  }
+
+  if (state.deliveryChoice === "partial") {
+    reasons.push("Niet alles geleverd");
+  }
+
+  if (paymentChoice === "unpaid") {
+    reasons.push("Niet betaald");
+  }
+
+  if (paymentChoice === "tikkie") {
+    reasons.push("Tikkie verstuurd");
+  }
+
+  if (note && !reasons.includes("Niet alles geleverd")) {
+    reasons.push("Bijzonderheid aanwezig");
+  }
+
+  return reasons;
+}
+
+function getAdministrationDriverResults(selection) {
+  const routeSummaries = [];
+  const paymentItems = [];
+  const attentionItems = [];
+  let hasLocalStatus = false;
+
+  administrationDeliveryRuns
+    .filter((run) => {
+      const runDate = getAdministrationDeliveryRunDate(run);
+      return runDate && runDate >= selection.startDate && runDate <= selection.endDate;
+    })
+    .forEach((run) => {
+      const runDate = getAdministrationDeliveryRunDate(run);
+      const stops = getAdministrationDeliveryStopsFromRun(run);
+      const routeGroups = stops.reduce((groups, stop, index) => {
+        const routeNumber = Number(stop.routeNumber || stop.route || 1) || 1;
+        groups[routeNumber] = groups[routeNumber] || [];
+        groups[routeNumber].push({ stop, index });
+        return groups;
+      }, {});
+
+      Object.entries(routeGroups).forEach(([routeNumberValue, routeStops]) => {
+        const routeNumber = Number(routeNumberValue) || 1;
+        const routeState = readAdministrationDriverRouteState(run, routeNumber);
+        const routeHasLocalStatus = routeState.hasLocalState;
+        let deliveredCount = 0;
+        let skippedCount = 0;
+        let attentionCount = 0;
+
+        hasLocalStatus = hasLocalStatus || routeHasLocalStatus;
+
+        routeStops.forEach(({ stop, index }) => {
+          const state = routeState.stops[getAdministrationDriverStopKey(stop)] || {};
+          const hasStopState = Boolean(state.updatedAt || state.deliveryChoice || state.paymentChoice || state.delivered || state.skipped || state.note);
+          const paymentChoice = routeHasLocalStatus ? getAdministrationDriverPaymentChoice(stop, state) : "";
+          const attentionReasons = routeHasLocalStatus ? getAdministrationDriverAttentionReasons(state, paymentChoice) : [];
+          const customerName = stop.customerName || stop.knownCustomerName || stop.address || "Onbekende klant";
+
+          if (state.delivered) deliveredCount += 1;
+          if (state.skipped && !state.delivered) skippedCount += 1;
+          if (attentionReasons.length) attentionCount += 1;
+
+          if (routeHasLocalStatus) {
+            paymentItems.push({
+              customerName,
+              date: runDate,
+              routeNumber,
+              stopNumber: index + 1,
+              hasStopState,
+              label: getAdministrationDriverPaymentLabel(paymentChoice)
+            });
+          }
+
+          if (attentionReasons.length) {
+            attentionItems.push({
+              customerName,
+              date: runDate,
+              routeNumber,
+              stopNumber: index + 1,
+              reasons: attentionReasons,
+              note: String(state.note || "").trim()
+            });
+          }
+        });
+
+        if (routeHasLocalStatus) {
+          routeSummaries.push({
+            runName: run?.payload?.runName || "",
+            routeNumber,
+            driverName: run?.payload?.driverName || run?.payload?.chauffeur || "Niet vastgelegd",
+            stops: routeStops.length,
+            delivered: deliveredCount,
+            open: Math.max(routeStops.length - deliveredCount - skippedCount, 0),
+            attention: attentionCount
+          });
+        }
+      });
+    });
+
+  return {
+    hasLocalStatus,
+    routeSummaries,
+    paymentItems,
+    attentionItems
+  };
+}
+
 function getAdministrationDeliveryAdministrationForDate(dateValue = getTodayLocalDateValue()) {
   const items = [];
   const summary = {
@@ -9183,6 +9392,128 @@ function renderAdministrationDeliveryAdminList(deliveryAdministration, statusTex
   `;
 }
 
+function renderAdministrationDriverRouteSummary(routeSummaries = []) {
+  if (!routeSummaries.length) {
+    return `<div class="administration-list empty">Geen routeoverzicht beschikbaar.</div>`;
+  }
+
+  return `
+    <div class="administration-driver-route-grid">
+      ${routeSummaries.map((route) => `
+        <article class="administration-driver-route-card">
+          <div>
+            <strong>${escapeHtmlAttribute(route.runName || `Route ${route.routeNumber}`)}</strong>
+            <span>Route ${escapeHtmlAttribute(String(route.routeNumber))} · chauffeur: ${escapeHtmlAttribute(route.driverName)}</span>
+          </div>
+          <div class="administration-driver-stats">
+            <span><b>${escapeHtmlAttribute(String(route.stops))}</b> stops</span>
+            <span><b>${escapeHtmlAttribute(String(route.delivered))}</b> afgerond</span>
+            <span><b>${escapeHtmlAttribute(String(route.open))}</b> open</span>
+            <span><b>${escapeHtmlAttribute(String(route.attention))}</b> aandacht</span>
+          </div>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderAdministrationDriverPayments(paymentItems = []) {
+  if (!paymentItems.length) {
+    return `<div class="administration-list empty">Geen betaalafhandeling beschikbaar.</div>`;
+  }
+
+  return `
+    <div class="administration-driver-payment-list">
+      ${paymentItems.map((item) => `
+        <div class="administration-driver-row">
+          <div>
+            <strong>${escapeHtmlAttribute(item.customerName)}</strong>
+            <span>${escapeHtmlAttribute(formatDate(item.date))} · route ${escapeHtmlAttribute(String(item.routeNumber))} · stop ${escapeHtmlAttribute(String(item.stopNumber))}</span>
+          </div>
+          <em>${escapeHtmlAttribute(item.label)}</em>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderAdministrationDriverAttention(attentionItems = []) {
+  if (!attentionItems.length) {
+    return `<div class="administration-list empty">Geen lokale aandachtspunten.</div>`;
+  }
+
+  return `
+    <div class="administration-driver-attention-list">
+      ${attentionItems.map((item) => `
+        <div class="administration-driver-row is-attention">
+          <div>
+            <strong>${escapeHtmlAttribute(item.customerName)}</strong>
+            <span>${escapeHtmlAttribute(formatDate(item.date))} · route ${escapeHtmlAttribute(String(item.routeNumber))} · stop ${escapeHtmlAttribute(String(item.stopNumber))}</span>
+          </div>
+          <em>${escapeHtmlAttribute(item.reasons.join(", "))}</em>
+          ${item.note ? `<small>${escapeHtmlAttribute(item.note)}</small>` : ""}
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderAdministrationDriverResultsBlock(driverResults, statusText = "") {
+  if (statusText) {
+    return `
+      <section class="administration-card administration-driver-results">
+        <header class="administration-card-head">
+          <div>
+            <h3>Chauffeurresultaten</h3>
+            <p>Alleen lokale status op dit apparaat/browser.</p>
+          </div>
+        </header>
+        <div class="administration-list empty">${escapeHtmlAttribute(statusText)}</div>
+      </section>
+    `;
+  }
+
+  if (!driverResults?.hasLocalStatus) {
+    return `
+      <section class="administration-card administration-driver-results">
+        <header class="administration-card-head">
+          <div>
+            <h3>Chauffeurresultaten</h3>
+            <p>Alleen lokale status op dit apparaat/browser.</p>
+          </div>
+        </header>
+        <div class="administration-list empty">Nog geen chauffeurresultaten op dit apparaat.</div>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="administration-card administration-driver-results">
+      <header class="administration-card-head">
+        <div>
+          <h3>Chauffeurresultaten</h3>
+          <p>Read-only lokale status uit deze browser. Niet centraal opgeslagen.</p>
+        </div>
+      </header>
+      <div class="administration-note">Deze resultaten zijn alleen beschikbaar op dit apparaat/browser.</div>
+      <div class="administration-driver-grid">
+        <section class="administration-driver-block">
+          <h4>Routeoverzicht</h4>
+          ${renderAdministrationDriverRouteSummary(driverResults.routeSummaries)}
+        </section>
+        <section class="administration-driver-block">
+          <h4>Betalingen</h4>
+          ${renderAdministrationDriverPayments(driverResults.paymentItems)}
+        </section>
+        <section class="administration-driver-block">
+          <h4>Aandacht</h4>
+          ${renderAdministrationDriverAttention(driverResults.attentionItems)}
+        </section>
+      </div>
+    </section>
+  `;
+}
+
 function renderAdministrationActionTodayBlock() {
   if (!administrationDeliveryRunsLoaded && !administrationDeliveryRunsLoading && !administrationDeliveryRunsError) {
     void loadAdministrationDeliveryRuns();
@@ -9336,6 +9667,7 @@ function renderAdministrationDashboard() {
     : administrationDeliveryRunsError
       ? "Nog niet beschikbaar"
       : (!administrationDeliveryRunsLoaded ? "Nog niet beschikbaar" : "");
+  const driverResults = getAdministrationDriverResults(selection);
 
   administrationDashboard.innerHTML = `
     ${renderAdministrationActionTodayBlock()}
@@ -9364,6 +9696,7 @@ function renderAdministrationDashboard() {
       </header>
       ${renderAdministrationDeliveryAdminList(deliveryAdministration, deliveryStatusText)}
     </section>
+    ${renderAdministrationDriverResultsBlock(driverResults, deliveryStatusText)}
   `;
 }
 
