@@ -95,13 +95,15 @@
   const NOT_CUTTING_PATTERN = /\b(ongesneden|niet\s+gesneden|niet\s+snijden|\d+\s*plakken?|plakken?)\b/i;
   const NON_CUTTING_BREAD_PATTERN = /\b(broodjes?|bolletjes?|bol\b|punt(?:en)?|pistolet|stokbrood|mini\s+bol|witte\s+punt|rozijnenbol)\b/i;
   const CUTTING_BREAD_PATTERN = /\b(bus|mandje|vloer|volkoren|tarwe|waldkorn|spelt|meergr|hollands\s+grof|grof\s+volkoren|prokorn|poesta|duutse\s+kneud|achterhoek\s+duuster|ruwe\s+bolster|oeoerenwit|admiraal|krentenbrood|rozijnenbrood|krentewegge|zomergranen|zesgranen)\b/i;
-  const WARM_PREPARATION_PATTERN = /\b(warm|saucijs|saucijzen|saucijzenbroodje|appelflap|frikandel|worstenbrood|ham[-\s]?kaas|kaassouffle|kroket|snack|pizza)\b/i;
+  const WARM_PREPARATION_PATTERN = /\b(warm|ovenwarm|oven\s*warm|warmhouden)\b/i;
   const ORDER_REMARK_PATTERN = /\b(?:GESNEDEN\?|VULLING|AFWERKING|FOTO\s+OP\s+ELK\s+STUKJE\?|Extra\s+bestelling)\s*:/i;
   const ORDER_REMARK_FREE_TEXT_PATTERN = /^(?:1[,.]00\s+)?(?:\d+\s+)?(?:graag\b.*|.*\bgeen\s+(?:tomaat|kaas)\b.*|.*\bin\s+zakje\b.*)$/i;
   const ORDER_REMARK_GLUTEN_FREE_TEXT_PATTERN = /^(?:1[,.]00\s+.*\bglutenvrij\b.*|.*\bgraag\b.*\bglutenvrij\b.*)$/i;
   const ORDER_REMARK_DECORATION_PATTERN = /^(?:1[,.]00\s+)?(?:gesneden|\+?\s*conve?ttie|met\s+tekst\b.*)$/i;
   const ORDER_REMARK_HEALTHY_SANDWICH_TEXT_PATTERN = /^1[,.]00\s+\d+\s+broodjes\s+gezond$/i;
   const DELIVERY_ADMIN_PRODUCT_PATTERN = /\b(?:Bezorgkosten-\d{4}(?:-\d{4})?|Bezorgen\s+in\s+[A-Za-zÀ-ÿ.' -]+)\b/i;
+  const MISSING_TIME_PREFERENCES_STORAGE_KEY = "delivery-missing-time-preferences-v1";
+
   function getEmptyRouteAdviceReport() {
     return {
       active: false,
@@ -222,6 +224,87 @@
     } catch (error) {
       console.warn("[delivery] ritkosten opslaan mislukt", error);
     }
+  }
+
+  function loadMissingTimePreferences() {
+    try {
+      const rawValue = window.localStorage?.getItem(MISSING_TIME_PREFERENCES_STORAGE_KEY) || "";
+      const parsedValue = rawValue ? JSON.parse(rawValue) : {};
+
+      return parsedValue && typeof parsedValue === "object" && !Array.isArray(parsedValue)
+        ? parsedValue
+        : {};
+    } catch (error) {
+      console.warn("[delivery] tijdvoorkeuren laden mislukt", error);
+      return {};
+    }
+  }
+
+  function persistMissingTimePreferences(preferences) {
+    try {
+      window.localStorage?.setItem(MISSING_TIME_PREFERENCES_STORAGE_KEY, JSON.stringify(preferences || {}));
+    } catch (error) {
+      console.warn("[delivery] tijdvoorkeuren opslaan mislukt", error);
+    }
+  }
+
+  function getMissingTimePreferenceKey(stop, index = -1) {
+    const postcodePlace = getStopPostcodePlace(stop);
+    const keyParts = [
+      normalizeReferenceValue(stop?.customerName || ""),
+      normalizeReferenceValue(postcodePlace.postcode || ""),
+      normalizeReferenceValue(stop?.address || "")
+    ].filter(Boolean);
+
+    return keyParts.join("|") || `stop-${index}`;
+  }
+
+  function getMissingTimePreference(stop, index = -1) {
+    const key = getMissingTimePreferenceKey(stop, index);
+    const preferences = loadMissingTimePreferences();
+    const preference = preferences[key];
+    const timeWindow = getTimeWindow(preference?.timeWindow || "") || String(preference?.timeWindow || "").trim();
+
+    return timeWindow ? { key, timeWindow, preference } : null;
+  }
+
+  function saveMissingTimePreference(stop, index, timeWindow) {
+    const normalizedTimeWindow = getTimeWindow(timeWindow) || String(timeWindow || "").trim();
+
+    if (!stop || !normalizedTimeWindow) {
+      return;
+    }
+
+    const key = getMissingTimePreferenceKey(stop, index);
+    const postcodePlace = getStopPostcodePlace(stop);
+    const preferences = loadMissingTimePreferences();
+
+    preferences[key] = {
+      customerName: String(stop.customerName || "").trim(),
+      postcode: postcodePlace.postcode || "",
+      address: String(stop.address || "").trim(),
+      timeWindow: normalizedTimeWindow,
+      updatedAt: new Date().toISOString()
+    };
+    persistMissingTimePreferences(preferences);
+  }
+
+  function applyMissingTimePreferences(stops) {
+    (Array.isArray(stops) ? stops : []).forEach((stop, index) => {
+      if (String(stop?.timeWindow || "").trim()) {
+        return;
+      }
+
+      const preference = getMissingTimePreference(stop, index);
+
+      if (!preference?.timeWindow) {
+        return;
+      }
+
+      stop.timeWindow = preference.timeWindow;
+      removeStopNotesMatching(stop, /tijd/i);
+      refreshStopReviewState(stop);
+    });
   }
 
   function getRouteCostRunKey() {
@@ -517,8 +600,23 @@
     return baseName || "Bezorglijst";
   }
 
-  function getDeliveryRunDisplayTitle({ deliveryDate = "", sourceFilename = "", fallbackDate = "" } = {}) {
+  function getDefaultDeliveryRunName({ deliveryDate = "", fallbackDate = "" } = {}) {
     const dateLabel = parseDeliveryDateIso(deliveryDate) || formatDateIso(fallbackDate) || formatDateIso(new Date());
+    return `${dateLabel} Bezorglijsten`;
+  }
+
+  function getDeliveryRunDisplayTitle({ runName = "", deliveryDate = "", sourceFilename = "", fallbackDate = "" } = {}) {
+    const normalizedRunName = String(runName || "").trim();
+
+    if (normalizedRunName) {
+      return normalizedRunName;
+    }
+
+    if (deliveryDate) {
+      return getDefaultDeliveryRunName({ deliveryDate, fallbackDate });
+    }
+
+    const dateLabel = formatDateIso(fallbackDate) || formatDateIso(new Date());
     return `${dateLabel} - ${getDeliveryDisplayBaseName(sourceFilename)}`;
   }
 
@@ -580,10 +678,11 @@
 
   function renderPlannerStatus() {
     const isPrintBlocked = isRoutePrintBlocked();
+    const isParserBlocked = latestParserQualityBlocked || latestSaveState.status === "blocked";
     const saveState = getRouteSaveActionState();
 
     if (plannerApprovePrintButton) {
-      plannerApprovePrintButton.disabled = !latestRouteStops.length || isPrintBlocked;
+      plannerApprovePrintButton.disabled = !latestRouteStops.length || isParserBlocked;
     }
 
     if (plannerSaveButton) {
@@ -630,7 +729,7 @@
 
     if (isPrintBlocked) {
       plannerStatusElement.hidden = false;
-      plannerStatusElement.textContent = "Route onvolledig gelezen - printen geblokkeerd";
+      plannerStatusElement.textContent = "Route heeft controlewaarschuwingen";
       plannerStatusElement.dataset.deliveryPlannerState = "incomplete";
       return;
     }
@@ -798,6 +897,18 @@
     renderControlSummary([]);
     renderPlannerStatus();
     renderDriverMode();
+  }
+
+  function resetDeliveryForNewPdf() {
+    if (pdfInput) {
+      pdfInput.value = "";
+    }
+
+    closeDeliveryPlannerQuestionsModal();
+    setEmptyPreview("Selecteer of sleep een nieuwe PDF om tekst te lezen.");
+    setStatus("Kies of sleep een nieuwe PDF.", "ready");
+    dropZoneElement?.scrollIntoView({ block: "center", behavior: "smooth" });
+    dropZoneElement?.focus?.();
   }
 
   function isPdfFile(file) {
@@ -1197,6 +1308,7 @@
   function getReferenceProductCategories(line) {
     const matches = getReferenceProductMatches(line);
     const categories = new Set();
+    const hasWarmMarker = WARM_PREPARATION_PATTERN.test(String(line || ""));
 
     matches.forEach((product) => {
       const category = normalizeReferenceCategory(product.categorie);
@@ -1205,7 +1317,7 @@
         categories.add(category);
       }
 
-      if (product.warm) {
+      if (product.warm && hasWarmMarker) {
         categories.add("warm");
       }
     });
@@ -1267,7 +1379,7 @@
 
     const categories = [...getReferenceProductCategories(line)];
 
-    if (WARM_PREPARATION_PATTERN.test(normalizedLine) || /\b(hete|ovenwarm|oven\s*warm|warmhouden)\b/.test(normalizedLine)) {
+    if (WARM_PREPARATION_PATTERN.test(normalizedLine)) {
       categories.push("warm");
     }
 
@@ -2631,6 +2743,7 @@
 
     const routeStops = assignSuggestedRouteNumbers(enrichStopsWithKnownCustomers(buildRouteStops(lines)));
     assignPdfOrderIndexes(routeStops);
+    applyMissingTimePreferences(routeStops);
     routeStops.forEach(markRouteProposalReview);
     latestRouteProposalState = routeStops.length ? "pdf-order" : "none";
     latestRouteAdviceReport = {
@@ -2646,7 +2759,7 @@
       ? [
         ...warnings,
         latestRouteCompleteness.isIncomplete
-          ? `Route onvolledig gelezen - printen geblokkeerd: ${latestRouteCompleteness.builtCount} van vermoedelijk ${latestRouteCompleteness.suspectedCount} stops herkend. Controleer PDF of parser. Deze route mag nog niet gebruikt worden.`
+          ? `Route heeft controlewaarschuwingen: ${latestRouteCompleteness.builtCount} van vermoedelijk ${latestRouteCompleteness.suspectedCount} stops herkend. Controleer PDF of parser.`
           : "",
         ...latestRouteCompleteness.reasons.map((reason) => `Blokkade: ${reason}`),
         ...latestRouteCompleteness.missingLines.map((line) => `Mogelijk niet gekoppeld: ${line}`),
@@ -4111,6 +4224,20 @@
       const customerMatch = getRecognitionCustomerMatch(stop);
       const hasUnknownName = !String(stop?.customerName || "").trim() || /klant onbekend/i.test(String(stop?.customerName || ""));
 
+      if (!String(stop?.timeWindow || "").trim()) {
+        addDeliveryPlannerQuestion(questions, {
+          key: `stop-time-missing-${getMissingTimePreferenceKey(stop, index)}`,
+          type: "time",
+          text: `Welke tijd hoort bij ${stopName}?`,
+          stopIndex: index,
+          stopId: stopIdentity.stopId,
+          postcode: stopIdentity.postcode,
+          customerName: stopName,
+          originalValue: "",
+          priority: 28
+        });
+      }
+
       if (String(stop?.timeWindow || "").trim() && /controle nodig|\?|onzeker/i.test(String(stop.timeWindow))) {
         addDeliveryPlannerQuestion(questions, {
           key: `stop-time-uncertain-${index}`,
@@ -4477,6 +4604,7 @@
     areDeliveryPlannerQuestionsExpanded = false;
     areDeliveryPlannerMissingTimesExpanded = false;
     latestDeliveryPlannerQuestions = buildDeliveryPlannerQuestions(stops);
+    areDeliveryPlannerMissingTimesExpanded = latestDeliveryPlannerQuestions.some(isMissingTimePlannerQuestion);
     openDeliveryPlannerQuestionsModal();
   }
 
@@ -4546,6 +4674,7 @@
       stop.timeWindow = normalizedTimeWindow;
       removeStopNotesMatching(stop, /tijd/i);
       refreshStopReviewState(stop);
+      saveMissingTimePreference(stop, stopIndex, normalizedTimeWindow);
       correctedValue = normalizedTimeWindow;
       appliedToCurrentRun = true;
     } else if (question.type === "customer") {
@@ -5966,20 +6095,21 @@
     const hasStops = latestRouteStops.length > 0;
     const isBusy = latestSaveState.status === "saving" || latestSaveState.status === "updating";
     const isSavedRun = latestRunSource === "saved";
+    const isParserBlocked = latestParserQualityBlocked || latestSaveState.status === "blocked";
     const canPatch = hasStops
       && isSavedRun
       && latestHasLocalCorrections
       && latestRunId
       && latestRunBaseUpdatedAt
       && !isBusy
-      && !isRoutePrintBlocked();
+      && !isParserBlocked;
     const canPost = hasStops
       && !isSavedRun
       && latestSourceHash
       && !isBusy
       && latestSaveState.status !== "saved"
       && latestSaveState.status !== "opened"
-      && !isRoutePrintBlocked();
+      && !isParserBlocked;
 
     if (isBusy) {
       return {
@@ -5990,12 +6120,12 @@
       };
     }
 
-    if (!hasStops || isRoutePrintBlocked()) {
+    if (!hasStops || isParserBlocked) {
       return {
         canSave: false,
         label: "Route opslaan",
         action: "",
-        title: hasStops ? "Route is nog niet betrouwbaar genoeg om op te slaan." : "Upload eerst een PDF."
+        title: hasStops ? "PDF kon niet betrouwbaar genoeg worden gelezen om op te slaan." : "Upload eerst een PDF."
       };
     }
 
@@ -6033,6 +6163,7 @@
     }
 
     const displayTitle = getDeliveryRunDisplayTitle({
+      runName: "",
       deliveryDate: latestDeliveryDate,
       sourceFilename: latestSourceFilename,
       fallbackDate: latestUploadDate || latestRunUpdatedAt
@@ -6054,7 +6185,7 @@
       <span><strong>Stops</strong>${latestRouteStops.length}</span>
       <span><strong>Opslag</strong>${escapeHtml(getSaveStatusText())}</span>
       <span><strong>Parser</strong>${escapeHtml(latestParserSource || "-")}</span>
-      <button type="button" class="secondary" data-delivery-status-print ${latestRouteStops.length && !isRoutePrintBlocked() ? "" : "disabled"}>Printvoorbeeld</button>
+      <button type="button" class="secondary" data-delivery-status-print ${latestRouteStops.length && !latestParserQualityBlocked && latestSaveState.status !== "blocked" ? "" : "disabled"}>Printvoorbeeld</button>
       ${warning}
     `;
   }
@@ -6093,6 +6224,7 @@
     savedRunsElement.classList.remove("empty");
     savedRunsElement.innerHTML = runs.map((run) => {
       const displayTitle = getDeliveryRunDisplayTitle({
+        runName: run?.payload?.runName || "",
         deliveryDate: run?.payload?.deliveryDate || "",
         sourceFilename: run?.sourceFilename || run?.payload?.source?.filename || "",
         fallbackDate: run?.payload?.source?.uploadedAt || run?.createdAt || run?.updatedAt || ""
@@ -6424,6 +6556,7 @@
         <div class="delivery-recognized-item">
           <strong>Opgeslagen route</strong>
           <span>${escapeHtml(getDeliveryRunDisplayTitle({
+            runName: "",
             deliveryDate: latestDeliveryDate,
             sourceFilename: latestSourceFilename,
             fallbackDate: latestUploadDate || latestRunUpdatedAt
@@ -6540,6 +6673,7 @@
     const saveState = getRouteSaveActionState();
     const displayTitle = hasStops
       ? getDeliveryRunDisplayTitle({
+        runName: "",
         deliveryDate,
         sourceFilename: latestSourceFilename,
         fallbackDate: latestUploadDate || latestRunUpdatedAt
@@ -8185,8 +8319,8 @@
     routeBlocksElement.innerHTML = `
       ${isRoutePrintBlocked() ? `
         <div class="delivery-route-incomplete-alert">
-          <strong>Route onvolledig gelezen - printen geblokkeerd</strong>
-          <span>${escapeHtml(latestRouteCompleteness.builtCount)} van vermoedelijk ${escapeHtml(latestRouteCompleteness.suspectedCount)} stops herkend. Controleer PDF of parser. Deze route mag nog niet gebruikt worden.</span>
+          <strong>Route heeft controlewaarschuwingen</strong>
+          <span>${escapeHtml(latestRouteCompleteness.builtCount)} van vermoedelijk ${escapeHtml(latestRouteCompleteness.suspectedCount)} stops herkend. Controleer PDF of parser. Opslaan en printen vragen om bewuste bevestiging.</span>
           ${latestRouteCompleteness.reasons.length ? `
             <small>Reden: ${latestRouteCompleteness.reasons.map(escapeHtml).join(" | ")}</small>
           ` : ""}
@@ -8253,6 +8387,9 @@
     const needsReview = formData.get("needsReview") === "on";
 
     stop.timeWindow = timeWindow;
+    if (timeWindow) {
+      saveMissingTimePreference(stop, index, timeWindow);
+    }
     stop.paymentStatus = paymentStatus === "Controle nodig" ? "" : paymentStatus;
     stop.remark = remark;
     stop.reviewOverride = needsReview ? true : false;
@@ -9180,17 +9317,6 @@
       return;
     }
 
-    if (isRoutePrintBlocked()) {
-      printOutputElement.innerHTML = "";
-
-      if (printPreviewElement) {
-        printPreviewElement.classList.add("empty");
-        printPreviewElement.textContent = "Route onvolledig gelezen - printen geblokkeerd. Controleer PDF of parser. Deze route mag nog niet gebruikt worden.";
-      }
-
-      return;
-    }
-
     const previewHtml = getPrintPreviewHtml();
     printOutputElement.innerHTML = previewHtml;
 
@@ -9210,11 +9336,41 @@
     printPreviewElement?.scrollIntoView({ block: "start", behavior: "smooth" });
   }
 
+  function confirmRouteWarningAction(actionLabel) {
+    if (!isRoutePrintBlocked()) {
+      return true;
+    }
+
+    const warningText = [
+      "De route heeft nog controlewaarschuwingen.",
+      `${actionLabel} mag doorgaan, maar controleer de route bewust.`,
+      "",
+      `Toch ${actionLabel.toLowerCase()}?`
+    ].join("\n");
+
+    return window.confirm(warningText);
+  }
+
+  function renderPrintPreviewWithWarning() {
+    if (!latestRouteStops.length || latestParserQualityBlocked || latestSaveState.status === "blocked") {
+      return;
+    }
+
+    if (!confirmRouteWarningAction("Printvoorbeeld maken")) {
+      setStatus("Printvoorbeeld geannuleerd. Controleer de route en probeer opnieuw.", "ready");
+      return;
+    }
+
+    renderPrintPreviewWithWarning();
+  }
+
   function approvePlanningAndOpenPrint() {
-    if (!latestRouteStops.length || isRoutePrintBlocked()) {
-      if (isRoutePrintBlocked()) {
-        setStatus("Route onvolledig gelezen - printen geblokkeerd.", "error");
-      }
+    if (!latestRouteStops.length || latestParserQualityBlocked || latestSaveState.status === "blocked") {
+      return;
+    }
+
+    if (!confirmRouteWarningAction("Printen")) {
+      setStatus("Printen geannuleerd. Controleer de route en probeer opnieuw.", "ready");
       return;
     }
 
@@ -9262,6 +9418,10 @@
 
     return {
       parserVersion: CURRENT_DELIVERY_PARSER_VERSION,
+      runName: getDefaultDeliveryRunName({
+        deliveryDate: latestDeliveryDate,
+        fallbackDate: latestUploadDate || new Date()
+      }),
       deliveryDate: latestDeliveryDate,
       source: {
         filename: latestSourceFilename,
@@ -9301,6 +9461,20 @@
       return;
     }
 
+    if (latestRouteCompleteness?.isIncomplete) {
+      const warningText = [
+        "De route heeft nog controlewaarschuwingen.",
+        "Opslaan mag doorgaan, maar controleer de route voor gebruik.",
+        "",
+        "Toch opslaan?"
+      ].join("\n");
+
+      if (!window.confirm(warningText)) {
+        setStatus("Opslaan geannuleerd. Controleer de route en probeer opnieuw.", "ready");
+        return;
+      }
+    }
+
     if (saveState.action === "patch") {
       void saveDeliveryCorrections();
       return;
@@ -9310,7 +9484,7 @@
   }
 
   async function saveDeliveryRun() {
-    if (!latestRouteStops.length || !latestSourceHash || latestSaveState.status === "saving" || latestSaveState.status === "updating" || isRoutePrintBlocked()) {
+    if (!latestRouteStops.length || !latestSourceHash || latestSaveState.status === "saving" || latestSaveState.status === "updating" || latestParserQualityBlocked || latestSaveState.status === "blocked") {
       return;
     }
 
@@ -9815,6 +9989,7 @@
     const driverModeCompleteConfirmButton = event.target.closest("[data-delivery-driver-complete-confirm]");
 
     if (newPdfButton) {
+      resetDeliveryForNewPdf();
       pdfInput?.click();
       return;
     }
@@ -10090,9 +10265,7 @@
 
     if (routeStop) {
       const stopIndex = Number(routeStop.dataset.deliveryRouteStop);
-      if (expandedDeliveryRouteStopIndex !== stopIndex) {
-        expandedDeliveryRouteStopIndex = -1;
-      }
+      expandedDeliveryRouteStopIndex = stopIndex;
       selectDeliveryStop(stopIndex);
     }
   });
@@ -10113,9 +10286,7 @@
 
     event.preventDefault();
     const stopIndex = Number(routeStop.dataset.deliveryRouteStop);
-    if (expandedDeliveryRouteStopIndex !== stopIndex) {
-      expandedDeliveryRouteStopIndex = -1;
-    }
+    expandedDeliveryRouteStopIndex = stopIndex;
     selectDeliveryStop(stopIndex);
   });
   routeBlocksElement?.addEventListener("submit", (event) => {
@@ -10255,18 +10426,13 @@
     const saveButton = event.target.closest("[data-delivery-dashboard-save]");
 
     if (saveButton && !saveButton.disabled) {
-      if (saveButton.dataset.deliverySaveAction === "patch") {
-        void saveDeliveryCorrections();
-      } else {
-        void saveDeliveryRun();
-      }
+      saveCurrentDeliveryRoute();
       return;
     }
 
     if (printButton && !printButton.disabled) {
-      renderPrintPreview();
-      openPrintPreviewSection();
+      renderPrintPreviewWithWarning();
     }
   });
-  printPreviewButton?.addEventListener("click", renderPrintPreview);
+  printPreviewButton?.addEventListener("click", renderPrintPreviewWithWarning);
 })();
