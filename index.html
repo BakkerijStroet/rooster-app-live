@@ -592,11 +592,11 @@
           </div>
         </div>
         <div class="employee-mode-tiles">
-          <button type="button" class="employee-mode-tile quick-link" data-go-tab="week-current">
+          <button type="button" class="employee-mode-tile quick-link" data-go-tab="week-current" data-employee-work-mode="roster">
             <strong>Rooster</strong>
             <span>Bekijk je rooster, uren en aanvragen.</span>
           </button>
-          <button type="button" class="employee-mode-tile quick-link" data-go-tab="employee-delivery">
+          <button type="button" class="employee-mode-tile quick-link" data-go-tab="employee-delivery" data-employee-work-mode="delivery">
             <strong>Bezorgen</strong>
             <span>Bekijk je route voor vandaag.</span>
           </button>
@@ -1361,6 +1361,17 @@
         </article>
         <article id="employeeDeliveryDriverMode" class="capacity-card delivery-driver-mode employee-delivery-driver-mode" hidden>
           <div id="employeeDeliveryDriverModeContent" class="delivery-driver-mode-content empty">Kies je route om chauffeurmodus te openen.</div>
+        </article>
+      </section>
+
+      <section class="staff-panel app-panel aligned-view-panel director-screen-panel employee-delivery-overview-panel" data-panel="employee-delivery-overview">
+        <div class="view-header director-screen-header">
+          <div>
+            <h2>Overzicht</h2>
+          </div>
+        </div>
+        <article class="capacity-card employee-delivery-overview-card">
+          <div id="employeeDeliveryOverview" class="employee-delivery-overview empty">Start eerst je route.</div>
         </article>
       </section>
 
@@ -2161,11 +2172,14 @@
   </main>
 
   <nav class="mobile-bottom-nav" aria-label="Mobiele snelle navigatie">
-    <button type="button" class="mobile-nav-button" data-go-tab="week-current">Rooster</button>
-    <button type="button" class="mobile-nav-button" data-go-tab="my-schedule">Mijn rooster</button>
-    <button type="button" class="mobile-nav-button" data-go-tab="my-hours">Mijn uren</button>
-    <button type="button" class="mobile-nav-button" data-go-tab="my-account">Mijn account</button>
-    <button type="button" class="mobile-nav-button" data-go-tab="requests">Aanvragen</button>
+    <button type="button" class="mobile-nav-button" data-go-tab="week-current" data-employee-nav-mode="roster">Rooster</button>
+    <button type="button" class="mobile-nav-button" data-go-tab="my-schedule" data-employee-nav-mode="roster">Mijn rooster</button>
+    <button type="button" class="mobile-nav-button" data-go-tab="my-hours" data-employee-nav-mode="roster">Mijn uren</button>
+    <button type="button" class="mobile-nav-button" data-go-tab="requests" data-employee-nav-mode="roster">Mijn aanvragen</button>
+    <button type="button" class="mobile-nav-button" data-go-tab="my-account" data-employee-nav-mode="roster">Mijn account</button>
+    <button type="button" class="mobile-nav-button" data-go-tab="employee-delivery" data-employee-nav-mode="delivery">Route</button>
+    <button type="button" class="mobile-nav-button" data-go-tab="employee-delivery-overview" data-employee-nav-mode="delivery">Overzicht</button>
+    <button type="button" class="mobile-nav-button" data-go-tab="my-account" data-employee-nav-mode="delivery">Account</button>
   </nav>
 
   <script src="js/utils/dom.js?v=20260508-smart-planning-dashboard"></script>

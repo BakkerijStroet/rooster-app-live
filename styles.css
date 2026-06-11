@@ -1034,6 +1034,18 @@ body[data-role="employee"] .mobile-nav-button.active {
   color: var(--color-text);
 }
 
+body[data-role="employee"][data-employee-work-mode="home"] .mobile-bottom-nav {
+  display: none !important;
+}
+
+body[data-role="employee"][data-employee-work-mode="roster"] .mobile-bottom-nav {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+body[data-role="employee"][data-employee-work-mode="delivery"] .mobile-bottom-nav {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 body[data-role="employee"] .planner-only-tab,
 body[data-role="employee"] [data-panel="schedule-planning"],
 body[data-role="employee"] [data-panel="employees"],
@@ -18652,10 +18664,76 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   gap: 0.65rem;
 }
 
+.employee-delivery-overview-panel {
+  gap: 0.65rem;
+}
+
 .employee-delivery-routes-card,
-.employee-delivery-driver-mode {
+.employee-delivery-driver-mode,
+.employee-delivery-overview-card {
   width: min(100%, 760px);
   justify-self: center;
+}
+
+.employee-delivery-overview {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.employee-delivery-overview.empty {
+  color: var(--color-text-muted);
+  font-weight: 850;
+}
+
+.employee-delivery-overview-group {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.employee-delivery-overview-group h3 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 1rem;
+}
+
+.employee-delivery-overview-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.employee-delivery-overview-stop {
+  display: grid;
+  gap: 0.2rem;
+  width: 100%;
+  min-height: 64px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.75rem;
+  background: #fffaf4;
+  color: var(--color-text);
+  text-align: left;
+  box-shadow: none;
+}
+
+.employee-delivery-overview-stop strong {
+  font-size: 1.05rem;
+  line-height: 1.15;
+}
+
+.employee-delivery-overview-stop span,
+.employee-delivery-overview-stop small {
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.employee-delivery-overview-empty {
+  border: 1px dashed var(--color-border);
+  border-radius: 10px;
+  padding: 0.75rem;
+  color: var(--color-text-muted);
+  font-weight: 850;
 }
 
 .employee-delivery-panel.is-driver-mode-open .employee-delivery-routes-card {

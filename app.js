@@ -164,6 +164,7 @@ const PLANNER_LOGIN_PIN = "1990";
 const PLANNER_SESSION_AUTH_VERSION = "planner-pin-1990";
 const DEFAULT_EMPLOYEE_LOGIN_PIN = "1234";
 const DELIVERY_EMPLOYEE_NAMES = ["Dennis", "Kevin", "Jos"];
+const employeeWorkModeStorageKey = "urenrooster-employee-work-mode";
 const employeeListCard = document.getElementById("employeeListCard");
 const employeeStandardShiftList = document.getElementById("employeeStandardShiftList");
 const employeeExtraAvailabilityPanel = document.getElementById("employeeExtraAvailabilityPanel");
@@ -523,6 +524,18 @@ function safeSetStorageItem(storageKeyName, serializedValue, label = "gegevens")
     reportAppError(`Opslaan mislukt voor ${label}. Probeer het opnieuw of maak eerst een back-up.`, error, `save:${label}`);
     return false;
   }
+}
+
+function normalizeEmployeeWorkMode(value) {
+  return ["home", "roster", "delivery"].includes(value) ? value : "home";
+}
+
+function loadEmployeeWorkMode() {
+  return normalizeEmployeeWorkMode(safeGetLocalStorageKey(employeeWorkModeStorageKey, "home", "medewerker werkmodus"));
+}
+
+function saveEmployeeWorkMode(value) {
+  safeSetStorageItem(employeeWorkModeStorageKey, normalizeEmployeeWorkMode(value), "medewerker werkmodus");
 }
 
 function sanitizeEmployeesForStorage(sourceEmployees = employees) {
@@ -1325,6 +1338,7 @@ function startEmployeeSession(employeeName, { showStartupMessage = false } = {})
 
   resetMyScheduleRosterState();
   resetMyHoursChoiceState();
+  setEmployeeWorkMode("home", { persist: true });
   applySessionSnapshot({
     isAuthenticated: true,
     role: "employee",
@@ -5343,6 +5357,7 @@ let pendingMyScheduleYearScrollWeek = getCurrentWeekValue();
 let lastViewedEmployeeRosterWeek = "";
 let selectedMyScheduleMobileDate = "";
 let activeRole = preferences.lastRole === "employee" ? "employee" : "planner";
+let employeeWorkMode = loadEmployeeWorkMode();
 const sessionState = {
   isAuthenticated: false,
   role: activeRole,
@@ -11741,6 +11756,32 @@ function canCurrentEmployeeUseDelivery() {
   return canEmployeeUseDelivery(getRoleScopedEmployeeName());
 }
 
+function getEffectiveEmployeeWorkMode() {
+  if (isPlannerRole() || !canCurrentEmployeeUseDelivery()) {
+    return "roster";
+  }
+
+  return normalizeEmployeeWorkMode(employeeWorkMode);
+}
+
+function setEmployeeWorkMode(nextMode, { persist = true } = {}) {
+  employeeWorkMode = normalizeEmployeeWorkMode(nextMode);
+
+  if (persist) {
+    saveEmployeeWorkMode(employeeWorkMode);
+  }
+
+  document.body.dataset.employeeWorkMode = isPlannerRole() ? "" : employeeWorkMode;
+}
+
+function isEmployeeDeliveryWorkMode() {
+  return getEffectiveEmployeeWorkMode() === "delivery";
+}
+
+function isEmployeeRosterWorkMode() {
+  return getEffectiveEmployeeWorkMode() === "roster";
+}
+
 function syncScopedEmployeeSelectors(employeeName = getRoleScopedEmployeeName()) {
   if (isPlannerRole() || !employeeName) {
     return;
@@ -12039,8 +12080,22 @@ function getApprovedTimeOffVisibleForCurrentRole(sourceRequests = timeOffRequest
 }
 
 function isTabAllowedForCurrentRole(tabName) {
-  if (tabName === "employee-home" || tabName === "employee-delivery") {
-    return !isPlannerRole() && canCurrentEmployeeUseDelivery();
+  if (!isPlannerRole() && canCurrentEmployeeUseDelivery()) {
+    if (tabName === "employee-home") {
+      return true;
+    }
+
+    if (getEffectiveEmployeeWorkMode() === "home") {
+      return ["week-current", "employee-delivery"].includes(tabName);
+    }
+
+    if (isEmployeeDeliveryWorkMode()) {
+      return ["employee-delivery", "employee-delivery-overview", "my-account"].includes(tabName);
+    }
+
+    if (tabName === "employee-delivery" || tabName === "employee-delivery-overview") {
+      return false;
+    }
   }
 
   return isTabAllowedForRoleHelper(activeRole, tabName, {
@@ -12051,6 +12106,14 @@ function isTabAllowedForCurrentRole(tabName) {
 
 function getDefaultTabForCurrentRole() {
   if (!isPlannerRole() && canCurrentEmployeeUseDelivery()) {
+    if (isEmployeeDeliveryWorkMode()) {
+      return "employee-delivery";
+    }
+
+    if (isEmployeeRosterWorkMode()) {
+      return "week-current";
+    }
+
     return "employee-home";
   }
 
@@ -20698,6 +20761,9 @@ function getNormalizedTabName(tabName) {
 function updateTabVisibility() {
   activeTab = getNormalizedTabName(activeTab);
   const isWeekTab = isWeekTabName(activeTab);
+  const effectiveEmployeeWorkMode = getEffectiveEmployeeWorkMode();
+
+  document.body.dataset.employeeWorkMode = isPlannerRole() ? "" : effectiveEmployeeWorkMode;
 
   navTabs.forEach((button) => {
     const isAllowed = isTabAllowedForCurrentRole(button.dataset.tab);
@@ -20708,9 +20774,15 @@ function updateTabVisibility() {
   });
 
   mobileNavButtons.forEach((button) => {
+    const navMode = button.dataset.employeeNavMode || "";
+    const matchesEmployeeMode = !navMode || navMode === effectiveEmployeeWorkMode;
+    const isAllowed = isTabAllowedForCurrentRole(button.dataset.goTab) && matchesEmployeeMode;
     const isRosterButton = button.dataset.goTab === "week-current";
     const isRosterTab = isWeekTab;
-    button.classList.toggle("active", isRosterButton ? isRosterTab : button.dataset.goTab === activeTab);
+    button.classList.toggle("hidden-by-role", !isAllowed);
+    button.hidden = !isAllowed;
+    button.setAttribute("aria-hidden", isAllowed ? "false" : "true");
+    button.classList.toggle("active", isAllowed && (isRosterButton ? isRosterTab : button.dataset.goTab === activeTab));
   });
 
   appPanels.forEach((panel) => {
@@ -20730,6 +20802,13 @@ function updateTabVisibility() {
   });
 
   updateFocusModeUI();
+  document.dispatchEvent(new CustomEvent("stroet:tab-change", {
+    detail: {
+      activeTab,
+      role: activeRole,
+      employeeWorkMode: effectiveEmployeeWorkMode
+    }
+  }));
 }
 
 function resetTabScrollPosition() {
@@ -37998,6 +38077,10 @@ navTabs.forEach((button) => {
 
 quickLinks.forEach((button) => {
   button.addEventListener("click", () => {
+    if (!isPlannerRole() && button.dataset.employeeWorkMode) {
+      setEmployeeWorkMode(button.dataset.employeeWorkMode);
+    }
+
     setActiveTab(button.dataset.goTab);
   });
 });
@@ -38090,8 +38173,32 @@ plannerRequestsInbox?.addEventListener("click", (event) => {
 
 mobileNavButtons.forEach((button) => {
   button.addEventListener("click", () => {
+    if (!isPlannerRole() && button.dataset.employeeNavMode) {
+      setEmployeeWorkMode(button.dataset.employeeNavMode);
+    }
+
     setActiveTab(button.dataset.goTab);
   });
+});
+
+document.querySelector(".brand-home")?.addEventListener("click", () => {
+  if (!isPlannerRole() && canCurrentEmployeeUseDelivery()) {
+    setEmployeeWorkMode("home");
+    setActiveTab("employee-home");
+    return;
+  }
+
+  setActiveTab(isPlannerRole() ? "dashboard" : "week-current");
+});
+
+document.addEventListener("stroet:set-tab", (event) => {
+  const nextMode = event.detail?.employeeWorkMode;
+
+  if (!isPlannerRole() && nextMode) {
+    setEmployeeWorkMode(nextMode);
+  }
+
+  setActiveTab(event.detail?.tab || "");
 });
 
 window.addEventListener("beforeunload", (event) => {

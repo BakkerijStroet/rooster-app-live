@@ -47,6 +47,7 @@
   const employeeDeliveryRefreshButton = document.getElementById("employeeDeliveryRefreshButton");
   const employeeDriverModeElement = document.getElementById("employeeDeliveryDriverMode");
   const employeeDriverModeContentElement = document.getElementById("employeeDeliveryDriverModeContent");
+  const employeeDeliveryOverviewElement = document.getElementById("employeeDeliveryOverview");
   const savedRoutesSectionElement = document.querySelector(".delivery-saved-section");
   const routeResetButton = document.querySelector("[data-delivery-route-reset]");
 
@@ -7363,6 +7364,96 @@
     `;
   }
 
+  function getDriverModeOverviewStatus(item) {
+    const state = getDriverModeStopState(item?.stop);
+
+    if (state.skipped && !state.delivered) {
+      return "skipped";
+    }
+
+    if (state.delivered && state.deliveryChoice === "partial") {
+      return "attention";
+    }
+
+    if (state.delivered) {
+      return "done";
+    }
+
+    return "open";
+  }
+
+  function renderDriverModeOverviewGroup(title, items, emptyText) {
+    return `
+      <section class="employee-delivery-overview-group">
+        <h3>${escapeHtml(title)}</h3>
+        ${items.length
+          ? `<div class="employee-delivery-overview-list">
+              ${items.map((item) => {
+                const stop = item.stop;
+                const state = getDriverModeStopState(stop);
+                const note = state.note || (state.deliveryChoice === "partial" ? "Niet alles geleverd" : "");
+
+                return `
+                  <button type="button" class="employee-delivery-overview-stop" data-delivery-overview-stop="${escapeHtml(item.orderKey)}">
+                    <strong>${escapeHtml(stop.customerName || "Klant onbekend")}</strong>
+                    <span>${escapeHtml(getRouteStopTimeLabel(stop))}${stop.address ? ` · ${escapeHtml(stop.address)}` : ""}</span>
+                    ${note ? `<small>${escapeHtml(note)}</small>` : ""}
+                  </button>
+                `;
+              }).join("")}
+            </div>`
+          : `<div class="employee-delivery-overview-empty">${escapeHtml(emptyText)}</div>`}
+      </section>
+    `;
+  }
+
+  function renderEmployeeDeliveryOverview() {
+    if (!employeeDeliveryOverviewElement) {
+      return;
+    }
+
+    if (latestRunSource !== "saved" || !latestRouteStops.length) {
+      employeeDeliveryOverviewElement.classList.add("empty");
+      employeeDeliveryOverviewElement.textContent = "Start eerst je route.";
+      return;
+    }
+
+    const routeItems = getDriverModeRouteItems(driverModeRouteNumber);
+
+    if (!routeItems.length) {
+      employeeDeliveryOverviewElement.classList.add("empty");
+      employeeDeliveryOverviewElement.textContent = "Geen stops beschikbaar voor deze route.";
+      return;
+    }
+
+    const doneItems = [];
+    const openItems = [];
+    const attentionItems = [];
+
+    routeItems.forEach((item) => {
+      const status = getDriverModeOverviewStatus(item);
+
+      if (status === "done") {
+        doneItems.push(item);
+        return;
+      }
+
+      if (status === "skipped" || status === "attention") {
+        attentionItems.push(item);
+        return;
+      }
+
+      openItems.push(item);
+    });
+
+    employeeDeliveryOverviewElement.classList.remove("empty");
+    employeeDeliveryOverviewElement.innerHTML = `
+      ${renderDriverModeOverviewGroup("Afgerond", doneItems, "Nog niets afgerond.")}
+      ${renderDriverModeOverviewGroup("Nog te bezorgen", openItems, "Alles is afgehandeld.")}
+      ${renderDriverModeOverviewGroup("Aandacht", attentionItems, "Geen bijzonderheden.")}
+    `;
+  }
+
   function getEmptyDriverModeCompletionDraft() {
     return {
       open: false,
@@ -7686,6 +7777,7 @@
         `}
       </section>
     `);
+    renderEmployeeDeliveryOverview();
   }
 
   function openDriverMode(routeNumber = 1) {
@@ -7837,6 +7929,40 @@
     driverModeStopIndex = nextOpenIndex;
     renderDriverMode();
     getActiveDriverModeElement()?.scrollIntoView({ block: "start", behavior: "auto" });
+  }
+
+  function openDriverModeStopByOrderKey(orderKey) {
+    const normalizedOrderKey = String(orderKey || "").trim();
+
+    if (!normalizedOrderKey) {
+      renderEmployeeDeliveryOverview();
+      return;
+    }
+
+    if (!isDriverModeOpen) {
+      isDriverModeOpen = true;
+      loadDriverModeState();
+    }
+
+    const routeItems = normalizeDriverModeState();
+    const targetIndex = routeItems.findIndex((item) => item.orderKey === normalizedOrderKey);
+
+    if (targetIndex < 0) {
+      renderEmployeeDeliveryOverview();
+      return;
+    }
+
+    driverModeStopIndex = targetIndex;
+    isDriverModeRouteEditOpen = false;
+    driverModeActionMessage = "";
+    driverModeCompletionDraft = getEmptyDriverModeCompletionDraft();
+    renderDriverMode();
+    document.dispatchEvent(new CustomEvent("stroet:set-tab", {
+      detail: {
+        tab: "employee-delivery",
+        employeeWorkMode: "delivery"
+      }
+    }));
   }
 
   function completeCurrentDriverModeStopAndMoveNext() {
@@ -10044,6 +10170,20 @@
       openButton.dataset.employeeDeliveryOpenRun,
       Number(openButton.dataset.employeeDeliveryRoute)
     );
+  });
+  employeeDeliveryOverviewElement?.addEventListener("click", (event) => {
+    const stopButton = event.target.closest("[data-delivery-overview-stop]");
+
+    if (!stopButton || stopButton.disabled) {
+      return;
+    }
+
+    openDriverModeStopByOrderKey(stopButton.dataset.deliveryOverviewStop);
+  });
+  document.addEventListener("stroet:tab-change", (event) => {
+    if (event.detail?.activeTab === "employee-delivery-overview") {
+      renderEmployeeDeliveryOverview();
+    }
   });
   savedRunsElement?.addEventListener("click", (event) => {
     const openButton = event.target.closest("[data-delivery-open-run]");
