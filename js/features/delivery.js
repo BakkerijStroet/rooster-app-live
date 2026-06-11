@@ -48,6 +48,13 @@
   const employeeDriverModeElement = document.getElementById("employeeDeliveryDriverMode");
   const employeeDriverModeContentElement = document.getElementById("employeeDeliveryDriverModeContent");
   const employeeDeliveryOverviewElement = document.getElementById("employeeDeliveryOverview");
+  const employeeExpenseReceiptFormElement = document.getElementById("employeeExpenseReceiptForm");
+  const employeeExpenseReceiptKindElement = document.getElementById("employeeExpenseReceiptKind");
+  const employeeExpenseReceiptAmountElement = document.getElementById("employeeExpenseReceiptAmount");
+  const employeeExpenseReceiptPaidWithElement = document.getElementById("employeeExpenseReceiptPaidWith");
+  const employeeExpenseReceiptRemarkElement = document.getElementById("employeeExpenseReceiptRemark");
+  const employeeExpenseReceiptSubmitButton = document.getElementById("employeeExpenseReceiptSubmitButton");
+  const employeeExpenseReceiptStatusElement = document.getElementById("employeeExpenseReceiptStatus");
   const savedRoutesSectionElement = document.querySelector(".delivery-saved-section");
   const routeResetButton = document.querySelector("[data-delivery-route-reset]");
 
@@ -6319,6 +6326,119 @@
       `).join("");
   }
 
+  function setEmployeeExpenseReceiptStatus(message, state = "") {
+    if (!employeeExpenseReceiptStatusElement) {
+      return;
+    }
+
+    employeeExpenseReceiptStatusElement.textContent = message;
+    employeeExpenseReceiptStatusElement.dataset.state = state || "";
+  }
+
+  function getCurrentEmployeeReceiptName() {
+    const currentEmployeeSelect = document.getElementById("currentEmployee");
+    const portalEmployeeSelect = document.getElementById("portalEmployee");
+    const currentValue = typeof currentEmployeeSelect?.value === "string" ? currentEmployeeSelect.value.trim() : "";
+    const portalValue = typeof portalEmployeeSelect?.value === "string" ? portalEmployeeSelect.value.trim() : "";
+
+    return currentValue || portalValue;
+  }
+
+  function getEmployeeExpenseReceiptPayload() {
+    const employeeName = getCurrentEmployeeReceiptName();
+    const kind = typeof employeeExpenseReceiptKindElement?.value === "string" ? employeeExpenseReceiptKindElement.value.trim() : "";
+    const amount = typeof employeeExpenseReceiptAmountElement?.value === "string" ? employeeExpenseReceiptAmountElement.value.trim() : "";
+    const paidWith = typeof employeeExpenseReceiptPaidWithElement?.value === "string" ? employeeExpenseReceiptPaidWithElement.value.trim() : "";
+    const remark = typeof employeeExpenseReceiptRemarkElement?.value === "string" ? employeeExpenseReceiptRemarkElement.value.trim() : "";
+
+    return {
+      mode: window.getStroetDataMode?.() === "test" ? "test" : "live",
+      receiptDate: formatDateIso(new Date()),
+      employeeName,
+      kind,
+      amount,
+      paidWith,
+      remark
+    };
+  }
+
+  function validateEmployeeExpenseReceiptPayload(payload) {
+    if (!payload.employeeName) {
+      return "Medewerker ontbreekt. Log opnieuw in en probeer het nog eens.";
+    }
+
+    if (!payload.kind) {
+      return "Kies eerst het soort bon.";
+    }
+
+    if (!Number.isFinite(Number(String(payload.amount).replace(",", "."))) || Number(String(payload.amount).replace(",", ".")) < 0) {
+      return "Vul een geldig bedrag in.";
+    }
+
+    if (!payload.paidWith) {
+      return "Kies eerst waarmee er betaald is.";
+    }
+
+    return "";
+  }
+
+  function resetEmployeeExpenseReceiptForm() {
+    if (employeeExpenseReceiptKindElement) employeeExpenseReceiptKindElement.value = "";
+    if (employeeExpenseReceiptAmountElement) employeeExpenseReceiptAmountElement.value = "";
+    if (employeeExpenseReceiptPaidWithElement) employeeExpenseReceiptPaidWithElement.value = "";
+    if (employeeExpenseReceiptRemarkElement) employeeExpenseReceiptRemarkElement.value = "";
+  }
+
+  async function submitEmployeeExpenseReceipt() {
+    const payload = getEmployeeExpenseReceiptPayload();
+    const validationError = validateEmployeeExpenseReceiptPayload(payload);
+
+    if (validationError) {
+      setEmployeeExpenseReceiptStatus(validationError, "error");
+      window.showMessage?.(validationError, "error");
+      return;
+    }
+
+    if (employeeExpenseReceiptSubmitButton) {
+      employeeExpenseReceiptSubmitButton.disabled = true;
+      employeeExpenseReceiptSubmitButton.textContent = "Bon indienen...";
+    }
+    setEmployeeExpenseReceiptStatus("Bon wordt ingediend...", "loading");
+
+    try {
+      const response = await fetch("/api/expense-receipts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(result?.message || "Bon indienen mislukt.");
+      }
+
+      resetEmployeeExpenseReceiptForm();
+      setEmployeeExpenseReceiptStatus("Bon ingediend. Foto toevoegen komt in fase 2.", "success");
+      document.dispatchEvent(new CustomEvent("stroet:expense-receipt-submitted", {
+        detail: {
+          mode: payload.mode
+        }
+      }));
+      window.showMessage?.("Bon ingediend.", "success");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Bon indienen mislukt.";
+      setEmployeeExpenseReceiptStatus(message, "error");
+      window.showMessage?.(message, "error");
+    } finally {
+      if (employeeExpenseReceiptSubmitButton) {
+        employeeExpenseReceiptSubmitButton.disabled = false;
+        employeeExpenseReceiptSubmitButton.textContent = "Bon indienen";
+      }
+    }
+  }
+
   function openSavedRoutesSection({ scroll = true } = {}) {
     setDeliveryWorkVisible(true);
 
@@ -10656,9 +10776,17 @@
 
     openDriverModeStopByOrderKey(stopButton.dataset.deliveryOverviewStop);
   });
+  employeeExpenseReceiptFormElement?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void submitEmployeeExpenseReceipt();
+  });
   document.addEventListener("stroet:tab-change", (event) => {
     if (event.detail?.activeTab === "employee-delivery-overview") {
       renderEmployeeDeliveryOverview();
+    }
+
+    if (event.detail?.activeTab === "employee-delivery-receipts") {
+      setEmployeeExpenseReceiptStatus("Foto toevoegen komt in fase 2.", "");
     }
   });
   savedRunsElement?.addEventListener("click", (event) => {

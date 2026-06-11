@@ -7267,6 +7267,61 @@ body[data-role="planner"] [data-panel="administration"] .administration-toolbar 
   text-align: right;
 }
 
+.administration-expense-receipts {
+  margin-top: 14px;
+}
+
+.administration-expense-list {
+  display: grid;
+  gap: 7px;
+  max-height: 340px;
+  overflow: auto;
+}
+
+.administration-expense-row {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) minmax(150px, 0.7fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  font-size: 13px;
+}
+
+.administration-expense-row div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.administration-expense-row strong,
+.administration-expense-row span,
+.administration-expense-row small,
+.administration-expense-row em {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.administration-expense-row span,
+.administration-expense-row small {
+  color: var(--color-text-muted);
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.administration-expense-row em {
+  justify-self: end;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--color-primary-soft);
+  color: var(--color-text);
+  font-style: normal;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
 .administration-driver-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(70px, 1fr));
@@ -7402,12 +7457,14 @@ body[data-role="planner"] [data-panel="administration"] .administration-toolbar 
   .administration-action-grid,
   .administration-delivery-admin-row,
   .administration-driver-row,
-  .administration-driver-row.is-attention {
+  .administration-driver-row.is-attention,
+  .administration-expense-row {
     grid-template-columns: 1fr;
   }
 
   .administration-delivery-admin-row em,
-  .administration-driver-row em {
+  .administration-driver-row em,
+  .administration-expense-row em {
     justify-self: start;
     text-align: left;
   }
@@ -18932,11 +18989,64 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   gap: 0.65rem;
 }
 
+.employee-delivery-receipts-panel {
+  gap: 0.65rem;
+}
+
 .employee-delivery-routes-card,
 .employee-delivery-driver-mode,
-.employee-delivery-overview-card {
+.employee-delivery-overview-card,
+.employee-delivery-receipts-card {
   width: min(100%, 760px);
   justify-self: center;
+}
+
+.employee-receipt-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.employee-receipt-form label {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-weight: 850;
+}
+
+.employee-receipt-form input,
+.employee-receipt-form select,
+.employee-receipt-form textarea {
+  width: 100%;
+}
+
+.employee-receipt-form textarea {
+  resize: vertical;
+}
+
+.employee-receipt-form__wide,
+.employee-receipt-form button,
+.employee-receipt-status {
+  grid-column: 1 / -1;
+}
+
+.employee-receipt-form button {
+  min-height: 52px;
+  font-size: 1rem;
+  font-weight: 950;
+}
+
+.employee-receipt-status[data-state="success"] {
+  color: #22704f;
+}
+
+.employee-receipt-status[data-state="error"] {
+  color: var(--color-danger);
+}
+
+.employee-receipt-status[data-state="loading"] {
+  color: var(--color-text-muted);
 }
 
 .employee-delivery-overview {
@@ -19066,6 +19176,10 @@ button.delivery-route-print-button:not(:disabled):focus-visible {
   }
 
   .employee-delivery-route-card {
+    grid-template-columns: 1fr;
+  }
+
+  .employee-receipt-form {
     grid-template-columns: 1fr;
   }
 }

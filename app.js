@@ -366,6 +366,7 @@ const workLogApiEndpoint = "/api/work-logs";
 const exportBackupApiEndpoint = "/api/export-backup";
 const employeePermissionsStorageKey = "urenrooster-employee-permissions";
 const employeeDataApiEndpoint = "/api/employee-data";
+const expenseReceiptApiEndpoint = "/api/expense-receipts";
 const employeeStandardShiftStorageKey = "urenrooster-employee-standard-shifts";
 const employeeShiftPreferenceStorageKey = "urenrooster-employee-shift-preferences";
 const employeeBasePatternStorageKey = "urenrooster-employee-base-patterns";
@@ -1771,6 +1772,11 @@ let administrationDeliveryRunsLoading = false;
 let administrationDeliveryRunsError = "";
 let administrationDeliveryRuns = [];
 let administrationDeliveryRunsMode = "";
+let administrationExpenseReceiptsLoaded = false;
+let administrationExpenseReceiptsLoading = false;
+let administrationExpenseReceiptsError = "";
+let administrationExpenseReceipts = [];
+let administrationExpenseReceiptsMode = "";
 let lastWorkLogCentralSyncError = null;
 
 function isWorkLogCentralSyncEnabled() {
@@ -5349,6 +5355,7 @@ const {
 const preferences = loadPreferences();
 let currentDataMode = preferences.lastDataMode === "test" ? "test" : "live";
 preferences.lastDataMode = currentDataMode;
+window.getStroetDataMode = () => currentDataMode;
 const entries = loadEntries();
 const employees = loadEmployees();
 let shifts = [];
@@ -8789,6 +8796,46 @@ async function loadAdministrationDeliveryRuns() {
   }
 }
 
+async function loadAdministrationExpenseReceipts() {
+  const receiptMode = currentDataMode === "test" ? "test" : "live";
+
+  if (administrationExpenseReceiptsMode && administrationExpenseReceiptsMode !== receiptMode) {
+    administrationExpenseReceiptsLoaded = false;
+    administrationExpenseReceipts = [];
+    administrationExpenseReceiptsError = "";
+  }
+
+  if (!isPlannerRole() || administrationExpenseReceiptsLoading || administrationExpenseReceiptsLoaded) {
+    return;
+  }
+
+  administrationExpenseReceiptsLoading = true;
+  administrationExpenseReceiptsError = "";
+  administrationExpenseReceiptsMode = receiptMode;
+
+  try {
+    const response = await fetch(`${expenseReceiptApiEndpoint}?mode=${encodeURIComponent(receiptMode)}`, {
+      method: "GET",
+      cache: "no-store"
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(payload?.message || "Bonnen laden mislukt.");
+    }
+
+    administrationExpenseReceipts = Array.isArray(payload?.receipts) ? payload.receipts : [];
+    administrationExpenseReceiptsLoaded = true;
+  } catch (error) {
+    administrationExpenseReceiptsError = error instanceof Error ? error.message : String(error);
+  } finally {
+    administrationExpenseReceiptsLoading = false;
+    if (activeTab === "administration") {
+      renderAdministrationDashboard();
+    }
+  }
+}
+
 function getAdministrationDeliveryRunDate(run = {}) {
   return String(
     run?.payload?.deliveryDate ||
@@ -9536,6 +9583,142 @@ function renderAdministrationDriverResultsBlock(driverResults, statusText = "") 
   `;
 }
 
+function getExpenseReceiptKindLabel(kind = "") {
+  if (kind === "fuel") return "Tanken";
+  if (kind === "supermarket") return "Supermarkt";
+  if (kind === "bakery_purchase") return "Bakkerij-aankoop";
+  if (kind === "other") return "Overig";
+
+  return "Onbekend";
+}
+
+function getExpenseReceiptPaidWithLabel(paidWith = "") {
+  if (paidWith === "employee_advance") return "Voorgeschoten door medewerker";
+  if (paidWith === "business_account") return "Zakelijke rekening";
+  if (paidWith === "cash") return "Contant";
+  if (paidWith === "other") return "Anders";
+
+  return "Onbekend";
+}
+
+function getExpenseReceiptStatusLabel(status = "") {
+  if (status === "approved") return "Goedgekeurd";
+  if (status === "rejected") return "Afgewezen";
+  if (status === "processed") return "Verwerkt";
+
+  return "Nieuw";
+}
+
+function formatExpenseReceiptAmount(amount) {
+  const numericAmount = Number(amount);
+
+  if (!Number.isFinite(numericAmount)) {
+    return "€ 0,00";
+  }
+
+  return new Intl.NumberFormat("nl-NL", {
+    style: "currency",
+    currency: "EUR"
+  }).format(numericAmount);
+}
+
+function getAdministrationExpenseReceipts(selection) {
+  return administrationExpenseReceipts.filter((receipt) => {
+    const receiptDate = String(receipt?.receiptDate || receipt?.createdAt || "").slice(0, 10);
+    const employeeName = String(receipt?.employeeName || "").trim();
+
+    if (!receiptDate || receiptDate < selection.startDate || receiptDate > selection.endDate) {
+      return false;
+    }
+
+    return !selection.employeeName || employeeName === selection.employeeName;
+  });
+}
+
+function getAdministrationExpenseReceiptSummary(receipts = []) {
+  return receipts.reduce((summary, receipt) => {
+    const status = receipt?.status || "new";
+
+    summary.count += 1;
+    summary.total += Number(receipt?.amount) || 0;
+
+    if (status === "new") {
+      summary.new += 1;
+    } else if (status === "approved") {
+      summary.approved += 1;
+    } else if (status === "processed") {
+      summary.processed += 1;
+    } else if (status === "rejected") {
+      summary.rejected += 1;
+    }
+
+    return summary;
+  }, {
+    count: 0,
+    total: 0,
+    new: 0,
+    approved: 0,
+    rejected: 0,
+    processed: 0
+  });
+}
+
+function renderAdministrationExpenseReceiptsList(receipts = []) {
+  if (!receipts.length) {
+    return `<div class="administration-list empty">Geen bonnen of kosten in deze selectie.</div>`;
+  }
+
+  return `
+    <div class="administration-expense-list">
+      ${receipts.map((receipt) => `
+        <div class="administration-expense-row">
+          <div>
+            <strong>${escapeHtmlAttribute(receipt.employeeName || "Onbekende medewerker")}</strong>
+            <span>${escapeHtmlAttribute(formatDate(receipt.receiptDate || receipt.createdAt))} · ${escapeHtmlAttribute(getExpenseReceiptKindLabel(receipt.kind))}</span>
+            ${receipt.remark ? `<small>${escapeHtmlAttribute(receipt.remark)}</small>` : ""}
+          </div>
+          <span>${escapeHtmlAttribute(getExpenseReceiptPaidWithLabel(receipt.paidWith))}</span>
+          <strong>${escapeHtmlAttribute(formatExpenseReceiptAmount(receipt.amount))}</strong>
+          <em>${escapeHtmlAttribute(getExpenseReceiptStatusLabel(receipt.status))}</em>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderAdministrationExpenseReceiptsBlock(selection) {
+  if (!administrationExpenseReceiptsLoaded && !administrationExpenseReceiptsLoading && !administrationExpenseReceiptsError) {
+    void loadAdministrationExpenseReceipts();
+  }
+
+  const statusText = administrationExpenseReceiptsLoading
+    ? "Bonnen laden..."
+    : administrationExpenseReceiptsError
+      ? `Bonnen laden mislukt: ${administrationExpenseReceiptsError}`
+      : "";
+  const receipts = getAdministrationExpenseReceipts(selection);
+  const summary = getAdministrationExpenseReceiptSummary(receipts);
+
+  return `
+    <section class="administration-card administration-expense-receipts">
+      <header class="administration-card-head">
+        <div>
+          <h3>Bonnen / Kosten</h3>
+          <p>Centrale bonnenregistratie zonder foto in fase 1</p>
+        </div>
+      </header>
+      ${statusText ? `<div class="administration-note">${escapeHtmlAttribute(statusText)}</div>` : ""}
+      <div class="administration-metric-grid">
+        ${renderAdministrationMetric("Bonnen", summary.count)}
+        ${renderAdministrationMetric("Totaal", formatExpenseReceiptAmount(summary.total))}
+        ${renderAdministrationMetric("Nieuw", summary.new)}
+        ${renderAdministrationMetric("Verwerkt", summary.processed)}
+      </div>
+      ${renderAdministrationExpenseReceiptsList(statusText ? [] : receipts)}
+    </section>
+  `;
+}
+
 function renderAdministrationActionTodayBlock() {
   if (!administrationDeliveryRunsLoaded && !administrationDeliveryRunsLoading && !administrationDeliveryRunsError) {
     void loadAdministrationDeliveryRuns();
@@ -9708,6 +9891,7 @@ function renderAdministrationDashboard() {
       ${renderAdministrationDeliveryBlock(selection)}
       ${renderAdministrationRequestsBlock(selection)}
     </div>
+    ${renderAdministrationExpenseReceiptsBlock(selection)}
     <section class="administration-delivery-admin administration-card">
       <header class="administration-card-head">
         <div>
@@ -12445,10 +12629,10 @@ function isTabAllowedForCurrentRole(tabName) {
     }
 
     if (isEmployeeDeliveryWorkMode()) {
-      return ["employee-delivery", "employee-delivery-overview", "my-account"].includes(tabName);
+      return ["employee-delivery", "employee-delivery-overview", "employee-delivery-receipts", "my-account"].includes(tabName);
     }
 
-    if (tabName === "employee-delivery" || tabName === "employee-delivery-overview") {
+    if (tabName === "employee-delivery" || tabName === "employee-delivery-overview" || tabName === "employee-delivery-receipts") {
       return false;
     }
   }
@@ -38503,6 +38687,16 @@ administrationDashboard?.addEventListener("click", (event) => {
   }
 
   setActiveTab(button.dataset.administrationGoTab || "dashboard");
+});
+
+document.addEventListener("stroet:expense-receipt-submitted", () => {
+  administrationExpenseReceiptsLoaded = false;
+  administrationExpenseReceipts = [];
+  administrationExpenseReceiptsError = "";
+
+  if (activeTab === "administration") {
+    renderAdministrationDashboard();
+  }
 });
 
 roleSelect.addEventListener("change", () => {

@@ -1391,6 +1391,48 @@
         </article>
       </section>
 
+      <section class="staff-panel app-panel aligned-view-panel director-screen-panel employee-delivery-receipts-panel" data-panel="employee-delivery-receipts">
+        <div class="view-header director-screen-header">
+          <div>
+            <h2>Bonnen</h2>
+          </div>
+        </div>
+        <article class="capacity-card employee-delivery-receipts-card">
+          <form id="employeeExpenseReceiptForm" class="employee-receipt-form">
+            <label>
+              Soort
+              <select id="employeeExpenseReceiptKind" required>
+                <option value="">Kies soort</option>
+                <option value="fuel">Tanken</option>
+                <option value="supermarket">Supermarkt</option>
+                <option value="bakery_purchase">Bakkerij-aankoop</option>
+                <option value="other">Overig</option>
+              </select>
+            </label>
+            <label>
+              Bedrag
+              <input type="number" id="employeeExpenseReceiptAmount" min="0" step="0.01" inputmode="decimal" placeholder="0,00" required>
+            </label>
+            <label>
+              Betaald met
+              <select id="employeeExpenseReceiptPaidWith" required>
+                <option value="">Kies betaalwijze</option>
+                <option value="employee_advance">Voorgeschoten door medewerker</option>
+                <option value="business_account">Zakelijke rekening</option>
+                <option value="cash">Contant</option>
+                <option value="other">Anders</option>
+              </select>
+            </label>
+            <label class="employee-receipt-form__wide">
+              Opmerking
+              <textarea id="employeeExpenseReceiptRemark" rows="3" maxlength="500" placeholder="Korte toelichting"></textarea>
+            </label>
+            <button type="submit" id="employeeExpenseReceiptSubmitButton">Bon indienen</button>
+            <div id="employeeExpenseReceiptStatus" class="panel-note employee-receipt-status" aria-live="polite">Foto toevoegen komt in fase 2.</div>
+          </form>
+        </article>
+      </section>
+
       <form id="schedule-form" class="form role-planner app-panel week-form-card" data-panel="week-current" data-week-panel data-slot="left">
         <h2>Invoer</h2>
         <input type="week" id="week" class="hidden">
@@ -2195,6 +2237,7 @@
     <button type="button" class="mobile-nav-button" data-go-tab="my-account" data-employee-nav-mode="roster">Mijn account</button>
     <button type="button" class="mobile-nav-button" data-go-tab="employee-delivery" data-employee-nav-mode="delivery">Route</button>
     <button type="button" class="mobile-nav-button" data-go-tab="employee-delivery-overview" data-employee-nav-mode="delivery">Overzicht</button>
+    <button type="button" class="mobile-nav-button" data-go-tab="employee-delivery-receipts" data-employee-nav-mode="delivery">Bonnen</button>
     <button type="button" class="mobile-nav-button" data-go-tab="my-account" data-employee-nav-mode="delivery">Account</button>
   </nav>
 
