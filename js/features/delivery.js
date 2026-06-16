@@ -7670,6 +7670,7 @@
 
     return `
       <section id="deliveryRouteStopProducts${index}" class="delivery-route-stop-products" aria-label="Mee te nemen">
+        ${renderAlternateDeliveryAddressBlock(stop, "delivery-route-stop-alternate-address")}
         <h5>Mee te nemen</h5>
         ${products.length
           ? `<div class="delivery-route-stop-product-list">

@@ -14391,6 +14391,7 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 
 .delivery-alternate-address,
 .delivery-stop-detail-alternate-address,
+.delivery-route-stop-alternate-address,
 .delivery-driver-mode-alternate-address,
 .delivery-print-alternate-address {
   display: grid;
@@ -14407,6 +14408,7 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 
 .delivery-alternate-address strong,
 .delivery-stop-detail-alternate-address strong,
+.delivery-route-stop-alternate-address strong,
 .delivery-driver-mode-alternate-address strong,
 .delivery-print-alternate-address strong {
   color: #8a4a12;
@@ -14416,6 +14418,7 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 
 .delivery-alternate-address span,
 .delivery-stop-detail-alternate-address span,
+.delivery-route-stop-alternate-address span,
 .delivery-driver-mode-alternate-address span,
 .delivery-print-alternate-address span {
   min-width: 0;
@@ -14430,6 +14433,7 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
 
 .delivery-alternate-address small,
 .delivery-stop-detail-alternate-address small,
+.delivery-route-stop-alternate-address small,
 .delivery-driver-mode-alternate-address small,
 .delivery-print-alternate-address small {
   color: var(--color-text-muted);
