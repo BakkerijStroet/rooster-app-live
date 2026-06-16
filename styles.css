@@ -14389,6 +14389,54 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   font-weight: 800;
 }
 
+.delivery-alternate-address,
+.delivery-stop-detail-alternate-address,
+.delivery-driver-mode-alternate-address,
+.delivery-print-alternate-address {
+  display: grid;
+  gap: 0.14rem;
+  min-width: min(100%, 260px);
+  flex: 1 1 260px;
+  border: 1px solid #d48b37;
+  border-left: 4px solid #d48b37;
+  border-radius: 8px;
+  padding: 0.5rem 0.62rem;
+  background: #fff8eb;
+  color: var(--color-text);
+}
+
+.delivery-alternate-address strong,
+.delivery-stop-detail-alternate-address strong,
+.delivery-driver-mode-alternate-address strong,
+.delivery-print-alternate-address strong {
+  color: #8a4a12;
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.delivery-alternate-address span,
+.delivery-stop-detail-alternate-address span,
+.delivery-driver-mode-alternate-address span,
+.delivery-print-alternate-address span {
+  min-width: 0;
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.delivery-alternate-address small,
+.delivery-stop-detail-alternate-address small,
+.delivery-driver-mode-alternate-address small,
+.delivery-print-alternate-address small {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
 .delivery-navigation-button {
   text-decoration: none;
 }

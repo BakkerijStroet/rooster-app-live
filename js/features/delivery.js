@@ -125,6 +125,7 @@
   const ORDER_REMARK_DECORATION_PATTERN = /^(?:1[,.]00\s+)?(?:gesneden|\+?\s*conve?ttie|met\s+tekst\b.*)$/i;
   const ORDER_REMARK_HEALTHY_SANDWICH_TEXT_PATTERN = /^1[,.]00\s+\d+\s+broodjes\s+gezond$/i;
   const DELIVERY_ADMIN_PRODUCT_PATTERN = /\b(?:Bezorgkosten-\d{4}(?:-\d{4})?|Bezorgen\s+in\s+[A-Za-zÀ-ÿ.' -]+)\b/i;
+  const ALTERNATE_DELIVERY_ADDRESS_LABEL_PATTERN = /^(?:bezorgen\s+op\s+adres|afleveradres|leveren\s+bij|leveradres|bezorgen\s+bij|t\.?\s*a\.?\s*v\.?|locatie|vestiging)\s*:?\s*(.*)$/i;
   const MISSING_TIME_PREFERENCES_STORAGE_KEY = "delivery-missing-time-preferences-v1";
 
   function getEmptyRouteAdviceReport() {
@@ -1462,6 +1463,91 @@
       product?.category !== "administratief";
   }
 
+  function normalizeDeliveryAddressOverride(value) {
+    if (!value || typeof value !== "object") {
+      return null;
+    }
+
+    const normalized = {
+      company: String(value.company || value.name || "").trim(),
+      name: String(value.name || value.company || "").trim(),
+      contactName: String(value.contactName || "").trim(),
+      street: String(value.street || "").trim(),
+      postcode: normalizeStopHeaderPostcode(value.postcode || ""),
+      city: String(value.city || value.plaats || "").trim(),
+      note: String(value.note || "").trim()
+    };
+
+    if (!normalized.street && !normalized.postcode && !normalized.company && !normalized.contactName) {
+      return null;
+    }
+
+    return normalized;
+  }
+
+  function getStopDeliveryAddressOverride(stop) {
+    return normalizeDeliveryAddressOverride(stop?.deliveryAddressOverride || stop?.alternateDeliveryAddress);
+  }
+
+  function hasAlternateDeliveryAddress(stop) {
+    return Boolean(getStopDeliveryAddressOverride(stop));
+  }
+
+  function formatDeliveryAddressOverride(override, { includeNames = false, separator = ", " } = {}) {
+    const normalized = normalizeDeliveryAddressOverride(override);
+
+    if (!normalized) {
+      return "";
+    }
+
+    const postcodeCity = [normalized.postcode, normalized.city].filter(Boolean).join(" ").trim();
+    const addressParts = [
+      ...(includeNames ? [normalized.company, normalized.contactName] : []),
+      normalized.street,
+      postcodeCity
+    ].filter(Boolean);
+
+    return addressParts.join(separator);
+  }
+
+  function getStopDeliveryAddress(stop) {
+    const overrideAddress = formatDeliveryAddressOverride(getStopDeliveryAddressOverride(stop));
+    return overrideAddress || String(stop?.address || "").trim();
+  }
+
+  function getStopOriginalAddress(stop) {
+    return String(stop?.originalAddress || stop?.address || "").trim();
+  }
+
+  function getStopOriginalCustomerName(stop) {
+    return String(stop?.originalCustomerName || stop?.customerName || "").trim();
+  }
+
+  function renderAlternateDeliveryAddressBlock(stop, className = "delivery-alternate-address") {
+    const override = getStopDeliveryAddressOverride(stop);
+
+    if (!override) {
+      return "";
+    }
+
+    const postcodeCity = [override.postcode, override.city].filter(Boolean).join(" ").trim();
+    const originalAddress = getStopOriginalAddress(stop);
+    const lines = [
+      override.company,
+      override.contactName,
+      override.street,
+      postcodeCity
+    ].filter(Boolean);
+
+    return `
+      <div class="${escapeHtml(className)}">
+        <strong><span aria-hidden="true">&#9888;</span> Afwijkend bezorgadres</strong>
+        ${lines.map((line) => `<span>${escapeHtml(line)}</span>`).join("")}
+        ${originalAddress ? `<small>Origineel adres: ${escapeHtml(originalAddress)}</small>` : ""}
+      </div>
+    `;
+  }
+
   function getProductCount(line) {
     const value = String(line || "").trim();
     const match = value.match(PRODUCT_COUNT_PATTERN);
@@ -2132,6 +2218,238 @@
     stop.remark = remark;
   }
 
+  function isAlternateDeliveryAddressLabel(line) {
+    return ALTERNATE_DELIVERY_ADDRESS_LABEL_PATTERN.test(String(line || "").trim());
+  }
+
+  function getAlternateDeliveryAddressLabelRemainder(line) {
+    const match = String(line || "").trim().match(ALTERNATE_DELIVERY_ADDRESS_LABEL_PATTERN);
+    return String(match?.[1] || "").trim();
+  }
+
+  function isAlternateDeliveryStreetLine(line) {
+    return /\b[\p{L}.' -]*(?:straat|laan|weg|plein|hof|pad|dijk|kade|singel|steeg|plantsoen|boulevard)\s+\d+[a-z]?(?:[-/]\d+)?\b/iu.test(String(line || "").trim());
+  }
+
+  function parsePostcodeCityLine(line) {
+    const match = String(line || "").trim().match(/\b([1-9][0-9]{3})\s?([A-Z]{2})\b\s*([\p{L}.' -]{2,40})?/iu);
+
+    if (!match) {
+      return {
+        postcode: "",
+        city: ""
+      };
+    }
+
+    return {
+      postcode: `${match[1]} ${match[2].toUpperCase()}`,
+      city: String(match[3] || "").replace(/[,\s]+$/g, "").trim()
+    };
+  }
+
+  function isAlternateDeliveryAddressNoiseLine(line) {
+    const value = String(line || "").trim();
+
+    if (!value) {
+      return true;
+    }
+
+    return /^STOP(?:HEADER|PRODUCT)\b/i.test(value) ||
+      /^Pagina:/i.test(value) ||
+      /^BEZORGINGEN\b|^TRIAL MODE\b|^Afdrukdatum\b/i.test(value) ||
+      /^(?:Tijd|Plaats|Postcode|Adres|Omschrijving|Nr|Selecties|Adressen zonder gekoppelde route)$/i.test(value) ||
+      isRouteNoiseLine(value) ||
+      isAggregateStopSummaryLine(value) ||
+      getPaymentStatus(value) ||
+      getPaymentStatuses(value).length > 0 ||
+      /^&euro;|\breferentie\b|^tr_[a-z0-9]+$/i.test(value) ||
+      isAdministrativeDeliveryProductLine(value) ||
+      looksLikeProductLine(value);
+  }
+
+  function getAlternateDeliveryNoteFromContext(contextLines) {
+    const gelieveLine = contextLines.find((line) => /\bgelieve\b/i.test(line));
+    const pauseLine = contextLines.find((line) => /^pauze\.?$/i.test(line) || /\bpauze\.?$/i.test(line));
+
+    if (gelieveLine && pauseLine && !/\bpauze\b/i.test(gelieveLine)) {
+      return `${gelieveLine.replace(/[,\s]+$/g, "")} ${pauseLine}`.replace(/\s+/g, " ").trim();
+    }
+
+    const noteLines = contextLines
+      .filter((line) =>
+        !isAlternateDeliveryAddressLabel(line) &&
+        !isAlternateDeliveryAddressNoiseLine(line) &&
+        !isAlternateDeliveryStreetLine(line) &&
+        !POSTCODE_PATTERN.test(line) &&
+        /\b(gelieve|bezorgen|bezorg|pauze|aanbellen|melden|neerzetten)\b/i.test(line)
+      );
+
+    return noteLines.join(" ").replace(/\s+/g, " ").trim();
+  }
+
+  function parseAlternateDeliveryAddressFromContext(lines, markerIndex) {
+    const normalizedLines = Array.isArray(lines) ? lines.map((line) => String(line || "").trim()).filter(Boolean) : [];
+    const markerLine = normalizedLines[markerIndex] || "";
+    const start = Math.max(0, markerIndex - 8);
+    const end = Math.min(normalizedLines.length, markerIndex + 10);
+    const contextLines = normalizedLines.slice(start, end);
+    const candidates = [
+      getAlternateDeliveryAddressLabelRemainder(markerLine),
+      ...contextLines
+    ].map((line) => String(line || "").trim()).filter(Boolean);
+    const street = candidates.find((line) =>
+      !isAggregateStopSummaryLine(line) &&
+      isAlternateDeliveryStreetLine(line)
+    ) || "";
+    const postcodeCity = candidates
+      .map(parsePostcodeCityLine)
+      .find((item) => item.postcode) || { postcode: "", city: "" };
+
+    if (!street || !postcodeCity.postcode) {
+      return null;
+    }
+
+    const nameCandidates = candidates
+      .filter((line) =>
+        line !== markerLine &&
+        !isAlternateDeliveryAddressLabel(line) &&
+        !isAlternateDeliveryAddressNoiseLine(line) &&
+        !isAlternateDeliveryStreetLine(line) &&
+        !POSTCODE_PATTERN.test(line) &&
+        !/\b(gelieve|bezorg|pauze|aanbellen|melden|neerzetten)\b/i.test(line)
+      )
+      .filter((line, index, source) => source.indexOf(line) === index);
+    const company = nameCandidates[0] || "";
+    const contactName = nameCandidates.find((line) =>
+      company && line !== company && /\p{L}+\s+\p{L}+/u.test(line)
+    ) || nameCandidates[1] || "";
+    const note = getAlternateDeliveryNoteFromContext(contextLines);
+
+    return normalizeDeliveryAddressOverride({
+      company,
+      name: company,
+      contactName,
+      street,
+      postcode: postcodeCity.postcode,
+      city: postcodeCity.city,
+      note
+    });
+  }
+
+  function findAlternateDeliveryAddressTargetStop(stops, lines, markerIndex, override) {
+    const normalizedLines = Array.isArray(lines) ? lines : [];
+    let headerStop = null;
+
+    for (let index = markerIndex - 1; index >= Math.max(0, markerIndex - 35); index -= 1) {
+      const parsedStop = parseStopHeaderLine(normalizedLines[index]);
+
+      if (parsedStop?.customerName) {
+        headerStop = parsedStop;
+        break;
+      }
+    }
+
+    const headerName = normalizeReferenceValue(headerStop?.customerName || "");
+    const headerAddress = normalizeReferenceValue(headerStop?.address || "");
+    const overrideText = normalizeReferenceValue([
+      override?.company,
+      override?.contactName,
+      override?.street,
+      override?.postcode,
+      override?.city
+    ].filter(Boolean).join(" "));
+    const candidates = (Array.isArray(stops) ? stops : [])
+      .map((stop) => ({
+        stop,
+        score: 0
+      }))
+      .map((item) => {
+        const stopName = normalizeReferenceValue(item.stop?.customerName);
+        const stopAddress = normalizeReferenceValue(item.stop?.address);
+
+        if (headerName && stopName && (stopName.includes(headerName) || headerName.includes(stopName))) {
+          item.score += 100;
+        }
+
+        if (headerAddress && stopAddress && (stopAddress.includes(headerAddress) || headerAddress.includes(stopAddress))) {
+          item.score += 30;
+        }
+
+        if (overrideText && stopName && overrideText.includes(stopName)) {
+          item.score += 20;
+        }
+
+        return item;
+      })
+      .filter((item) => item.score > 0)
+      .sort((itemA, itemB) => itemB.score - itemA.score);
+
+    return candidates[0]?.stop || null;
+  }
+
+  function shouldReplaceStopRemarkWithAlternateNote(stop, note) {
+    const currentRemark = String(stop?.remark || "").trim();
+
+    if (!note) {
+      return false;
+    }
+
+    return !currentRemark ||
+      looksLikeProductLine(currentRemark) ||
+      getPaymentStatus(currentRemark) ||
+      /\bwarm\b/i.test(currentRemark);
+  }
+
+  function applyAlternateDeliveryAddressToStop(stop, override) {
+    const normalizedOverride = normalizeDeliveryAddressOverride(override);
+
+    if (!stop || !normalizedOverride) {
+      return;
+    }
+
+    stop.originalCustomerName = stop.originalCustomerName || stop.customerName || "";
+    stop.originalAddress = stop.originalAddress || stop.address || "";
+    stop.deliveryAddressOverride = normalizedOverride;
+
+    if (shouldReplaceStopRemarkWithAlternateNote(stop, normalizedOverride.note)) {
+      stop.remark = normalizedOverride.note;
+    }
+
+    stop.notes = [...new Set([
+      ...(Array.isArray(stop.notes) ? stop.notes : []),
+      "afwijkend bezorgadres"
+    ])];
+  }
+
+  function applyAlternateDeliveryAddressesToStops(stops, lines) {
+    const normalizedStops = Array.isArray(stops) ? stops : [];
+    const normalizedLines = Array.isArray(lines) ? lines.map((line) => String(line || "").trim()) : [];
+    const appliedOverrideKeys = new Set();
+
+    normalizedLines.forEach((line, index) => {
+      if (!isAlternateDeliveryAddressLabel(line)) {
+        return;
+      }
+
+      const override = parseAlternateDeliveryAddressFromContext(normalizedLines, index);
+      const targetStop = findAlternateDeliveryAddressTargetStop(normalizedStops, normalizedLines, index, override);
+      const overrideKey = normalizeReferenceValue([
+        override?.company,
+        override?.contactName,
+        override?.street,
+        override?.postcode,
+        override?.city
+      ].filter(Boolean).join(" "));
+
+      if (targetStop && override && !appliedOverrideKeys.has(overrideKey)) {
+        applyAlternateDeliveryAddressToStop(targetStop, override);
+        appliedOverrideKeys.add(overrideKey);
+      }
+    });
+
+    return normalizedStops;
+  }
+
   function findLineIndex(lines, matcher, startIndex = 0) {
     for (let index = Math.max(0, startIndex); index < lines.length; index += 1) {
       if (matcher(String(lines[index] || "").trim())) {
@@ -2430,6 +2748,7 @@
     if (serverColumnStops.length) {
       applyPaymentSequenceFallbacks(serverColumnStops, lines);
       enrichStopsWithKnownCustomers(serverColumnStops);
+      applyAlternateDeliveryAddressesToStops(serverColumnStops, lines);
 
       return serverColumnStops.map((stop) => ({
         ...stop,
@@ -2544,6 +2863,7 @@
 
     applyPaymentSequenceFallbacks(stops, lines);
     enrichStopsWithKnownCustomers(stops);
+    applyAlternateDeliveryAddressesToStops(stops, lines);
 
     return stops.map((stop) => ({
       ...stop,
@@ -2989,7 +3309,7 @@
   }
 
   function getRouteAreaKey(stop) {
-    const address = String(stop?.address || "").toUpperCase();
+    const address = String(getStopDeliveryAddress(stop) || "").toUpperCase();
     const postcodeMatch = address.match(/\b([1-9][0-9]{3})\s?([A-Z]{2})\b/);
 
     if (postcodeMatch) {
@@ -3006,10 +3326,13 @@
 
   function getRoutePlaceCluster(stop) {
     const postcodePlace = getStopPostcodePlace(stop);
+    const deliveryPostcodePlace = parsePostcodeCityLine(getStopDeliveryAddress(stop));
     const sourceText = [
+      deliveryPostcodePlace.city,
+      deliveryPostcodePlace.postcode,
+      getStopDeliveryAddress(stop),
       postcodePlace.plaats,
       stop?.postcode,
-      stop?.address,
       stop?.customerName
     ].join(" ").toUpperCase();
     const placeMatch = sourceText.match(/\b(NEEDE|BORCULO|HAARLO|EIBERGEN|DIEPENHEIM|RUURLO|LOCHEM)\b/);
@@ -3296,7 +3619,7 @@
     const notes = Array.isArray(stop.notes) ? stop.notes : [];
     const nextNotes = [...notes];
 
-    if (!String(stop.address || "").trim()) {
+    if (!String(getStopDeliveryAddress(stop) || "").trim()) {
       nextNotes.push("controle nodig: adres ontbreekt voor routevoorstel");
     }
 
@@ -6739,11 +7062,15 @@
       ...products.map((product) => product.category)
     ]);
     const manualTask = isManualDeliveryTask(stop);
+    const deliveryAddressOverride = normalizeDeliveryAddressOverride(stop?.deliveryAddressOverride || stop?.alternateDeliveryAddress);
 
     return {
       customerId: typeof stop?.customerId === "string" ? stop.customerId : "",
       customerName: typeof stop?.customerName === "string" ? stop.customerName : "",
       address: typeof stop?.address === "string" ? stop.address : "",
+      originalCustomerName: typeof stop?.originalCustomerName === "string" ? stop.originalCustomerName : "",
+      originalAddress: typeof stop?.originalAddress === "string" ? stop.originalAddress : "",
+      deliveryAddressOverride,
       postcode: typeof stop?.postcode === "string" ? stop.postcode : "",
       plaats: typeof stop?.plaats === "string" ? stop.plaats : "",
       categories,
@@ -7813,7 +8140,7 @@
 
   function renderDriverModeWizardHeader(stop, step) {
     const postcodePlace = getStopPostcodePlace(stop);
-    const location = stop?.address || [postcodePlace.postcode, postcodePlace.plaats].filter(Boolean).join(" ");
+    const location = getStopDeliveryAddress(stop) || [postcodePlace.postcode, postcodePlace.plaats].filter(Boolean).join(" ");
 
     return `
       <div class="delivery-driver-mode-wizard-header">
@@ -7827,6 +8154,8 @@
   }
 
   function renderDriverModeWizardIntro({ stop, navigationUrl, remark, practicalRemarks }) {
+    const deliveryAddress = getStopDeliveryAddress(stop);
+
     return `
       <div class="delivery-driver-mode-wizard" data-delivery-driver-wizard-step="intro">
         ${renderDriverModeWizardHeader(stop, "intro")}
@@ -7837,9 +8166,11 @@
         ${isManualDeliveryTask(stop) ? `<div class="delivery-driver-manual-label">${escapeHtml(getManualDeliveryTaskLabel(stop))}</div>` : ""}
         <h3>${escapeHtml(stop.customerName || "Klant onbekend")}</h3>
         ${renderDriverModePaymentStatus(stop)}
-        <div class="delivery-driver-mode-address">
-          <span>${escapeHtml(stop.address || "Adres onbekend")}</span>
-        </div>
+        ${hasAlternateDeliveryAddress(stop)
+          ? renderAlternateDeliveryAddressBlock(stop, "delivery-driver-mode-alternate-address")
+          : `<div class="delivery-driver-mode-address">
+              <span>${escapeHtml(deliveryAddress || "Adres onbekend")}</span>
+            </div>`}
         ${navigationUrl
           ? `<a class="delivery-driver-mode-navigate" href="${escapeHtml(navigationUrl)}" target="_blank" rel="noopener">Navigeer</a>`
           : "<button type=\"button\" class=\"delivery-driver-mode-navigate\" disabled>Navigeer</button>"}
@@ -8052,11 +8383,12 @@
                 const stop = item.stop;
                 const state = getDriverModeStopState(stop);
                 const note = state.note || (state.deliveryChoice === "partial" ? "Niet alles geleverd" : "");
+                const deliveryAddress = getStopDeliveryAddress(stop);
 
                 return `
                   <button type="button" class="employee-delivery-overview-stop" data-delivery-overview-stop="${escapeHtml(item.orderKey)}">
                     <strong>${escapeHtml(stop.customerName || "Klant onbekend")}</strong>
-                    <span>${escapeHtml(getRouteStopTimeLabel(stop))}${stop.address ? ` · ${escapeHtml(stop.address)}` : ""}</span>
+                    <span>${escapeHtml(getRouteStopTimeLabel(stop))}${deliveryAddress ? ` · ${escapeHtml(deliveryAddress)}` : ""}</span>
                     ${note ? `<small>${escapeHtml(note)}</small>` : ""}
                   </button>
                 `;
@@ -8359,8 +8691,9 @@
     const progressPercentage = routeSummary.total
       ? Math.round((routeSummary.delivered / routeSummary.total) * 100)
       : 0;
-    const navigationUrl = stop.address
-      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.address)}`
+    const navigationAddress = getStopDeliveryAddress(stop);
+    const navigationUrl = navigationAddress
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(navigationAddress)}`
       : "";
     const remark = String(stop.remark || "").trim();
     const practicalRemarks = getDriverModePracticalRemarks(stop);
@@ -8998,8 +9331,9 @@
     const hasResolvedProblem = hasResolvedStopProblem(stop);
     const driverStatus = getDriverStatus(stop);
     const stopPositionLabel = `Stop ${selectedDeliveryStopIndex + 1} van ${normalizedStops.length}`;
-    const navigationUrl = stop.address
-      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.address)}`
+    const navigationAddress = getStopDeliveryAddress(stop);
+    const navigationUrl = navigationAddress
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(navigationAddress)}`
       : "";
 
     stopDetailElement.classList.remove("empty");
@@ -9019,7 +9353,9 @@
         </div>
         ${renderDriverStatusChips(stop)}
         <div class="delivery-stop-detail-address">
-          <span>${escapeHtml(stop.address || "Adres onbekend")}</span>
+          ${hasAlternateDeliveryAddress(stop)
+            ? renderAlternateDeliveryAddressBlock(stop, "delivery-stop-detail-alternate-address")
+            : `<span>${escapeHtml(navigationAddress || "Adres onbekend")}</span>`}
           ${navigationUrl
             ? `<a class="secondary delivery-navigation-button" href="${escapeHtml(navigationUrl)}" target="_blank" rel="noopener">Navigeer</a>`
             : "<button type=\"button\" class=\"secondary delivery-navigation-button\" disabled>Navigeer</button>"}
@@ -9254,7 +9590,7 @@
     quickEditElement.innerHTML = `
       <div class="delivery-quick-edit-selected">
         <strong>${escapeHtml(selectedDeliveryStopIndex + 1)}. ${escapeHtml(stop.customerName || "Klant onbekend")}</strong>
-        <span>${escapeHtml(stop.address || "Adres onbekend")}</span>
+        <span>${escapeHtml(getStopDeliveryAddress(stop) || "Adres onbekend")}</span>
       </div>
       ${renderStopCorrectionForm(stop, selectedDeliveryStopIndex, { force: true, quick: true })}
     `;
@@ -9551,7 +9887,9 @@
     productOverviewElement.innerHTML = stopsWithProducts.map((stop, stopIndex) => `
       <section class="delivery-product-stop">
         <h4>${stopIndex + 1}. ${escapeHtml(stop.customerName || "Klant onbekend")}</h4>
-        <div class="delivery-stop-address">${escapeHtml(stop.address || "Adres onbekend")}</div>
+        ${hasAlternateDeliveryAddress(stop)
+          ? renderAlternateDeliveryAddressBlock(stop, "delivery-stop-detail-alternate-address")
+          : `<div class="delivery-stop-address">${escapeHtml(getStopDeliveryAddress(stop) || "Adres onbekend")}</div>`}
         <div class="delivery-product-list">
           ${stop.products.map((product) => {
             const numericCount = Number(product.count);
@@ -9585,7 +9923,7 @@
       getLoadProductsForStop(stop).map((product) => ({
         ...product,
         customerName: stop.customerName || "",
-        address: stop.address || "",
+        address: getStopDeliveryAddress(stop) || "",
         timeWindow: stop.timeWindow || ""
       }))
     );
@@ -9826,7 +10164,7 @@
         <div class="delivery-print-section">
           <strong>Warm eerst controleren</strong>
           ${warmStops.length
-            ? warmStops.map((stop, index) => `<div>${index + 1}. ${escapeHtml(stop.customerName || "Klant onbekend")} - ${escapeHtml(stop.address || "Adres onbekend")}</div>`).join("")
+            ? warmStops.map((stop, index) => `<div>${index + 1}. ${escapeHtml(stop.customerName || "Klant onbekend")} - ${escapeHtml(getStopDeliveryAddress(stop) || "Adres onbekend")}</div>`).join("")
             : "<div>Geen warme categorie gevonden.</div>"}
         </div>
         <div class="delivery-print-section">
@@ -9852,7 +10190,9 @@
             <article class="delivery-print-route-stop${stop.categories.includes("warm") ? " has-warm" : ""}">
               <strong>${index + 1}. ${renderPrintRouteIcons(stop)} ${escapeHtml(stop.customerName || "Klant onbekend")}</strong>
               <span><em>Tijd:</em> ${escapeHtml(stop.timeWindow || "controle nodig")}</span>
-              <span>${escapeHtml(stop.address || "Adres onbekend")}</span>
+              ${hasAlternateDeliveryAddress(stop)
+                ? renderAlternateDeliveryAddressBlock(stop, "delivery-print-alternate-address")
+                : `<span>${escapeHtml(getStopDeliveryAddress(stop) || "Adres onbekend")}</span>`}
               <div><em>Wat meenemen:</em> ${renderPrintCategoryChips(stop.categories)}</div>
               <div><em>Betaling:</em> <span class="delivery-payment-chip" data-delivery-payment="${escapeHtml(stop.paymentStatus || "controle nodig")}">${escapeHtml(stop.paymentStatus || "controle nodig")}</span></div>
               <div><em>Opmerking:</em> ${escapeHtml(stop.remark || "controle nodig")}</div>
@@ -9872,7 +10212,7 @@
           ${stops.map((stop, index) => `
             <div class="delivery-print-check-row">
               <span class="delivery-print-checkbox" aria-hidden="true"></span>
-              <span>${index + 1}. ${escapeHtml(stop.customerName || "Klant onbekend")} - ${escapeHtml(stop.address || "Adres onbekend")}</span>
+              <span>${index + 1}. ${escapeHtml(stop.customerName || "Klant onbekend")} - ${escapeHtml(getStopDeliveryAddress(stop) || "Adres onbekend")}</span>
               ${stop.categories.includes("warm") ? `<strong>Warm</strong>` : ""}
             </div>
           `).join("")}
@@ -9896,7 +10236,7 @@
           ? stopsWithProducts.map((stop, stopIndex) => `
             <article class="delivery-print-product-stop">
               <strong>${stopIndex + 1}. ${escapeHtml(stop.customerName || "Klant onbekend")}</strong>
-              <span>${escapeHtml(stop.address || "Adres onbekend")}</span>
+              <span>${escapeHtml(getStopDeliveryAddress(stop) || "Adres onbekend")}</span>
               ${stop.products.map((product) => {
                 const numericCount = Number(product.count);
                 const isLargeCount = Number.isFinite(numericCount) && numericCount >= 10;
@@ -10118,7 +10458,9 @@
                           <span>${escapeHtml(getRouteStopTimeLabel(stop))}</span>
                         </div>
                         ${isManualDeliveryTask(stop) ? `<div class="delivery-print-route-label">${escapeHtml(getManualDeliveryTaskLabel(stop))}</div>` : ""}
-                        <div class="delivery-print-address">${escapeHtml(stop.address || "Adres onbekend")}</div>
+                        ${hasAlternateDeliveryAddress(stop)
+                          ? renderAlternateDeliveryAddressBlock(stop, "delivery-print-alternate-address")
+                          : `<div class="delivery-print-address">${escapeHtml(getStopDeliveryAddress(stop) || "Adres onbekend")}</div>`}
                         ${remark ? `<div class="delivery-print-route-remark">${escapeHtml(remark)}</div>` : ""}
                         ${stopHasReview(stop) ? `<small>controle nodig${stop.notes.length ? `: ${escapeHtml(stop.notes.join(", "))}` : ""}</small>` : ""}
                       </article>
@@ -10153,6 +10495,9 @@
                         <span class="delivery-print-check-main">
                           <strong>${escapeHtml(getPrintRouteStopNumber(routeIndex, stopIndex))} ${escapeHtml(stop.customerName || "Klant onbekend")}</strong>
                           ${isManualDeliveryTask(stop) ? `<small>${escapeHtml(getManualDeliveryTaskLabel(stop))}</small>` : ""}
+                          ${hasAlternateDeliveryAddress(stop)
+                            ? `<small>Afwijkend bezorgadres: ${escapeHtml(formatDeliveryAddressOverride(getStopDeliveryAddressOverride(stop), { includeNames: true }))}</small>`
+                            : ""}
                           ${remark ? `<small>${escapeHtml(remark)}</small>` : ""}
                         </span>
                         <span class="delivery-print-check-time">${escapeHtml(getRouteStopTimeLabel(stop))}</span>
@@ -10376,12 +10721,16 @@
     const payloadStops = latestRouteStops.map((stop) => {
       const routeNumber = getStopRouteNumber(stop);
       const postcodePlace = getStopPostcodePlace(stop);
+      const deliveryAddressOverride = getStopDeliveryAddressOverride(stop);
       routePositions[routeNumber] = (routePositions[routeNumber] || 0) + 1;
 
       return {
         customerId: stop.knownCustomerId || stop.customerId || "",
         customerName: stop.customerName || "",
         address: stop.address || "",
+        originalCustomerName: hasAlternateDeliveryAddress(stop) ? getStopOriginalCustomerName(stop) : "",
+        originalAddress: hasAlternateDeliveryAddress(stop) ? getStopOriginalAddress(stop) : "",
+        deliveryAddressOverride,
         postcode: postcodePlace.postcode,
         plaats: postcodePlace.plaats,
         categories: Array.isArray(stop.categories) ? stop.categories : [],
@@ -10429,7 +10778,9 @@
         firstStop: firstStop
           ? {
               customerName: firstStop.customerName || "",
-              address: firstStop.address || "",
+              address: getStopDeliveryAddress(firstStop) || "",
+              originalAddress: hasAlternateDeliveryAddress(firstStop) ? getStopOriginalAddress(firstStop) : "",
+              deliveryAddressOverride: getStopDeliveryAddressOverride(firstStop),
               timeWindow: firstStop.timeWindow || "",
               paymentStatus: firstStop.paymentStatus || "",
               remark: firstStop.remark || "",
