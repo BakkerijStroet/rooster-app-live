@@ -113,7 +113,7 @@
   ];
   const DRIVER_WIZARD_STEPS = ["intro", "delivery", "payment", "note", "review"];
   const MANUAL_DELIVERY_TASK_TYPES = ["Ophalen", "Afgeven", "Boodschap", "Overig"];
-  const PLANNER_ACTIONABLE_QUESTION_TYPES = ["time", "customer", "no-products", "payment", "unlinked-product", "parser-quality"];
+  const PLANNER_ACTIONABLE_QUESTION_TYPES = ["time", "customer", "no-products", "payment", "unlinked-product", "parser-quality", "alternate-address"];
   const CUTTING_PATTERN = /\b(gesneden|snijden|snij|gesn\.?)\b/i;
   const NOT_CUTTING_PATTERN = /\b(ongesneden|niet\s+gesneden|niet\s+snijden|\d+\s*plakken?|plakken?)\b/i;
   const NON_CUTTING_BREAD_PATTERN = /\b(broodjes?|bolletjes?|bol\b|punt(?:en)?|pistolet|stokbrood|mini\s+bol|witte\s+punt|rozijnenbol)\b/i;
@@ -126,6 +126,7 @@
   const ORDER_REMARK_HEALTHY_SANDWICH_TEXT_PATTERN = /^1[,.]00\s+\d+\s+broodjes\s+gezond$/i;
   const DELIVERY_ADMIN_PRODUCT_PATTERN = /\b(?:Bezorgkosten-\d{4}(?:-\d{4})?|Bezorgen\s+in\s+[A-Za-zÀ-ÿ.' -]+)\b/i;
   const ALTERNATE_DELIVERY_ADDRESS_LABEL_PATTERN = /^(?:bezorgen\s+op\s+adres|afleveradres|leveren\s+bij|leveradres|bezorgen\s+bij|t\.?\s*a\.?\s*v\.?|locatie|vestiging)\s*:?\s*(.*)$/i;
+  const HIGH_CONFIDENCE_ALTERNATE_ADDRESS_LABEL_PATTERN = /^(?:bezorgen\s+op\s+adres|afleveradres|leveradres)\b/i;
   const MISSING_TIME_PREFERENCES_STORAGE_KEY = "delivery-missing-time-preferences-v1";
 
   function getEmptyRouteAdviceReport() {
@@ -1475,7 +1476,9 @@
       street: String(value.street || "").trim(),
       postcode: normalizeStopHeaderPostcode(value.postcode || ""),
       city: String(value.city || value.plaats || "").trim(),
-      note: String(value.note || "").trim()
+      note: String(value.note || "").trim(),
+      confidence: ["high", "medium", "low"].includes(value.confidence) ? value.confidence : "",
+      sourceLabel: String(value.sourceLabel || "").trim()
     };
 
     if (!normalized.street && !normalized.postcode && !normalized.company && !normalized.contactName) {
@@ -1487,6 +1490,10 @@
 
   function getStopDeliveryAddressOverride(stop) {
     return normalizeDeliveryAddressOverride(stop?.deliveryAddressOverride || stop?.alternateDeliveryAddress);
+  }
+
+  function getStopDeliveryAddressOverrideCandidate(stop) {
+    return normalizeDeliveryAddressOverride(stop?.deliveryAddressOverrideCandidate || stop?.alternateDeliveryAddressCandidate);
   }
 
   function hasAlternateDeliveryAddress(stop) {
@@ -2227,6 +2234,30 @@
     return String(match?.[1] || "").trim();
   }
 
+  function getAlternateDeliveryAddressSourceLabel(line) {
+    const match = String(line || "").trim().match(ALTERNATE_DELIVERY_ADDRESS_LABEL_PATTERN);
+    return String(match?.[0] || "").replace(/[:\s]+$/g, "").trim();
+  }
+
+  function getAlternateDeliveryAddressConfidence(line, override) {
+    const sourceLabel = getAlternateDeliveryAddressSourceLabel(line);
+
+    if (
+      sourceLabel &&
+      HIGH_CONFIDENCE_ALTERNATE_ADDRESS_LABEL_PATTERN.test(sourceLabel) &&
+      override?.street &&
+      override?.postcode
+    ) {
+      return "high";
+    }
+
+    if (override?.street && override?.postcode) {
+      return "medium";
+    }
+
+    return "low";
+  }
+
   function isAlternateDeliveryStreetLine(line) {
     return /\b[\p{L}.' -]*(?:straat|laan|weg|plein|hof|pad|dijk|kade|singel|steeg|plantsoen|boulevard)\s+\d+[a-z]?(?:[-/]\d+)?\b/iu.test(String(line || "").trim());
   }
@@ -2296,7 +2327,9 @@
     const candidates = [
       getAlternateDeliveryAddressLabelRemainder(markerLine),
       ...contextLines
-    ].map((line) => String(line || "").trim()).filter(Boolean);
+    ]
+      .map((line) => String(line || "").trim())
+      .filter((line) => line && !isAlternateDeliveryAddressNoiseLine(line));
     const street = candidates.find((line) =>
       !isAggregateStopSummaryLine(line) &&
       isAlternateDeliveryStreetLine(line)
@@ -2332,7 +2365,8 @@
       street,
       postcode: postcodeCity.postcode,
       city: postcodeCity.city,
-      note
+      note,
+      sourceLabel: getAlternateDeliveryAddressSourceLabel(markerLine)
     });
   }
 
@@ -2421,6 +2455,30 @@
     ])];
   }
 
+  function applyAlternateDeliveryAddressCandidateToStop(stop, override) {
+    const normalizedOverride = normalizeDeliveryAddressOverride(override);
+
+    if (!stop || !normalizedOverride) {
+      return;
+    }
+
+    stop.originalCustomerName = stop.originalCustomerName || stop.customerName || "";
+    stop.originalAddress = stop.originalAddress || stop.address || "";
+    stop.deliveryAddressOverrideCandidate = normalizedOverride;
+    stop.deliveryAddressOverrideConfidence = normalizedOverride.confidence || "medium";
+    stop.deliveryAddressOverrideDecision = stop.deliveryAddressOverrideDecision || "pending";
+
+    if (shouldReplaceStopRemarkWithAlternateNote(stop, normalizedOverride.note)) {
+      stop.remark = normalizedOverride.note;
+    }
+
+    stop.notes = [...new Set([
+      ...(Array.isArray(stop.notes) ? stop.notes : []),
+      "controle nodig: mogelijk afwijkend bezorgadres"
+    ])];
+    refreshStopReviewState(stop);
+  }
+
   function applyAlternateDeliveryAddressesToStops(stops, lines) {
     const normalizedStops = Array.isArray(stops) ? stops : [];
     const normalizedLines = Array.isArray(lines) ? lines.map((line) => String(line || "").trim()) : [];
@@ -2433,6 +2491,13 @@
 
       const override = parseAlternateDeliveryAddressFromContext(normalizedLines, index);
       const targetStop = findAlternateDeliveryAddressTargetStop(normalizedStops, normalizedLines, index, override);
+      const confidence = getAlternateDeliveryAddressConfidence(line, override);
+      const overrideWithConfidence = override
+        ? {
+            ...override,
+            confidence
+          }
+        : null;
       const overrideKey = normalizeReferenceValue([
         override?.company,
         override?.contactName,
@@ -2442,7 +2507,11 @@
       ].filter(Boolean).join(" "));
 
       if (targetStop && override && !appliedOverrideKeys.has(overrideKey)) {
-        applyAlternateDeliveryAddressToStop(targetStop, override);
+        if (confidence === "high") {
+          applyAlternateDeliveryAddressToStop(targetStop, overrideWithConfidence);
+        } else {
+          applyAlternateDeliveryAddressCandidateToStop(targetStop, overrideWithConfidence);
+        }
         appliedOverrideKeys.add(overrideKey);
       }
     });
@@ -4578,8 +4647,24 @@
       const hasProducts = Array.isArray(stop?.products) && stop.products.filter(isLoadProduct).length > 0;
       const customerMatch = getRecognitionCustomerMatch(stop);
       const hasUnknownName = !String(stop?.customerName || "").trim() || /klant onbekend/i.test(String(stop?.customerName || ""));
+      const alternateAddressCandidate = getStopDeliveryAddressOverrideCandidate(stop);
 
-      if (!String(stop?.timeWindow || "").trim()) {
+      if (alternateAddressCandidate && !hasAlternateDeliveryAddress(stop)) {
+        addDeliveryPlannerQuestion(questions, {
+          key: `stop-alternate-address-${index}-${normalizeReferenceValue(formatDeliveryAddressOverride(alternateAddressCandidate, { includeNames: true }))}`,
+          type: "alternate-address",
+          text: `Mogelijk afwijkend bezorgadres gevonden bij ${stopName}.`,
+          stopIndex: index,
+          stopId: stopIdentity.stopId,
+          postcode: stopIdentity.postcode,
+          customerName: stopName,
+          originalValue: formatDeliveryAddressOverride(alternateAddressCandidate, { includeNames: true }),
+          alternateAddressCandidate,
+          priority: 26
+        });
+      }
+
+      if (!String(stop?.timeWindow || "").trim() && !stop?.timeManuallyAdjusted) {
         addDeliveryPlannerQuestion(questions, {
           key: `stop-time-missing-${getMissingTimePreferenceKey(stop, index)}`,
           type: "time",
@@ -4757,6 +4842,30 @@
     return openQuestionCount === 1 ? "Nog 1 vraag" : `Nog ${openQuestionCount} vragen`;
   }
 
+  function renderPlannerAlternateAddressCandidate(candidate) {
+    const normalizedCandidate = normalizeDeliveryAddressOverride(candidate);
+
+    if (!normalizedCandidate) {
+      return "";
+    }
+
+    const postcodeCity = [normalizedCandidate.postcode, normalizedCandidate.city].filter(Boolean).join(" ").trim();
+    const lines = [
+      normalizedCandidate.company,
+      normalizedCandidate.contactName,
+      normalizedCandidate.street,
+      postcodeCity
+    ].filter(Boolean);
+
+    return `
+      <div class="delivery-planner-alternate-address-candidate">
+        <strong>Gevonden kandidaat-adres</strong>
+        ${lines.map((line) => `<span>${escapeHtml(line)}</span>`).join("")}
+        ${normalizedCandidate.note ? `<small>Opmerking: ${escapeHtml(normalizedCandidate.note)}</small>` : ""}
+      </div>
+    `;
+  }
+
   function renderPlannerQuestionAnswerControls(question) {
     const correction = getSavedPlannerCorrection(question.key);
 
@@ -4787,6 +4896,19 @@
         <div class="delivery-planner-answer-form">
           <button type="button" data-delivery-planner-missing-times>Toon ontbrekende tijden</button>
         </div>
+      `;
+    }
+
+    if (question.type === "alternate-address") {
+      return `
+        <form class="delivery-planner-answer-form" data-delivery-planner-answer="${escapeHtml(question.key)}">
+          ${renderPlannerAlternateAddressCandidate(question.alternateAddressCandidate)}
+          <div class="delivery-planner-answer-actions">
+            <button type="submit" name="action" value="use-alternate-address">Gebruik als bezorgadres</button>
+            <button type="submit" class="secondary" name="action" value="keep-alternate-address-remark">Laat als gewone opmerking</button>
+            <button type="submit" class="secondary" name="action" value="review-alternate-address-later">Later bekijken</button>
+          </div>
+        </form>
       `;
     }
 
@@ -5032,6 +5154,36 @@
       saveMissingTimePreference(stop, stopIndex, normalizedTimeWindow);
       correctedValue = normalizedTimeWindow;
       appliedToCurrentRun = true;
+    } else if (question.type === "alternate-address") {
+      const candidate = normalizeDeliveryAddressOverride(question.alternateAddressCandidate || stop?.deliveryAddressOverrideCandidate);
+
+      if (!stop || !candidate) {
+        setStatus("Afwijkend adres kon niet worden gekoppeld aan een stop.", "error");
+        return;
+      }
+
+      if (action === "use-alternate-address") {
+        applyAlternateDeliveryAddressToStop(stop, candidate);
+        stop.deliveryAddressOverrideDecision = "use";
+        removeStopNotesMatching(stop, /mogelijk afwijkend bezorgadres/i);
+        refreshStopReviewState(stop);
+        correctedValue = formatDeliveryAddressOverride(candidate, { includeNames: true }) || "Afwijkend bezorgadres gebruikt";
+        appliedToCurrentRun = true;
+      } else if (action === "keep-alternate-address-remark") {
+        stop.deliveryAddressOverride = null;
+        stop.deliveryAddressOverrideDecision = "remark";
+        if (!String(stop.remark || "").trim()) {
+          stop.remark = candidate.note || formatDeliveryAddressOverride(candidate, { includeNames: true });
+        }
+        removeStopNotesMatching(stop, /afwijkend bezorgadres/i);
+        refreshStopReviewState(stop);
+        correctedValue = "Als gewone opmerking laten";
+        appliedToCurrentRun = true;
+      } else {
+        stop.deliveryAddressOverrideDecision = "later";
+        correctedValue = "Later bekijken";
+        appliedToCurrentRun = false;
+      }
     } else if (question.type === "customer") {
       if (!stop) {
         setStatus("Klantantwoord kon niet worden gekoppeld aan een stop.", "error");
@@ -7063,6 +7215,7 @@
     ]);
     const manualTask = isManualDeliveryTask(stop);
     const deliveryAddressOverride = normalizeDeliveryAddressOverride(stop?.deliveryAddressOverride || stop?.alternateDeliveryAddress);
+    const deliveryAddressOverrideCandidate = normalizeDeliveryAddressOverride(stop?.deliveryAddressOverrideCandidate || stop?.alternateDeliveryAddressCandidate);
 
     return {
       customerId: typeof stop?.customerId === "string" ? stop.customerId : "",
@@ -7071,6 +7224,9 @@
       originalCustomerName: typeof stop?.originalCustomerName === "string" ? stop.originalCustomerName : "",
       originalAddress: typeof stop?.originalAddress === "string" ? stop.originalAddress : "",
       deliveryAddressOverride,
+      deliveryAddressOverrideCandidate,
+      deliveryAddressOverrideConfidence: typeof stop?.deliveryAddressOverrideConfidence === "string" ? stop.deliveryAddressOverrideConfidence : "",
+      deliveryAddressOverrideDecision: typeof stop?.deliveryAddressOverrideDecision === "string" ? stop.deliveryAddressOverrideDecision : "",
       postcode: typeof stop?.postcode === "string" ? stop.postcode : "",
       plaats: typeof stop?.plaats === "string" ? stop.plaats : "",
       categories,
@@ -7081,6 +7237,8 @@
       position: Number.isFinite(Number(stop?.position)) ? Number(stop.position) : 0,
       paymentStatus: typeof stop?.paymentStatus === "string" ? stop.paymentStatus : "",
       timeWindow: typeof stop?.timeWindow === "string" ? stop.timeWindow : "",
+      originalTimeWindow: typeof stop?.originalTimeWindow === "string" ? stop.originalTimeWindow : "",
+      timeManuallyAdjusted: Boolean(stop?.timeManuallyAdjusted),
       remark: typeof stop?.remark === "string" ? stop.remark : "",
       notes: Array.isArray(stop?.notes) ? stop.notes.filter((note) => typeof note === "string") : [],
       needsReview: Boolean(stop?.needsReview),
@@ -7637,6 +7795,7 @@
         <button type="button" class="secondary" data-delivery-move-route="${index}" data-delivery-target-route="${targetRouteNumber}" aria-label="Verplaats naar Route ${targetRouteNumber}">Naar route ${targetRouteNumber}</button>
         <button type="button" class="secondary" data-delivery-move-stop="${index}" data-delivery-move-direction="-1" ${previousIndex >= 0 ? "" : "disabled"} aria-label="Stop omhoog">Omhoog</button>
         <button type="button" class="secondary" data-delivery-move-stop="${index}" data-delivery-move-direction="1" ${nextIndex >= 0 ? "" : "disabled"} aria-label="Stop omlaag">Omlaag</button>
+        <button type="button" class="secondary" data-delivery-edit-time-stop="${index}">Tijd wijzigen</button>
         <button type="button" class="secondary" data-delivery-toggle-products="${index}" aria-expanded="${productsExpanded ? "true" : "false"}">${productsExpanded ? "Producten verbergen" : "Producten tonen"}</button>
         ${manualTaskControls}
       </div>
@@ -7670,6 +7829,7 @@
 
     return `
       <section id="deliveryRouteStopProducts${index}" class="delivery-route-stop-products" aria-label="Mee te nemen">
+        ${renderStopTimeCorrectionForm(stop, index)}
         ${renderAlternateDeliveryAddressBlock(stop, "delivery-route-stop-alternate-address")}
         <h5>Mee te nemen</h5>
         ${products.length
@@ -9248,6 +9408,10 @@
     const timeWindow = String(stop?.timeWindow || "").trim();
 
     if (!timeWindow || /controle nodig/i.test(timeWindow)) {
+      if (stop?.timeManuallyAdjusted && !timeWindow) {
+        return "Flexibel";
+      }
+
       return "tijd ?";
     }
 
@@ -9573,6 +9737,26 @@
     `;
   }
 
+  function renderStopTimeCorrectionForm(stop, index) {
+    if (!stop?.isTimeEditing) {
+      return "";
+    }
+
+    return `
+      <form class="delivery-stop-time-correction" data-delivery-stop-time-correction="${index}">
+        <label>
+          <span>Tijd wijzigen</span>
+          <input type="text" name="timeWindow" value="${escapeHtml(stop.timeWindow || "")}" placeholder="09:30 of 09:00 / 10:00">
+        </label>
+        <small>Leeg laten = flexibel / geen vaste tijd.</small>
+        <div class="delivery-stop-correction-actions">
+          <button type="submit" class="secondary">Tijd opslaan</button>
+          <button type="button" class="secondary" data-delivery-cancel-time-correction="${index}">Sluiten</button>
+        </div>
+      </form>
+    `;
+  }
+
   function renderQuickEdit(stops = latestRouteStops) {
     if (!quickEditElement) {
       return;
@@ -9642,7 +9826,10 @@
       return `
         <article id="deliveryRouteStop${index}" class="${rowClasses}" data-delivery-route-stop="${index}" draggable="true" tabindex="0" aria-expanded="${isProductsExpanded ? "true" : "false"}" aria-controls="deliveryRouteStopProducts${index}">
           <div class="delivery-stop-number" aria-label="Stop ${routeStopIndex + 1}">${routeStopIndex + 1}</div>
-          <div class="delivery-stop-time">${escapeHtml(getRouteStopTimeLabel(stop))}</div>
+          <div class="delivery-stop-time">
+            ${escapeHtml(getRouteStopTimeLabel(stop))}
+            ${stop.timeManuallyAdjusted ? "<small>Handmatig aangepast</small>" : ""}
+          </div>
           ${renderRouteStopIcons(stop, categories)}
           <div class="delivery-stop-main">
             <div class="delivery-stop-title">${escapeHtml(stop.customerName || "Klant onbekend")}</div>
@@ -9710,6 +9897,48 @@
     renderRouteBlocks(latestRouteStops);
   }
 
+  function toggleStopTimeCorrection(index, isOpen) {
+    const stop = latestRouteStops[index];
+
+    if (!stop) {
+      return;
+    }
+
+    selectedDeliveryStopIndex = index;
+    expandedDeliveryRouteStopIndex = index;
+    stop.isTimeEditing = isOpen;
+    renderRouteBlocks(latestRouteStops);
+  }
+
+  function applyStopTimeCorrection(form) {
+    const index = Number(form?.dataset?.deliveryStopTimeCorrection);
+    const stop = latestRouteStops[index];
+
+    if (!stop || !form) {
+      return;
+    }
+
+    const previousTimeWindow = String(stop.timeWindow || "").trim();
+    const formData = new FormData(form);
+    const rawTimeWindow = String(formData.get("timeWindow") || "").trim();
+    const nextTimeWindow = rawTimeWindow ? (getTimeWindow(rawTimeWindow) || rawTimeWindow) : "";
+
+    if (!stop.originalTimeWindow && previousTimeWindow !== nextTimeWindow) {
+      stop.originalTimeWindow = previousTimeWindow;
+    }
+
+    stop.timeWindow = nextTimeWindow;
+    stop.timeManuallyAdjusted = true;
+    stop.isTimeEditing = false;
+
+    removeStopNotesMatching(stop, /tijd/i);
+
+    refreshStopReviewState(stop);
+    markDeliveryLocallyCorrected();
+    rerenderDeliveryPreview({ refreshPrint: isPrintPreviewActive() });
+    setStatus("Tijd handmatig aangepast. Sla de route op om deze wijziging te bewaren.", "ready");
+  }
+
   function applyStopCorrection(form) {
     const index = Number(form?.dataset?.deliveryStopCorrection);
     const stop = latestRouteStops[index];
@@ -9724,8 +9953,15 @@
     const remark = String(formData.get("remark") || "").trim();
     const needsReview = formData.get("needsReview") === "on";
 
+    const previousTimeWindow = String(stop.timeWindow || "").trim();
     stop.timeWindow = timeWindow;
-    if (timeWindow) {
+    if (!stop.originalTimeWindow && previousTimeWindow !== timeWindow) {
+      stop.originalTimeWindow = previousTimeWindow;
+    }
+    if (previousTimeWindow !== timeWindow) {
+      stop.timeManuallyAdjusted = true;
+    }
+    if (timeWindow && !previousTimeWindow) {
       saveMissingTimePreference(stop, index, timeWindow);
     }
     stop.paymentStatus = paymentStatus === "Controle nodig" ? "" : paymentStatus;
@@ -10723,6 +10959,7 @@
       const routeNumber = getStopRouteNumber(stop);
       const postcodePlace = getStopPostcodePlace(stop);
       const deliveryAddressOverride = getStopDeliveryAddressOverride(stop);
+      const deliveryAddressOverrideCandidate = getStopDeliveryAddressOverrideCandidate(stop);
       routePositions[routeNumber] = (routePositions[routeNumber] || 0) + 1;
 
       return {
@@ -10732,6 +10969,9 @@
         originalCustomerName: hasAlternateDeliveryAddress(stop) ? getStopOriginalCustomerName(stop) : "",
         originalAddress: hasAlternateDeliveryAddress(stop) ? getStopOriginalAddress(stop) : "",
         deliveryAddressOverride,
+        deliveryAddressOverrideCandidate,
+        deliveryAddressOverrideConfidence: stop.deliveryAddressOverrideConfidence || deliveryAddressOverrideCandidate?.confidence || "",
+        deliveryAddressOverrideDecision: stop.deliveryAddressOverrideDecision || "",
         postcode: postcodePlace.postcode,
         plaats: postcodePlace.plaats,
         categories: Array.isArray(stop.categories) ? stop.categories : [],
@@ -10741,6 +10981,8 @@
         position: routePositions[routeNumber],
         paymentStatus: stop.paymentStatus || "",
         timeWindow: stop.timeWindow || "",
+        originalTimeWindow: stop.originalTimeWindow || "",
+        timeManuallyAdjusted: Boolean(stop.timeManuallyAdjusted),
         remark: stop.remark || "",
         notes: Array.isArray(stop.notes) ? stop.notes : [],
         needsReview: Boolean(stop.needsReview),
@@ -11613,7 +11855,9 @@
   employeeDeliveryPanelElement?.addEventListener("input", handleDriverModeNoteInput);
   routeBlocksElement?.addEventListener("click", (event) => {
     const editButton = event.target.closest("[data-delivery-edit-stop]");
+    const editTimeButton = event.target.closest("[data-delivery-edit-time-stop]");
     const cancelButton = event.target.closest("[data-delivery-cancel-correction]");
+    const cancelTimeButton = event.target.closest("[data-delivery-cancel-time-correction]");
     const routeMoveButton = event.target.closest("[data-delivery-move-route]");
     const moveButton = event.target.closest("[data-delivery-move-stop]");
     const productsButton = event.target.closest("[data-delivery-toggle-products]");
@@ -11667,12 +11911,26 @@
       return;
     }
 
+    if (editTimeButton) {
+      toggleStopTimeCorrection(Number(editTimeButton.dataset.deliveryEditTimeStop), true);
+      return;
+    }
+
     if (cancelButton) {
       toggleStopCorrection(Number(cancelButton.dataset.deliveryCancelCorrection), false);
       return;
     }
 
+    if (cancelTimeButton) {
+      toggleStopTimeCorrection(Number(cancelTimeButton.dataset.deliveryCancelTimeCorrection), false);
+      return;
+    }
+
     if (event.target.closest(".delivery-stop-correction")) {
+      return;
+    }
+
+    if (event.target.closest(".delivery-stop-time-correction")) {
       return;
     }
 
@@ -11708,6 +11966,13 @@
   });
   routeBlocksElement?.addEventListener("submit", (event) => {
     const form = event.target.closest("[data-delivery-stop-correction]");
+    const timeForm = event.target.closest("[data-delivery-stop-time-correction]");
+
+    if (timeForm) {
+      event.preventDefault();
+      applyStopTimeCorrection(timeForm);
+      return;
+    }
 
     if (!form) {
       return;

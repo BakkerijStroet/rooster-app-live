@@ -13068,6 +13068,36 @@ button,
   font-weight: 900;
 }
 
+.delivery-planner-alternate-address-candidate,
+.delivery-stop-time-correction {
+  display: grid;
+  gap: 0.22rem;
+  border: 1px solid #d48b37;
+  border-left: 4px solid #d48b37;
+  border-radius: 8px;
+  padding: 0.5rem 0.58rem;
+  background: #fff8eb;
+}
+
+.delivery-planner-alternate-address-candidate strong,
+.delivery-stop-time-correction label span {
+  color: #8a4a12;
+  font-weight: 900;
+}
+
+.delivery-planner-alternate-address-candidate span {
+  color: var(--color-text);
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.delivery-planner-alternate-address-candidate small,
+.delivery-stop-time-correction small {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
 .delivery-planner-answer-form label {
   display: grid;
   gap: 0.24rem;
@@ -14605,6 +14635,16 @@ body[data-role="employee"] [data-delivery-driver-preview-card] {
   font-weight: 900;
   text-align: center;
   white-space: nowrap;
+}
+
+.delivery-stop-time small {
+  display: block;
+  margin-top: 0.08rem;
+  color: #8a4a12;
+  font-size: 0.58rem;
+  font-weight: 850;
+  line-height: 1.05;
+  white-space: normal;
 }
 
 .delivery-route-stop-icons {
